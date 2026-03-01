@@ -118,8 +118,8 @@ assets/
 | 5 | Recipient public profile | ✅ Complete |
 | 6 | Donation flow | ✅ Complete |
 | 7 | Donation history | ✅ Complete |
-| 8 | Spend breakdown | ⬜ Next |
-| 9 | Profile & account management | ⬜ |
+| 8 | Spend breakdown | ✅ Complete |
+| 9 | Profile & account management | ⬜ Next |
 
 See [plan-app.md](./plan-app.md) for the full implementation plan.
 

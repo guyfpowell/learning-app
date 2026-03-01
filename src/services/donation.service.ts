@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { DonationHistoryItem } from '@/types';
+import type { DonationHistoryItem, SpendBreakdown } from '@/types';
 
 export interface DonationResult {
   donationId: string;
@@ -54,6 +54,17 @@ export const donationService = {
   ): Promise<DonationHistoryResponse> {
     const { data } = await api.get<DonationHistoryResponse>(
       `/users/me/donations?page=${page}&limit=${limit}`
+    );
+    return data;
+  },
+
+  /**
+   * Fetch the spend breakdown for a single donation.
+   * Backend endpoint: GET /donations/:id/spend-breakdown  (new endpoint required)
+   */
+  async getSpendBreakdown(donationId: string): Promise<SpendBreakdown> {
+    const { data } = await api.get<SpendBreakdown>(
+      `/donations/${donationId}/spend-breakdown`
     );
     return data;
   },
