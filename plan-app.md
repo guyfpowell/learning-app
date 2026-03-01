@@ -17,7 +17,7 @@ API: PocketChange website backend (shared, no duplication of logic)
 | 6 | Donation Flow | ✅ Complete |
 | 7 | Donation History | ✅ Complete |
 | 8 | Spend Breakdown | ✅ Complete |
-| 9 | Profile & Account Management | ⬜ Pending |
+| 9 | Profile & Account Management | ✅ Complete |
 
 ---
 
