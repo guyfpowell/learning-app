@@ -36,6 +36,13 @@
         {
           "cameraPermission": "PocketChange needs camera access to scan recipient QR codes."
         }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.org.pocketchange.app",
+          "enableGooglePay": false
+        }
       ]
     ],
     "experiments": {

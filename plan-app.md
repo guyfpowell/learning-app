@@ -11,7 +11,7 @@ API: PocketChange website backend (shared, no duplication of logic)
 |-------|-------|--------|
 | 1 | Scaffold | ✅ Complete |
 | 2 | Authentication | ✅ Complete |
-| 3 | Donor Dashboard (Wallet) | ⬜ Pending |
+| 3 | Donor Dashboard (Wallet) | ✅ Complete |
 | 4 | QR Scanner & Short Code Lookup | ⬜ Pending |
 | 5 | Recipient Profile | ⬜ Pending |
 | 6 | Donation Flow | ⬜ Pending |
@@ -274,32 +274,27 @@ pocketchange-app/
 
 ---
 
-### Phase 3 — Donor Dashboard (Wallet)
+### Phase 3 — Donor Dashboard (Wallet) ✅ COMPLETE
 
 **Goal:** show wallet balance, allow top-up.
 
-**Screen:** `(donor)/index.tsx`
-
-**Components:** `WalletCard`, `TopUpSheet` (bottom sheet)
-
-**Services:** `wallet.service.ts`
-```ts
-getBalance(): Promise<{ walletBalance: number }>
-topUp(amountPence: number): Promise<void>
-```
-
-**Hooks:** `useWallet.ts` (TanStack Query, key `['wallet']`)
+**Delivered:**
+- `src/services/wallet.service.ts` — `getBalance()`, `createTopUp(pence)`, `getTransactions(page, limit)`
+- `src/hooks/useWallet.ts` — `useWalletBalance`, `useTransactions`, `useCreateTopUp`, `useInvalidateWallet`
+- `src/components/donor/WalletCard.tsx` — large balance display (`£X.XX`), Top Up + Scan to Donate actions, skeleton loader
+- `src/components/donor/TopUpSheet.tsx` — `@gorhom/bottom-sheet` with state machine (`amount → processing → success/error`); calls `POST /users/me/wallet/topup` for Stripe `clientSecret`, then uses `initPaymentSheet` + `presentPaymentSheet` from `@stripe/stripe-react-native` for the native payment UI; invalidates wallet query on success; user-cancel returns to amount step without error
+- `src/components/donor/TransactionRow.tsx` — coloured credit/debit indicator, type label, formatted date and signed amount
+- `app/(donor)/index.tsx` — greeting, live wallet card, recent activity (last 3 transactions) with "See all" → history tab, pull-to-refresh on both queries
+- `app/_layout.tsx` — updated with `GestureHandlerRootView`, `StripeProvider`, `BottomSheetModalProvider` (all required wrappers)
+- `app.json` — Stripe plugin added with `merchantIdentifier`
+- `.env.example` — `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` added
 
 **Backend endpoints used:**
-- `GET /wallet/balance` (or equivalent — confirm with website)
-- `POST /wallet/topup`
+- `GET /users/me/wallet` → `{ walletBalance: number }` (pence)
+- `POST /users/me/wallet/topup` `{ amount: number }` → `{ clientSecret: string }`
+- `GET /users/me/transactions?page=1&limit=3`
 
-**UX notes:**
-- Balance displayed in pounds: `£${(pence / 100).toFixed(2)}`
-- Top-up via bottom sheet modal (not full screen)
-- Pull-to-refresh
-
-**Deliverable:** Donor can see balance and top up.
+**Note:** `@stripe/stripe-react-native` requires a custom dev build — does not run in Expo Go.
 
 ---
 

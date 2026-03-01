@@ -51,7 +51,10 @@ cp .env.example .env.local
 
 ```
 EXPO_PUBLIC_API_URL=http://localhost:4000/api
+EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_key_here
 ```
+
+> **Note:** This app uses `@stripe/stripe-react-native` and `expo-camera`, which require native modules. It will **not** run in Expo Go — you need a [custom development build](https://docs.expo.dev/develop/development-builds/introduction/).
 
 ### Run
 
@@ -110,8 +113,8 @@ assets/
 |-------|---------|--------|
 | 1 | Scaffold — Expo setup, theme, shared UI | ✅ Complete |
 | 2 | Authentication — login, register, session | ✅ Complete |
-| 3 | Donor Dashboard — wallet balance, top-up | ⬜ Next |
-| 4 | QR Scanner & short code lookup | ⬜ |
+| 3 | Donor Dashboard — wallet balance, top-up | ✅ Complete |
+| 4 | QR Scanner & short code lookup | ⬜ Next |
 | 5 | Recipient public profile | ⬜ |
 | 6 | Donation flow | ⬜ |
 | 7 | Donation history | ⬜ |
