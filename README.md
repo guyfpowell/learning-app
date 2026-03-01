@@ -116,8 +116,8 @@ assets/
 | 3 | Donor Dashboard — wallet balance, top-up | ✅ Complete |
 | 4 | QR Scanner & short code lookup | ✅ Complete |
 | 5 | Recipient public profile | ✅ Complete |
-| 6 | Donation flow | ⬜ Next |
-| 7 | Donation history | ⬜ |
+| 6 | Donation flow | ✅ Complete |
+| 7 | Donation history | ⬜ Next |
 | 8 | Spend breakdown | ⬜ |
 | 9 | Profile & account management | ⬜ |
 
