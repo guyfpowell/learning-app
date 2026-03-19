@@ -26,10 +26,12 @@ export const authService = {
     return { user, tokens };
   },
 
-  async register(input: RegisterInput): Promise<void> {
-    // Register always creates a DONOR in this app — role is fixed server-side
-    // if the endpoint requires it, or omitted if the backend defaults to DONOR.
-    await api.post('/auth/register', { ...input, role: 'DONOR' });
+  async register(input: RegisterInput): Promise<{ user: AuthUser; tokens: TokenResponse }> {
+    const { data: tokens } = await api.post<TokenResponse>('/auth/register', { ...input, role: 'DONOR' });
+    const { data: user } = await api.get<AuthUser>('/users/me', {
+      headers: { Authorization: `Bearer ${tokens.accessToken}` },
+    });
+    return { user, tokens };
   },
 
   async logout(): Promise<void> {

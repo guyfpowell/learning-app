@@ -17,12 +17,14 @@ export function useLogin() {
 }
 
 export function useRegister() {
+  const setAuth = useAuthStore((s) => s.setAuth);
   const router = useRouter();
 
   return useMutation({
     mutationFn: (input: RegisterInput) => authService.register(input),
-    onSuccess: () => {
-      router.replace('/(auth)/sign-in');
+    onSuccess: ({ user, tokens }) => {
+      setAuth(user, tokens.accessToken, tokens.refreshToken);
+      router.replace('/(donor)');
     },
   });
 }
