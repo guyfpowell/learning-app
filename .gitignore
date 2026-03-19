@@ -22,3 +22,6 @@ Thumbs.db
 
 # Expo
 expo-env.d.ts
+
+# Local notes
+NOTES.md

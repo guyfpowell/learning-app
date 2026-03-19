@@ -8,14 +8,21 @@ export const features = {
   /**
    * Stripe in-app wallet top-up (initPaymentSheet / presentPaymentSheet).
    *
-   * Requires: custom dev build — @stripe/stripe-react-native uses native modules
+   * Requires: EAS Build — @stripe/stripe-react-native uses native modules
    *           that are NOT included in the Expo Go app.
    *
-   * To enable: add  EXPO_PUBLIC_STRIPE_ENABLED=true  to .env.local and run a
-   *            custom build via `npm run ios` or `npm run android`.
-   *
-   * In Expo Go this is always false; the Top Up sheet shows an informational
-   * message instead of the Stripe payment UI.
+   * To enable: set EXPO_PUBLIC_STRIPE_ENABLED=true in .env.local and build
+   *            with EAS Build.
    */
   stripePayments: process.env.EXPO_PUBLIC_STRIPE_ENABLED === 'true',
+
+  /**
+   * Stripe hosted checkout — opens Stripe's payment page in a browser.
+   *
+   * Works in Expo Go. Uses POST /users/me/wallet/checkout on the backend
+   * and redirects back to the app via the pocketchange:// deep link scheme.
+   *
+   * To enable: set EXPO_PUBLIC_STRIPE_CHECKOUT_ENABLED=true in .env.local.
+   */
+  stripeCheckout: process.env.EXPO_PUBLIC_STRIPE_CHECKOUT_ENABLED === 'true',
 } as const;

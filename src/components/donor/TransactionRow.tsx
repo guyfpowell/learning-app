@@ -4,8 +4,8 @@ import { colors, font, fontSize, spacing } from '@/theme';
 
 const TYPE_LABELS: Record<Transaction['type'], string> = {
   WALLET_TOPUP: 'Top Up',
-  DONATION: 'Donation',
-  CREDIT: 'Credit',
+  RECIPIENT_DONATION: 'Donation',
+  RECIPIENT_DEBIT: 'Redemption',
 };
 
 interface TransactionRowProps {
@@ -21,7 +21,7 @@ function formatDate(iso: string): string {
 }
 
 function formatAmount(transaction: Transaction): { text: string; positive: boolean } {
-  const positive = transaction.type !== 'DONATION';
+  const positive = transaction.type !== 'RECIPIENT_DONATION';
   const pounds = (transaction.amount / 100).toFixed(2);
   return { text: `${positive ? '+' : '−'}£${pounds}`, positive };
 }

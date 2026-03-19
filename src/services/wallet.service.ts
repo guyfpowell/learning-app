@@ -9,6 +9,10 @@ export interface TopUpResponse {
   clientSecret: string;
 }
 
+export interface CheckoutResponse {
+  url: string;
+}
+
 export interface TransactionsResponse {
   transactions: Transaction[];
   total: number;
@@ -24,6 +28,13 @@ export const walletService = {
 
   async createTopUp(amountPence: number): Promise<TopUpResponse> {
     const { data } = await api.post<TopUpResponse>('/users/me/wallet/topup', {
+      amount: amountPence,
+    });
+    return data;
+  },
+
+  async createCheckout(amountPence: number): Promise<CheckoutResponse> {
+    const { data } = await api.post<CheckoutResponse>('/users/me/wallet/checkout', {
       amount: amountPence,
     });
     return data;

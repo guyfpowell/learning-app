@@ -21,7 +21,11 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#1B5E72"
       },
-      "package": "org.pocketchange.app"
+      "package": "org.pocketchange.app",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -49,6 +53,19 @@
     "experiments": {
       "typedRoutes": true
     },
-    "scheme": "pocketchange"
+    "scheme": "pocketchange",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8eea4182-083c-4a25-bb6e-ba6d66fe81bb"
+      }
+    },
+    "owner": "guyfpowell",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/8eea4182-083c-4a25-bb6e-ba6d66fe81bb"
+    }
   }
 }

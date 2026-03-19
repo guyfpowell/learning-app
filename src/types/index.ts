@@ -26,7 +26,7 @@ export interface HomelessRecipient {
   shortCode: string;
   status: 'ACTIVE' | 'SUSPENDED';
   balance: number;
-  createdByVendorId: string;
+  createdByVendorId: string | null;
   dateOfBirth: string | null;
   createdAt: string;
   updatedAt: string;
@@ -51,7 +51,7 @@ export interface Transaction {
   id: string;
   userId: string;
   amount: number;
-  type: 'WALLET_TOPUP' | 'DONATION' | 'CREDIT';
+  type: 'WALLET_TOPUP' | 'RECIPIENT_DONATION' | 'RECIPIENT_DEBIT';
   referenceId: string | null;
   createdAt: string;
 }
