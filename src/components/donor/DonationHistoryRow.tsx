@@ -23,6 +23,13 @@ export function DonationHistoryRow({ item }: DonationHistoryRowProps) {
     router.push({ pathname: '/donation/[id]', params: { id: item.id } });
   }
 
+  function handleDonateAgain() {
+    router.push({
+      pathname: '/donate/[id]',
+      params: { id: item.recipientId!, displayName: item.recipientName ?? undefined },
+    });
+  }
+
   return (
     <Pressable
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
@@ -37,8 +44,13 @@ export function DonationHistoryRow({ item }: DonationHistoryRowProps) {
         <Text style={styles.date}>{date}</Text>
       </View>
 
-      {/* Right: amount + chevron */}
+      {/* Right: amount + donate-again + chevron */}
       <Text style={styles.amount}>{amount}</Text>
+      {item.recipientId && (
+        <Pressable onPress={handleDonateAgain} hitSlop={8} style={styles.donateAgainBtn}>
+          <Ionicons name="add-circle-outline" size={20} color={colors.teal} />
+        </Pressable>
+      )}
       <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
     </Pressable>
   );
@@ -96,6 +108,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.teal,
     flexShrink: 0,
+  },
+  donateAgainBtn: {
+    padding: 2,
   },
   shimmer: {
     backgroundColor: '#E5E7EB',

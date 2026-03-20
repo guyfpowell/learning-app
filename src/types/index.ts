@@ -75,6 +75,8 @@ export interface SpendRedemption {
 
 export interface SpendBreakdown {
   donationId: string;
+  recipientId: string;
+  recipientName: string;
   totalPence: number;
   spentPence: number;
   remainingPence: number;

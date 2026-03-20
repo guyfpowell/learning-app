@@ -1,7 +1,5 @@
-import BottomSheet from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -14,14 +12,12 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
-import { DonationSheet } from '@/components/recipient/DonationSheet';
 import { useRecipientProfile } from '@/hooks/useRecipient';
 import { colors, font, fontSize, spacing, tracking } from '@/theme';
 
 export default function RecipientScreen() {
   const { id, token } = useLocalSearchParams<{ id: string; token?: string }>();
   const router = useRouter();
-  const sheetRef = useRef<BottomSheet>(null);
 
   const { data: profile, isLoading, error } = useRecipientProfile(id);
 
@@ -47,6 +43,13 @@ export default function RecipientScreen() {
   }
 
   const isSuspended = profile.status === 'SUSPENDED';
+
+  function handleDonate() {
+    router.push({
+      pathname: '/donate/[id]',
+      params: { id, token, displayName: profile!.displayName },
+    });
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -135,18 +138,11 @@ export default function RecipientScreen() {
         ) : (
           <Button
             label="Donate"
-            onPress={() => sheetRef.current?.expand()}
+            onPress={handleDonate}
             style={styles.donateBtn}
           />
         )}
       </ScrollView>
-
-      <DonationSheet
-        sheetRef={sheetRef}
-        recipientId={id}
-        token={token}
-        displayName={profile.displayName}
-      />
     </SafeAreaView>
   );
 }

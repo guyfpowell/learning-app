@@ -19,7 +19,7 @@ export default function DonationScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.safe}>
-        <NavBar onBack={() => router.back()} />
+        <NavBar onBack={() => router.back()} onDone={() => router.navigate('/(donor)')} />
         <View style={styles.centred}>
           <Spinner />
         </View>
@@ -30,7 +30,7 @@ export default function DonationScreen() {
   if (error || !data) {
     return (
       <SafeAreaView style={styles.safe}>
-        <NavBar onBack={() => router.back()} />
+        <NavBar onBack={() => router.back()} onDone={() => router.navigate('/(donor)')} />
         <View style={styles.centred}>
           <Text style={styles.errorText}>Could not load donation details.</Text>
           <Button label="Retry" onPress={() => { refetch(); }} />
@@ -46,7 +46,7 @@ export default function DonationScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <NavBar onBack={() => router.back()} />
+      <NavBar onBack={() => router.back()} onDone={() => router.navigate('/(donor)')} />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -119,19 +119,32 @@ export default function DonationScreen() {
             </Card>
           )}
         </View>
+
+        {/* Donate again */}
+        <Button
+          label={`Donate again to ${data.recipientName}`}
+          onPress={() =>
+            router.push({
+              pathname: '/donate/[id]',
+              params: { id: data.recipientId, displayName: data.recipientName },
+            })
+          }
+        />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function NavBar({ onBack }: { onBack: () => void }) {
+function NavBar({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
   return (
     <View style={styles.navBar}>
       <Pressable onPress={onBack} style={styles.backBtn} hitSlop={10}>
         <Ionicons name="arrow-back" size={22} color={colors.teal} />
       </Pressable>
       <Text style={styles.navTitle}>DONATION DETAIL</Text>
-      <View style={styles.navSpacer} />
+      <Pressable onPress={onDone} style={styles.doneBtn} hitSlop={10}>
+        <Text style={styles.doneBtnText}>Done</Text>
+      </Pressable>
     </View>
   );
 }
@@ -175,6 +188,16 @@ const styles = StyleSheet.create({
   },
   navSpacer: {
     width: 38,
+  },
+  doneBtn: {
+    width: 38,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  doneBtnText: {
+    fontFamily: font.medium,
+    fontSize: fontSize.sm,
+    color: colors.vivid,
   },
   scroll: {
     paddingHorizontal: spacing.lg,

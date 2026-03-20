@@ -66,6 +66,7 @@ function RootLayout() {
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="(donor)" />
               <Stack.Screen name="recipient/[id]" />
+              <Stack.Screen name="donate/[id]" />
               <Stack.Screen name="donation/[id]" />
             </Stack>
           </BottomSheetModalProvider>
