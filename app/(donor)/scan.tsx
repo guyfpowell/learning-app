@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useState, useCallback } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -30,14 +30,20 @@ export default function ScanScreen() {
   const [scanState, setScanState] = useState<ScanState>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Reset scanner when the user returns to this tab
+  useFocusEffect(
+    useCallback(() => {
+      setScanState('idle');
+      setErrorMsg('');
+    }, [])
+  );
+
   async function handleToken(token: string) {
     setScanState('identifying');
     setErrorMsg('');
     try {
       const recipient = await recipientService.lookupByToken(token);
       router.push({ pathname: '/recipient/[id]', params: { id: recipient.id, token } });
-      // Reset after a short delay so the scanner is ready if the user comes back
-      setTimeout(() => setScanState('idle'), 500);
     } catch (err) {
       setErrorMsg(extractError(err));
       setScanState('error');
@@ -50,7 +56,6 @@ export default function ScanScreen() {
     try {
       const recipient = await recipientService.lookupByShortCode(code);
       router.push({ pathname: '/recipient/[id]', params: { id: recipient.id } });
-      setTimeout(() => setScanState('idle'), 500);
     } catch (err) {
       setErrorMsg(extractError(err));
       setScanState('error');
