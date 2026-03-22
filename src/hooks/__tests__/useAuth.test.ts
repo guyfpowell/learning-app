@@ -1,7 +1,7 @@
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { useLogin, useLogout, useRegister } from '../useAuth';
+import { useLogin, useLogout, useRegister, useSetPassword } from '../useAuth';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/auth.store';
 
@@ -10,6 +10,7 @@ jest.mock('@/services/auth.service', () => ({
     login: jest.fn(),
     register: jest.fn(),
     logout: jest.fn(),
+    setPassword: jest.fn(),
   },
 }));
 
@@ -48,7 +49,7 @@ describe('useLogin', () => {
   it('calls authService.login with credentials', async () => {
     mockAuthService.login.mockResolvedValueOnce({
       user: { id: 'u1', email: 'donor@example.com', role: 'DONOR', walletBalance: 0 },
-      tokens: { accessToken: 'acc', refreshToken: 'ref' },
+      tokens: { accessToken: 'acc', refreshToken: 'ref', mustChangePassword: false },
     });
 
     const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
@@ -68,7 +69,7 @@ describe('useLogin', () => {
     const user = { id: 'u1', email: 'donor@example.com', role: 'DONOR' as const, walletBalance: 0 };
     mockAuthService.login.mockResolvedValueOnce({
       user,
-      tokens: { accessToken: 'access-token', refreshToken: 'refresh-token' },
+      tokens: { accessToken: 'access-token', refreshToken: 'refresh-token', mustChangePassword: false },
     });
 
     const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
@@ -138,5 +139,68 @@ describe('useLogout', () => {
     await waitFor(() => expect(result.current.isError || result.current.isSuccess).toBe(true));
     // clearAuth is called in onSettled which runs regardless
     expect(useAuthStore.getState().user).toBeNull();
+  });
+});
+
+describe('useLogin — RECIPIENT routing', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useAuthStore.setState({ user: null, accessToken: null, refreshToken: null, mustChangePassword: false, _hasHydrated: false });
+  });
+
+  it('sets mustChangePassword: true in store when login response requires it', async () => {
+    const user = { id: 'u1', email: 'jay@pocketchange.org.uk', role: 'RECIPIENT' as const, walletBalance: 0 };
+    mockAuthService.login.mockResolvedValueOnce({
+      user,
+      tokens: { accessToken: 'acc', refreshToken: 'ref', mustChangePassword: true },
+    });
+
+    const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
+    act(() => { result.current.mutate({ email: 'jay@pocketchange.org.uk', password: '123456' }); });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(useAuthStore.getState().mustChangePassword).toBe(true);
+  });
+
+  it('routes RECIPIENT with no password change required to /(recipient)', async () => {
+    const mockReplace = jest.fn();
+    jest.spyOn(require('expo-router'), 'useRouter').mockReturnValue({ replace: mockReplace, push: jest.fn(), back: jest.fn() });
+
+    const user = { id: 'u1', email: 'jay@pocketchange.org.uk', role: 'RECIPIENT' as const, walletBalance: 0 };
+    mockAuthService.login.mockResolvedValueOnce({
+      user,
+      tokens: { accessToken: 'acc', refreshToken: 'ref', mustChangePassword: false },
+    });
+
+    const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
+    act(() => { result.current.mutate({ email: 'jay@pocketchange.org.uk', password: 'password' }); });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(mockReplace).toHaveBeenCalledWith('/(recipient)');
+  });
+});
+
+describe('useSetPassword', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    const user = { id: 'u1', email: 'jay@pocketchange.org.uk', role: 'RECIPIENT' as const, walletBalance: 0 };
+    useAuthStore.setState({ user, accessToken: 'old-access', refreshToken: 'old-refresh', mustChangePassword: true, _hasHydrated: true });
+  });
+
+  it('calls authService.setPassword and clears mustChangePassword flag', async () => {
+    (mockAuthService as any).setPassword.mockResolvedValueOnce({
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+      mustChangePassword: false,
+    });
+
+    const { result } = renderHook(() => useSetPassword(), { wrapper: makeWrapper() });
+    act(() => {
+      result.current.mutate({ currentPin: '123456', newPassword: 'newSecurePass1!' });
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(useAuthStore.getState().mustChangePassword).toBe(false);
+    expect(useAuthStore.getState().accessToken).toBe('new-access');
   });
 });

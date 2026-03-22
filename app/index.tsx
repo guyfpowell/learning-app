@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { Spinner } from '@/components/ui/Spinner';
 
 export default function Root() {
-  const { _hasHydrated, accessToken } = useAuthStore();
+  const { _hasHydrated, accessToken, user, mustChangePassword } = useAuthStore();
 
   // Wait until Zustand has finished reading from SecureStore
   if (!_hasHydrated) {
@@ -15,6 +15,12 @@ export default function Root() {
   }
 
   if (accessToken) {
+    if (mustChangePassword) {
+      return <Redirect href="/(auth)/set-password" />;
+    }
+    if (user?.role === 'RECIPIENT') {
+      return <Redirect href="/(recipient)" />;
+    }
     return <Redirect href="/(donor)" />;
   }
 

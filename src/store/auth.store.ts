@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 export interface AuthUser {
   id: string;
   email: string;
-  role: 'DONOR' | 'VENDOR' | 'ADMIN';
+  role: 'DONOR' | 'VENDOR' | 'ADMIN' | 'RECIPIENT';
   walletBalance: number;
 }
 
@@ -13,11 +13,13 @@ interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
   refreshToken: string | null;
+  mustChangePassword: boolean;
   /** True once SecureStore rehydration has completed. Use to gate the auth redirect. */
   _hasHydrated: boolean;
-  setAuth: (user: AuthUser, accessToken: string, refreshToken: string) => void;
+  setAuth: (user: AuthUser, accessToken: string, refreshToken: string, mustChangePassword?: boolean) => void;
   clearAuth: () => void;
   setHasHydrated: (value: boolean) => void;
+  setMustChangePassword: (value: boolean) => void;
 }
 
 const secureStorage = createJSONStorage(() => ({
@@ -32,12 +34,14 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       refreshToken: null,
+      mustChangePassword: false,
       _hasHydrated: false,
-      setAuth: (user, accessToken, refreshToken) =>
-        set({ user, accessToken, refreshToken }),
+      setAuth: (user, accessToken, refreshToken, mustChangePassword = false) =>
+        set({ user, accessToken, refreshToken, mustChangePassword }),
       clearAuth: () =>
-        set({ user: null, accessToken: null, refreshToken: null }),
+        set({ user: null, accessToken: null, refreshToken: null, mustChangePassword: false }),
       setHasHydrated: (value) => set({ _hasHydrated: value }),
+      setMustChangePassword: (value) => set({ mustChangePassword: value }),
     }),
     {
       name: 'pocketchange-auth',
@@ -47,6 +51,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
+        mustChangePassword: state.mustChangePassword,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

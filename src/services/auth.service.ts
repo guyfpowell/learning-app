@@ -14,6 +14,7 @@ export interface RegisterInput {
 export interface TokenResponse {
   accessToken: string;
   refreshToken: string;
+  mustChangePassword: boolean;
 }
 
 export const authService = {
@@ -24,6 +25,11 @@ export const authService = {
       headers: { Authorization: `Bearer ${tokens.accessToken}` },
     });
     return { user, tokens };
+  },
+
+  async setPassword(input: { currentPin: string; newPassword: string }): Promise<TokenResponse> {
+    const { data } = await api.post<TokenResponse>('/auth/set-password', input);
+    return data;
   },
 
   async register(input: RegisterInput): Promise<{ user: AuthUser; tokens: TokenResponse }> {
