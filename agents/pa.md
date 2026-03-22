@@ -38,6 +38,7 @@ You decide the appropriate structure based on the type of change. At minimum eve
 - **Scope** — what is in and out of scope
 - **Requirements** — what must be true when this is done
 - **Acceptance criteria** — how to verify it is done correctly
+- **Regression scope** — which areas of the codebase could be affected by side effects of this change, to guide the test agent's regression plan. Think beyond the directly changed code: shared services, dependent modules, related UI flows. Be specific — name files, routes, or components where possible.
 - **Open questions** — anything unresolved at time of writing
 
 Adapt the structure for the complexity of the change. A small bug fix needs less than a major feature.
