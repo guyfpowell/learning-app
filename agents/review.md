@@ -52,9 +52,10 @@ You are a senior code reviewer. You review code changes the way a thorough pull 
 - [ ] Edge cases and error cases are tested
 - [ ] No tests that only test the happy path for critical logic
 
-**Database / Schema**
-- [ ] Migration SQL is correct and safe
-- [ ] No breaking changes to existing data without a migration plan
+**Backend API Integration**
+- [ ] API calls use the correct endpoints and request shape
+- [ ] Error handling matches backend error response shapes
+- [ ] No assumptions about backend behaviour not documented in the req doc
 
 ### Status Outcomes
 | Outcome | Status set to | Action |
@@ -83,10 +84,11 @@ PocketChange — donors give money to homeless recipients who spend at approved 
 - App: `/Users/guypowell/Documents/Projects/pocketchange-app`
 
 ### Key Patterns to Enforce
-- Manager auth: `resolveMembership(userId)` — never `Vendor.isManager`
-- Money: all amounts in pence, atomic `prisma.$transaction` for balance movements
 - Tokens: Expo SecureStore only — never AsyncStorage for sensitive data
 - API calls: existing Axios instance only — never raw fetch
+- Server state: TanStack Query only — no direct cache manipulation
+- No financial logic in the app — all money movement validated server-side
+- All money displayed as pence ÷ 100 with `.toFixed(2)` — never stored as pounds
 - Shared schemas: Zod via `@pocketchange/shared` — rebuild after changes
 
 ---

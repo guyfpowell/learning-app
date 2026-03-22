@@ -78,13 +78,14 @@ What else was considered and why it was rejected.
 | `arch-review: required - rejected` | Approach rejected — req doc needs rework before proceeding |
 
 ### Architectural Principles (baseline — update in Part 2 as you learn the project)
-- Backend is the system of record. No financial or business logic in the frontend or app.
-- Thin client: app and frontend are presentation layers only.
-- All money movements are atomic DB transactions server-side.
-- Separation of concerns: routes → controllers → services → data layer.
-- No direct DB access outside of service files.
-- Schema changes via SQL migration (Supabase), never ORM runners.
-- New integrations or third-party services require architectural review.
+- Backend is the system of record. No financial or business logic in the app.
+- Thin client: the app is a presentation layer only. All business logic validated server-side.
+- Sensitive tokens in Expo SecureStore only — never AsyncStorage.
+- Server state via TanStack Query — no direct cache manipulation.
+- HTTP via existing Axios instance with Bearer token + refresh interceptor.
+- Expo Go compatibility only — no native libraries outside Expo Go, no bare workflow.
+- No native Stripe SDK — Stripe web checkout redirect only (hard constraint).
+- Cross-repo architectural decisions must be coordinated with the website repo Arch agent.
 
 ---
 
