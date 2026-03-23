@@ -7,7 +7,8 @@
     "android": "EXPO_PUBLIC_API_URL=http://$(ipconfig getifaddr en0):4000/api expo start --android",
     "ios": "EXPO_PUBLIC_API_URL=http://$(ipconfig getifaddr en0):4000/api expo start --ios",
     "web": "EXPO_PUBLIC_API_URL=http://$(ipconfig getifaddr en0):4000/api expo start --web",
-    "test": "jest --watchAll"
+    "test": "jest --watchAll",
+    "deploy:ota": "bash scripts/ota-deploy.sh"
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.2.3",

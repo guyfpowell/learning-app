@@ -16,6 +16,7 @@ import { colors } from '@/theme';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { StripeWrapper } from '@/providers/StripeWrapper';
 
+
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
   static getDerivedStateFromError(error: Error) { return { error }; }

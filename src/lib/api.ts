@@ -4,15 +4,20 @@ import { useAuthStore } from '@/store/auth.store';
 const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
-// Reject insecure URLs in production — development builds may use localhost
-if (!__DEV__ && !BASE_URL.startsWith('https://')) {
-  throw new Error(`[api] Insecure API URL in production: ${BASE_URL}`);
-}
-
+// Module-level throw removed — the Axios instance must always export successfully.
+// Security enforcement is handled in the request interceptor below.
 const api = axios.create({ baseURL: BASE_URL });
 
-// ─── Request: inject Bearer token ────────────────────────────────────────────
+// ─── Request: security check + inject Bearer token ───────────────────────────
 api.interceptors.request.use((config) => {
+  // Reject insecure requests in production — development builds may use localhost
+  if (!__DEV__ && !BASE_URL.startsWith('https://')) {
+    console.warn(`[api] Insecure API URL in production: ${BASE_URL}`);
+    return Promise.reject(
+      new Error(`[api] Insecure API URL in production: ${BASE_URL}`)
+    );
+  }
+
   const { accessToken } = useAuthStore.getState();
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
