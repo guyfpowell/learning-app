@@ -8,7 +8,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { useLogout } from '@/hooks/useAuth';
 import { useRecipientSelfProfile } from '@/hooks/useRecipientSelf';
 import { colors, font, fontSize, spacing, tracking } from '@/theme';
 
@@ -20,6 +22,7 @@ function formatShortCode(code: string): string {
 export default function RecipientHomeScreen() {
   const router = useRouter();
   const { data: profile, isLoading, refetch } = useRecipientSelfProfile();
+  const logout = useLogout();
 
   const displayName = profile?.nickname ?? profile?.firstName ?? '';
 
@@ -73,6 +76,13 @@ export default function RecipientHomeScreen() {
             </Card>
           </Pressable>
         </View>
+
+        <Button
+          label="Log out"
+          variant="outline"
+          onPress={() => logout.mutate()}
+          loading={logout.isPending}
+        />
       </ScrollView>
     </SafeAreaView>
   );

@@ -113,3 +113,4 @@ app/
 |---|---|---|
 | 2026-03-22 | File created | Initial setup |
 | 2026-03-22 | Added route structure and key patterns to Part 2 | Populated from existing codebase knowledge |
+| 2026-03-23 | pc-006 dev-complete | Logout button added to recipient home screen below History; useLogout hook + authService.logout pre-existed; 3 screen tests added in app/(recipient)/__tests__/index.test.tsx |
