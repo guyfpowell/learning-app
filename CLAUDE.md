@@ -2,12 +2,8 @@
 
 This is the mobile app repo (React Native + Expo).
 
-## Knowledge Files
-
-- [knowledge/rules.md](knowledge/rules.md) — Rules of engagement: how to approach all work, TDD, bug logging
-- [knowledge/domain.md](knowledge/domain.md) — Domain model: roles, money flow, QR/shortcode system, Stripe status
-- [knowledge/deployment.md](knowledge/deployment.md) — Live services, URLs, Expo Go constraints, OTA update workflow
-- [knowledge/migrations.md](knowledge/migrations.md) — DB migration process (handled in website repo via Supabase SQL editor)
+Agents, knowledge files, and req docs live in the project repo:
+`/Users/guypowell/Documents/Projects/pocketchange-project`
 
 ## Quick Reference
 
