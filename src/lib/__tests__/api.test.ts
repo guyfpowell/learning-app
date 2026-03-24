@@ -33,6 +33,43 @@ describe('api module', () => {
   // ─── Module initialisation ──────────────────────────────────────────────────
 
   describe('module initialisation', () => {
+    it('defaults to production URL when EXPO_PUBLIC_API_URL is unset', () => {
+      (global as any).__DEV__ = false;
+      delete process.env.EXPO_PUBLIC_API_URL;
+
+      let api: any;
+      jest.isolateModules(() => {
+        api = require('@/lib/api').default;
+      });
+
+      expect(api.defaults.baseURL).toBe('https://pocketchange-backend.onrender.com/api');
+    });
+
+    it('throws at module load in production when EXPO_PUBLIC_API_URL is localhost', () => {
+      (global as any).__DEV__ = false;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      expect(() => {
+        jest.isolateModules(() => {
+          require('@/lib/api');
+        });
+      }).toThrow(/EXPO_PUBLIC_API_URL is not set or is localhost/);
+    });
+
+    it('does not throw at module load in dev mode when EXPO_PUBLIC_API_URL is localhost', () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      let api: any;
+      expect(() => {
+        jest.isolateModules(() => {
+          api = require('@/lib/api').default;
+        });
+      }).not.toThrow();
+
+      expect(api).toBeDefined();
+    });
+
     it('exports a defined Axios instance with an http:// URL in production (no module crash)', () => {
       (global as any).__DEV__ = false;
       process.env.EXPO_PUBLIC_API_URL = 'http://192.168.1.1:4000/api';

@@ -2,10 +2,19 @@ import axios from 'axios';
 import { useAuthStore } from '@/store/auth.store';
 
 const BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000/api';
+  process.env.EXPO_PUBLIC_API_URL ?? 'https://pocketchange-backend.onrender.com/api';
 
-// Module-level throw removed — the Axios instance must always export successfully.
-// Security enforcement is handled in the request interceptor below.
+// Throw at module load in production if URL is explicitly localhost — surfaces
+// build configuration errors immediately rather than during user interactions.
+if (!__DEV__ && (!BASE_URL || BASE_URL === 'http://localhost:4000/api')) {
+  throw new Error(
+    '[api] EXPO_PUBLIC_API_URL is not set or is localhost. ' +
+    'This is a build configuration error. ' +
+    'Contact DevOps immediately. ' +
+    `Current value: ${BASE_URL}`
+  );
+}
+
 const api = axios.create({ baseURL: BASE_URL });
 
 // ─── Request: security check + inject Bearer token ───────────────────────────

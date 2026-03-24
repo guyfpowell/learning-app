@@ -88,7 +88,10 @@ describe('useRegister', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('calls authService.register', async () => {
-    mockAuthService.register.mockResolvedValueOnce(undefined);
+    mockAuthService.register.mockResolvedValueOnce({
+      user: { id: 'user-1', email: 'new@example.com', role: 'DONOR', walletBalance: 0 },
+      tokens: { accessToken: 'access-token', refreshToken: 'refresh-abc', mustChangePassword: false },
+    });
 
     const { result } = renderHook(() => useRegister(), { wrapper: makeWrapper() });
 
@@ -160,6 +163,23 @@ describe('useLogin — RECIPIENT routing', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(useAuthStore.getState().mustChangePassword).toBe(true);
+  });
+
+  it('routes to /(auth)/set-password when mustChangePassword: true', async () => {
+    const mockReplace = jest.fn();
+    jest.spyOn(require('expo-router'), 'useRouter').mockReturnValue({ replace: mockReplace, push: jest.fn(), back: jest.fn() });
+
+    const user = { id: 'u1', email: 'pete@pocketchange.org.uk', role: 'RECIPIENT' as const, walletBalance: 0 };
+    mockAuthService.login.mockResolvedValueOnce({
+      user,
+      tokens: { accessToken: 'acc', refreshToken: 'ref', mustChangePassword: true },
+    });
+
+    const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
+    act(() => { result.current.mutate({ email: 'pete@pocketchange.org.uk', password: '12345678' }); });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/set-password');
   });
 
   it('routes RECIPIENT with no password change required to /(recipient)', async () => {

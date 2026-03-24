@@ -20,5 +20,18 @@ if [[ -n "$API_URL" && "$API_URL" != https://* ]]; then
   exit 1
 fi
 
-echo "API URL check passed. Running: eas update --environment production $*"
+echo "API URL check passed."
+
+echo "Checking backend health..."
+if ! curl -s -f https://pocketchange-backend.onrender.com/api/health > /dev/null; then
+  echo ""
+  echo "ERROR: Backend is not responding to health check"
+  echo "  https://pocketchange-backend.onrender.com/api/health"
+  echo ""
+  echo "Do not deploy if the production backend is down."
+  echo ""
+  exit 1
+fi
+
+echo "Backend health check passed. Running: eas update --environment production $*"
 npx eas update --environment production "$@"

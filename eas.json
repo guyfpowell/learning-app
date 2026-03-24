@@ -14,7 +14,13 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://pocketchange-backend.onrender.com/api",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_51TCMbGArFtHgLSfRcKj9TInhpBjT0M5cwmRfDkSlYivYRf1WfgjWZUe7GQDLVmZIAy2XTInNSWFHsA2XPmN7KDV7003QQOdLoYe",
+        "EXPO_PUBLIC_STRIPE_ENABLED": "false",
+        "EXPO_PUBLIC_STRIPE_CHECKOUT_ENABLED": "false"
+      }
     }
   },
   "submit": {

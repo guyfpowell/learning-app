@@ -59,7 +59,10 @@ describe('authService', () => {
 
   describe('register', () => {
     it('calls POST /auth/register with role DONOR', async () => {
-      mockApi.post.mockResolvedValueOnce({ data: {} });
+      mockApi.post.mockResolvedValueOnce({ data: { accessToken: 'access-token', refreshToken: 'refresh-abc' } });
+      mockApi.get.mockResolvedValueOnce({
+        data: { id: 'user-1', email: 'new@example.com', role: 'DONOR', walletBalance: 0 },
+      });
 
       await authService.register({ email: 'new@example.com', password: 'password' });
 
