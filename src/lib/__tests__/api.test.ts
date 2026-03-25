@@ -11,6 +11,17 @@ jest.mock('@/store/auth.store', () => ({
   },
 }));
 
+// Mock axios.post so refresh calls can be controlled per test
+jest.mock('axios', () => {
+  const actual = jest.requireActual('axios');
+  return { ...actual, post: jest.fn(), create: actual.create.bind(actual) };
+});
+
+// Mock react-native — only Alert is used by api.ts
+jest.mock('react-native', () => ({
+  Alert: { alert: jest.fn() },
+}));
+
 describe('api module', () => {
   const savedDev = (global as any).__DEV__;
   const savedApiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -197,6 +208,239 @@ describe('api module', () => {
       const config = { url: '/test', headers: {} as Record<string, string> };
       const result = await fulfilled(config);
       expect(result.headers.Authorization).toBeUndefined();
+    });
+  });
+
+  // ─── Timeout configuration ──────────────────────────────────────────────────
+
+  describe('timeout configuration', () => {
+    it('sets a 15000ms timeout on the Axios instance', () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      let api: any;
+      jest.isolateModules(() => {
+        api = require('@/lib/api').default;
+      });
+
+      expect(api.defaults.timeout).toBe(15000);
+    });
+  });
+
+  // ─── Response interceptor — timeout errors ──────────────────────────────────
+
+  describe('response interceptor — timeout errors', () => {
+    function getResponseInterceptorRejected(apiInstance: any): (error: any) => Promise<any> {
+      const handlers = (apiInstance.interceptors.response as any).handlers as Array<{
+        fulfilled: (r: any) => any;
+        rejected: (e: any) => any;
+      } | null>;
+      return handlers.filter(Boolean).at(-1)!.rejected;
+    }
+
+    beforeEach(() => {
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('shows a "Request timed out" Alert for ECONNABORTED errors', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const { Alert } = require('react-native');
+
+      let api: any;
+      jest.isolateModules(() => {
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const timeoutError = { code: 'ECONNABORTED', config: { headers: {} } };
+
+      await expect(rejected(timeoutError)).rejects.toMatchObject({ code: 'ECONNABORTED' });
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Request timed out',
+        expect.stringContaining('try again'),
+      );
+    });
+
+    it('shows a "Request timed out" Alert for ERR_NETWORK errors', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const { Alert } = require('react-native');
+
+      let api: any;
+      jest.isolateModules(() => {
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const timeoutError = { code: 'ERR_NETWORK', config: { headers: {} } };
+
+      await expect(rejected(timeoutError)).rejects.toMatchObject({ code: 'ERR_NETWORK' });
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Request timed out',
+        expect.stringContaining('try again'),
+      );
+    });
+
+    it('does NOT show a timeout Alert for non-timeout errors (no error.code)', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const { Alert } = require('react-native');
+      (Alert.alert as jest.Mock).mockClear();
+
+      let api: any;
+      jest.isolateModules(() => {
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const error = { response: { status: 500 }, config: { headers: {} } };
+
+      await expect(rejected(error)).rejects.toMatchObject({ response: { status: 500 } });
+      expect(Alert.alert).not.toHaveBeenCalledWith('Request timed out', expect.anything());
+    });
+  });
+
+  // ─── Response interceptor — token refresh retry ─────────────────────────────
+
+  describe('response interceptor — token refresh retry', () => {
+    function getResponseInterceptorRejected(apiInstance: any): (error: any) => Promise<any> {
+      const handlers = (apiInstance.interceptors.response as any).handlers as Array<{
+        fulfilled: (r: any) => any;
+        rejected: (e: any) => any;
+      } | null>;
+      return handlers.filter(Boolean).at(-1)!.rejected;
+    }
+
+    function make401Error() {
+      return {
+        response: { status: 401 },
+        config: { headers: {} as Record<string, string> },
+      };
+    }
+
+    let mockClearAuth: jest.Mock;
+    let mockSetAuth: jest.Mock;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      mockClearAuth = jest.fn();
+      mockSetAuth = jest.fn();
+
+      const { useAuthStore } = require('@/store/auth.store');
+      useAuthStore.getState.mockReturnValue({
+        accessToken: 'old-token',
+        refreshToken: 'refresh-token',
+        user: { id: '1', email: 'test@example.com' },
+        setAuth: mockSetAuth,
+        clearAuth: mockClearAuth,
+      });
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+      jest.restoreAllMocks();
+    });
+
+    it('retries refresh once after a transient failure and does not call clearAuth', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      let api: any;
+      let axiosMock: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        (axiosMock.post as jest.Mock)
+          .mockRejectedValueOnce(new Error('Network error'))
+          .mockResolvedValueOnce({ data: { accessToken: 'new-token-retry' } });
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const p = rejected(make401Error());
+      await jest.advanceTimersByTimeAsync(1100);
+      await p.catch(() => {}); // api(original) will fail with network error — that's fine
+
+      expect(mockClearAuth).not.toHaveBeenCalled();
+      expect(mockSetAuth).toHaveBeenCalledWith(
+        { id: '1', email: 'test@example.com' },
+        'new-token-retry',
+        'refresh-token',
+      );
+    });
+
+    it('calls clearAuth and console.error when both refresh attempts fail', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      let api: any;
+      let axiosMock: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        (axiosMock.post as jest.Mock).mockRejectedValue(new Error('Server down'));
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const p = rejected(make401Error());
+      const safe = p.catch(() => {}); // attach handler immediately to prevent unhandled rejection
+      await jest.advanceTimersByTimeAsync(1100);
+      await safe;
+
+      expect(mockClearAuth).toHaveBeenCalled();
+      expect(console.error).toHaveBeenCalled();
+    });
+
+    it('shows an Alert when both refresh attempts fail', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const { Alert } = require('react-native');
+
+      let api: any;
+      let axiosMock: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        (axiosMock.post as jest.Mock).mockRejectedValue(new Error('Server down'));
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const p = rejected(make401Error());
+      const safe = p.catch(() => {});
+      await jest.advanceTimersByTimeAsync(1100);
+      await safe;
+
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Session expired',
+        expect.stringContaining('log in'),
+      );
+    });
+
+    it('passes non-401 errors through without attempting refresh', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      let api: any;
+      jest.isolateModules(() => {
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const error = { response: { status: 500 }, config: { headers: {} } };
+
+      await expect(rejected(error)).rejects.toMatchObject({ response: { status: 500 } });
+      expect(mockClearAuth).not.toHaveBeenCalled();
     });
   });
 });
