@@ -5,6 +5,7 @@ export function useWalletBalance() {
   return useQuery({
     queryKey: ['wallet'],
     queryFn: () => walletService.getBalance(),
+    refetchOnMount: 'stale',
   });
 }
 
@@ -25,5 +26,5 @@ export function useCreateTopUp() {
 export function useInvalidateWallet() {
   const qc = useQueryClient();
   return () =>
-    qc.invalidateQueries({ queryKey: ['wallet'] });
+    qc.refetchQueries({ queryKey: ['wallet'] });
 }

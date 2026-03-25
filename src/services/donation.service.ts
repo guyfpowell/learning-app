@@ -20,12 +20,14 @@ export const donationService = {
    */
   async donateByToken(
     token: string,
-    amountPence: number
+    amountPence: number,
+    idempotencyKey: string
   ): Promise<DonationResult> {
-    const { data } = await api.post<DonationResult>('/recipients/scan', {
-      token,
-      amount: amountPence,
-    });
+    const { data } = await api.post<DonationResult>(
+      '/recipients/scan',
+      { token, amount: amountPence },
+      { headers: { 'Idempotency-Key': idempotencyKey } }
+    );
     return data;
   },
 
@@ -35,11 +37,13 @@ export const donationService = {
    */
   async donateById(
     recipientId: string,
-    amountPence: number
+    amountPence: number,
+    idempotencyKey: string
   ): Promise<DonationResult> {
     const { data } = await api.post<DonationResult>(
       `/recipients/${recipientId}/donate`,
-      { amount: amountPence }
+      { amount: amountPence },
+      { headers: { 'Idempotency-Key': idempotencyKey } }
     );
     return data;
   },

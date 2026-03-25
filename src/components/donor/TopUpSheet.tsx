@@ -189,7 +189,7 @@ function StripeTopUpContent({ sheetRef }: TopUpSheetProps) {
  * Opens Stripe's hosted checkout page in a browser.
  * Works in Expo Go — no native Stripe module required.
  * The backend creates a Checkout Session; Stripe redirects to
- * pocketchange://topup-success or pocketchange://topup-cancel when done.
+ * pocketchange://topup-complete?status=success or pocketchange://topup-complete?status=cancel when done.
  */
 function CheckoutTopUpContent({ sheetRef }: TopUpSheetProps) {
   const invalidateWallet = useInvalidateWallet();
@@ -225,10 +225,10 @@ function CheckoutTopUpContent({ sheetRef }: TopUpSheetProps) {
       const { url } = await walletService.createCheckout(pence);
       const result = await WebBrowser.openAuthSessionAsync(url, 'pocketchange://');
 
-      if (result.type === 'success' && result.url?.includes('topup-success')) {
+      if (result.type === 'success' && result.url?.includes('status=success')) {
         await invalidateWallet();
         setStep('success');
-      } else if (result.type === 'cancel' || result.url?.includes('topup-cancel')) {
+      } else if (result.type === 'cancel' || result.url?.includes('status=cancel')) {
         setStep('amount');
       } else {
         // Browser closed without a clear result — wallet may still be credited via webhook

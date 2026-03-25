@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -21,6 +21,14 @@ import { colors, font, fontSize, radius, spacing, tracking } from '@/theme';
 
 type Step = 'amount' | 'confirm' | 'processing' | 'success' | 'error';
 
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export default function DonateScreen() {
   const { id, token, displayName } = useLocalSearchParams<{
     id: string;
@@ -34,17 +42,21 @@ export default function DonateScreen() {
   const [amount, setAmount] = useState('');
   const [donationId, setDonationId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [idempotencyKey, setIdempotencyKey] = useState(() => generateUUID());
+  const submittingRef = useRef(false);
 
   const pence = Math.round(parseFloat(amount) * 100);
   const amountValid = !isNaN(pence) && pence >= 1;
   const name = displayName ?? 'recipient';
 
   async function handleConfirm() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setStep('processing');
     try {
       const result = token
-        ? await donationService.donateByToken(token, pence)
-        : await donationService.donateById(id, pence);
+        ? await donationService.donateByToken(token, pence, idempotencyKey)
+        : await donationService.donateById(id, pence, idempotencyKey);
       setDonationId(result.donationId);
       await invalidateWallet();
       setStep('success');
@@ -53,6 +65,8 @@ export default function DonateScreen() {
       setErrorMsg(
         typed?.response?.data?.error ?? 'Donation failed. Please try again.'
       );
+      setIdempotencyKey(generateUUID());
+      submittingRef.current = false;
       setStep('error');
     }
   }

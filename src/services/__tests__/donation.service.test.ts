@@ -18,28 +18,31 @@ describe('donationService', () => {
   });
 
   describe('donateByToken', () => {
-    it('calls POST /recipients/scan with token and amount', async () => {
+    it('calls POST /recipients/scan with token, amount, and Idempotency-Key header', async () => {
       mockApi.post.mockResolvedValueOnce({ data: { donationId: 'don-1' } });
 
-      const result = await donationService.donateByToken('qr-token-abc', 500);
+      const result = await donationService.donateByToken('qr-token-abc', 500, 'idem-key-1');
 
-      expect(mockApi.post).toHaveBeenCalledWith('/recipients/scan', {
-        token: 'qr-token-abc',
-        amount: 500,
-      });
+      expect(mockApi.post).toHaveBeenCalledWith(
+        '/recipients/scan',
+        { token: 'qr-token-abc', amount: 500 },
+        { headers: { 'Idempotency-Key': 'idem-key-1' } }
+      );
       expect(result.donationId).toBe('don-1');
     });
   });
 
   describe('donateById', () => {
-    it('calls POST /recipients/:id/donate with amount', async () => {
+    it('calls POST /recipients/:id/donate with amount and Idempotency-Key header', async () => {
       mockApi.post.mockResolvedValueOnce({ data: { donationId: 'don-2' } });
 
-      const result = await donationService.donateById('recipient-99', 250);
+      const result = await donationService.donateById('recipient-99', 250, 'idem-key-2');
 
-      expect(mockApi.post).toHaveBeenCalledWith('/recipients/recipient-99/donate', {
-        amount: 250,
-      });
+      expect(mockApi.post).toHaveBeenCalledWith(
+        '/recipients/recipient-99/donate',
+        { amount: 250 },
+        { headers: { 'Idempotency-Key': 'idem-key-2' } }
+      );
       expect(result.donationId).toBe('don-2');
     });
   });
