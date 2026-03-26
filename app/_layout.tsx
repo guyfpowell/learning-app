@@ -15,11 +15,30 @@ import { StatusBar } from 'expo-status-bar';
 import { colors } from '@/theme';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { StripeWrapper } from '@/providers/StripeWrapper';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // 10% sampling for performance traces — avoids quota noise
+  tracesSampleRate: 0.1,
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null };
   static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error) { Sentry.captureException(error); }
   render() {
     if (this.state.error) {
       return (
@@ -77,6 +96,6 @@ function RootLayout() {
   );
 }
 
-export default function RootLayoutWithErrorBoundary() {
+export default Sentry.wrap(function RootLayoutWithErrorBoundary() {
   return <ErrorBoundary><RootLayout /></ErrorBoundary>;
-}
+});
