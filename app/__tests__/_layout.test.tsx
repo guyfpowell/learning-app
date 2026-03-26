@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/react-native';
 jest.mock('@sentry/react-native', () => ({
   init: jest.fn(),
   captureException: jest.fn(),
+  captureMessage: jest.fn(),
   wrap: jest.fn((component) => component),
 }));
 
@@ -182,11 +183,28 @@ describe('Sentry.wrap export', () => {
     jest.mock('@sentry/react-native', () => ({
       init: jest.fn(),
       captureException: jest.fn(),
+      captureMessage: jest.fn(),
       wrap: mockWrap,
     }));
 
     require('../_layout');
 
     expect(mockWrap).toHaveBeenCalled();
+  });
+});
+
+describe('RootLayout app-loaded sentinel', () => {
+  it('captures "App loaded" message when fonts are loaded', async () => {
+    jest.resetModules();
+    jest.clearAllMocks();
+
+    const Sentry = require('@sentry/react-native');
+    const { useFonts } = require('@expo-google-fonts/poppins');
+
+    render(require('../_layout').default);
+
+    // Font loading is mocked to return immediately with useFonts() = [true, null]
+    // RootLayout should capture the app-loaded message
+    expect(Sentry.captureMessage).toHaveBeenCalledWith('App loaded', 'info');
   });
 });

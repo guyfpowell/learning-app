@@ -22,6 +22,12 @@ jest.mock('react-native', () => ({
   Alert: { alert: jest.fn() },
 }));
 
+// Mock Sentry
+jest.mock('@sentry/react-native', () => ({
+  addBreadcrumb: jest.fn(),
+  captureException: jest.fn(),
+}));
+
 describe('api module', () => {
   const savedDev = (global as any).__DEV__;
   const savedApiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -441,6 +447,120 @@ describe('api module', () => {
 
       await expect(rejected(error)).rejects.toMatchObject({ response: { status: 500 } });
       expect(mockClearAuth).not.toHaveBeenCalled();
+    });
+
+    it('logs token refresh attempt to Sentry on first attempt', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const Sentry = require('@sentry/react-native');
+      (Sentry.addBreadcrumb as jest.Mock).mockClear();
+
+      let api: any;
+      let axiosMock: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        (axiosMock.post as jest.Mock).mockResolvedValueOnce({ data: { accessToken: 'new-token' } });
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      await rejected(make401Error());
+
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'auth',
+          message: 'Token refresh attempt',
+          level: 'info',
+        })
+      );
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'auth',
+          message: 'Token refresh succeeded',
+          level: 'info',
+        })
+      );
+    });
+
+    it('logs token refresh failure and retry to Sentry', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const Sentry = require('@sentry/react-native');
+      (Sentry.addBreadcrumb as jest.Mock).mockClear();
+
+      let api: any;
+      let axiosMock: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        (axiosMock.post as jest.Mock)
+          .mockRejectedValueOnce(new Error('Network error'))
+          .mockResolvedValueOnce({ data: { accessToken: 'new-token-retry' } });
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const p = rejected(make401Error());
+      await jest.advanceTimersByTimeAsync(1100);
+      await p.catch(() => {});
+
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'auth',
+          message: 'Token refresh failed, retrying',
+          level: 'warning',
+        })
+      );
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'auth',
+          message: 'Token refresh retry succeeded',
+          level: 'info',
+        })
+      );
+    });
+
+    it('captures token refresh failure to Sentry when both attempts fail', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const Sentry = require('@sentry/react-native');
+      (Sentry.captureException as jest.Mock).mockClear();
+      (Sentry.addBreadcrumb as jest.Mock).mockClear();
+
+      let api: any;
+      let axiosMock: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        (axiosMock.post as jest.Mock).mockRejectedValue(new Error('Server down'));
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const p = rejected(make401Error());
+      const safe = p.catch(() => {});
+      await jest.advanceTimersByTimeAsync(1100);
+      await safe;
+
+      expect(Sentry.captureException).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({
+          contexts: {
+            auth: {
+              action: 'tokenRefresh',
+              status: 'failed_after_retry',
+            },
+          },
+        })
+      );
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'auth',
+          message: 'Session expired dialog shown',
+          level: 'warning',
+        })
+      );
     });
   });
 });

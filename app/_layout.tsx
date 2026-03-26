@@ -68,6 +68,8 @@ function RootLayout() {
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
+      // Signal to Sentry that app has loaded successfully
+      Sentry.captureMessage('App loaded', 'info');
     }
   }, [fontsLoaded, fontError]);
 

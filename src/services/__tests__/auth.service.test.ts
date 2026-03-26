@@ -9,9 +9,17 @@ jest.mock('@/lib/api', () => ({
   },
 }));
 
+// Mock Sentry
+jest.mock('@sentry/react-native', () => ({
+  addBreadcrumb: jest.fn(),
+  captureException: jest.fn(),
+}));
+
 import api from '@/lib/api';
+import * as Sentry from '@sentry/react-native';
 
 const mockApi = api as jest.Mocked<typeof api>;
+const mockSentry = Sentry as jest.Mocked<typeof Sentry>;
 
 describe('authService', () => {
   beforeEach(() => {
@@ -55,6 +63,52 @@ describe('authService', () => {
       expect(result.tokens.accessToken).toBe('access-token');
       expect(result.tokens.refreshToken).toBe('refresh-abc');
     });
+
+    it('logs login attempt and success to Sentry', async () => {
+      mockApi.post.mockResolvedValueOnce({
+        data: { accessToken: 'access-token', refreshToken: 'refresh-abc' },
+      });
+      mockApi.get.mockResolvedValueOnce({
+        data: { id: 'user-42', email: 'donor@example.com', role: 'DONOR', walletBalance: 500 },
+      });
+
+      await authService.login({ email: 'donor@example.com', password: 'pass' });
+
+      expect(mockSentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'auth',
+          message: 'Login attempt',
+          level: 'info',
+        })
+      );
+      expect(mockSentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'auth',
+          message: 'Login success for donor@example.com',
+          level: 'info',
+          data: { role: 'DONOR' },
+        })
+      );
+    });
+
+    it('captures login failures to Sentry', async () => {
+      const error = new Error('Invalid credentials');
+      mockApi.post.mockRejectedValueOnce(error);
+
+      await expect(authService.login({ email: 'donor@example.com', password: 'wrong' })).rejects.toThrow(error);
+
+      expect(mockSentry.captureException).toHaveBeenCalledWith(
+        error,
+        expect.objectContaining({
+          contexts: {
+            auth: {
+              action: 'login',
+              email: 'donor@example.com',
+            },
+          },
+        })
+      );
+    });
   });
 
   describe('register', () => {
@@ -81,6 +135,83 @@ describe('authService', () => {
       await authService.logout();
 
       expect(mockApi.post).toHaveBeenCalledWith('/auth/logout');
+    });
+
+    it('logs logout to Sentry', async () => {
+      mockApi.post.mockResolvedValueOnce({ data: {} });
+
+      await authService.logout();
+
+      expect(mockSentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'auth',
+          message: 'Logout initiated',
+          level: 'info',
+        })
+      );
+      expect(mockSentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'auth',
+          message: 'Logout completed successfully',
+          level: 'info',
+        })
+      );
+    });
+
+    it('captures logout failures to Sentry', async () => {
+      const error = new Error('Network error');
+      mockApi.post.mockRejectedValueOnce(error);
+
+      await expect(authService.logout()).rejects.toThrow(error);
+
+      expect(mockSentry.captureException).toHaveBeenCalledWith(
+        error,
+        expect.objectContaining({
+          contexts: {
+            auth: {
+              action: 'logout',
+            },
+          },
+        })
+      );
+    });
+  });
+
+  describe('setPassword', () => {
+    it('calls POST /auth/set-password with currentPin and newPassword', async () => {
+      mockApi.post.mockResolvedValueOnce({
+        data: { accessToken: 'new-token', refreshToken: 'new-refresh' },
+      });
+
+      await authService.setPassword({ currentPin: '1234', newPassword: 'newpass' });
+
+      expect(mockApi.post).toHaveBeenCalledWith('/auth/set-password', {
+        currentPin: '1234',
+        newPassword: 'newpass',
+      });
+    });
+
+    it('logs setPassword to Sentry', async () => {
+      mockApi.post.mockResolvedValueOnce({
+        data: { accessToken: 'new-token', refreshToken: 'new-refresh' },
+      });
+
+      await authService.setPassword({ currentPin: '1234', newPassword: 'newpass' });
+
+      expect(mockSentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'auth',
+          message: 'Set password attempt',
+          level: 'info',
+        })
+      );
+      expect(mockSentry.addBreadcrumb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'auth',
+          message: 'Password updated successfully',
+          level: 'info',
+        })
+      );
     });
   });
 

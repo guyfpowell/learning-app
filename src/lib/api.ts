@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Alert } from 'react-native';
 import { useAuthStore } from '@/store/auth.store';
+import * as Sentry from '@sentry/react-native';
 
 const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? 'https://pocketchange-backend.onrender.com/api';
@@ -58,19 +59,49 @@ api.interceptors.response.use(
         if (!pendingRefresh) {
           pendingRefresh = (async () => {
             try {
+              Sentry.addBreadcrumb({
+                category: 'auth',
+                message: 'Token refresh attempt',
+                level: 'info',
+              });
+
               const res = await axios.post<{ accessToken: string }>(
                 `${BASE_URL}/auth/refresh`,
                 { refreshToken },
               );
+
+              Sentry.addBreadcrumb({
+                category: 'auth',
+                message: 'Token refresh succeeded',
+                level: 'info',
+              });
+
               return res.data.accessToken;
             } catch (firstErr) {
               console.warn('[api] Token refresh failed, retrying in 1s...', firstErr);
+
+              Sentry.addBreadcrumb({
+                category: 'auth',
+                message: 'Token refresh failed, retrying',
+                level: 'warning',
+                data: {
+                  error: String(firstErr),
+                },
+              });
+
               await new Promise<void>((resolve) => setTimeout(resolve, 1000));
               const { refreshToken: rt } = useAuthStore.getState();
               const res = await axios.post<{ accessToken: string }>(
                 `${BASE_URL}/auth/refresh`,
                 { refreshToken: rt },
               );
+
+              Sentry.addBreadcrumb({
+                category: 'auth',
+                message: 'Token refresh retry succeeded',
+                level: 'info',
+              });
+
               return res.data.accessToken;
             }
           })().finally(() => {
@@ -93,6 +124,25 @@ api.interceptors.response.use(
         return api(original);
       } catch (err) {
         console.error('[api] Token refresh failed after retry — logging out:', err);
+
+        Sentry.captureException(err, {
+          contexts: {
+            auth: {
+              action: 'tokenRefresh',
+              status: 'failed_after_retry',
+            },
+          },
+        });
+
+        Sentry.addBreadcrumb({
+          category: 'auth',
+          message: 'Session expired dialog shown',
+          level: 'warning',
+          data: {
+            error: String(err),
+          },
+        });
+
         Alert.alert('Session expired', 'Your session has expired. Please log in again.');
         useAuthStore.getState().clearAuth();
         // Root layout reacts to cleared auth state and redirects to sign-in
