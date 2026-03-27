@@ -1,6 +1,7 @@
 import axios from 'axios';
-import { Alert } from 'react-native';
+import { router } from 'expo-router';
 import { useAuthStore } from '@/store/auth.store';
+import { queryClient } from '@/providers/QueryProvider';
 import * as Sentry from '@sentry/react-native';
 
 const BASE_URL =
@@ -38,7 +39,8 @@ api.interceptors.request.use((config) => {
 
 // ─── Response: on 401 → refresh once → retry → clear session ─────────────────
 // Mutex: concurrent 401s share a single refresh promise to avoid multiple refresh calls
-let pendingRefresh: Promise<string> | null = null;
+type RefreshResult = { accessToken: string; refreshToken?: string };
+let pendingRefresh: Promise<RefreshResult> | null = null;
 
 api.interceptors.response.use(
   (response) => response,
@@ -46,7 +48,6 @@ api.interceptors.response.use(
     const original = error.config as typeof error.config & { _retry?: boolean };
 
     if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') {
-      Alert.alert('Request timed out', 'The request took too long. Please try again.');
       return Promise.reject(error);
     }
 
@@ -57,7 +58,7 @@ api.interceptors.response.use(
         const { refreshToken } = useAuthStore.getState();
 
         if (!pendingRefresh) {
-          pendingRefresh = (async () => {
+          pendingRefresh = (async (): Promise<RefreshResult> => {
             try {
               Sentry.addBreadcrumb({
                 category: 'auth',
@@ -65,7 +66,7 @@ api.interceptors.response.use(
                 level: 'info',
               });
 
-              const res = await axios.post<{ accessToken: string }>(
+              const res = await axios.post<RefreshResult>(
                 `${BASE_URL}/auth/refresh`,
                 { refreshToken },
               );
@@ -76,7 +77,7 @@ api.interceptors.response.use(
                 level: 'info',
               });
 
-              return res.data.accessToken;
+              return res.data;
             } catch (firstErr) {
               console.warn('[api] Token refresh failed, retrying in 1s...', firstErr);
 
@@ -91,7 +92,7 @@ api.interceptors.response.use(
 
               await new Promise<void>((resolve) => setTimeout(resolve, 1000));
               const { refreshToken: rt } = useAuthStore.getState();
-              const res = await axios.post<{ accessToken: string }>(
+              const res = await axios.post<RefreshResult>(
                 `${BASE_URL}/auth/refresh`,
                 { refreshToken: rt },
               );
@@ -102,18 +103,18 @@ api.interceptors.response.use(
                 level: 'info',
               });
 
-              return res.data.accessToken;
+              return res.data;
             }
           })().finally(() => {
             pendingRefresh = null;
           });
         }
 
-        const newAccessToken = await pendingRefresh;
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await pendingRefresh;
 
-        const { user, setAuth } = useAuthStore.getState();
+        const { user, setAuth, refreshToken: storedRefreshToken } = useAuthStore.getState();
         if (user) {
-          setAuth(user, newAccessToken, refreshToken ?? '');
+          setAuth(user, newAccessToken, newRefreshToken ?? storedRefreshToken ?? '');
         }
 
         original.headers = {
@@ -143,9 +144,9 @@ api.interceptors.response.use(
           },
         });
 
-        Alert.alert('Session expired', 'Your session has expired. Please log in again.');
         useAuthStore.getState().clearAuth();
-        // Root layout reacts to cleared auth state and redirects to sign-in
+        queryClient.clear();
+        router.replace('/(auth)/sign-in');
       }
     }
 

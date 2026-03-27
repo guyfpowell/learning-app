@@ -17,9 +17,24 @@ import { Card } from '@/components/ui/Card';
 import { useLogin } from '@/hooks/useAuth';
 import { colors, font, fontSize, spacing, tracking } from '@/theme';
 
-function extractError(err: unknown): string {
-  const typed = err as { response?: { data?: { error?: string } } };
-  return typed?.response?.data?.error ?? 'Invalid email or password. Please try again.';
+export function extractError(err: unknown): string {
+  const typed = err as { code?: string; response?: { data?: { error?: string } } };
+
+  // Timeout/network errors
+  if (typed?.code === 'ECONNABORTED') {
+    return 'Request timed out. Please try again.';
+  }
+  if (typed?.code === 'ERR_NETWORK') {
+    return 'Network error. Please check your connection.';
+  }
+
+  // Server error response
+  if (typed?.response?.data?.error) {
+    return typed.response.data.error;
+  }
+
+  // Fallback
+  return 'Invalid email or password. Please try again.';
 }
 
 function validateEmail(email: string): string | null {

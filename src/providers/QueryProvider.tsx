@@ -1,25 +1,23 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { type ReactNode, useRef } from 'react';
+import { type ReactNode } from 'react';
 
 interface QueryProviderProps {
   children: ReactNode;
 }
 
-export function QueryProvider({ children }: QueryProviderProps) {
-  // Stable client — recreated if the component ever unmounts and remounts
-  const clientRef = useRef<QueryClient>(
-    new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: 1,
-          staleTime: 30_000,
-        },
-      },
-    })
-  );
+// Module-level singleton — allows api.ts to call queryClient.clear() on auth clear
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
 
+export function QueryProvider({ children }: QueryProviderProps) {
   return (
-    <QueryClientProvider client={clientRef.current}>
+    <QueryClientProvider client={queryClient}>
       {children}
     </QueryClientProvider>
   );

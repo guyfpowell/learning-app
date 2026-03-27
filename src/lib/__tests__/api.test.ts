@@ -28,6 +28,16 @@ jest.mock('@sentry/react-native', () => ({
   captureException: jest.fn(),
 }));
 
+// Mock expo-router imperative router
+jest.mock('expo-router', () => ({
+  router: { replace: jest.fn() },
+}));
+
+// Mock QueryProvider singleton
+jest.mock('@/providers/QueryProvider', () => ({
+  queryClient: { clear: jest.fn() },
+}));
+
 describe('api module', () => {
   const savedDev = (global as any).__DEV__;
   const savedApiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -252,11 +262,12 @@ describe('api module', () => {
       jest.restoreAllMocks();
     });
 
-    it('shows a "Request timed out" Alert for ECONNABORTED errors', async () => {
+    it('rejects ECONNABORTED without showing an Alert', async () => {
       (global as any).__DEV__ = true;
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
 
       const { Alert } = require('react-native');
+      (Alert.alert as jest.Mock).mockClear();
 
       let api: any;
       jest.isolateModules(() => {
@@ -267,17 +278,15 @@ describe('api module', () => {
       const timeoutError = { code: 'ECONNABORTED', config: { headers: {} } };
 
       await expect(rejected(timeoutError)).rejects.toMatchObject({ code: 'ECONNABORTED' });
-      expect(Alert.alert).toHaveBeenCalledWith(
-        'Request timed out',
-        expect.stringContaining('try again'),
-      );
+      expect(Alert.alert).not.toHaveBeenCalled();
     });
 
-    it('shows a "Request timed out" Alert for ERR_NETWORK errors', async () => {
+    it('rejects ERR_NETWORK without showing an Alert', async () => {
       (global as any).__DEV__ = true;
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
 
       const { Alert } = require('react-native');
+      (Alert.alert as jest.Mock).mockClear();
 
       let api: any;
       jest.isolateModules(() => {
@@ -288,10 +297,7 @@ describe('api module', () => {
       const timeoutError = { code: 'ERR_NETWORK', config: { headers: {} } };
 
       await expect(rejected(timeoutError)).rejects.toMatchObject({ code: 'ERR_NETWORK' });
-      expect(Alert.alert).toHaveBeenCalledWith(
-        'Request timed out',
-        expect.stringContaining('try again'),
-      );
+      expect(Alert.alert).not.toHaveBeenCalled();
     });
 
     it('does NOT show a timeout Alert for non-timeout errors (no error.code)', async () => {
@@ -368,7 +374,7 @@ describe('api module', () => {
         axiosMock = require('axios');
         (axiosMock.post as jest.Mock)
           .mockRejectedValueOnce(new Error('Network error'))
-          .mockResolvedValueOnce({ data: { accessToken: 'new-token-retry' } });
+          .mockResolvedValueOnce({ data: { accessToken: 'new-token-retry', refreshToken: 'new-refresh-retry' } });
         api = require('@/lib/api').default;
       });
 
@@ -381,7 +387,7 @@ describe('api module', () => {
       expect(mockSetAuth).toHaveBeenCalledWith(
         { id: '1', email: 'test@example.com' },
         'new-token-retry',
-        'refresh-token',
+        'new-refresh-retry',
       );
     });
 
@@ -407,11 +413,11 @@ describe('api module', () => {
       expect(console.error).toHaveBeenCalled();
     });
 
-    it('shows an Alert when both refresh attempts fail', async () => {
+    it('calls router.replace to sign-in when both refresh attempts fail', async () => {
       (global as any).__DEV__ = true;
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
 
-      const { Alert } = require('react-native');
+      const { router } = require('expo-router');
 
       let api: any;
       let axiosMock: any;
@@ -427,10 +433,54 @@ describe('api module', () => {
       await jest.advanceTimersByTimeAsync(1100);
       await safe;
 
-      expect(Alert.alert).toHaveBeenCalledWith(
-        'Session expired',
-        expect.stringContaining('log in'),
-      );
+      expect(router.replace).toHaveBeenCalledWith('/(auth)/sign-in');
+    });
+
+    it('calls queryClient.clear() when both refresh attempts fail', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const { queryClient } = require('@/providers/QueryProvider');
+
+      let api: any;
+      let axiosMock: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        (axiosMock.post as jest.Mock).mockRejectedValue(new Error('Server down'));
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const p = rejected(make401Error());
+      const safe = p.catch(() => {});
+      await jest.advanceTimersByTimeAsync(1100);
+      await safe;
+
+      expect(queryClient.clear).toHaveBeenCalled();
+    });
+
+    it('does not show an Alert when both refresh attempts fail', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const { Alert } = require('react-native');
+      (Alert.alert as jest.Mock).mockClear();
+
+      let api: any;
+      let axiosMock: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        (axiosMock.post as jest.Mock).mockRejectedValue(new Error('Server down'));
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const p = rejected(make401Error());
+      const safe = p.catch(() => {});
+      await jest.advanceTimersByTimeAsync(1100);
+      await safe;
+
+      expect(Alert.alert).not.toHaveBeenCalled();
     });
 
     it('passes non-401 errors through without attempting refresh', async () => {
@@ -460,7 +510,7 @@ describe('api module', () => {
       let axiosMock: any;
       jest.isolateModules(() => {
         axiosMock = require('axios');
-        (axiosMock.post as jest.Mock).mockResolvedValueOnce({ data: { accessToken: 'new-token' } });
+        (axiosMock.post as jest.Mock).mockResolvedValueOnce({ data: { accessToken: 'new-token', refreshToken: 'new-refresh' } });
         api = require('@/lib/api').default;
       });
 
@@ -496,7 +546,7 @@ describe('api module', () => {
         axiosMock = require('axios');
         (axiosMock.post as jest.Mock)
           .mockRejectedValueOnce(new Error('Network error'))
-          .mockResolvedValueOnce({ data: { accessToken: 'new-token-retry' } });
+          .mockResolvedValueOnce({ data: { accessToken: 'new-token-retry', refreshToken: 'new-refresh-retry' } });
         api = require('@/lib/api').default;
       });
 
