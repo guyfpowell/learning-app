@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import type { AuthUser } from '@/store/auth.store';
+import type { AuthTokens } from '@pocketchange/shared';
 import * as Sentry from '@sentry/react-native';
 
 export interface LoginInput {
@@ -12,14 +13,11 @@ export interface RegisterInput {
   password: string;
 }
 
-export interface TokenResponse {
-  accessToken: string;
-  refreshToken: string;
-  mustChangePassword: boolean;
-}
+/** @deprecated Use AuthTokens from @pocketchange/shared directly */
+export type TokenResponse = AuthTokens;
 
 export const authService = {
-  async login(input: LoginInput): Promise<{ user: AuthUser; tokens: TokenResponse }> {
+  async login(input: LoginInput): Promise<{ user: AuthUser; tokens: AuthTokens }> {
     try {
       Sentry.addBreadcrumb({
         category: 'auth',
@@ -27,7 +25,7 @@ export const authService = {
         level: 'info',
       });
 
-      const { data: tokens } = await api.post<TokenResponse>('/auth/login', input);
+      const { data: tokens } = await api.post<AuthTokens>('/auth/login', input);
       // Fetch authoritative user data — never trust unverified JWT payload client-side
       const { data: user } = await api.get<AuthUser>('/users/me', {
         headers: { Authorization: `Bearer ${tokens.accessToken}` },
@@ -54,7 +52,7 @@ export const authService = {
     }
   },
 
-  async setPassword(input: { currentPin: string; newPassword: string }): Promise<TokenResponse> {
+  async setPassword(input: { currentPin: string; newPassword: string }): Promise<AuthTokens> {
     try {
       Sentry.addBreadcrumb({
         category: 'auth',
@@ -62,7 +60,7 @@ export const authService = {
         level: 'info',
       });
 
-      const { data } = await api.post<TokenResponse>('/auth/set-password', input);
+      const { data } = await api.post<AuthTokens>('/auth/set-password', input);
 
       Sentry.addBreadcrumb({
         category: 'auth',
@@ -83,7 +81,7 @@ export const authService = {
     }
   },
 
-  async register(input: RegisterInput): Promise<{ user: AuthUser; tokens: TokenResponse }> {
+  async register(input: RegisterInput): Promise<{ user: AuthUser; tokens: AuthTokens }> {
     try {
       Sentry.addBreadcrumb({
         category: 'auth',
@@ -91,7 +89,7 @@ export const authService = {
         level: 'info',
       });
 
-      const { data: tokens } = await api.post<TokenResponse>('/auth/register', { ...input, role: 'DONOR' });
+      const { data: tokens } = await api.post<AuthTokens>('/auth/register', { ...input, role: 'DONOR' });
       const { data: user } = await api.get<AuthUser>('/users/me', {
         headers: { Authorization: `Bearer ${tokens.accessToken}` },
       });

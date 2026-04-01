@@ -11,6 +11,7 @@
     "deploy:ota": "bash scripts/ota-deploy.sh"
   },
   "dependencies": {
+    "@pocketchange/shared": "file:../pocketchange/shared",
     "@expo-google-fonts/poppins": "^0.2.3",
     "@expo/vector-icons": "^15.0.3",
     "@gorhom/bottom-sheet": "^5.1.3",

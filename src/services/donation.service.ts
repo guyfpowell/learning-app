@@ -1,15 +1,8 @@
 import api from '@/lib/api';
-import type { DonationHistoryItem, SpendBreakdown } from '@/types';
+import type { SpendBreakdown, PaginatedDonationHistory } from '@pocketchange/shared';
 
 export interface DonationResult {
   donationId: string;
-}
-
-export interface DonationHistoryResponse {
-  donations: DonationHistoryItem[];
-  total: number;
-  page: number;
-  limit: number;
 }
 
 export const donationService = {
@@ -55,8 +48,8 @@ export const donationService = {
   async getDonationHistory(
     page = 1,
     limit = 20
-  ): Promise<DonationHistoryResponse> {
-    const { data } = await api.get<DonationHistoryResponse>(
+  ): Promise<PaginatedDonationHistory> {
+    const { data } = await api.get<PaginatedDonationHistory>(
       `/users/me/donations?page=${page}&limit=${limit}`
     );
     return data;

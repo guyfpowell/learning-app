@@ -1,3 +1,13 @@
+// ─── Shared response types (source of truth: @pocketchange/shared) ───────────
+export type {
+  Paginated,
+  WalletBalance,
+  DonationHistoryItem,
+  SpendRedemption,
+  SpendBreakdown,
+  RecipientPublicProfile,
+} from '@pocketchange/shared';
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 export interface User {
@@ -9,12 +19,9 @@ export interface User {
   createdAt: string;
 }
 
-export interface Paginated<T> {
-  data: T[];
-  page: number;
-  limit: number;
-  total: number;
-}
+// NOTE: User has `active: boolean` and `createdAt: string` which differ from
+// shared SafeUser (no active, createdAt: Date). Kept locally pending BE shared
+// type update. Drift flagged in pc-047.
 
 export interface AuthResponse {
   user: User;
@@ -39,15 +46,6 @@ export interface HomelessRecipient {
   updatedAt: string;
 }
 
-export interface RecipientPublicProfile {
-  id: string;
-  displayName: string;
-  status: 'ACTIVE' | 'SUSPENDED';
-  totalRaisedPence: number;
-  donorCount: number;
-  recentActivity: { date: string; amountPence: number }[];
-}
-
 // ─── Recipient Self-Service ───────────────────────────────────────────────────
 
 export interface RecipientSelfProfile {
@@ -61,6 +59,10 @@ export interface RecipientSelfProfile {
   balance: number;
 }
 
+// NOTE: Shared RecipientPublicInfo has qrToken? (optional). Self-profile
+// endpoint always returns qrToken. Kept locally to avoid forcing optional
+// chaining on qrToken in lanyard screen. Drift flagged in pc-047.
+
 export interface RecipientTransaction {
   id: string;
   type: 'RECIPIENT_DONATION' | 'RECIPIENT_DEBIT';
@@ -72,10 +74,6 @@ export interface RecipientTransaction {
 
 // ─── Wallet & Transactions ────────────────────────────────────────────────────
 
-export interface WalletBalance {
-  walletBalance: number;
-}
-
 export interface Transaction {
   id: string;
   userId: string;
@@ -85,29 +83,5 @@ export interface Transaction {
   createdAt: string;
 }
 
-// ─── Donations ────────────────────────────────────────────────────────────────
-
-export interface DonationHistoryItem {
-  id: string;
-  amountPence: number;
-  createdAt: string;
-  recipientName: string | null;
-  recipientId: string | null;
-}
-
-export interface SpendRedemption {
-  vendorName: string;
-  amountPence: number;
-  date: string;
-  partial: boolean;
-}
-
-export interface SpendBreakdown {
-  donationId: string;
-  recipientId: string;
-  recipientName: string;
-  totalPence: number;
-  spentPence: number;
-  remainingPence: number;
-  redemptions: SpendRedemption[];
-}
+// NOTE: Shared TransactionListItem is missing userId. Kept locally pending BE
+// fix. Drift flagged in pc-047.

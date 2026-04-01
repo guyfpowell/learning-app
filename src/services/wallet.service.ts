@@ -1,17 +1,8 @@
 import api from '@/lib/api';
+import type { WalletBalance, TopUpIntentResponse, CheckoutResponse } from '@pocketchange/shared';
 import type { Transaction } from '@/types';
 
-export interface WalletBalance {
-  walletBalance: number;
-}
-
-export interface TopUpResponse {
-  clientSecret: string;
-}
-
-export interface CheckoutResponse {
-  url: string;
-}
+export type { WalletBalance, TopUpIntentResponse as TopUpResponse, CheckoutResponse };
 
 export interface TransactionsResponse {
   transactions: Transaction[];
@@ -26,8 +17,8 @@ export const walletService = {
     return data;
   },
 
-  async createTopUp(amountPence: number): Promise<TopUpResponse> {
-    const { data } = await api.post<TopUpResponse>('/users/me/wallet/topup', {
+  async createTopUp(amountPence: number): Promise<TopUpIntentResponse> {
+    const { data } = await api.post<TopUpIntentResponse>('/users/me/wallet/topup', {
       amount: amountPence,
     });
     return data;
