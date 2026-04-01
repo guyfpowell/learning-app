@@ -5,7 +5,7 @@ import {
   useFonts,
 } from '@expo-google-fonts/poppins';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { Stack } from 'expo-router';
+import { Stack, useSegments, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Component, useEffect } from 'react';
 import type { ReactNode } from 'react';
@@ -15,23 +15,14 @@ import { StatusBar } from 'expo-status-bar';
 import { colors } from '@/theme';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { StripeWrapper } from '@/providers/StripeWrapper';
+import { useAuthStore } from '@/store/auth.store';
 import * as Sentry from '@sentry/react-native';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
-
-  // Adds more context data to events (IP address, cookies, user, etc.)
-  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
   sendDefaultPii: true,
-
-  // Enable Logs
   enableLogs: true,
-
-  // 10% sampling for performance traces — avoids quota noise
   tracesSampleRate: 0.1,
-
-  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  // spotlight: __DEV__,
 });
 
 
@@ -58,6 +49,49 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 
 SplashScreen.preventAutoHideAsync();
 
+/**
+ * Single source of truth for auth-driven routing.
+ * Watches Zustand auth state and navigates reactively — no routing in mutation callbacks.
+ *
+ * Rules (priority order):
+ * 1. Not hydrated → do nothing (spinner visible at root)
+ * 2. No token + not on auth screen → sign-in
+ * 3. mustChangePassword + not on set-password → set-password
+ * 4. Authenticated + no password change required + not on role home → route by role
+ */
+export function AuthGate() {
+  const { _hasHydrated, accessToken, user, mustChangePassword } = useAuthStore();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!_hasHydrated) return;
+
+    const inAuthGroup      = segments[0] === '(auth)';
+    const inDonorGroup     = segments[0] === '(donor)';
+    const inRecipientGroup = segments[0] === '(recipient)';
+    const onSetPassword    = inAuthGroup && segments[1] === 'set-password';
+
+    if (!accessToken) {
+      if (!inAuthGroup) router.replace('/(auth)/sign-in');
+      return;
+    }
+
+    if (mustChangePassword) {
+      if (!onSetPassword) router.replace('/(auth)/set-password');
+      return;
+    }
+
+    // Authenticated, no password change required — move away from auth screens and root
+    const onRoleHome = inDonorGroup || inRecipientGroup;
+    if (!onRoleHome) {
+      router.replace(user?.role === 'RECIPIENT' ? '/(recipient)' : '/(donor)');
+    }
+  }, [_hasHydrated, accessToken, mustChangePassword, user?.role, segments[0], segments[1]]);
+
+  return null;
+}
+
 function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
@@ -68,7 +102,6 @@ function RootLayout() {
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
-      // Signal to Sentry that app has loaded successfully
       Sentry.captureMessage('App loaded', 'info');
     }
   }, [fontsLoaded, fontError]);
@@ -83,10 +116,12 @@ function RootLayout() {
         <QueryProvider>
           <BottomSheetModalProvider>
             <StatusBar style="dark" backgroundColor={colors.bg} />
+            <AuthGate />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="(donor)" />
+              <Stack.Screen name="(recipient)" />
               <Stack.Screen name="recipient/[id]" />
               <Stack.Screen name="donate/[id]" />
               <Stack.Screen name="donation/[id]" />

@@ -1,61 +1,26 @@
-import React, { act } from 'react';
+import React from 'react';
 import { render } from '@testing-library/react-native';
 
-const mockReplace = jest.fn();
-
 jest.mock('expo-router', () => ({
-  Tabs: ({ children }: any) => children ?? null,
-  useRouter: () => ({ replace: mockReplace }),
+  Tabs: Object.assign(
+    ({ children }: any) => children ?? null,
+    { Screen: () => null }
+  ),
 }));
 
 jest.mock('@expo/vector-icons', () => ({
   Ionicons: () => null,
 }));
 
-jest.mock('@/store/auth.store', () => ({
-  useAuthStore: jest.fn(),
+jest.mock('@/theme', () => ({
+  colors: { teal: '#1B5E72', textMuted: '#888', white: '#fff', border: '#eee' },
+  font: { medium: 'Poppins_500Medium' },
+  fontSize: { xs: 11 },
 }));
 
-const { useAuthStore } = require('@/store/auth.store');
-
-describe('donor layout — auth guard', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockReplace.mockClear();
-  });
-
-  it('does not redirect when accessToken is present', () => {
-    (useAuthStore as jest.Mock).mockReturnValue({ accessToken: 'valid-token' });
-
+describe('donor layout', () => {
+  it('renders without errors', () => {
     const DonorLayout = require('../_layout').default;
-    render(<DonorLayout />);
-
-    expect(mockReplace).not.toHaveBeenCalled();
-  });
-
-  it('redirects to sign-in when accessToken is null', () => {
-    (useAuthStore as jest.Mock).mockReturnValue({ accessToken: null });
-
-    const DonorLayout = require('../_layout').default;
-    render(<DonorLayout />);
-
-    expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
-  });
-
-  it('redirects to sign-in when token clears mid-session', () => {
-    (useAuthStore as jest.Mock).mockReturnValue({ accessToken: 'valid-token' });
-
-    const DonorLayout = require('../_layout').default;
-    const { rerender } = render(<DonorLayout />);
-
-    expect(mockReplace).not.toHaveBeenCalled();
-
-    // Simulate clearAuth() being called — token transitions to null
-    (useAuthStore as jest.Mock).mockReturnValue({ accessToken: null });
-    act(() => {
-      rerender(<DonorLayout />);
-    });
-
-    expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+    expect(() => render(<DonorLayout />)).not.toThrow();
   });
 });

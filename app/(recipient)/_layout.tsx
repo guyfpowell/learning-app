@@ -1,8 +1,6 @@
-import { useEffect } from 'react';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, font, fontSize } from '@/theme';
-import { useAuthStore } from '@/store/auth.store';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -13,15 +11,6 @@ function tabIcon(name: IoniconName, focusedName: IoniconName) {
 }
 
 export default function RecipientLayout() {
-  const router = useRouter();
-  const { accessToken } = useAuthStore();
-
-  useEffect(() => {
-    if (accessToken === null) {
-      router.replace('/(auth)/sign-in');
-    }
-  }, [accessToken]);
-
   return (
     <Tabs
       screenOptions={{
@@ -40,24 +29,15 @@ export default function RecipientLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: tabIcon('home-outline', 'home'),
-        }}
+        options={{ title: 'Home', tabBarIcon: tabIcon('home-outline', 'home') }}
       />
       <Tabs.Screen
         name="lanyard"
-        options={{
-          title: 'My Card',
-          tabBarIcon: tabIcon('card-outline', 'card'),
-        }}
+        options={{ title: 'My Card', tabBarIcon: tabIcon('card-outline', 'card') }}
       />
       <Tabs.Screen
         name="history"
-        options={{
-          title: 'History',
-          tabBarIcon: tabIcon('time-outline', 'time'),
-        }}
+        options={{ title: 'History', tabBarIcon: tabIcon('time-outline', 'time') }}
       />
     </Tabs>
   );

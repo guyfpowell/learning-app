@@ -165,7 +165,7 @@ describe('useLogin — RECIPIENT routing', () => {
     expect(useAuthStore.getState().mustChangePassword).toBe(true);
   });
 
-  it('routes to /(auth)/set-password when mustChangePassword: true', async () => {
+  it('does not call router.replace — routing is handled by AuthGate', async () => {
     const mockReplace = jest.fn();
     jest.spyOn(require('expo-router'), 'useRouter').mockReturnValue({ replace: mockReplace, push: jest.fn(), back: jest.fn() });
 
@@ -179,24 +179,7 @@ describe('useLogin — RECIPIENT routing', () => {
     act(() => { result.current.mutate({ email: 'pete@pocketchange.org.uk', password: '12345678' }); });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(mockReplace).toHaveBeenCalledWith('/(auth)/set-password');
-  });
-
-  it('routes RECIPIENT with no password change required to /(recipient)', async () => {
-    const mockReplace = jest.fn();
-    jest.spyOn(require('expo-router'), 'useRouter').mockReturnValue({ replace: mockReplace, push: jest.fn(), back: jest.fn() });
-
-    const user = { id: 'u1', email: 'jay@pocketchange.org.uk', role: 'RECIPIENT' as const, walletBalance: 0 };
-    mockAuthService.login.mockResolvedValueOnce({
-      user,
-      tokens: { accessToken: 'acc', refreshToken: 'ref', mustChangePassword: false },
-    });
-
-    const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
-    act(() => { result.current.mutate({ email: 'jay@pocketchange.org.uk', password: 'password' }); });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-    expect(mockReplace).toHaveBeenCalledWith('/(recipient)');
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });
 
