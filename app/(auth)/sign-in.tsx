@@ -33,8 +33,8 @@ export function extractError(err: unknown): string {
     return typed.response.data.error;
   }
 
-  // Fallback
-  return 'Invalid email or password. Please try again.';
+  // Fallback — covers 503 HTML responses, plain JS errors, and any other non-credential failure
+  return 'Something went wrong. Please try again.';
 }
 
 function validateEmail(email: string): string | null {

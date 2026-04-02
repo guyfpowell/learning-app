@@ -1,3 +1,9 @@
+// Mock expo-constants so the api module can load without native module setup
+// (jest.resetModules + jest.isolateModules would otherwise trigger expo-modules-core native init)
+jest.mock('expo-constants', () => ({
+  default: { expoConfig: { extra: {} } },
+}));
+
 // Mock the auth store so the api module can load without real SecureStore
 jest.mock('@/store/auth.store', () => ({
   useAuthStore: {
@@ -611,6 +617,212 @@ describe('api module', () => {
           level: 'warning',
         })
       );
+    });
+  });
+
+  // ─── Response interceptor — null refreshToken bail-out (Bug 1) ──────────────
+
+  describe('response interceptor — null refreshToken bail-out', () => {
+    function getResponseInterceptorRejected(apiInstance: any): (error: any) => Promise<any> {
+      const handlers = (apiInstance.interceptors.response as any).handlers as Array<{
+        fulfilled: (r: any) => any;
+        rejected: (e: any) => any;
+      } | null>;
+      return handlers.filter(Boolean).at(-1)!.rejected;
+    }
+
+    beforeEach(() => {
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      const { useAuthStore } = require('@/store/auth.store');
+      useAuthStore.getState.mockReturnValue({
+        accessToken: null,
+        refreshToken: null,
+        user: null,
+        setAuth: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('does not call axios.post when refreshToken is null', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      let api: any;
+      let axiosMock: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      await rejected({ response: { status: 401 }, config: { headers: {} } }).catch(() => {});
+
+      expect(axiosMock.post).not.toHaveBeenCalled();
+    });
+
+    it('calls clearAuth immediately when refreshToken is null', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const mockClearAuth = jest.fn();
+      const { useAuthStore } = require('@/store/auth.store');
+      useAuthStore.getState.mockReturnValue({
+        accessToken: null,
+        refreshToken: null,
+        user: null,
+        setAuth: jest.fn(),
+        clearAuth: mockClearAuth,
+      });
+
+      let api: any;
+      jest.isolateModules(() => {
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      await rejected({ response: { status: 401 }, config: { headers: {} } }).catch(() => {});
+
+      expect(mockClearAuth).toHaveBeenCalled();
+    });
+
+    it('calls router.replace to sign-in immediately when refreshToken is null', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const { router } = require('expo-router');
+
+      let api: any;
+      jest.isolateModules(() => {
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      await rejected({ response: { status: 401 }, config: { headers: {} } }).catch(() => {});
+
+      expect(router.replace).toHaveBeenCalledWith('/(auth)/sign-in');
+    });
+
+    it('calls router.replace exactly once when 3 concurrent null-token 401s arrive', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const { router } = require('expo-router');
+      (router.replace as jest.Mock).mockClear();
+
+      let api: any;
+      jest.isolateModules(() => {
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+
+      const p1 = rejected({ response: { status: 401 }, config: { headers: {} } }).catch(() => {});
+      const p2 = rejected({ response: { status: 401 }, config: { headers: {} } }).catch(() => {});
+      const p3 = rejected({ response: { status: 401 }, config: { headers: {} } }).catch(() => {});
+
+      await Promise.all([p1, p2, p3]);
+
+      expect(router.replace).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ─── Response interceptor — concurrent 401s call logout exactly once (Bug 2) ─
+
+  describe('response interceptor — concurrent 401s call logout exactly once', () => {
+    function getResponseInterceptorRejected(apiInstance: any): (error: any) => Promise<any> {
+      const handlers = (apiInstance.interceptors.response as any).handlers as Array<{
+        fulfilled: (r: any) => any;
+        rejected: (e: any) => any;
+      } | null>;
+      return handlers.filter(Boolean).at(-1)!.rejected;
+    }
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      const { useAuthStore } = require('@/store/auth.store');
+      useAuthStore.getState.mockReturnValue({
+        accessToken: 'old-token',
+        refreshToken: 'refresh-token',
+        user: { id: '1', email: 'test@example.com' },
+        setAuth: jest.fn(),
+        clearAuth: jest.fn(),
+      });
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+      jest.restoreAllMocks();
+    });
+
+    it('calls router.replace exactly once when 3 concurrent 401s share a rejected pendingRefresh', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const { router } = require('expo-router');
+      (router.replace as jest.Mock).mockClear();
+
+      let api: any;
+      let axiosMock: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        (axiosMock.post as jest.Mock).mockRejectedValue(new Error('Server down'));
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+
+      const p1 = rejected({ response: { status: 401 }, config: { headers: {} } }).catch(() => {});
+      const p2 = rejected({ response: { status: 401 }, config: { headers: {} } }).catch(() => {});
+      const p3 = rejected({ response: { status: 401 }, config: { headers: {} } }).catch(() => {});
+
+      await jest.advanceTimersByTimeAsync(1100);
+      await Promise.all([p1, p2, p3]);
+
+      expect(router.replace).toHaveBeenCalledTimes(1);
+      expect(router.replace).toHaveBeenCalledWith('/(auth)/sign-in');
+    });
+
+    it('calls clearAuth exactly once when 3 concurrent 401s share a rejected pendingRefresh', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const mockClearAuth = jest.fn();
+      const { useAuthStore } = require('@/store/auth.store');
+      useAuthStore.getState.mockReturnValue({
+        accessToken: 'old-token',
+        refreshToken: 'refresh-token',
+        user: { id: '1', email: 'test@example.com' },
+        setAuth: jest.fn(),
+        clearAuth: mockClearAuth,
+      });
+
+      let api: any;
+      let axiosMock: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        (axiosMock.post as jest.Mock).mockRejectedValue(new Error('Server down'));
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+
+      const p1 = rejected({ response: { status: 401 }, config: { headers: {} } }).catch(() => {});
+      const p2 = rejected({ response: { status: 401 }, config: { headers: {} } }).catch(() => {});
+      const p3 = rejected({ response: { status: 401 }, config: { headers: {} } }).catch(() => {});
+
+      await jest.advanceTimersByTimeAsync(1100);
+      await Promise.all([p1, p2, p3]);
+
+      expect(mockClearAuth).toHaveBeenCalledTimes(1);
     });
   });
 });

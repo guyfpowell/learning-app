@@ -44,6 +44,8 @@ api.interceptors.request.use((config) => {
 // Mutex: concurrent 401s share a single refresh promise to avoid multiple refresh calls
 type RefreshResult = { accessToken: string; refreshToken?: string };
 let pendingRefresh: Promise<RefreshResult> | null = null;
+// Guard: ensures only one caller executes clearAuth + router.replace per logout cycle
+let logoutHandled = false;
 
 api.interceptors.response.use(
   (response) => response,
@@ -58,9 +60,23 @@ api.interceptors.response.use(
       original._retry = true;
 
       try {
-        const { refreshToken } = useAuthStore.getState();
-
         if (!pendingRefresh) {
+          const { refreshToken } = useAuthStore.getState();
+
+          // Bug 1 fix: bail immediately if no refresh token (e.g. before SecureStore hydration)
+          if (!refreshToken) {
+            if (!logoutHandled) {
+              logoutHandled = true;
+              useAuthStore.getState().clearAuth();
+              queryClient.clear();
+              router.replace('/(auth)/sign-in');
+            }
+            return Promise.reject(error);
+          }
+
+          // Reset the guard when starting a fresh refresh cycle
+          logoutHandled = false;
+
           pendingRefresh = (async (): Promise<RefreshResult> => {
             try {
               Sentry.addBreadcrumb({
@@ -127,29 +143,34 @@ api.interceptors.response.use(
 
         return api(original);
       } catch (err) {
-        console.error('[api] Token refresh failed after retry — logging out:', err);
+        // Bug 2 fix: only one concurrent caller executes the logout — the rest skip
+        if (!logoutHandled) {
+          logoutHandled = true;
 
-        Sentry.captureException(err, {
-          contexts: {
-            auth: {
-              action: 'tokenRefresh',
-              status: 'failed_after_retry',
+          console.error('[api] Token refresh failed after retry — logging out:', err);
+
+          Sentry.captureException(err, {
+            contexts: {
+              auth: {
+                action: 'tokenRefresh',
+                status: 'failed_after_retry',
+              },
             },
-          },
-        });
+          });
 
-        Sentry.addBreadcrumb({
-          category: 'auth',
-          message: 'Session expired dialog shown',
-          level: 'warning',
-          data: {
-            error: String(err),
-          },
-        });
+          Sentry.addBreadcrumb({
+            category: 'auth',
+            message: 'Session expired dialog shown',
+            level: 'warning',
+            data: {
+              error: String(err),
+            },
+          });
 
-        useAuthStore.getState().clearAuth();
-        queryClient.clear();
-        router.replace('/(auth)/sign-in');
+          useAuthStore.getState().clearAuth();
+          queryClient.clear();
+          router.replace('/(auth)/sign-in');
+        }
       }
     }
 
