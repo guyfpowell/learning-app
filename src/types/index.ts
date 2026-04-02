@@ -1,3 +1,5 @@
+import type { SafeUser, TransactionListItem } from '@pocketchange/shared';
+
 // ─── Shared response types (source of truth: @pocketchange/shared) ───────────
 export type {
   Paginated,
@@ -6,22 +8,13 @@ export type {
   SpendRedemption,
   SpendBreakdown,
   RecipientPublicProfile,
+  SafeUser,
+  TransactionListItem,
 } from '@pocketchange/shared';
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
-export interface User {
-  id: string;
-  email: string;
-  role: 'DONOR' | 'VENDOR' | 'ADMIN' | 'RECIPIENT';
-  walletBalance: number;
-  active: boolean;
-  createdAt: string;
-}
-
-// NOTE: User has `active: boolean` and `createdAt: string` which differ from
-// shared SafeUser (no active, createdAt: Date). Kept locally pending BE shared
-// type update. Drift flagged in pc-047.
+export type User = SafeUser;
 
 export interface AuthResponse {
   user: User;
@@ -74,14 +67,4 @@ export interface RecipientTransaction {
 
 // ─── Wallet & Transactions ────────────────────────────────────────────────────
 
-export interface Transaction {
-  id: string;
-  userId: string;
-  amount: number;
-  type: 'WALLET_TOPUP' | 'RECIPIENT_DONATION' | 'RECIPIENT_DEBIT';
-  referenceId: string | null;
-  createdAt: string;
-}
-
-// NOTE: Shared TransactionListItem is missing userId. Kept locally pending BE
-// fix. Drift flagged in pc-047.
+export type Transaction = TransactionListItem;
