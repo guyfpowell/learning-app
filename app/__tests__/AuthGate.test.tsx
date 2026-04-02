@@ -168,6 +168,36 @@ describe('AuthGate', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
+  it('does not redirect when authenticated donor is on recipient/[id]', () => {
+    mockAuthState._hasHydrated = true;
+    mockAuthState.accessToken = 'tok';
+    mockAuthState.mustChangePassword = false;
+    mockAuthState.user = { role: 'DONOR' };
+    mockSegments = ['recipient', 'abc123'];
+    render(<AuthGate />);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('does not redirect when authenticated donor is on donate/[id]', () => {
+    mockAuthState._hasHydrated = true;
+    mockAuthState.accessToken = 'tok';
+    mockAuthState.mustChangePassword = false;
+    mockAuthState.user = { role: 'DONOR' };
+    mockSegments = ['donate', 'abc123'];
+    render(<AuthGate />);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('does not redirect when authenticated donor is on donation/[id]', () => {
+    mockAuthState._hasHydrated = true;
+    mockAuthState.accessToken = 'tok';
+    mockAuthState.mustChangePassword = false;
+    mockAuthState.user = { role: 'DONOR' };
+    mockSegments = ['donation', 'abc123'];
+    render(<AuthGate />);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
   it('navigates to sign-in when token cleared mid-session', () => {
     mockAuthState._hasHydrated = true;
     mockAuthState.accessToken = 'tok';

@@ -83,7 +83,13 @@ export function AuthGate() {
     }
 
     // Authenticated, no password change required — move away from auth screens and root
-    const onRoleHome = inDonorGroup || inRecipientGroup;
+    // Also allow detail screens that live outside route groups (recipient/[id], donate/[id], donation/[id])
+    const onRoleHome =
+      inDonorGroup ||
+      inRecipientGroup ||
+      segments[0] === 'recipient' ||
+      segments[0] === 'donate' ||
+      segments[0] === 'donation';
     if (!onRoleHome) {
       router.replace(user?.role === 'RECIPIENT' ? '/(recipient)' : '/(donor)');
     }
