@@ -128,6 +128,23 @@ describe('api module', () => {
       expect(api).toBeDefined();
     });
 
+    it('does not use Constants.expoConfig.extra.apiUrl — EXPO_PUBLIC_API_URL is the single resolution point', () => {
+      (global as any).__DEV__ = false;
+      process.env.EXPO_PUBLIC_API_URL = 'https://pocketchange-backend.onrender.com/api';
+
+      let api: any;
+      jest.isolateModules(() => {
+        // Override Constants mock to have a conflicting local IP in extra.apiUrl
+        jest.doMock('expo-constants', () => ({
+          default: { expoConfig: { extra: { apiUrl: 'http://192.168.1.50:4000/api' } } },
+        }));
+        api = require('@/lib/api').default;
+      });
+
+      // Must use EXPO_PUBLIC_API_URL, not the local IP injected by Constants
+      expect(api.defaults.baseURL).toBe('https://pocketchange-backend.onrender.com/api');
+    });
+
     it('exports a defined Axios instance in dev mode with an http:// URL', () => {
       (global as any).__DEV__ = true;
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';

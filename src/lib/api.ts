@@ -1,12 +1,10 @@
 import axios from 'axios';
 import { router } from 'expo-router';
-import Constants from 'expo-constants';
 import { useAuthStore } from '@/store/auth.store';
 import { queryClient } from '@/providers/QueryProvider';
 import * as Sentry from '@sentry/react-native';
 
 const BASE_URL: string =
-  Constants.expoConfig?.extra?.apiUrl ??
   process.env.EXPO_PUBLIC_API_URL ??
   'https://pocketchange-backend.onrender.com/api';
 
