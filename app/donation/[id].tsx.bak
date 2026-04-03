@@ -84,7 +84,7 @@ export default function DonationScreen() {
             <View
               style={[
                 styles.barFill,
-                { width: `${spentFraction * 100}%` as const },
+                { width: `${spentFraction * 100}%` as any },
               ]}
             />
           </View>

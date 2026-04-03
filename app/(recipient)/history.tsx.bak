@@ -20,6 +20,10 @@ function formatDate(iso: string): string {
   });
 }
 
+function formatShortCode(code: string): string {
+  const clean = code.replace(/-/g, '');
+  return `${clean.slice(0, 3)}-${clean.slice(3, 6)}`;
+}
 
 function TransactionRow({ item }: { item: RecipientTransaction }) {
   const isDonation = item.type === 'RECIPIENT_DONATION';
