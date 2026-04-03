@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { useWalletBalance, useTransactions, useCreateTopUp, useInvalidateWallet } from '../useWallet';
+import { useWalletBalance, useTransactions, useInfiniteTransactions, useCreateTopUp, useInvalidateWallet } from '../useWallet';
 import { walletService } from '@/services/wallet.service';
 
 jest.mock('@/services/wallet.service', () => ({
@@ -61,6 +61,38 @@ describe('useTransactions', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(mockData);
     expect(mockWalletService.getTransactions).toHaveBeenCalledWith(1, 20);
+  });
+});
+
+describe('useInfiniteTransactions', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('fetches first page and exposes transactions', async () => {
+    const page1 = {
+      transactions: [
+        { id: 'tx-1', userId: 'u1', amount: 1000, type: 'WALLET_TOPUP' as const, referenceId: null, createdAt: '2026-04-01T00:00:00Z' },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    };
+    mockWalletService.getTransactions.mockResolvedValueOnce(page1);
+
+    const { result } = renderHook(() => useInfiniteTransactions(), { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.pages[0].transactions).toHaveLength(1);
+    expect(mockWalletService.getTransactions).toHaveBeenCalledWith(1, 20);
+  });
+
+  it('getNextPageParam returns undefined when all items fetched', async () => {
+    const page1 = { transactions: [{ id: 'tx-1', userId: 'u1', amount: 500, type: 'RECIPIENT_DONATION' as const, referenceId: null, createdAt: '2026-04-01T00:00:00Z' }], total: 1, page: 1, limit: 20 };
+    mockWalletService.getTransactions.mockResolvedValueOnce(page1);
+
+    const { result } = renderHook(() => useInfiniteTransactions(), { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.hasNextPage).toBe(false);
   });
 });
 
