@@ -538,7 +538,7 @@ describe('api module', () => {
       });
 
       const rejected = getResponseInterceptorRejected(api);
-      await rejected(make401Error());
+      await rejected(make401Error()).catch(() => {});
 
       expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -840,6 +840,116 @@ describe('api module', () => {
       await Promise.all([p1, p2, p3]);
 
       expect(mockClearAuth).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ─── Response interceptor — auth endpoint passthrough (PC-050) ───────────────
+
+  describe('response interceptor — auth endpoint 401 passthrough', () => {
+    function getResponseInterceptorRejected(apiInstance: any): (error: any) => Promise<any> {
+      const handlers = (apiInstance.interceptors.response as any).handlers as Array<{
+        fulfilled: (r: any) => any;
+        rejected: (e: any) => any;
+      } | null>;
+      return handlers.filter(Boolean).at(-1)!.rejected;
+    }
+
+    function makeAuthEndpoint401(url: string) {
+      return {
+        response: { status: 401 },
+        config: { url, headers: {} as Record<string, string> },
+      };
+    }
+
+    let mockClearAuth: jest.Mock;
+    let axiosMock: any;
+
+    beforeEach(() => {
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      mockClearAuth = jest.fn();
+      const { useAuthStore } = require('@/store/auth.store');
+      useAuthStore.getState.mockReturnValue({
+        accessToken: 'old-token',
+        refreshToken: 'refresh-token',
+        user: { id: '1', email: 'test@example.com' },
+        setAuth: jest.fn(),
+        clearAuth: mockClearAuth,
+      });
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('passes a 401 from /auth/login directly to the caller without calling axios.post', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      let api: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const error = makeAuthEndpoint401('/auth/login');
+
+      await expect(rejected(error)).rejects.toMatchObject({ response: { status: 401 } });
+      expect(axiosMock.post).not.toHaveBeenCalled();
+    });
+
+    it('does not call clearAuth or router.replace on a 401 from /auth/login', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const { router } = require('expo-router');
+      (router.replace as jest.Mock).mockClear();
+
+      let api: any;
+      jest.isolateModules(() => {
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      await rejected(makeAuthEndpoint401('/auth/login')).catch(() => {});
+
+      expect(mockClearAuth).not.toHaveBeenCalled();
+      expect(router.replace).not.toHaveBeenCalled();
+    });
+
+    it('does not emit a Sentry breadcrumb on a 401 from /auth/login', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      const Sentry = require('@sentry/react-native');
+      (Sentry.addBreadcrumb as jest.Mock).mockClear();
+
+      let api: any;
+      jest.isolateModules(() => {
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      await rejected(makeAuthEndpoint401('/auth/login')).catch(() => {});
+
+      expect(Sentry.addBreadcrumb).not.toHaveBeenCalled();
+    });
+
+    it('passes a 401 from /auth/refresh directly to the caller without calling axios.post', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:4000/api';
+
+      let api: any;
+      jest.isolateModules(() => {
+        axiosMock = require('axios');
+        api = require('@/lib/api').default;
+      });
+
+      const rejected = getResponseInterceptorRejected(api);
+      await expect(rejected(makeAuthEndpoint401('/auth/refresh'))).rejects.toMatchObject({ response: { status: 401 } });
+      expect(axiosMock.post).not.toHaveBeenCalled();
     });
   });
 });

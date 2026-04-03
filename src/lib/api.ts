@@ -54,6 +54,12 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Auth endpoint 401s (wrong credentials, expired refresh token) must not trigger
+    // the refresh cycle — pass them directly to the caller.
+    if (error.response?.status === 401 && (original.url ?? '').startsWith('/auth/')) {
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
 
