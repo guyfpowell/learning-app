@@ -2,7 +2,7 @@
 
 Mobile companion app for the [PocketChange](https://pocketchange.org.uk) platform.
 
-**Donors only.** Thin client — all financial logic lives on the server.
+Thin client — all financial logic lives on the server. Serves both **Donor** and **Recipient** roles.
 
 ---
 
@@ -16,13 +16,14 @@ PocketChange lets donors give directly to people experiencing homelessness. Reci
 
 | | |
 |---|---|
-| Framework | React Native + Expo 54 |
-| Routing | Expo Router 6 |
+| Framework | React Native + Expo ~54 |
+| Routing | Expo Router ~6 |
 | Language | TypeScript (strict) |
 | State | Zustand (auth) + TanStack Query (server data) |
 | HTTP | Axios with Bearer token + auto-refresh interceptors |
 | Secure storage | Expo SecureStore |
 | Font | Poppins |
+| Monitoring | Sentry (`@sentry/react-native`) |
 
 ---
 
@@ -55,8 +56,14 @@ EXPO_PUBLIC_API_URL=http://localhost:4000/api
 
 EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_key_here
 
-# Feature flags — set to true only in a custom dev build
+# Feature flags
+# In-app Stripe native SDK (requires EAS Build — not Expo Go)
 EXPO_PUBLIC_STRIPE_ENABLED=false
+# Hosted Stripe checkout via browser redirect (works in Expo Go)
+EXPO_PUBLIC_STRIPE_CHECKOUT_ENABLED=false
+
+# Error monitoring
+EXPO_PUBLIC_SENTRY_DSN=
 ```
 
 ### Expo Go vs custom build
@@ -69,7 +76,10 @@ Most of the app runs in **Expo Go** out of the box. The one exception is wallet 
 | QR scanner | ✅ | ✅ |
 | Recipient profile + donate | ✅ | ✅ |
 | Donation history + spend breakdown | ✅ | ✅ |
-| Wallet top-up (Stripe) | ℹ️ placeholder shown | ✅ set `EXPO_PUBLIC_STRIPE_ENABLED=true` |
+| Wallet top-up via hosted checkout | ✅ set `EXPO_PUBLIC_STRIPE_CHECKOUT_ENABLED=true` | ✅ |
+| Wallet top-up via native Stripe SDK | ❌ not available | ✅ set `EXPO_PUBLIC_STRIPE_ENABLED=true` |
+| Recipient home + lanyard (QR display) | ✅ | ✅ |
+| Recipient transaction history | ✅ | ✅ |
 
 To build a custom dev client: see the [Expo dev builds guide](https://docs.expo.dev/develop/development-builds/introduction/).
 
@@ -92,21 +102,28 @@ npm run android
 
 ```
 app/                  ← Expo Router file-based routes
-  (auth)/             ← Unauthenticated screens (sign-in, register)
-  (donor)/            ← Tab navigator (dashboard, scan, history, profile)
-  recipient/[id].tsx  ← Recipient public profile + donate
+  (auth)/             ← Unauthenticated screens
+    sign-in.tsx
+    register.tsx
+    set-password.tsx  ← First-login password change (RECIPIENT only)
+  (donor)/            ← Bottom tab navigator (home, scan, history, profile)
+  (recipient)/        ← Bottom tab navigator (home, lanyard, history)
+  recipient/[id].tsx  ← Recipient public profile (donor-facing)
+  donate/[id].tsx     ← Donation amount entry (donor-facing)
   donation/[id].tsx   ← Spend breakdown for a single donation
 
 src/
   components/ui/      ← Shared UI: Button, Card, Input, Spinner, Badge, Logo
-  components/donor/   ← Donor-specific components (Phase 3+)
-  components/recipient/ ← Recipient-specific components (Phase 5+)
+  components/donor/   ← WalletCard, TopUpSheet, TransactionRow, DonationHistoryRow, RedemptionRow
+  components/scan/    ← QRScanner, ShortCodeInput
+  config/features.ts  ← Feature flags (Stripe native, Stripe checkout)
+  providers/          ← QueryProvider, StripeWrapper
   services/           ← API service modules (one per domain)
   hooks/              ← TanStack Query hooks
-  store/              ← Zustand auth store
-  lib/api.ts          ← Axios instance + auth interceptors
+  store/              ← Zustand auth store (persisted via Expo SecureStore)
+  lib/api.ts          ← Axios instance + auth interceptors + Sentry
   theme/index.ts      ← Brand colours, spacing, typography tokens
-  types/index.ts      ← Shared TypeScript types
+  types/index.ts      ← Re-exports from @pocketchange/shared + local types
 
 assets/
   icon.png            ← App icon (used for iOS, Android adaptive, splash)
@@ -137,6 +154,7 @@ assets/
 | 7 | Donation history | ✅ Complete |
 | 8 | Spend breakdown | ✅ Complete |
 | 9 | Profile & account management | ✅ Complete |
+| 10 | Recipient role — home, lanyard, history, first-login password change | ✅ Complete |
 
 See [plan-app.md](./plan-app.md) for the full implementation plan.
 
@@ -144,7 +162,7 @@ See [plan-app.md](./plan-app.md) for the full implementation plan.
 
 ## Testing
 
-74 unit tests across 17 suites covering services, hooks, the auth store, and UI components.
+173 unit tests across 28 suites covering services, hooks, the auth store, UI components, screens, and AuthGate routing.
 
 ```bash
 npm test          # watch mode
