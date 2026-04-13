@@ -7,22 +7,8 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: (input: LoginInput) => authService.login(input),
-    onSuccess: ({ user, tokens }) => {
-      setAuth(user, tokens.accessToken, tokens.refreshToken, tokens.mustChangePassword);
-    },
-  });
-}
-
-export function useSetPassword() {
-  const setAuth = useAuthStore((s) => s.setAuth);
-  const user = useAuthStore((s) => s.user);
-
-  return useMutation({
-    mutationFn: (input: { currentPin: string; newPassword: string }) =>
-      authService.setPassword(input),
-    onSuccess: (tokens) => {
-      // user is always present here — set-password is only reachable after authentication
-      setAuth(user!, tokens.accessToken, tokens.refreshToken, false);
+    onSuccess: ({ user, token }) => {
+      setAuth(user, token, '');
     },
   });
 }
@@ -32,8 +18,8 @@ export function useRegister() {
 
   return useMutation({
     mutationFn: (input: RegisterInput) => authService.register(input),
-    onSuccess: ({ user, tokens }) => {
-      setAuth(user, tokens.accessToken, tokens.refreshToken);
+    onSuccess: ({ user, token }) => {
+      setAuth(user, token, '');
     },
   });
 }
@@ -45,7 +31,7 @@ export function useLogout() {
   return useMutation({
     mutationFn: () => authService.logout(),
     onSettled: () => {
-      // Always clear — even if the server call fails. AuthGate handles redirect to sign-in.
+      // Always clear — even if the call fails. AuthGate handles redirect to sign-in.
       clearAuth();
       queryClient.clear();
     },

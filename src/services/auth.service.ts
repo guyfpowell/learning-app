@@ -1,6 +1,5 @@
 import api from '@/lib/api';
-import type { AuthUser } from '@/store/auth.store';
-import type { AuthTokens } from '@pocketchange/shared';
+import type { AuthResponse, UserAuth } from '@learning/shared';
 import * as Sentry from '@sentry/react-native';
 
 export interface LoginInput {
@@ -11,141 +10,50 @@ export interface LoginInput {
 export interface RegisterInput {
   email: string;
   password: string;
+  name: string;
 }
 
-/** @deprecated Use AuthTokens from @pocketchange/shared directly */
-export type TokenResponse = AuthTokens;
-
 export const authService = {
-  async login(input: LoginInput): Promise<{ user: AuthUser; tokens: AuthTokens }> {
+  async login(input: LoginInput): Promise<{ user: UserAuth; token: string }> {
     try {
-      Sentry.addBreadcrumb({
-        category: 'auth',
-        message: 'Login attempt',
-        level: 'info',
-      });
+      Sentry.addBreadcrumb({ category: 'auth', message: 'Login attempt', level: 'info' });
 
-      const { data: tokens } = await api.post<AuthTokens>('/auth/login', input);
-      // Fetch authoritative user data — never trust unverified JWT payload client-side
-      const { data: user } = await api.get<AuthUser>('/users/me', {
-        headers: { Authorization: `Bearer ${tokens.accessToken}` },
-      });
+      const { data } = await api.post<AuthResponse>('/auth/login', input);
 
       Sentry.addBreadcrumb({
         category: 'auth',
-        message: `Login success for ${user.email}`,
+        message: `Login success for ${data.user.email}`,
         level: 'info',
-        data: { role: user.role },
       });
 
-      return { user, tokens };
+      return { user: data.user, token: data.token };
     } catch (err) {
-      Sentry.captureException(err, {
-        contexts: {
-          auth: {
-            action: 'login',
-            email: input.email,
-          },
-        },
-      });
+      Sentry.captureException(err, { contexts: { auth: { action: 'login', email: input.email } } });
       throw err;
     }
   },
 
-  async setPassword(input: { currentPin: string; newPassword: string }): Promise<AuthTokens> {
+  async register(input: RegisterInput): Promise<{ user: UserAuth; token: string }> {
     try {
-      Sentry.addBreadcrumb({
-        category: 'auth',
-        message: 'Set password attempt',
-        level: 'info',
-      });
+      Sentry.addBreadcrumb({ category: 'auth', message: 'Registration attempt', level: 'info' });
 
-      const { data } = await api.post<AuthTokens>('/auth/set-password', input);
+      const { data } = await api.post<AuthResponse>('/auth/register', input);
 
       Sentry.addBreadcrumb({
         category: 'auth',
-        message: 'Password updated successfully',
+        message: `Registration success for ${data.user.email}`,
         level: 'info',
       });
 
-      return data;
+      return { user: data.user, token: data.token };
     } catch (err) {
-      Sentry.captureException(err, {
-        contexts: {
-          auth: {
-            action: 'setPassword',
-          },
-        },
-      });
-      throw err;
-    }
-  },
-
-  async register(input: RegisterInput): Promise<{ user: AuthUser; tokens: AuthTokens }> {
-    try {
-      Sentry.addBreadcrumb({
-        category: 'auth',
-        message: 'Registration attempt',
-        level: 'info',
-      });
-
-      const { data: tokens } = await api.post<AuthTokens>('/auth/register', { ...input, role: 'DONOR' });
-      const { data: user } = await api.get<AuthUser>('/users/me', {
-        headers: { Authorization: `Bearer ${tokens.accessToken}` },
-      });
-
-      Sentry.addBreadcrumb({
-        category: 'auth',
-        message: `Registration success for ${user.email}`,
-        level: 'info',
-        data: { role: user.role },
-      });
-
-      return { user, tokens };
-    } catch (err) {
-      Sentry.captureException(err, {
-        contexts: {
-          auth: {
-            action: 'register',
-            email: input.email,
-          },
-        },
-      });
+      Sentry.captureException(err, { contexts: { auth: { action: 'register', email: input.email } } });
       throw err;
     }
   },
 
   async logout(): Promise<void> {
-    try {
-      Sentry.addBreadcrumb({
-        category: 'auth',
-        message: 'Logout initiated',
-        level: 'info',
-      });
-
-      await api.post('/auth/logout');
-
-      Sentry.addBreadcrumb({
-        category: 'auth',
-        message: 'Logout completed successfully',
-        level: 'info',
-      });
-    } catch (err) {
-      Sentry.captureException(err, {
-        contexts: {
-          auth: {
-            action: 'logout',
-          },
-        },
-      });
-      throw err;
-    }
-  },
-
-  async refresh(refreshToken: string): Promise<{ accessToken: string }> {
-    const { data } = await api.post<{ accessToken: string }>('/auth/refresh', {
-      refreshToken,
-    });
-    return data;
+    // Learning backend uses stateless JWT — no server-side logout endpoint needed.
+    // Token is cleared locally by useLogout via clearAuth().
   },
 };

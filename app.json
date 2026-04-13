@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Pocket Change",
-    "slug": "pocketchange-app",
+    "name": "Learning",
+    "slug": "learning-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,22 +10,18 @@
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F3F3F3"
+      "backgroundColor": "#F8FAFC"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "org.pocketchange.app"
+      "bundleIdentifier": "com.learning.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#1B5E72"
+        "backgroundColor": "#4F46E5"
       },
-      "package": "org.pocketchange.app",
-      "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
-      ]
+      "package": "com.learning.app"
     },
     "web": {
       "bundler": "metro",
@@ -35,45 +31,28 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "PocketChange needs camera access to scan recipient QR codes."
-        }
-      ],
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.org.pocketchange.app",
-          "enableGooglePay": false
-        }
-      ],
       "expo-font",
       [
         "@sentry/react-native/expo",
         {
           "url": "https://sentry.io/",
-          "project": "react-native",
-          "organization": "pocketchange-sd"
+          "project": "learning-app",
+          "organization": "learning"
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
     },
-    "scheme": "pocketchange",
+    "scheme": "learning",
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "8eea4182-083c-4a25-bb6e-ba6d66fe81bb"
+        "projectId": ""
       }
     },
-    "owner": "guyfpowell",
     "runtimeVersion": {
       "policy": "sdkVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/8eea4182-083c-4a25-bb6e-ba6d66fe81bb"
     }
   }
 }

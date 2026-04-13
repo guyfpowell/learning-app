@@ -4,7 +4,6 @@ import {
   Poppins_700Bold,
   useFonts,
 } from '@expo-google-fonts/poppins';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { Stack, useSegments, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Component, useEffect } from 'react';
@@ -14,7 +13,6 @@ import { ScrollView, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { colors } from '@/theme';
 import { QueryProvider } from '@/providers/QueryProvider';
-import { StripeWrapper } from '@/providers/StripeWrapper';
 import { useAuthStore } from '@/store/auth.store';
 import * as Sentry from '@sentry/react-native';
 
@@ -54,46 +52,31 @@ SplashScreen.preventAutoHideAsync();
  * Watches Zustand auth state and navigates reactively — no routing in mutation callbacks.
  *
  * Rules (priority order):
- * 1. Not hydrated → do nothing (spinner visible at root)
+ * 1. Not hydrated → do nothing (splash visible)
  * 2. No token + not on auth screen → sign-in
- * 3. mustChangePassword + not on set-password → set-password
- * 4. Authenticated + no password change required + not on role home → route by role
+ * 3. Authenticated + not on (tabs) → (tabs)
  */
 export function AuthGate() {
-  const { _hasHydrated, accessToken, user, mustChangePassword } = useAuthStore();
+  const { _hasHydrated, accessToken } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (!_hasHydrated) return;
 
-    const inAuthGroup      = segments[0] === '(auth)';
-    const inDonorGroup     = segments[0] === '(donor)';
-    const inRecipientGroup = segments[0] === '(recipient)';
-    const onSetPassword    = inAuthGroup && segments[1] === 'set-password';
+    const inAuthGroup = segments[0] === '(auth)';
+    const inTabsGroup = segments[0] === '(tabs)';
 
     if (!accessToken) {
       if (!inAuthGroup) router.replace('/(auth)/sign-in');
       return;
     }
 
-    if (mustChangePassword) {
-      if (!onSetPassword) router.replace('/(auth)/set-password');
-      return;
+    // Authenticated — move away from auth screens and root index
+    if (!inTabsGroup) {
+      router.replace('/(tabs)');
     }
-
-    // Authenticated, no password change required — move away from auth screens and root
-    // Also allow detail screens that live outside route groups (recipient/[id], donate/[id], donation/[id])
-    const onRoleHome =
-      inDonorGroup ||
-      inRecipientGroup ||
-      segments[0] === 'recipient' ||
-      segments[0] === 'donate' ||
-      segments[0] === 'donation';
-    if (!onRoleHome) {
-      router.replace(user?.role === 'RECIPIENT' ? '/(recipient)' : '/(donor)');
-    }
-  }, [_hasHydrated, accessToken, mustChangePassword, user?.role, segments[0], segments[1]]);
+  }, [_hasHydrated, accessToken, segments[0]]);
 
   return null;
 }
@@ -118,23 +101,15 @@ function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StripeWrapper>
-        <QueryProvider>
-          <BottomSheetModalProvider>
-            <StatusBar style="dark" backgroundColor={colors.bg} />
-            <AuthGate />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(donor)" />
-              <Stack.Screen name="(recipient)" />
-              <Stack.Screen name="recipient/[id]" />
-              <Stack.Screen name="donate/[id]" />
-              <Stack.Screen name="donation/[id]" />
-            </Stack>
-          </BottomSheetModalProvider>
-        </QueryProvider>
-      </StripeWrapper>
+      <QueryProvider>
+        <StatusBar style="dark" backgroundColor={colors.bg} />
+        <AuthGate />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
+      </QueryProvider>
     </GestureHandlerRootView>
   );
 }

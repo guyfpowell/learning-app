@@ -76,13 +76,13 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Logo size={80} />
-          <Text style={styles.appName}>POCKET CHANGE</Text>
-          <Text style={styles.tagline}>Making every penny count</Text>
+          <Text style={styles.appName}>LEARNING</Text>
+          <Text style={styles.tagline}>A little every day</Text>
 
           <Card style={styles.card}>
             <Text style={styles.heading}>Sign in</Text>
             <Text style={styles.sub}>
-              Welcome back. Sign in to donate or manage your account.
+              Welcome back. Sign in to continue learning.
             </Text>
 
             {login.isError && (

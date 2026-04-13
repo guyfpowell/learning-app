@@ -2,22 +2,25 @@ import { Platform } from 'react-native';
 
 // ─── Colours ────────────────────────────────────────────────────────────────
 export const colors = {
-  teal:      '#1B5E72',
-  tealDark:  '#164d5e',
-  tealLight: '#2a7a92',
+  // Primary — indigo (learning/academic)
+  teal:      '#4F46E5',
+  tealDark:  '#3730A3',
+  tealLight: '#6366F1',
+  // Accent — sky blue
   blue:      '#7DD8E8',
-  blueLight: '#a8e6f0',
-  vivid:     '#1BAFE8',
-  vividDark: '#1597cc',
-  bg:        '#F3F3F3',
+  blueLight: '#BAE6FD',
+  vivid:     '#0EA5E9',
+  vividDark: '#0284C7',
+  // Neutrals
+  bg:        '#F8FAFC',
   white:     '#FFFFFF',
   error:     '#DC2626',
   errorBg:   '#FEE2E2',
   success:   '#16A34A',
   successBg: '#DCFCE7',
   textMuted: '#9CA3AF',
-  textDark:  '#374151',
-  border:    '#E5E7EB',
+  textDark:  '#1E293B',
+  border:    '#E2E8F0',
 } as const;
 
 // ─── Spacing ─────────────────────────────────────────────────────────────────

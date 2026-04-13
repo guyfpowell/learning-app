@@ -22,6 +22,11 @@ function extractError(err: unknown): string {
   return typed?.response?.data?.error ?? 'Registration failed. Please try again.';
 }
 
+function validateName(name: string): string | null {
+  if (!name.trim()) return 'Name is required';
+  return null;
+}
+
 function validateEmail(email: string): string | null {
   if (!email.trim()) return 'Email is required';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Enter a valid email address';
@@ -44,23 +49,26 @@ export default function RegisterScreen() {
   const router = useRouter();
   const register = useRegister();
 
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm]   = useState('');
-  const [touched, setTouched]   = useState({ email: false, password: false, confirm: false });
+  const [name, setName]           = useState('');
+  const [email, setEmail]         = useState('');
+  const [password, setPassword]   = useState('');
+  const [confirm, setConfirm]     = useState('');
+  const [touched, setTouched]     = useState({ name: false, email: false, password: false, confirm: false });
 
-  const emailError    = touched.email    ? validateEmail(email)                   : null;
-  const passwordError = touched.password ? validatePassword(password)             : null;
-  const confirmError  = touched.confirm  ? validateConfirm(password, confirm)     : null;
+  const nameError     = touched.name     ? validateName(name)                       : null;
+  const emailError    = touched.email    ? validateEmail(email)                     : null;
+  const passwordError = touched.password ? validatePassword(password)               : null;
+  const confirmError  = touched.confirm  ? validateConfirm(password, confirm)       : null;
 
   function handleSubmit() {
-    setTouched({ email: true, password: true, confirm: true });
+    setTouched({ name: true, email: true, password: true, confirm: true });
     if (
+      validateName(name) ||
       validateEmail(email) ||
       validatePassword(password) ||
       validateConfirm(password, confirm)
     ) return;
-    register.mutate({ email: email.trim().toLowerCase(), password });
+    register.mutate({ name: name.trim(), email: email.trim().toLowerCase(), password });
   }
 
   return (
@@ -74,12 +82,12 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Logo size={72} />
-          <Text style={styles.appName}>POCKET CHANGE</Text>
+          <Text style={styles.appName}>LEARNING</Text>
 
           <Card style={styles.card}>
             <Text style={styles.heading}>Create account</Text>
             <Text style={styles.sub}>
-              Join PocketChange and start making a difference.
+              Join Learning and start building your skills.
             </Text>
 
             {register.isError && (
@@ -93,12 +101,23 @@ export default function RegisterScreen() {
             {register.isSuccess && (
               <View style={styles.successBanner}>
                 <Text style={styles.successBannerText}>
-                  Account created! Redirecting to sign in…
+                  Account created! Redirecting…
                 </Text>
               </View>
             )}
 
             <View style={styles.fields}>
+              <Input
+                label="Name"
+                value={name}
+                onChangeText={setName}
+                onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+                error={nameError ?? undefined}
+                placeholder="Your full name"
+                autoComplete="name"
+                returnKeyType="next"
+              />
+
               <Input
                 label="Email"
                 value={email}
@@ -179,7 +198,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl,
     color: colors.white,
     letterSpacing: tracking.heading,
-    marginBottom: spacing.sm,
   },
   card: {
     width: '100%',
@@ -211,8 +229,6 @@ const styles = StyleSheet.create({
   },
   successBanner: {
     backgroundColor: colors.successBg,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
     borderRadius: 8,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

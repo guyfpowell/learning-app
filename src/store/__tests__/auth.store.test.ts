@@ -6,10 +6,12 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 import { useAuthStore } from '../auth.store';
+import type { UserAuth } from '@learning/shared';
+
+const mockUser: UserAuth = { id: 'u1', email: 'test@example.com', name: 'Test User' };
 
 describe('useAuthStore', () => {
   beforeEach(() => {
-    // Reset store to initial state before each test
     useAuthStore.setState({
       user: null,
       accessToken: null,
@@ -28,12 +30,10 @@ describe('useAuthStore', () => {
 
   describe('setAuth', () => {
     it('sets user, accessToken and refreshToken', () => {
-      const user = { id: 'u1', email: 'test@example.com', role: 'DONOR' as const, walletBalance: 0 };
-
-      useAuthStore.getState().setAuth(user, 'access-123', 'refresh-456');
+      useAuthStore.getState().setAuth(mockUser, 'access-123', 'refresh-456');
 
       const state = useAuthStore.getState();
-      expect(state.user).toEqual(user);
+      expect(state.user).toEqual(mockUser);
       expect(state.accessToken).toBe('access-123');
       expect(state.refreshToken).toBe('refresh-456');
     });
@@ -41,9 +41,7 @@ describe('useAuthStore', () => {
 
   describe('clearAuth', () => {
     it('resets user, accessToken and refreshToken to null', () => {
-      const user = { id: 'u1', email: 'test@example.com', role: 'DONOR' as const, walletBalance: 0 };
-      useAuthStore.getState().setAuth(user, 'access-123', 'refresh-456');
-
+      useAuthStore.getState().setAuth(mockUser, 'access-123', 'refresh-456');
       useAuthStore.getState().clearAuth();
 
       const state = useAuthStore.getState();

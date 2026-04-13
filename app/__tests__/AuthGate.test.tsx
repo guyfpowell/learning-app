@@ -6,8 +6,6 @@ let mockSegments: string[] = [];
 let mockAuthState = {
   _hasHydrated: false,
   accessToken: null as string | null,
-  user: null as { role: string } | null,
-  mustChangePassword: false,
 };
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
@@ -46,10 +44,6 @@ jest.mock('expo-splash-screen', () => ({
   hideAsync: jest.fn(),
 }));
 
-jest.mock('@gorhom/bottom-sheet', () => ({
-  BottomSheetModalProvider: ({ children }: any) => children,
-}));
-
 jest.mock('expo-status-bar', () => ({ StatusBar: () => null }));
 
 jest.mock('react-native-gesture-handler', () => ({
@@ -60,12 +54,8 @@ jest.mock('@/providers/QueryProvider', () => ({
   QueryProvider: ({ children }: any) => children,
 }));
 
-jest.mock('@/providers/StripeWrapper', () => ({
-  StripeWrapper: ({ children }: any) => children,
-}));
-
 jest.mock('@/theme', () => ({
-  colors: { bg: '#F3F3F3', teal: '#1B5E72' },
+  colors: { bg: '#F8FAFC' },
 }));
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -80,12 +70,7 @@ describe('AuthGate', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSegments = [];
-    mockAuthState = {
-      _hasHydrated: false,
-      accessToken: null,
-      user: null,
-      mustChangePassword: false,
-    };
+    mockAuthState = { _hasHydrated: false, accessToken: null };
   });
 
   it('does nothing before hydration', () => {
@@ -102,7 +87,7 @@ describe('AuthGate', () => {
     expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
   });
 
-  it('does not navigate when already on sign-in (no loop)', () => {
+  it('does not navigate when already on auth screen (no loop)', () => {
     mockAuthState._hasHydrated = true;
     mockAuthState.accessToken = null;
     mockSegments = ['(auth)', 'sign-in'];
@@ -110,90 +95,26 @@ describe('AuthGate', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('navigates to set-password when mustChangePassword is true and not on set-password', () => {
+  it('navigates to /(tabs) when authenticated and at root', () => {
     mockAuthState._hasHydrated = true;
     mockAuthState.accessToken = 'tok';
-    mockAuthState.mustChangePassword = true;
+    mockSegments = [];
+    render(<AuthGate />);
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
+  });
+
+  it('navigates to /(tabs) when authenticated and on auth screen', () => {
+    mockAuthState._hasHydrated = true;
+    mockAuthState.accessToken = 'tok';
     mockSegments = ['(auth)', 'sign-in'];
     render(<AuthGate />);
-    expect(mockReplace).toHaveBeenCalledWith('/(auth)/set-password');
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
   });
 
-  it('does not navigate when mustChangePassword and already on set-password (no loop)', () => {
+  it('does not navigate when authenticated and already on tabs', () => {
     mockAuthState._hasHydrated = true;
     mockAuthState.accessToken = 'tok';
-    mockAuthState.mustChangePassword = true;
-    mockSegments = ['(auth)', 'set-password'];
-    render(<AuthGate />);
-    expect(mockReplace).not.toHaveBeenCalled();
-  });
-
-  it('navigates to /(recipient) for authenticated RECIPIENT on auth screen', () => {
-    mockAuthState._hasHydrated = true;
-    mockAuthState.accessToken = 'tok';
-    mockAuthState.mustChangePassword = false;
-    mockAuthState.user = { role: 'RECIPIENT' };
-    mockSegments = ['(auth)', 'sign-in'];
-    render(<AuthGate />);
-    expect(mockReplace).toHaveBeenCalledWith('/(recipient)');
-  });
-
-  it('navigates to /(donor) for authenticated DONOR on auth screen', () => {
-    mockAuthState._hasHydrated = true;
-    mockAuthState.accessToken = 'tok';
-    mockAuthState.mustChangePassword = false;
-    mockAuthState.user = { role: 'DONOR' };
-    mockSegments = ['(auth)', 'sign-in'];
-    render(<AuthGate />);
-    expect(mockReplace).toHaveBeenCalledWith('/(donor)');
-  });
-
-  it('does not navigate when RECIPIENT already on recipient home', () => {
-    mockAuthState._hasHydrated = true;
-    mockAuthState.accessToken = 'tok';
-    mockAuthState.mustChangePassword = false;
-    mockAuthState.user = { role: 'RECIPIENT' };
-    mockSegments = ['(recipient)', 'index'];
-    render(<AuthGate />);
-    expect(mockReplace).not.toHaveBeenCalled();
-  });
-
-  it('does not navigate when DONOR already on donor home', () => {
-    mockAuthState._hasHydrated = true;
-    mockAuthState.accessToken = 'tok';
-    mockAuthState.mustChangePassword = false;
-    mockAuthState.user = { role: 'DONOR' };
-    mockSegments = ['(donor)', 'index'];
-    render(<AuthGate />);
-    expect(mockReplace).not.toHaveBeenCalled();
-  });
-
-  it('does not redirect when authenticated donor is on recipient/[id]', () => {
-    mockAuthState._hasHydrated = true;
-    mockAuthState.accessToken = 'tok';
-    mockAuthState.mustChangePassword = false;
-    mockAuthState.user = { role: 'DONOR' };
-    mockSegments = ['recipient', 'abc123'];
-    render(<AuthGate />);
-    expect(mockReplace).not.toHaveBeenCalled();
-  });
-
-  it('does not redirect when authenticated donor is on donate/[id]', () => {
-    mockAuthState._hasHydrated = true;
-    mockAuthState.accessToken = 'tok';
-    mockAuthState.mustChangePassword = false;
-    mockAuthState.user = { role: 'DONOR' };
-    mockSegments = ['donate', 'abc123'];
-    render(<AuthGate />);
-    expect(mockReplace).not.toHaveBeenCalled();
-  });
-
-  it('does not redirect when authenticated donor is on donation/[id]', () => {
-    mockAuthState._hasHydrated = true;
-    mockAuthState.accessToken = 'tok';
-    mockAuthState.mustChangePassword = false;
-    mockAuthState.user = { role: 'DONOR' };
-    mockSegments = ['donation', 'abc123'];
+    mockSegments = ['(tabs)', 'lessons'];
     render(<AuthGate />);
     expect(mockReplace).not.toHaveBeenCalled();
   });
@@ -201,8 +122,7 @@ describe('AuthGate', () => {
   it('navigates to sign-in when token cleared mid-session', () => {
     mockAuthState._hasHydrated = true;
     mockAuthState.accessToken = 'tok';
-    mockAuthState.user = { role: 'DONOR' };
-    mockSegments = ['(donor)', 'index'];
+    mockSegments = ['(tabs)', 'lessons'];
 
     const { rerender } = render(<AuthGate />);
     expect(mockReplace).not.toHaveBeenCalled();
