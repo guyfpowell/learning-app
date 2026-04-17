@@ -18,6 +18,10 @@ jest.mock('@/theme', () => ({
   fontSize: { xs: 11 },
 }));
 
+jest.mock('@/hooks/useNotifications', () => ({
+  useNotifications: jest.fn(),
+}));
+
 describe('(tabs) layout', () => {
   it('renders without errors', () => {
     const TabsLayout = require('../_layout').default;

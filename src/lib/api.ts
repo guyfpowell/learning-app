@@ -74,4 +74,14 @@ api.interceptors.response.use(
   }
 );
 
+export async function registerPushToken(
+  token: string,
+  platform: 'expo' | 'web',
+  deviceId?: string
+): Promise<void> {
+  await api.post('/notifications/push-token', { token, platform, deviceId });
+}
+
+export default api;
+
 export default api;

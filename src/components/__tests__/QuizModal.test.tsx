@@ -74,6 +74,7 @@ const mockResult = {
     },
   ],
   lesson: mockLesson,
+  coaching: null,
 };
 
 describe('QuizModal', () => {
@@ -193,5 +194,18 @@ describe('QuizModal', () => {
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
     fireEvent.press(screen.getByText('DONE'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('renders coaching card when coaching message is present', () => {
+    setQuizMock({ data: { ...mockResult, coaching: 'Great work! You answered correctly.' } });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    expect(screen.getByText('AI Coaching')).toBeTruthy();
+    expect(screen.getByText('Great work! You answered correctly.')).toBeTruthy();
+  });
+
+  it('does not render coaching card when coaching is null', () => {
+    setQuizMock({ data: { ...mockResult, coaching: null } });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    expect(screen.queryByText('AI Coaching')).toBeNull();
   });
 });

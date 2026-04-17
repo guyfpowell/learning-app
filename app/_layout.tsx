@@ -6,7 +6,8 @@ import {
 } from '@expo-google-fonts/poppins';
 import { Stack, useSegments, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { Component, useEffect } from 'react';
+import * as Notifications from 'expo-notifications';
+import { Component, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ScrollView, Text } from 'react-native';
@@ -87,6 +88,8 @@ function RootLayout() {
     Poppins_500Medium,
     Poppins_700Bold,
   });
+  const router = useRouter();
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -94,6 +97,22 @@ function RootLayout() {
       Sentry.captureMessage('App loaded', 'info');
     }
   }, [fontsLoaded, fontError]);
+
+  // Handle background notification taps — navigate to the lesson screen
+  useEffect(() => {
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+      const screen = response.notification.request.content.data?.screen;
+      if (screen === 'lessons' || !screen) {
+        router.replace('/(tabs)');
+      } else if (screen === 'progress') {
+        router.replace('/(tabs)/progress');
+      }
+    });
+
+    return () => {
+      responseListener.current?.remove();
+    };
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     return null;

@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, font, fontSize } from '@/theme';
+import { useNotifications } from '@/hooks/useNotifications';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -11,6 +12,9 @@ function tabIcon(name: IoniconName, focusedName: IoniconName) {
 }
 
 export default function TabsLayout() {
+  // Register for push notifications once the authenticated tab shell mounts
+  useNotifications();
+
   return (
     <Tabs
       screenOptions={{
