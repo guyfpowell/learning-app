@@ -108,6 +108,7 @@ export default function RegisterScreen() {
 
             <View style={styles.fields}>
               <Input
+                testID="register-name"
                 label="Name"
                 value={name}
                 onChangeText={setName}
@@ -119,6 +120,7 @@ export default function RegisterScreen() {
               />
 
               <Input
+                testID="register-email"
                 label="Email"
                 value={email}
                 onChangeText={setEmail}
@@ -132,6 +134,7 @@ export default function RegisterScreen() {
               />
 
               <Input
+                testID="register-password"
                 label="Password"
                 value={password}
                 onChangeText={setPassword}
@@ -144,6 +147,7 @@ export default function RegisterScreen() {
               />
 
               <Input
+                testID="register-confirm"
                 label="Confirm password"
                 value={confirm}
                 onChangeText={setConfirm}
@@ -158,6 +162,7 @@ export default function RegisterScreen() {
             </View>
 
             <Button
+              testID="register-submit"
               label="Create account"
               onPress={handleSubmit}
               loading={register.isPending}

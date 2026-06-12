@@ -35,8 +35,8 @@ export default function LessonsScreen() {
         )}
 
         {lesson && (
-          <Card style={styles.card}>
-            <Text style={styles.title}>{lesson.title}</Text>
+          <Card testID="lesson-card" style={styles.card}>
+            <Text testID="lesson-title" style={styles.title}>{lesson.title}</Text>
 
             <View style={styles.meta}>
               <Badge
@@ -47,6 +47,7 @@ export default function LessonsScreen() {
             </View>
 
             <Button
+              testID="lesson-quiz-btn"
               label="Take Quiz"
               style={styles.quizBtn}
               onPress={() => setQuizVisible(true)}

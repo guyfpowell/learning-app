@@ -27,17 +27,17 @@ export default function ProgressScreen() {
           <>
             <View style={styles.statsRow}>
               <Card style={styles.statCard}>
-                <Text style={styles.statValue}>{data.currentStreak}</Text>
+                <Text testID="progress-streak" style={styles.statValue}>{data.currentStreak}</Text>
                 <Text style={styles.statLabel}>Day Streak</Text>
               </Card>
 
               <Card style={styles.statCard}>
-                <Text style={styles.statValue}>{data.totalLessonsCompleted}</Text>
+                <Text testID="progress-lessons-count" style={styles.statValue}>{data.totalLessonsCompleted}</Text>
                 <Text style={styles.statLabel}>Lessons Done</Text>
               </Card>
 
               <Card style={styles.statCard}>
-                <Text style={styles.statValue}>{data.averageScore}%</Text>
+                <Text testID="progress-avg-score" style={styles.statValue}>{data.averageScore}%</Text>
                 <Text style={styles.statLabel}>Avg Score</Text>
               </Card>
             </View>

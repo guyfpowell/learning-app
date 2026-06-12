@@ -95,6 +95,7 @@ export default function SignInScreen() {
 
             <View style={styles.fields}>
               <Input
+                testID="signin-email"
                 label="Email"
                 value={email}
                 onChangeText={setEmail}
@@ -108,6 +109,7 @@ export default function SignInScreen() {
               />
 
               <Input
+                testID="signin-password"
                 label="Password"
                 value={password}
                 onChangeText={setPassword}
@@ -122,6 +124,7 @@ export default function SignInScreen() {
             </View>
 
             <Button
+              testID="signin-submit"
               label="Sign in"
               onPress={handleSubmit}
               loading={login.isPending}

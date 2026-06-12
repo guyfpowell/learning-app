@@ -34,40 +34,75 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ─── Response: on 401 → clear session and redirect ───────────────────────────
-// The learning backend uses stateless JWTs with no refresh token endpoint.
-// A 401 means the token has expired or is invalid — clear auth and sign out.
-let logoutHandled = false;
+// ─── Response: on 401 → try refresh, then sign out if refresh fails ──────────
+let isRefreshing = false;
+let refreshQueue: Array<(token: string) => void> = [];
+
+async function tryRefresh(): Promise<string | null> {
+  const { refreshToken } = useAuthStore.getState();
+  if (!refreshToken) return null;
+
+  try {
+    const res = await api.post('/auth/refresh', { refreshToken }, {
+      // Skip the interceptor for this request
+      headers: { 'X-Skip-Refresh': 'true' },
+    });
+    const { token: newToken, refreshToken: newRefreshToken } = res.data.data;
+    const { user } = useAuthStore.getState();
+    if (user) useAuthStore.getState().setAuth(user, newToken, newRefreshToken);
+    return newToken;
+  } catch {
+    return null;
+  }
+}
+
+function signOutAndRedirect() {
+  Sentry.addBreadcrumb({
+    category: 'auth',
+    message: 'Session expired — signing out',
+    level: 'warning',
+  });
+  useAuthStore.getState().clearAuth();
+  queryClient.clear();
+  router.replace('/(auth)/sign-in');
+}
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') {
       return Promise.reject(error);
     }
 
-    // Auth endpoint 401s (wrong credentials) pass directly to the caller.
-    if (error.response?.status === 401 && (error.config?.url ?? '').startsWith('/auth/')) {
+    // Auth endpoint 401s (wrong credentials) and refresh requests pass directly to caller.
+    const url = error.config?.url ?? '';
+    if (error.response?.status === 401 && (url.startsWith('/auth/') || error.config?.headers?.['X-Skip-Refresh'])) {
       return Promise.reject(error);
     }
 
     if (error.response?.status === 401) {
-      if (!logoutHandled) {
-        logoutHandled = true;
-
-        Sentry.addBreadcrumb({
-          category: 'auth',
-          message: 'Session expired — signing out',
-          level: 'warning',
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          refreshQueue.push((newToken: string) => {
+            error.config.headers['Authorization'] = `Bearer ${newToken}`;
+            api.request(error.config).then(resolve).catch(reject);
+          });
         });
-
-        useAuthStore.getState().clearAuth();
-        queryClient.clear();
-        router.replace('/(auth)/sign-in');
-
-        // Reset guard after tick so future requests aren't blocked
-        setTimeout(() => { logoutHandled = false; }, 0);
       }
+
+      isRefreshing = true;
+      const newToken = await tryRefresh();
+      isRefreshing = false;
+
+      if (newToken) {
+        refreshQueue.forEach(cb => cb(newToken));
+        refreshQueue = [];
+        error.config.headers['Authorization'] = `Bearer ${newToken}`;
+        return api.request(error.config);
+      }
+
+      refreshQueue = [];
+      signOutAndRedirect();
     }
 
     return Promise.reject(error);
