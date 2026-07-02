@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { isAxiosError } from 'axios';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -15,9 +16,48 @@ const difficultyVariant = {
   advanced:     'error',
 } as const;
 
+function isPremiumError(error: unknown): boolean {
+  return isAxiosError(error) && error.response?.status === 403 &&
+    (error.response?.data?.code === 'LESSON_004' || error.response?.data?.code === 'LESSON_005')
+}
+
+function isTeaserLimitError(error: unknown): boolean {
+  return isAxiosError(error) && error.response?.data?.code === 'LESSON_005'
+}
+
+function PremiumModal({ visible, error, onClose }: { visible: boolean; error: unknown; onClose: () => void }) {
+  const isLimit = isTeaserLimitError(error)
+  const teasersUsed: number = isAxiosError(error) ? (error.response?.data?.teasersUsed ?? 0) : 0
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.modalOverlay} onPress={onClose}>
+        <View style={styles.modalSheet}>
+          <Text style={styles.modalIcon}>🔒</Text>
+          <Text style={styles.modalTitle}>
+            {isLimit ? 'Free Preview Limit Reached' : 'Premium Content'}
+          </Text>
+          <Text style={styles.modalBody}>
+            {isLimit
+              ? `You've used ${teasersUsed} of 3 free previews this month. Upgrade to continue learning.`
+              : 'This is premium content. Upgrade to unlock unlimited access to all lessons.'}
+          </Text>
+          <Button label="Upgrade now" style={styles.upgradeBtn} onPress={onClose} />
+          <Pressable onPress={onClose} style={styles.dismissBtn}>
+            <Text style={styles.dismissText}>Maybe later</Text>
+          </Pressable>
+        </View>
+      </Pressable>
+    </Modal>
+  )
+}
+
 export default function LessonsScreen() {
-  const { data: lesson, isLoading, isError } = useTodayLesson();
+  const { data: lesson, isLoading, isError, error } = useTodayLesson();
   const [quizVisible, setQuizVisible] = useState(false);
+  const [premiumModalVisible, setPremiumModalVisible] = useState(false);
+
+  const showPremiumError = isError && isPremiumError(error)
 
   return (
     <SafeAreaView style={styles.container}>
@@ -26,8 +66,22 @@ export default function LessonsScreen() {
 
         {isLoading && <Spinner fullScreen />}
 
-        {isError && (
+        {isError && !showPremiumError && (
           <Text style={styles.error}>Unable to load lesson. Please try again.</Text>
+        )}
+
+        {isError && showPremiumError && (
+          <Card testID="premium-error-card" style={styles.card}>
+            <Text style={styles.premiumIcon}>🔒</Text>
+            <Text style={styles.premiumTitle}>
+              {isTeaserLimitError(error) ? 'Free Preview Limit Reached' : 'Premium Content'}
+            </Text>
+            <Button
+              label="Learn more"
+              style={styles.quizBtn}
+              onPress={() => setPremiumModalVisible(true)}
+            />
+          </Card>
         )}
 
         {!isLoading && !isError && lesson === null && (
@@ -44,6 +98,11 @@ export default function LessonsScreen() {
                 variant={difficultyVariant[lesson.difficulty]}
               />
               <Text style={styles.duration}>{lesson.durationMinutes} min</Text>
+              {lesson.isTeaser && (
+                <View testID="teaser-badge">
+                  <Badge label="Free preview" variant="info" />
+                </View>
+              )}
             </View>
 
             <Button
@@ -63,6 +122,12 @@ export default function LessonsScreen() {
           onClose={() => setQuizVisible(false)}
         />
       )}
+
+      <PremiumModal
+        visible={premiumModalVisible}
+        error={error}
+        onClose={() => setPremiumModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -86,6 +151,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems:    'center',
     gap:           spacing.sm,
+    flexWrap:      'wrap',
   },
   duration: {
     fontFamily: font.regular,
@@ -106,5 +172,52 @@ const styles = StyleSheet.create({
     color:      colors.textMuted,
     textAlign:  'center',
     marginTop:  spacing.lg,
+  },
+  premiumIcon: {
+    fontSize:  40,
+    textAlign: 'center',
+  },
+  premiumTitle: {
+    fontFamily: font.bold,
+    fontSize:   fontSize.md,
+    color:      colors.textDark,
+    textAlign:  'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: colors.bg,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: spacing.xl,
+    gap: spacing.md,
+    alignItems: 'center',
+  },
+  modalIcon: {
+    fontSize: 48,
+  },
+  modalTitle: {
+    fontFamily: font.bold,
+    fontSize:   fontSize.lg,
+    color:      colors.textDark,
+    textAlign:  'center',
+  },
+  modalBody: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.base,
+    color:      colors.textMuted,
+    textAlign:  'center',
+    lineHeight: fontSize.base * 1.5,
+  },
+  upgradeBtn: { width: '100%' },
+  dismissBtn: { paddingVertical: spacing.sm },
+  dismissText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.textMuted,
+    textAlign:  'center',
   },
 });
