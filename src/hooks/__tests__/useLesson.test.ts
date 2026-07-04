@@ -1,11 +1,16 @@
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { useTodayLesson } from '../useLesson';
+import { useTodayLesson, useSaveLesson, useUnsaveLesson, useSavedLessons } from '../useLesson';
 import { lessonService } from '@/services/lesson.service';
 
 jest.mock('@/services/lesson.service', () => ({
-  lessonService: { getTodayLesson: jest.fn() },
+  lessonService: {
+    getTodayLesson: jest.fn(),
+    saveLesson: jest.fn(),
+    unsaveLesson: jest.fn(),
+    getSavedLessons: jest.fn(),
+  },
 }));
 
 jest.mock('expo-secure-store', () => ({
@@ -64,5 +69,45 @@ describe('useTodayLesson', () => {
     const { result } = renderHook(() => useTodayLesson(), { wrapper: makeWrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockLessonService.getTodayLesson).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useSaveLesson (ticket 017 chunk 3)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('calls lessonService.saveLesson with the lesson id', async () => {
+    mockLessonService.saveLesson.mockResolvedValueOnce({ saved: true });
+    const { result } = renderHook(() => useSaveLesson(), { wrapper: makeWrapper() });
+
+    act(() => { result.current.mutate('lesson-1'); });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockLessonService.saveLesson).toHaveBeenCalledWith('lesson-1');
+  });
+});
+
+describe('useUnsaveLesson (ticket 017 chunk 3)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('calls lessonService.unsaveLesson with the lesson id', async () => {
+    mockLessonService.unsaveLesson.mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useUnsaveLesson(), { wrapper: makeWrapper() });
+
+    act(() => { result.current.mutate('lesson-1'); });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockLessonService.unsaveLesson).toHaveBeenCalledWith('lesson-1');
+  });
+});
+
+describe('useSavedLessons (ticket 017 chunk 3)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('returns saved lessons on success', async () => {
+    const summaries = [{ id: 'lesson-1', title: 'Intro', topicName: null, skillName: 'PM', lessonNumber: 1, savedAt: '2026-07-04T00:00:00.000Z' }];
+    mockLessonService.getSavedLessons.mockResolvedValueOnce(summaries);
+    const { result } = renderHook(() => useSavedLessons(), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(summaries);
   });
 });

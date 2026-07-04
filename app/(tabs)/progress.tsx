@@ -1,12 +1,26 @@
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, font, fontSize, spacing } from '@/theme';
+import type { LessonSummary } from '@learning/shared';
+import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { useProgress } from '@/hooks/useProgress';
+import { useSavedLessons } from '@/hooks/useLesson';
+
+function SavedLessonRow({ lesson }: { lesson: LessonSummary }) {
+  return (
+    <Card testID="saved-lesson-row" style={styles.savedRow}>
+      <Text style={styles.savedTitle}>{lesson.title}</Text>
+      <Text style={styles.savedMeta}>
+        {[lesson.topicName, lesson.skillName].filter(Boolean).join(' · ')}
+      </Text>
+    </Card>
+  );
+}
 
 export default function ProgressScreen() {
   const { data, isLoading, isError } = useProgress();
+  const { data: savedLessons } = useSavedLessons();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -51,6 +65,17 @@ export default function ProgressScreen() {
             )}
           </>
         )}
+
+        <Text style={styles.sectionHeading}>Saved</Text>
+        {savedLessons && savedLessons.length > 0 ? (
+          <View style={styles.savedList}>
+            {savedLessons.map((lesson) => (
+              <SavedLessonRow key={lesson.id} lesson={lesson} />
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.empty}>No saved lessons yet.</Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -90,6 +115,27 @@ const styles = StyleSheet.create({
   dateLabel: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
+    color:      colors.textMuted,
+  },
+  sectionHeading: {
+    fontFamily:   font.bold,
+    fontSize:     fontSize.sm,
+    color:        colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop:    spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  savedList: { gap: spacing.sm },
+  savedRow: { gap: spacing.xs, borderRadius: radius.card },
+  savedTitle: {
+    fontFamily: font.bold,
+    fontSize:   fontSize.base,
+    color:      colors.textDark,
+  },
+  savedMeta: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.xs,
     color:      colors.textMuted,
   },
   error: {

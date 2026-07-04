@@ -34,7 +34,23 @@ describe('quizService', () => {
 
       await quizService.submitQuiz('lesson-1', answers);
 
-      expect(mockApi.post).toHaveBeenCalledWith('/lessons/lesson-1/quiz', { answers });
+      expect(mockApi.post).toHaveBeenCalledWith('/lessons/lesson-1/quiz', {
+        answers,
+        isRetake: false,
+        skipRetake: false,
+      });
+    });
+
+    it('sends isRetake and skipRetake flags when provided', async () => {
+      mockApi.post.mockResolvedValueOnce({ data: mockResult });
+
+      await quizService.submitQuiz('lesson-1', { 'q-1': 'A' }, { isRetake: true });
+
+      expect(mockApi.post).toHaveBeenCalledWith('/lessons/lesson-1/quiz', {
+        answers: { 'q-1': 'A' },
+        isRetake: true,
+        skipRetake: false,
+      });
     });
 
     it('returns quiz result on success', async () => {

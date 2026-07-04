@@ -2,8 +2,10 @@ import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import ProgressScreen from '../progress';
 import { useProgress } from '@/hooks/useProgress';
+import { useSavedLessons } from '@/hooks/useLesson';
 
 jest.mock('@/hooks/useProgress', () => ({ useProgress: jest.fn() }));
+jest.mock('@/hooks/useLesson', () => ({ useSavedLessons: jest.fn() }));
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -26,7 +28,10 @@ function setMock(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ProgressScreen', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (useSavedLessons as jest.Mock).mockReturnValue({ data: [] });
+  });
 
   it('renders without errors', () => {
     setMock();

@@ -40,7 +40,25 @@ describe('useSubmitQuiz', () => {
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' } }); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockQuizService.submitQuiz).toHaveBeenCalledWith('lesson-1', { 'q-1': 'A' });
+    expect(mockQuizService.submitQuiz).toHaveBeenCalledWith(
+      'lesson-1',
+      { 'q-1': 'A' },
+      { isRetake: undefined, skipRetake: undefined }
+    );
+  });
+
+  it('passes isRetake and skipRetake through to the service', async () => {
+    mockQuizService.submitQuiz.mockResolvedValueOnce(mockResult as any);
+    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: makeWrapper() });
+
+    act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' }, isRetake: true }); });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockQuizService.submitQuiz).toHaveBeenCalledWith(
+      'lesson-1',
+      { 'q-1': 'A' },
+      { isRetake: true, skipRetake: undefined }
+    );
   });
 
   it('exposes result data on success', async () => {

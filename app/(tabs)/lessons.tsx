@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isAxiosError } from 'axios';
@@ -7,8 +7,9 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { QuizModal } from '@/components/QuizModal';
-import { useTodayLesson } from '@/hooks/useLesson';
+import { useTodayLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 
 const difficultyVariant = {
   beginner:     'success',
@@ -56,8 +57,26 @@ export default function LessonsScreen() {
   const { data: lesson, isLoading, isError, error } = useTodayLesson();
   const [quizVisible, setQuizVisible] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const saveLesson = useSaveLesson();
+  const unsaveLesson = useUnsaveLesson();
+
+  useEffect(() => {
+    setIsSaved(!!lesson?.isSaved);
+  }, [lesson?.id, lesson?.isSaved]);
 
   const showPremiumError = isError && isPremiumError(error)
+
+  function handleToggleSave() {
+    if (!lesson) return;
+    const nextSaved = !isSaved;
+    setIsSaved(nextSaved);
+    if (nextSaved) {
+      saveLesson.mutate(lesson.id, { onError: () => setIsSaved(!nextSaved) });
+    } else {
+      unsaveLesson.mutate(lesson.id, { onError: () => setIsSaved(!nextSaved) });
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -90,7 +109,10 @@ export default function LessonsScreen() {
 
         {lesson && (
           <Card testID="lesson-card" style={styles.card}>
-            <Text testID="lesson-title" style={styles.title}>{lesson.title}</Text>
+            <View style={styles.titleRow}>
+              <Text testID="lesson-title" style={styles.title}>{lesson.title}</Text>
+              <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
+            </View>
 
             <View style={styles.meta}>
               <Badge
@@ -142,10 +164,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   card: { gap: spacing.md },
+  titleRow: {
+    flexDirection:  'row',
+    alignItems:     'flex-start',
+    justifyContent: 'space-between',
+    gap:            spacing.sm,
+  },
   title: {
     fontFamily: font.bold,
     fontSize:   fontSize.md,
     color:      colors.textDark,
+    flex:       1,
   },
   meta: {
     flexDirection: 'row',

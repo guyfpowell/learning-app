@@ -10,8 +10,10 @@ import {
 } from 'react-native';
 import type { Lesson, QuizFeedback } from '@learning/shared';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
+import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 
 interface QuizModalProps {
@@ -20,10 +22,48 @@ interface QuizModalProps {
   onClose: () => void;
 }
 
+function TrackAverageBadge({
+  average,
+  previous,
+  retakeUsed,
+}: {
+  average: number | null;
+  previous: number | null;
+  retakeUsed: boolean;
+}) {
+  let arrow: '↑' | '↓' | '=' | null = null;
+  if (previous !== null) {
+    arrow = retakeUsed ? '=' : average !== null && average >= previous ? '↑' : '↓';
+  }
+
+  return (
+    <View accessibilityLabel={`Track average ${average !== null ? average + ' percent' : 'unavailable'}`}>
+      <View style={styles.trackAverageValueRow}>
+        <Text style={styles.scorePercent}>{average !== null ? `${average}%` : '—'}</Text>
+        {arrow && (
+          <Text
+            style={[
+              styles.trackAverageBadge,
+              arrow === '↑' ? styles.trackAverageUp : arrow === '↓' ? styles.trackAverageDown : styles.trackAverageFlat,
+            ]}
+          >
+            {arrow}
+          </Text>
+        )}
+      </View>
+      <Text style={styles.scoreFraction}>Track Average</Text>
+    </View>
+  );
+}
+
 export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [wrongAnswer, setWrongAnswer] = useState<string | undefined>(undefined);
+  const [isSaved, setIsSaved] = useState(false);
   const submit = useSubmitQuiz();
+  const saveLesson = useSaveLesson();
+  const unsaveLesson = useUnsaveLesson();
   const quizzes = lesson.quizzes;
   const scoreAnim = useRef(new Animated.Value(0)).current;
 
@@ -32,10 +72,22 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     if (visible) {
       setQuestionIndex(0);
       setAnswers({});
+      setWrongAnswer(undefined);
+      setIsSaved(!!lesson.isSaved);
       submit.reset();
       scoreAnim.setValue(0);
     }
-  }, [visible]);
+  }, [visible, lesson.id, lesson.isSaved]);
+
+  function handleToggleSave() {
+    const nextSaved = !isSaved;
+    setIsSaved(nextSaved);
+    if (nextSaved) {
+      saveLesson.mutate(lesson.id, { onError: () => setIsSaved(!nextSaved) });
+    } else {
+      unsaveLesson.mutate(lesson.id, { onError: () => setIsSaved(!nextSaved) });
+    }
+  }
 
   // Animate score scale on results
   useEffect(() => {
@@ -65,18 +117,64 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   }
 
   function handleSubmit() {
-    submit.mutate({ lessonId: lesson.id, answers });
+    if (wrongAnswer !== undefined) {
+      submit.mutate({ lessonId: lesson.id, answers, isRetake: true });
+    } else {
+      submit.mutate({ lessonId: lesson.id, answers });
+    }
   }
 
-  // ─── Results view ────────────────────────────────────────────────────────────
-  if (submit.data) {
-    const { score, feedbacks, coaching, streak, milestone } = submit.data;
-    const correct = feedbacks.filter((f: QuizFeedback) => f.isCorrect).length;
+  function handleTryAgain() {
+    if (!current) return;
+    setWrongAnswer(answers[current.id]);
+    setAnswers((prev) => {
+      const next = { ...prev };
+      delete next[current.id];
+      return next;
+    });
+    submit.reset();
+  }
+
+  function handleSkipRetake() {
+    submit.mutate({ lessonId: lesson.id, answers, skipRetake: true });
+  }
+
+  // ─── Wrong first attempt — retake offer ───────────────────────────────────────
+  if (submit.data && !submit.data.correct && submit.data.retakeAvailable) {
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <View style={styles.spacer} />
+            <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
+            <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
+              <Text style={styles.closeText}>✕</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.content}>
+            <Text style={styles.resultHeading}>Incorrect</Text>
+            {lesson.keyTakeaway && <Text style={styles.keyTakeaway}>{lesson.keyTakeaway}</Text>}
+            <Button label="Try again" onPress={handleTryAgain} style={styles.actionBtn} />
+            <Button
+              label="Next lesson"
+              onPress={handleSkipRetake}
+              loading={submit.isPending}
+              style={styles.actionBtn}
+            />
+          </ScrollView>
+        </View>
+      </Modal>
+    );
+  }
+
+  // ─── Results view ────────────────────────────────────────────────────────────
+  if (submit.data) {
+    const { feedbacks, coaching, streak, milestone, trackAverage, previousAverage } = submit.data;
+    const retakeUsed = wrongAnswer !== undefined;
+    return (
+      <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
             <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
               <Text style={styles.closeText}>✕</Text>
             </Pressable>
@@ -84,14 +182,10 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
           <ScrollView contentContainerStyle={styles.content}>
             <Text style={styles.resultHeading}>Quiz Complete!</Text>
 
-            {/* Animated score */}
-            <Animated.Text
-              style={[styles.scorePercent, { transform: [{ scale: scoreAnim }] }]}
-              accessibilityLabel={`Score: ${score} percent`}
-            >
-              {score}%
-            </Animated.Text>
-            <Text style={styles.scoreFraction}>{correct} of {feedbacks.length} correct</Text>
+            {/* Animated track average */}
+            <Animated.View style={{ transform: [{ scale: scoreAnim }] }}>
+              <TrackAverageBadge average={trackAverage} previous={previousAverage} retakeUsed={retakeUsed} />
+            </Animated.View>
 
             {/* Streak counter */}
             {streak > 0 && (
@@ -167,13 +261,15 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
                 <View style={styles.options}>
                   {current.options.map((option) => {
                     const isSelected = selectedAnswer === option;
+                    const isDisabled = wrongAnswer === option;
                     return (
                       <Pressable
                         key={option}
-                        style={[styles.option, isSelected && styles.optionSelected]}
-                        onPress={() => handleSelectOption(option)}
+                        style={[styles.option, isSelected && styles.optionSelected, isDisabled && styles.optionDisabled]}
+                        onPress={() => !isDisabled && handleSelectOption(option)}
+                        disabled={isDisabled}
                       >
-                        <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
+                        <Text style={[styles.optionText, isSelected && styles.optionTextSelected, isDisabled && styles.optionTextDisabled]}>
                           {option}
                         </Text>
                       </Pressable>
@@ -258,6 +354,15 @@ const styles = StyleSheet.create({
     color:      colors.textDark,
   },
   optionTextSelected: { color: colors.teal },
+  optionDisabled: { opacity: 0.4 },
+  optionTextDisabled: { textDecorationLine: 'line-through' },
+  keyTakeaway: {
+    fontFamily:   font.regular,
+    fontSize:     fontSize.base,
+    color:        colors.textDark,
+    textAlign:    'center',
+    marginBottom: spacing.xl,
+  },
   shortAnswerInput:   { marginBottom: spacing.lg },
   actionBtn:          { marginTop: spacing.sm },
   error: {
@@ -296,6 +401,19 @@ const styles = StyleSheet.create({
     marginTop:    spacing.xs,
     marginBottom: spacing.xl,
   },
+  trackAverageValueRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    justifyContent: 'center',
+    gap:           spacing.xs,
+  },
+  trackAverageBadge: {
+    fontFamily: font.bold,
+    fontSize:   fontSize.lg ?? fontSize.md,
+  },
+  trackAverageUp:   { color: colors.success },
+  trackAverageDown: { color: colors.error },
+  trackAverageFlat: { color: colors.success },
   feedbackCard: {
     backgroundColor: colors.white,
     borderRadius:    radius.card,

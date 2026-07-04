@@ -1,9 +1,13 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import LessonsScreen from '../lessons';
-import { useTodayLesson } from '@/hooks/useLesson';
+import { useTodayLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 
-jest.mock('@/hooks/useLesson', () => ({ useTodayLesson: jest.fn() }));
+jest.mock('@/hooks/useLesson', () => ({
+  useTodayLesson: jest.fn(),
+  useSaveLesson: jest.fn(),
+  useUnsaveLesson: jest.fn(),
+}));
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -40,8 +44,15 @@ function setMock(overrides: Record<string, unknown> = {}) {
   });
 }
 
+const mockSaveMutate = jest.fn();
+const mockUnsaveMutate = jest.fn();
+
 describe('LessonsScreen', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (useSaveLesson as jest.Mock).mockReturnValue({ mutate: mockSaveMutate });
+    (useUnsaveLesson as jest.Mock).mockReturnValue({ mutate: mockUnsaveMutate });
+  });
 
   it('renders without errors', () => {
     setMock();
@@ -102,5 +113,33 @@ describe('LessonsScreen', () => {
     expect(screen.queryByTestId('quiz-modal')).toBeNull();
     fireEvent.press(screen.getByText('TAKE QUIZ'));
     expect(screen.getByTestId('quiz-modal')).toBeTruthy();
+  });
+
+  describe('bookmark (ticket 017 chunk 3)', () => {
+    it('shows unsaved state when lesson.isSaved is false', () => {
+      setMock({ data: { ...mockLesson, isSaved: false } });
+      render(<LessonsScreen />);
+      expect(screen.getByLabelText('Save lesson')).toBeTruthy();
+    });
+
+    it('shows saved state when lesson.isSaved is true', () => {
+      setMock({ data: { ...mockLesson, isSaved: true } });
+      render(<LessonsScreen />);
+      expect(screen.getByLabelText('Remove from saved lessons')).toBeTruthy();
+    });
+
+    it('calls useSaveLesson.mutate with the lesson id when toggled on', () => {
+      setMock({ data: { ...mockLesson, isSaved: false } });
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByLabelText('Save lesson'));
+      expect(mockSaveMutate).toHaveBeenCalledWith('lesson-1', expect.anything());
+    });
+
+    it('calls useUnsaveLesson.mutate with the lesson id when toggled off', () => {
+      setMock({ data: { ...mockLesson, isSaved: true } });
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByLabelText('Remove from saved lessons'));
+      expect(mockUnsaveMutate).toHaveBeenCalledWith('lesson-1', expect.anything());
+    });
   });
 });
