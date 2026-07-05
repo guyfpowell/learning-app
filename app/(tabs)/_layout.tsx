@@ -33,7 +33,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="lessons"
-        options={{ title: 'Lessons', tabBarIcon: tabIcon('book-outline', 'book') }}
+        options={{ title: 'Home', tabBarIcon: tabIcon('book-outline', 'book') }}
       />
       <Tabs.Screen
         name="progress"
@@ -42,6 +42,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline', 'person') }}
+      />
+      <Tabs.Screen
+        name="tracks"
+        options={{ title: 'Tracks', tabBarIcon: tabIcon('library-outline', 'library') }}
       />
       <Tabs.Screen
         name="settings"

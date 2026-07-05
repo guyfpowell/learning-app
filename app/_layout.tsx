@@ -58,7 +58,7 @@ SplashScreen.preventAutoHideAsync();
  * 3. Authenticated + not on (tabs) → (tabs)
  */
 export function AuthGate() {
-  const { _hasHydrated, accessToken } = useAuthStore();
+  const { _hasHydrated, accessToken, hasOnboarded } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
 
@@ -67,17 +67,24 @@ export function AuthGate() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const inTabsGroup = segments[0] === '(tabs)';
+    const inOnboarding = inAuthGroup && segments[1] === 'onboarding';
 
     if (!accessToken) {
       if (!inAuthGroup) router.replace('/(auth)/sign-in');
       return;
     }
 
-    // Authenticated — move away from auth screens and root index
+    // Authenticated but not yet onboarded — hold on onboarding screen
+    if (hasOnboarded === false) {
+      if (!inOnboarding) router.replace('/(auth)/onboarding');
+      return;
+    }
+
+    // Onboarded (true) or unknown (null = existing user before this field existed) — go to tabs
     if (!inTabsGroup) {
       router.replace('/(tabs)');
     }
-  }, [_hasHydrated, accessToken, segments[0]]);
+  }, [_hasHydrated, accessToken, hasOnboarded, segments[0], segments[1]]);
 
   return null;
 }

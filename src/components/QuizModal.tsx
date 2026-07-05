@@ -57,9 +57,10 @@ function TrackAverageBadge({
 }
 
 export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | undefined>(undefined);
   const [wrongAnswer, setWrongAnswer] = useState<string | undefined>(undefined);
+  const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set());
   const [isSaved, setIsSaved] = useState(false);
   const submit = useSubmitQuiz();
   const saveLesson = useSaveLesson();
@@ -67,11 +68,14 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   const quizzes = lesson.quizzes;
   const scoreAnim = useRef(new Animated.Value(0)).current;
 
-  // Reset state each time the modal opens
+  // Reset state each time the modal opens; resume from first unresolved question
   useEffect(() => {
     if (visible) {
-      setQuestionIndex(0);
-      setAnswers({});
+      const resolved = new Set<string>(lesson.resolvedQuizIds ?? []);
+      setResolvedIds(resolved);
+      const startIdx = quizzes.findIndex(q => !resolved.has(q.id));
+      setCurrentQuizIndex(startIdx === -1 ? 0 : startIdx);
+      setSelectedAnswer(undefined);
       setWrongAnswer(undefined);
       setIsSaved(!!lesson.isSaved);
       submit.reset();
@@ -89,9 +93,9 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     }
   }
 
-  // Animate score scale on results
+  // Animate score only at lesson finalization
   useEffect(() => {
-    if (submit.data) {
+    if (submit.data?.lessonFinalized) {
       Animated.spring(scoreAnim, {
         toValue: 1,
         friction: 5,
@@ -101,42 +105,55 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     }
   }, [submit.data]);
 
-  const current = quizzes[questionIndex];
-  const isLast = questionIndex === quizzes.length - 1;
-  const selectedAnswer = current ? answers[current.id] : undefined;
+  const current = quizzes[currentQuizIndex];
 
   function handleSelectOption(option: string) {
-    if (!current) return;
-    setAnswers((prev) => ({ ...prev, [current.id]: option }));
+    setSelectedAnswer(option);
   }
 
-  function handleNext() {
-    if (questionIndex < quizzes.length - 1) {
-      setQuestionIndex((i) => i + 1);
+  // Advance to the next question that has not yet been resolved
+  function advanceToNextUnresolved(justResolvedId?: string) {
+    const newResolved = new Set(resolvedIds);
+    if (justResolvedId) newResolved.add(justResolvedId);
+    setResolvedIds(newResolved);
+    const nextIdx = quizzes.findIndex((q, i) => i > currentQuizIndex && !newResolved.has(q.id));
+    setCurrentQuizIndex(nextIdx === -1 ? currentQuizIndex : nextIdx);
+    setSelectedAnswer(undefined);
+    setWrongAnswer(undefined);
+    submit.reset();
+  }
+
+  // 409 LESSON_003 means this question was already answered — advance instead of erroring
+  function handleQuizError(error: unknown) {
+    const axiosError = error as { response?: { status?: number; data?: { error?: { code?: string } } } };
+    if (
+      axiosError?.response?.status === 409 &&
+      axiosError?.response?.data?.error?.code === 'LESSON_003'
+    ) {
+      advanceToNextUnresolved(current?.id);
     }
   }
 
   function handleSubmit() {
-    if (wrongAnswer !== undefined) {
-      submit.mutate({ lessonId: lesson.id, answers, isRetake: true });
-    } else {
-      submit.mutate({ lessonId: lesson.id, answers });
-    }
+    if (!current || !selectedAnswer) return;
+    const answers: Record<string, string> = { [current.id]: selectedAnswer };
+    submit.mutate(
+      { lessonId: lesson.id, answers, ...(wrongAnswer !== undefined ? { isRetake: true } : {}) },
+      { onError: handleQuizError }
+    );
   }
 
   function handleTryAgain() {
-    if (!current) return;
-    setWrongAnswer(answers[current.id]);
-    setAnswers((prev) => {
-      const next = { ...prev };
-      delete next[current.id];
-      return next;
-    });
+    setWrongAnswer(selectedAnswer);
+    setSelectedAnswer(undefined);
     submit.reset();
   }
 
   function handleSkipRetake() {
-    submit.mutate({ lessonId: lesson.id, answers, skipRetake: true });
+    submit.mutate(
+      { lessonId: lesson.id, answers: {}, skipRetake: true },
+      { onError: handleQuizError }
+    );
   }
 
   // ─── Wrong first attempt — retake offer ───────────────────────────────────────
@@ -166,7 +183,48 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     );
   }
 
-  // ─── Results view ────────────────────────────────────────────────────────────
+  // ─── Per-question feedback — mid-capstone, lesson not yet finalized ───────────
+  if (submit.data && !submit.data.lessonFinalized) {
+    const fb = submit.data.feedbacks.find((f: QuizFeedback) => f.quizId === current?.id) ?? submit.data.feedbacks[0];
+    return (
+      <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
+            <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
+              <Text style={styles.closeText}>✕</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.content}>
+            <Text style={styles.resultHeading}>{fb?.isCorrect ? 'Correct!' : 'Incorrect'}</Text>
+            {fb && (
+              <View
+                style={[styles.feedbackCard, fb.isCorrect ? styles.feedbackCorrect : styles.feedbackIncorrect]}
+                accessibilityRole="text"
+              >
+                <Text style={styles.feedbackQuestion}>{fb.question}</Text>
+                <Text style={[styles.feedbackAnswer, fb.isCorrect ? styles.correct : styles.incorrect]}>
+                  {fb.isCorrect ? '✓' : '✗'} Your answer: {fb.userAnswer}
+                </Text>
+                {!fb.isCorrect && fb.correctAnswer && (
+                  <Text style={styles.correctAnswer}>Correct: {fb.correctAnswer}</Text>
+                )}
+                <Text style={styles.explanation}>{fb.explanation}</Text>
+              </View>
+            )}
+            <Button
+              label="Next Question"
+              onPress={() => advanceToNextUnresolved(current?.id)}
+              style={styles.actionBtn}
+              accessibilityLabel="Next question"
+            />
+          </ScrollView>
+        </View>
+      </Modal>
+    );
+  }
+
+  // ─── Terminal / results view — lesson finalized ───────────────────────────────
   if (submit.data) {
     const { feedbacks, coaching, streak, milestone, trackAverage, previousAverage } = submit.data;
     const retakeUsed = wrongAnswer !== undefined;
@@ -251,9 +309,11 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
             <Text style={styles.empty}>No quiz available for this lesson.</Text>
           ) : (
             <>
-              <Text style={styles.progress}>
-                Question {questionIndex + 1} of {quizzes.length}
-              </Text>
+              {quizzes.length > 1 && (
+                <Text style={styles.progress}>
+                  Question {currentQuizIndex + 1} of {quizzes.length}
+                </Text>
+              )}
 
               <Text style={styles.question}>{current.question}</Text>
 
@@ -290,8 +350,8 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
               )}
 
               <Button
-                label={isLast ? 'Submit' : 'Next'}
-                onPress={isLast ? handleSubmit : handleNext}
+                label="Submit"
+                onPress={handleSubmit}
                 loading={submit.isPending}
                 disabled={!selectedAnswer}
                 style={styles.actionBtn}

@@ -63,21 +63,30 @@ const mockLessonNoQuiz = { ...mockLesson, quizzes: [] };
 
 const singleQuizLesson = { ...mockLesson, quizzes: [mockQuiz1] };
 
+// Wrong first attempt — retakeAvailable, lesson not finalized
 const wrongPendingResult = {
   score: 0,
   correct: false,
   retakeAvailable: true,
+  lessonFinalized: false,
   feedbacks: [
     { quizId: 'q-1', question: mockQuiz1.question, userAnswer: 'Option B', correctAnswer: null, isCorrect: false, explanation: 'x' },
   ],
   lesson: singleQuizLesson,
   coaching: null,
+  streak: 0,
+  milestone: null,
+  nextLessonId: null,
+  trackAverage: null,
+  previousAverage: null,
 };
 
+// Full finalized result
 const mockResult = {
   score: 100,
   correct: true,
   retakeAvailable: false,
+  lessonFinalized: true,
   streak: 0,
   milestone: null,
   nextLessonId: null,
@@ -105,6 +114,31 @@ const mockResult = {
   coaching: null,
 };
 
+// Per-question result for Q1 correct, lesson not yet finalized (mid-capstone)
+const q1CorrectNotFinalized = {
+  score: 100,
+  correct: true,
+  retakeAvailable: false,
+  lessonFinalized: false,
+  streak: 0,
+  milestone: null,
+  nextLessonId: null,
+  trackAverage: null,
+  previousAverage: null,
+  feedbacks: [
+    {
+      quizId: 'q-1',
+      question: mockQuiz1.question,
+      userAnswer: 'Option A',
+      correctAnswer: 'Option A',
+      isCorrect: true,
+      explanation: 'Because it matches market needs.',
+    },
+  ],
+  lesson: mockLesson,
+  coaching: null,
+};
+
 describe('QuizModal', () => {
   const onClose = jest.fn();
 
@@ -125,9 +159,14 @@ describe('QuizModal', () => {
     expect(screen.getByText('What is product-market fit?')).toBeTruthy();
   });
 
-  it('shows question progress indicator', () => {
+  it('shows question progress indicator for multi-question lessons', () => {
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
     expect(screen.getByText('Question 1 of 2')).toBeTruthy();
+  });
+
+  it('does not show progress indicator for single-question lessons', () => {
+    render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+    expect(screen.queryByText('Question 1 of 1')).toBeNull();
   });
 
   it('renders multiple-choice options', () => {
@@ -137,50 +176,30 @@ describe('QuizModal', () => {
     expect(screen.getByText('Option C')).toBeTruthy();
   });
 
-  it('shows "Next" button when not on last question', () => {
+  it('shows Submit button for each question', () => {
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('NEXT')).toBeTruthy();
-  });
-
-  it('advances to next question on Next press after selecting an answer', () => {
-    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    fireEvent.press(screen.getByText('Option A'));
-    fireEvent.press(screen.getByText('NEXT'));
-    expect(screen.getByText('What does MVP stand for?')).toBeTruthy();
-    expect(screen.getByText('Question 2 of 2')).toBeTruthy();
-  });
-
-  it('shows "Submit" on the last question', () => {
-    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    fireEvent.press(screen.getByText('Option A'));
-    fireEvent.press(screen.getByText('NEXT'));
     expect(screen.getByText('SUBMIT')).toBeTruthy();
   });
 
-  it('calls mutate with lessonId and collected answers on Submit', () => {
-    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+  it('calls mutate with only the current question answer on Submit', () => {
+    render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
     fireEvent.press(screen.getByText('Option A'));
-    fireEvent.press(screen.getByText('NEXT'));
-    fireEvent.press(screen.getByText('Minimum Viable Product'));
     fireEvent.press(screen.getByText('SUBMIT'));
-    expect(mockMutate).toHaveBeenCalledWith({
-      lessonId: 'lesson-1',
-      answers: { 'q-1': 'Option A', 'q-2': 'Minimum Viable Product' },
-    });
+    expect(mockMutate).toHaveBeenCalledWith(
+      { lessonId: 'lesson-1', answers: { 'q-1': 'Option A' } },
+      expect.anything()
+    );
   });
 
   it('shows spinner on Submit button while submitting', () => {
     setQuizMock({ isPending: true });
-    // Single-quiz lesson so first question IS the last — no navigation needed
-    const singleQuizLesson = { ...mockLesson, quizzes: [mockQuiz1] };
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-    // Button is in loading state — "SUBMIT" text is replaced by ActivityIndicator
     expect(screen.queryByText('SUBMIT')).toBeNull();
     const { ActivityIndicator } = require('react-native');
     expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeTruthy();
   });
 
-  it('shows results view after successful submission', () => {
+  it('shows results view after successful submission when finalized', () => {
     setQuizMock({ data: mockResult });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
     expect(screen.getByText('Quiz Complete!')).toBeTruthy();
@@ -222,9 +241,6 @@ describe('QuizModal', () => {
   it('shows error message when submission fails', () => {
     setQuizMock({ isError: true });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    // Navigate to last question
-    fireEvent.press(screen.getByText('Option A'));
-    fireEvent.press(screen.getByText('NEXT'));
     expect(screen.getByText('Submission failed. Please try again.')).toBeTruthy();
   });
 
@@ -259,6 +275,108 @@ describe('QuizModal', () => {
     expect(screen.queryByText('AI Coaching')).toBeNull();
   });
 
+  describe('per-question capstone flow (ticket 019 ch2.1)', () => {
+    it('shows per-question feedback "Correct!" when Q1 correct and lessonFinalized is false', () => {
+      setQuizMock({ data: q1CorrectNotFinalized });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByText('Correct!')).toBeTruthy();
+    });
+
+    it('does not show terminal elements in per-question feedback view', () => {
+      setQuizMock({ data: q1CorrectNotFinalized });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.queryByText('Quiz Complete!')).toBeNull();
+      expect(screen.queryByText('Track Average')).toBeNull();
+      expect(screen.queryByText('DONE')).toBeNull();
+    });
+
+    it('shows "Next Question" button in per-question feedback view', () => {
+      setQuizMock({ data: q1CorrectNotFinalized });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByText('NEXT QUESTION')).toBeTruthy();
+    });
+
+    it('Next Question button advances to Q2 after Q1 per-question feedback', () => {
+      const resetMock = jest.fn();
+      setQuizMock({ data: q1CorrectNotFinalized, reset: resetMock });
+      const { rerender } = render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+
+      fireEvent.press(screen.getByText('NEXT QUESTION'));
+
+      // After advancing, reset is called and submit.data clears — show Q2 quiz view
+      setQuizMock({ reset: resetMock });
+      rerender(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByText('What does MVP stand for?')).toBeTruthy();
+      expect(screen.getByText('Question 2 of 2')).toBeTruthy();
+    });
+
+    it('shows per-question "Incorrect" feedback when Q1 wrong and no retake (resolved with skip)', () => {
+      const q1WrongResolved = {
+        ...q1CorrectNotFinalized,
+        correct: false,
+        retakeAvailable: false,
+        feedbacks: [
+          { quizId: 'q-1', question: mockQuiz1.question, userAnswer: 'Option B', correctAnswer: 'Option A', isCorrect: false, explanation: 'x' },
+        ],
+      };
+      setQuizMock({ data: q1WrongResolved });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByText('Incorrect')).toBeTruthy();
+      expect(screen.getByText('NEXT QUESTION')).toBeTruthy();
+      expect(screen.queryByText('Quiz Complete!')).toBeNull();
+    });
+
+    it('last question finalized → full terminal view', () => {
+      setQuizMock({ data: { ...mockResult, lessonFinalized: true } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByText('Quiz Complete!')).toBeTruthy();
+      expect(screen.getByText('Track Average')).toBeTruthy();
+      expect(screen.queryByText('NEXT QUESTION')).toBeNull();
+    });
+
+    it('resume: starts on Q2 when resolvedQuizIds contains Q1 id', () => {
+      const lessonWithResolved = { ...mockLesson, resolvedQuizIds: ['q-1'] };
+      render(<QuizModal visible={true} lesson={lessonWithResolved} onClose={onClose} />);
+      expect(screen.getByText('What does MVP stand for?')).toBeTruthy();
+      expect(screen.getByText('Question 2 of 2')).toBeTruthy();
+    });
+
+    it('409 LESSON_003 on a question → advances to the next question', () => {
+      // Set up mutate to call onError with a 409 LESSON_003
+      const resetMock = jest.fn();
+      (useSubmitQuiz as jest.Mock).mockReturnValue({
+        mutate: jest.fn((_, { onError }) =>
+          onError({ response: { status: 409, data: { error: { code: 'LESSON_003' } } } })
+        ),
+        reset: resetMock,
+        isPending: false,
+        isError: false,
+        data: undefined,
+      });
+
+      const { rerender } = render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+
+      // Select and submit Q1 — the mock triggers LESSON_003 immediately
+      fireEvent.press(screen.getByText('Option A'));
+      fireEvent.press(screen.getByText('SUBMIT'));
+
+      // Restore normal mock (no data), reset clears — should now show Q2
+      setQuizMock({ reset: resetMock });
+      rerender(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByText('What does MVP stand for?')).toBeTruthy();
+    });
+
+    it('submits only Q1 answer when Submit is pressed on Q1', () => {
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      fireEvent.press(screen.getByText('Option A'));
+      fireEvent.press(screen.getByText('SUBMIT'));
+      expect(mockMutate).toHaveBeenCalledWith(
+        { lessonId: 'lesson-1', answers: { 'q-1': 'Option A' } },
+        expect.anything()
+      );
+    });
+  });
+
   describe('quiz retake (ticket 017 goal 4)', () => {
     it('shows an Incorrect screen with keyTakeaway and Try again / Next lesson when a first attempt is wrong', () => {
       setQuizMock({ data: wrongPendingResult });
@@ -281,29 +399,28 @@ describe('QuizModal', () => {
     });
 
     it('resubmits with isRetake: true after Try again and reselecting', () => {
-      // First render already-wrong so the modal reflects "just answered Option B, got it wrong".
       setQuizMock({ data: undefined });
       const { rerender } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       fireEvent.press(screen.getByText('Option B'));
       fireEvent.press(screen.getByText('SUBMIT'));
-      expect(mockMutate).toHaveBeenCalledWith({ lessonId: 'lesson-1', answers: { 'q-1': 'Option B' } });
+      expect(mockMutate).toHaveBeenCalledWith(
+        { lessonId: 'lesson-1', answers: { 'q-1': 'Option B' } },
+        expect.anything()
+      );
 
-      // Now the mutation resolves wrong-with-retake; re-render with that data.
       setQuizMock({ data: wrongPendingResult });
       rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       fireEvent.press(screen.getByText('TRY AGAIN'));
 
-      // Back on the quiz view — the previously wrong option is disabled, pick a new one.
       setQuizMock({ data: undefined });
       rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       fireEvent.press(screen.getByText('Option A'));
       fireEvent.press(screen.getByText('SUBMIT'));
 
-      expect(mockMutate).toHaveBeenLastCalledWith({
-        lessonId: 'lesson-1',
-        answers: { 'q-1': 'Option A' },
-        isRetake: true,
-      });
+      expect(mockMutate).toHaveBeenLastCalledWith(
+        { lessonId: 'lesson-1', answers: { 'q-1': 'Option A' }, isRetake: true },
+        expect.anything()
+      );
     });
 
     it('Next lesson (skip retake) submits with skipRetake: true', () => {
@@ -312,11 +429,10 @@ describe('QuizModal', () => {
 
       fireEvent.press(screen.getByText('NEXT LESSON'));
 
-      expect(mockMutate).toHaveBeenCalledWith({
-        lessonId: 'lesson-1',
-        answers: {},
-        skipRetake: true,
-      });
+      expect(mockMutate).toHaveBeenCalledWith(
+        { lessonId: 'lesson-1', answers: {}, skipRetake: true },
+        expect.anything()
+      );
     });
 
     it('shows the full results view (not the retake offer) once retakeAvailable is false', () => {
@@ -328,20 +444,15 @@ describe('QuizModal', () => {
     });
 
     it('shows a flat dash (not up/down) once a retake was used, regardless of the average numbers', () => {
-      // Select the wrong option and submit, same as the real flow, so the modal
-      // knows which answer to disable on retake.
       setQuizMock({ data: undefined });
       const { rerender } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       fireEvent.press(screen.getByText('Option B'));
       fireEvent.press(screen.getByText('SUBMIT'));
 
-      // Wrong first attempt, retake offered.
       setQuizMock({ data: wrongPendingResult });
       rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       fireEvent.press(screen.getByText('TRY AGAIN'));
 
-      // Retake resolves correct — trackAverage/previousAverage are equal here on purpose,
-      // which would render an up arrow on a non-retake result but must render '=' instead.
       setQuizMock({
         data: { ...mockResult, correct: true, retakeAvailable: false, trackAverage: 70, previousAverage: 70 },
       });
@@ -389,6 +500,12 @@ describe('QuizModal', () => {
       render(<QuizModal visible={true} lesson={{ ...mockLesson, isSaved: true }} onClose={onClose} />);
       fireEvent.press(screen.getByLabelText('Remove from saved lessons'));
       expect(mockUnsaveMutate).toHaveBeenCalledWith('lesson-1', expect.anything());
+    });
+
+    it('is shown on the per-question feedback view', () => {
+      setQuizMock({ data: q1CorrectNotFinalized });
+      render(<QuizModal visible={true} lesson={{ ...mockLesson, isSaved: false }} onClose={onClose} />);
+      expect(screen.getByLabelText('Save lesson')).toBeTruthy();
     });
   });
 });

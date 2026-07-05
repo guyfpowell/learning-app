@@ -7,11 +7,13 @@ interface AuthState {
   user: UserAuth | null;
   accessToken: string | null;
   refreshToken: string | null;
+  hasOnboarded: boolean | null;
   /** True once SecureStore rehydration has completed. Use to gate the auth redirect. */
   _hasHydrated: boolean;
   setAuth: (user: UserAuth, accessToken: string, refreshToken: string) => void;
   clearAuth: () => void;
   setHasHydrated: (value: boolean) => void;
+  setHasOnboarded: (value: boolean) => void;
 }
 
 const secureStorage = createJSONStorage(() => ({
@@ -26,12 +28,14 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       refreshToken: null,
+      hasOnboarded: null,
       _hasHydrated: false,
       setAuth: (user, accessToken, refreshToken) =>
         set({ user, accessToken, refreshToken }),
       clearAuth: () =>
-        set({ user: null, accessToken: null, refreshToken: null }),
+        set({ user: null, accessToken: null, refreshToken: null, hasOnboarded: null }),
       setHasHydrated: (value) => set({ _hasHydrated: value }),
+      setHasOnboarded: (value) => set({ hasOnboarded: value }),
     }),
     {
       name: 'learning-auth',
@@ -41,6 +45,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
+        hasOnboarded: state.hasOnboarded,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

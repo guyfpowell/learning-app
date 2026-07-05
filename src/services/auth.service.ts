@@ -14,7 +14,7 @@ export interface RegisterInput {
 }
 
 export const authService = {
-  async login(input: LoginInput): Promise<{ user: UserAuth; token: string }> {
+  async login(input: LoginInput): Promise<{ user: UserAuth; token: string; hasOnboarded: boolean }> {
     try {
       Sentry.addBreadcrumb({ category: 'auth', message: 'Login attempt', level: 'info' });
 
@@ -26,14 +26,14 @@ export const authService = {
         level: 'info',
       });
 
-      return { user: data.user, token: data.token };
+      return { user: data.user, token: data.token, hasOnboarded: data.hasOnboarded };
     } catch (err) {
       Sentry.captureException(err, { contexts: { auth: { action: 'login', email: input.email } } });
       throw err;
     }
   },
 
-  async register(input: RegisterInput): Promise<{ user: UserAuth; token: string }> {
+  async register(input: RegisterInput): Promise<{ user: UserAuth; token: string; hasOnboarded: boolean }> {
     try {
       Sentry.addBreadcrumb({ category: 'auth', message: 'Registration attempt', level: 'info' });
 
@@ -45,7 +45,7 @@ export const authService = {
         level: 'info',
       });
 
-      return { user: data.user, token: data.token };
+      return { user: data.user, token: data.token, hasOnboarded: data.hasOnboarded };
     } catch (err) {
       Sentry.captureException(err, { contexts: { auth: { action: 'register', email: input.email } } });
       throw err;

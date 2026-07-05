@@ -1,11 +1,34 @@
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { LessonSummary } from '@learning/shared';
+import type { LessonSummary, TrackEnrollmentWithProgress } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { useProgress } from '@/hooks/useProgress';
 import { useSavedLessons } from '@/hooks/useLesson';
+import { useEnrollments } from '@/hooks/useTrack';
+
+function flooredPct(enrollment: TrackEnrollmentWithProgress): number {
+  return enrollment.completedLessons > 0
+    ? Math.max(1, Math.round(enrollment.percentComplete))
+    : 0;
+}
+
+function trackMotivation(enrollment: TrackEnrollmentWithProgress, pct: number): string {
+  const lessonsLeft = enrollment.totalLessons - enrollment.completedLessons;
+  if (lessonsLeft <= 20) return `Only ${lessonsLeft} lessons to complete ${enrollment.skill.name}!`;
+  return `You're ${pct}% through ${enrollment.skill.name} — keep going!`;
+}
+
+function ProgressBar({ value }: { value: number }) {
+  const clamped = Math.min(100, Math.max(0, value));
+  return (
+    <View style={styles.progressTrack}>
+      <View style={[styles.progressFill, { width: `${clamped}%` as `${number}%` }]} />
+    </View>
+  );
+}
 
 function SavedLessonRow({ lesson }: { lesson: LessonSummary }) {
   return (
@@ -21,6 +44,13 @@ function SavedLessonRow({ lesson }: { lesson: LessonSummary }) {
 export default function ProgressScreen() {
   const { data, isLoading, isError } = useProgress();
   const { data: savedLessons } = useSavedLessons();
+  const { data: enrollmentsData } = useEnrollments();
+
+  const activeEnrollments: TrackEnrollmentWithProgress[] =
+    enrollmentsData?.filter(e => e.percentComplete < 100) ?? [];
+  const completedEnrollments: TrackEnrollmentWithProgress[] =
+    enrollmentsData?.filter(e => e.percentComplete >= 100) ?? [];
+  const hasNoEnrollments = Array.isArray(enrollmentsData) && enrollmentsData.length === 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -64,6 +94,46 @@ export default function ProgressScreen() {
               </Card>
             )}
           </>
+        )}
+
+        {activeEnrollments.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionHeading}>Active Tracks</Text>
+            {activeEnrollments.map(e => {
+              const pct = flooredPct(e);
+              return (
+                <Card key={e.skillId} testID={`enrollment-card-${e.skillId}`} style={styles.enrollmentCard}>
+                  <View style={styles.enrollmentHeader}>
+                    <Text style={styles.enrollmentTitle}>{e.skill.name}</Text>
+                    <Text style={styles.pctText}>{pct}% complete</Text>
+                  </View>
+                  <ProgressBar value={pct} />
+                  <Text style={styles.motivationText}>{trackMotivation(e, pct)}</Text>
+                  <Text style={styles.lessonsCount}>
+                    {e.completedLessons} of {e.totalLessons} lessons complete
+                  </Text>
+                </Card>
+              );
+            })}
+          </View>
+        )}
+
+        {completedEnrollments.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionHeading}>Completed Tracks</Text>
+            {completedEnrollments.map(e => (
+              <Card key={e.skillId} testID={`completed-card-${e.skillId}`} style={styles.completedCard}>
+                <Text style={styles.enrollmentTitle}>{e.skill.name}</Text>
+                <Badge label="Completed" variant="success" />
+              </Card>
+            ))}
+          </View>
+        )}
+
+        {hasNoEnrollments && (
+          <Text testID="no-enrollments-msg" style={styles.empty}>
+            No active tracks. Browse Tracks to get started.
+          </Text>
         )}
 
         <Text style={styles.sectionHeading}>Saved</Text>
@@ -151,5 +221,55 @@ const styles = StyleSheet.create({
     color:      colors.textMuted,
     textAlign:  'center',
     marginTop:  spacing.lg,
+  },
+  // ── Enrollment sections ───────────────────────────────────────────────────
+  section: {
+    gap:          spacing.sm,
+    marginBottom: spacing.md,
+  },
+  enrollmentCard: {
+    gap: spacing.sm,
+  },
+  enrollmentHeader: {
+    flexDirection:  'row',
+    justifyContent: 'space-between',
+    alignItems:     'flex-start',
+  },
+  enrollmentTitle: {
+    fontFamily: font.bold,
+    fontSize:   fontSize.base,
+    color:      colors.textDark,
+    flex:       1,
+  },
+  pctText: {
+    fontFamily: font.medium,
+    fontSize:   fontSize.sm,
+    color:      colors.teal,
+  },
+  progressTrack: {
+    height:          6,
+    backgroundColor: colors.border,
+    borderRadius:    3,
+    overflow:        'hidden',
+  },
+  progressFill: {
+    height:          6,
+    backgroundColor: colors.teal,
+    borderRadius:    3,
+  },
+  motivationText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.textMuted,
+  },
+  lessonsCount: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.textMuted,
+  },
+  completedCard: {
+    flexDirection:  'row',
+    justifyContent: 'space-between',
+    alignItems:     'center',
   },
 });
