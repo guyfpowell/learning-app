@@ -1,25 +1,11 @@
-import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { SvgXml } from 'react-native-svg';
+import { markWhiteOutlineSvg } from '@/assets/logo';
 
 interface LogoProps {
   size?: number;
 }
 
-export function Logo({ size = 80 }: LogoProps) {
-  return (
-    <View style={styles.wrapper}>
-      <Image
-        source={require('../../../assets/icon.png')}
-        style={{ width: size, height: size, borderRadius: size * 0.22 }}
-        resizeMode="contain"
-      />
-    </View>
-  );
+/** White-outline Ascent mark — for use directly on the brand (cobalt) background. */
+export function Logo({ size = 64 }: LogoProps) {
+  return <SvgXml xml={markWhiteOutlineSvg} width={size} height={size} />;
 }
-
-const styles = StyleSheet.create({
-  wrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

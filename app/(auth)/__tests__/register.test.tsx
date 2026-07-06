@@ -127,6 +127,18 @@ describe('RegisterScreen', () => {
     expect(screen.getByText('Email already registered')).toBeTruthy();
   });
 
+  it('shows timeout message for ECONNABORTED error', () => {
+    setRegisterMock({ isError: true, error: { code: 'ECONNABORTED' } });
+    render(<RegisterScreen />);
+    expect(screen.getByText('Request timed out. Please try again.')).toBeTruthy();
+  });
+
+  it('shows network message for ERR_NETWORK error', () => {
+    setRegisterMock({ isError: true, error: { code: 'ERR_NETWORK' } });
+    render(<RegisterScreen />);
+    expect(screen.getByText('Network error. Please check your connection.')).toBeTruthy();
+  });
+
   it('shows success banner when registration succeeds', () => {
     setRegisterMock({ isSuccess: true });
     render(<RegisterScreen />);

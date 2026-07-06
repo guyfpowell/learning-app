@@ -11,16 +11,13 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Logo } from '@/components/ui/Logo';
+import { Wordmark } from '@/components/ui/Wordmark';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useRegister } from '@/hooks/useAuth';
-import { colors, font, fontSize, spacing, tracking } from '@/theme';
-
-function extractError(err: unknown): string {
-  const typed = err as { response?: { data?: { error?: string } } };
-  return typed?.response?.data?.error ?? 'Registration failed. Please try again.';
-}
+import { colors, font, fontSize, spacing } from '@/theme';
+import { extractError } from '@/lib/errors';
 
 function validateName(name: string): string | null {
   if (!name.trim()) return 'Name is required';
@@ -81,13 +78,14 @@ export default function RegisterScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <Logo size={72} />
-          <Text style={styles.appName}>LEARNING</Text>
+          <Logo size={64} />
+          <Wordmark width={150} height={35} />
+          <Text style={styles.tagline}>A little every day</Text>
 
           <Card style={styles.card}>
             <Text style={styles.heading}>Create account</Text>
             <Text style={styles.sub}>
-              Join Learning and start building your skills.
+              Join Ascent and start building your skills.
             </Text>
 
             {register.isError && (
@@ -185,7 +183,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.vivid,
+    backgroundColor: colors.brand,
   },
   flex: {
     flex: 1,
@@ -198,11 +196,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     gap: spacing.md,
   },
-  appName: {
-    fontFamily: font.bold,
-    fontSize: fontSize.xl,
+  tagline: {
+    fontFamily: font.regular,
+    fontSize: fontSize.base,
     color: colors.white,
-    letterSpacing: tracking.heading,
+    opacity: 0.85,
+    marginBottom: spacing.sm,
   },
   card: {
     width: '100%',
@@ -211,7 +210,7 @@ const styles = StyleSheet.create({
   heading: {
     fontFamily: font.bold,
     fontSize: fontSize.lg,
-    color: colors.teal,
+    color: colors.brand,
   },
   sub: {
     fontFamily: font.regular,

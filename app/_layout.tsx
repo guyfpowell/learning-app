@@ -82,7 +82,7 @@ export function AuthGate() {
 
     // Onboarded (true) or unknown (null = existing user before this field existed) — go to tabs
     if (!inTabsGroup) {
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/lessons');
     }
   }, [_hasHydrated, accessToken, hasOnboarded, segments[0], segments[1]]);
 
@@ -110,7 +110,7 @@ function RootLayout() {
     responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
       const screen = response.notification.request.content.data?.screen;
       if (screen === 'lessons' || !screen) {
-        router.replace('/(tabs)');
+        router.replace('/(tabs)/lessons');
       } else if (screen === 'progress') {
         router.replace('/(tabs)/progress');
       }

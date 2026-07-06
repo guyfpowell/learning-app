@@ -1,0 +1,15 @@
+<!--
+  Source for assets/icon.png (app icon / splash / adaptive icon foreground / favicon).
+  Solid-fill variant of the Ascent chevrons-up mark — not in
+  learning-design-system/logo-assets (which only has the white-outline
+  transparent variant, meant for compositing on top of an existing brand-color
+  background, e.g. the auth screens). Standalone icon contexts (home screen,
+  splash, favicon) need a self-contained filled mark instead.
+  Regenerate the PNG with: qlmanage -t -s 1024 -o . assets/icon-source.svg
+  (then rename the resulting icon-source.svg.png to icon.png).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <rect x="0" y="0" width="1024" height="1024" rx="300" fill="#4060C8"/>
+  <polyline points="372,552 512,412 652,552" fill="none" stroke="#ffffff" stroke-width="65" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="372,652 512,512 652,652" fill="none" stroke="#ffffff" stroke-width="65" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

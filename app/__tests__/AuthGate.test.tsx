@@ -95,20 +95,20 @@ describe('AuthGate', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('navigates to /(tabs) when authenticated and at root', () => {
+  it('navigates to /(tabs)/lessons when authenticated and at root', () => {
     mockAuthState._hasHydrated = true;
     mockAuthState.accessToken = 'tok';
     mockSegments = [];
     render(<AuthGate />);
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lessons');
   });
 
-  it('navigates to /(tabs) when authenticated and on auth screen', () => {
+  it('navigates to /(tabs)/lessons when authenticated and on auth screen', () => {
     mockAuthState._hasHydrated = true;
     mockAuthState.accessToken = 'tok';
     mockSegments = ['(auth)', 'sign-in'];
     render(<AuthGate />);
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lessons');
   });
 
   it('does not navigate when authenticated and already on tabs', () => {

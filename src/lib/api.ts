@@ -47,7 +47,7 @@ async function tryRefresh(): Promise<string | null> {
       // Skip the interceptor for this request
       headers: { 'X-Skip-Refresh': 'true' },
     });
-    const { token: newToken, refreshToken: newRefreshToken } = res.data.data;
+    const { token: newToken, refreshToken: newRefreshToken } = res.data;
     const { user } = useAuthStore.getState();
     if (user) useAuthStore.getState().setAuth(user, newToken, newRefreshToken);
     return newToken;
@@ -68,7 +68,14 @@ function signOutAndRedirect() {
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Backend wraps every success response as { success, data, timestamp }.
+    // Unwrap here so services can treat response.data as the model directly.
+    if (response.data && typeof response.data === 'object' && 'success' in response.data && 'data' in response.data) {
+      response.data = response.data.data;
+    }
+    return response;
+  },
   async (error) => {
     if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') {
       return Promise.reject(error);
@@ -116,7 +123,5 @@ export async function registerPushToken(
 ): Promise<void> {
   await api.post('/notifications/push-token', { token, platform, deviceId });
 }
-
-export default api;
 
 export default api;

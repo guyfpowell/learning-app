@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Learning",
+    "name": "Ascent",
     "slug": "learning-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F8FAFC"
+      "backgroundColor": "#4060C8"
     },
     "ios": {
       "supportsTablet": false,
@@ -19,7 +19,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#4F46E5"
+        "backgroundColor": "#4060C8"
       },
       "package": "com.learning.app"
     },
@@ -46,7 +46,6 @@
     },
     "scheme": "learning",
     "extra": {
-      "router": {},
       "eas": {
         "projectId": ""
       }

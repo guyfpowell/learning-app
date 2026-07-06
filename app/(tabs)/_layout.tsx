@@ -48,6 +48,10 @@ export default function TabsLayout() {
         options={{ title: 'Tracks', tabBarIcon: tabIcon('library-outline', 'library') }}
       />
       <Tabs.Screen
+        name="team"
+        options={{ title: 'Team', tabBarIcon: tabIcon('people-outline', 'people') }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{ title: 'Settings', tabBarIcon: tabIcon('settings-outline', 'settings') }}
       />

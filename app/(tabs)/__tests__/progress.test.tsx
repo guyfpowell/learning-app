@@ -143,7 +143,7 @@ describe('ProgressScreen — enrollment cards', () => {
     (useEnrollments as jest.Mock).mockReturnValue({ data: [mockCompletedEnrollment] });
     render(<ProgressScreen />);
     expect(screen.getByText('React Basics')).toBeTruthy();
-    expect(screen.getByText('Completed')).toBeTruthy();
+    expect(screen.getByText('COMPLETED')).toBeTruthy();
   });
 
   it('shows both active and completed sections when both present', () => {

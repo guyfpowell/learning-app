@@ -42,7 +42,7 @@ describe('useLogin', () => {
   });
 
   it('calls authService.login with credentials', async () => {
-    mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'tok' });
+    mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'tok', refreshToken: 'rt', hasOnboarded: false });
 
     const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
     act(() => { result.current.mutate({ email: 'user@example.com', password: 'pass' }); });
@@ -52,7 +52,7 @@ describe('useLogin', () => {
   });
 
   it('stores auth in the store on success', async () => {
-    mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'access-token' });
+    mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'access-token', refreshToken: 'refresh-token', hasOnboarded: false });
 
     const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
     act(() => { result.current.mutate({ email: 'user@example.com', password: 'pass' }); });
@@ -61,13 +61,23 @@ describe('useLogin', () => {
     expect(useAuthStore.getState().accessToken).toBe('access-token');
     expect(useAuthStore.getState().user?.id).toBe('u1');
   });
+
+  it('stores refresh token in the store on success', async () => {
+    mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'access-token', refreshToken: 'refresh-tok-login', hasOnboarded: false });
+
+    const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
+    act(() => { result.current.mutate({ email: 'user@example.com', password: 'pass' }); });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(useAuthStore.getState().refreshToken).toBe('refresh-tok-login');
+  });
 });
 
 describe('useRegister', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('calls authService.register with email, password and name', async () => {
-    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok' });
+    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok', refreshToken: 'rt', hasOnboarded: false });
 
     const { result } = renderHook(() => useRegister(), { wrapper: makeWrapper() });
     act(() => { result.current.mutate({ email: 'new@example.com', password: 'pass', name: 'New User' }); });
@@ -81,13 +91,23 @@ describe('useRegister', () => {
   });
 
   it('stores auth in the store on success', async () => {
-    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok-reg' });
+    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok-reg', refreshToken: 'rt-reg', hasOnboarded: false });
 
     const { result } = renderHook(() => useRegister(), { wrapper: makeWrapper() });
     act(() => { result.current.mutate({ email: 'new@example.com', password: 'pass', name: 'New User' }); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(useAuthStore.getState().accessToken).toBe('tok-reg');
+  });
+
+  it('stores refresh token in the store on success', async () => {
+    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok-reg', refreshToken: 'refresh-tok-reg', hasOnboarded: false });
+
+    const { result } = renderHook(() => useRegister(), { wrapper: makeWrapper() });
+    act(() => { result.current.mutate({ email: 'new@example.com', password: 'pass', name: 'New User' }); });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(useAuthStore.getState().refreshToken).toBe('refresh-tok-reg');
   });
 });
 

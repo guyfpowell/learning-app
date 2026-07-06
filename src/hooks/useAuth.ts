@@ -8,8 +8,8 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: (input: LoginInput) => authService.login(input),
-    onSuccess: ({ user, token, hasOnboarded }) => {
-      setAuth(user, token, '');
+    onSuccess: ({ user, token, refreshToken, hasOnboarded }) => {
+      setAuth(user, token, refreshToken);
       setHasOnboarded(hasOnboarded);
     },
   });
@@ -21,8 +21,8 @@ export function useRegister() {
 
   return useMutation({
     mutationFn: (input: RegisterInput) => authService.register(input),
-    onSuccess: ({ user, token, hasOnboarded }) => {
-      setAuth(user, token, '');
+    onSuccess: ({ user, token, refreshToken, hasOnboarded }) => {
+      setAuth(user, token, refreshToken);
       setHasOnboarded(hasOnboarded);
     },
   });

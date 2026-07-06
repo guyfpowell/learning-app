@@ -11,31 +11,15 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Logo } from '@/components/ui/Logo';
+import { Wordmark } from '@/components/ui/Wordmark';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useLogin } from '@/hooks/useAuth';
-import { colors, font, fontSize, spacing, tracking } from '@/theme';
+import { colors, font, fontSize, spacing } from '@/theme';
+import { extractError } from '@/lib/errors';
 
-export function extractError(err: unknown): string {
-  const typed = err as { code?: string; response?: { data?: { error?: string } } };
-
-  // Timeout/network errors
-  if (typed?.code === 'ECONNABORTED') {
-    return 'Request timed out. Please try again.';
-  }
-  if (typed?.code === 'ERR_NETWORK') {
-    return 'Network error. Please check your connection.';
-  }
-
-  // Server error response
-  if (typed?.response?.data?.error) {
-    return typed.response.data.error;
-  }
-
-  // Fallback — covers 503 HTML responses, plain JS errors, and any other non-credential failure
-  return 'Something went wrong. Please try again.';
-}
+export { extractError };
 
 function validateEmail(email: string): string | null {
   if (!email.trim()) return 'Email is required';
@@ -75,8 +59,8 @@ export default function SignInScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <Logo size={80} />
-          <Text style={styles.appName}>LEARNING</Text>
+          <Logo size={64} />
+          <Wordmark width={150} height={35} />
           <Text style={styles.tagline}>A little every day</Text>
 
           <Card style={styles.card}>
@@ -147,7 +131,7 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.vivid,
+    backgroundColor: colors.brand,
   },
   flex: {
     flex: 1,
@@ -159,12 +143,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xl,
     gap: spacing.md,
-  },
-  appName: {
-    fontFamily: font.bold,
-    fontSize: fontSize.xl,
-    color: colors.white,
-    letterSpacing: tracking.heading,
   },
   tagline: {
     fontFamily: font.regular,
@@ -180,7 +158,7 @@ const styles = StyleSheet.create({
   heading: {
     fontFamily: font.bold,
     fontSize: fontSize.lg,
-    color: colors.teal,
+    color: colors.brand,
   },
   sub: {
     fontFamily: font.regular,

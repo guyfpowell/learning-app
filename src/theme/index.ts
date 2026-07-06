@@ -2,16 +2,24 @@ import { Platform } from 'react-native';
 
 // ─── Colours ────────────────────────────────────────────────────────────────
 export const colors = {
-  // Primary — indigo (learning/academic)
+  // Ascent brand — cobalt (brand-600 ≈ oklch 0.530 0.182 259)
+  brand:     '#4060C8',
+  brandDark: '#2E48A5',
+  brandSoft: '#E8EDFB',
+  // Ascent energy — coral (coral-500 ≈ oklch 0.672 0.178 34)
+  coral:     '#E0603A',
+  coralSoft: '#FBF0EC',
+  // Warm neutrals (neutral-50 / neutral-0)
+  paper:     '#F9F8F6',
+  surface:   '#FEFDFB',
+  // Legacy tokens — kept for backward compatibility with non-auth screens
   teal:      '#4F46E5',
   tealDark:  '#3730A3',
   tealLight: '#6366F1',
-  // Accent — sky blue
   blue:      '#7DD8E8',
   blueLight: '#BAE6FD',
   vivid:     '#0EA5E9',
   vividDark: '#0284C7',
-  // Neutrals
   bg:        '#F8FAFC',
   white:     '#FFFFFF',
   error:     '#DC2626',
