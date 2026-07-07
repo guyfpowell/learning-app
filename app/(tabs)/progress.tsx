@@ -1,5 +1,6 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import type { LessonSummary, TrackEnrollmentWithProgress } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
@@ -8,6 +9,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useProgress } from '@/hooks/useProgress';
 import { useSavedLessons } from '@/hooks/useLesson';
 import { useEnrollments } from '@/hooks/useTrack';
+import { TrackMap } from '@/components/ui/TrackMap';
 
 function flooredPct(enrollment: TrackEnrollmentWithProgress): number {
   return enrollment.completedLessons > 0
@@ -30,18 +32,21 @@ function ProgressBar({ value }: { value: number }) {
   );
 }
 
-function SavedLessonRow({ lesson }: { lesson: LessonSummary }) {
+function SavedLessonRow({ lesson, onPress }: { lesson: LessonSummary; onPress: () => void }) {
   return (
-    <Card testID="saved-lesson-row" style={styles.savedRow}>
-      <Text style={styles.savedTitle}>{lesson.title}</Text>
-      <Text style={styles.savedMeta}>
-        {[lesson.topicName, lesson.skillName].filter(Boolean).join(' · ')}
-      </Text>
-    </Card>
+    <Pressable testID="saved-lesson-row" onPress={onPress}>
+      <Card style={styles.savedRow}>
+        <Text style={styles.savedTitle}>{lesson.title}</Text>
+        <Text style={styles.savedMeta}>
+          {[lesson.topicName, lesson.skillName].filter(Boolean).join(' · ')}
+        </Text>
+      </Card>
+    </Pressable>
   );
 }
 
 export default function ProgressScreen() {
+  const router = useRouter();
   const { data, isLoading, isError } = useProgress();
   const { data: savedLessons } = useSavedLessons();
   const { data: enrollmentsData } = useEnrollments();
@@ -71,7 +76,10 @@ export default function ProgressScreen() {
           <>
             <View style={styles.statsRow}>
               <Card style={styles.statCard}>
-                <Text testID="progress-streak" style={styles.statValue}>{data.currentStreak}</Text>
+                <View style={styles.streakStatRow}>
+                  <Text style={styles.streakFlame}>🔥</Text>
+                  <Text testID="progress-streak" style={styles.statValue}>{data.currentStreak}</Text>
+                </View>
                 <Text style={styles.statLabel}>Day Streak</Text>
               </Card>
 
@@ -82,6 +90,9 @@ export default function ProgressScreen() {
 
               <Card style={styles.statCard}>
                 <Text testID="progress-avg-score" style={styles.statValue}>{data.averageScore}%</Text>
+                <View testID="avg-score-bar" style={styles.avgScoreBarWrapper}>
+                  <ProgressBar value={Math.round(data.averageScore)} />
+                </View>
                 <Text style={styles.statLabel}>Avg Score</Text>
               </Card>
             </View>
@@ -112,6 +123,9 @@ export default function ProgressScreen() {
                   <Text style={styles.lessonsCount}>
                     {e.completedLessons} of {e.totalLessons} lessons complete
                   </Text>
+                  {(e.levels?.length ?? 0) > 0 && (
+                    <TrackMap levels={e.levels} />
+                  )}
                 </Card>
               );
             })}
@@ -140,7 +154,11 @@ export default function ProgressScreen() {
         {savedLessons && savedLessons.length > 0 ? (
           <View style={styles.savedList}>
             {savedLessons.map((lesson) => (
-              <SavedLessonRow key={lesson.id} lesson={lesson} />
+              <SavedLessonRow
+                key={lesson.id}
+                lesson={lesson}
+                onPress={() => router.push('/(tabs)/lesson/' + lesson.id)}
+              />
             ))}
           </View>
         ) : (
@@ -271,5 +289,16 @@ const styles = StyleSheet.create({
     flexDirection:  'row',
     justifyContent: 'space-between',
     alignItems:     'center',
+  },
+  streakStatRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           spacing.xs,
+  },
+  streakFlame: {
+    fontSize: 18,
+  },
+  avgScoreBarWrapper: {
+    alignSelf: 'stretch',
   },
 });

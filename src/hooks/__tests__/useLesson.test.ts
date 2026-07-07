@@ -1,12 +1,11 @@
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { useTodayLesson, useSaveLesson, useUnsaveLesson, useSavedLessons } from '../useLesson';
+import { useSaveLesson, useUnsaveLesson, useSavedLessons } from '../useLesson';
 import { lessonService } from '@/services/lesson.service';
 
 jest.mock('@/services/lesson.service', () => ({
   lessonService: {
-    getTodayLesson: jest.fn(),
     saveLesson: jest.fn(),
     unsaveLesson: jest.fn(),
     getSavedLessons: jest.fn(),
@@ -41,36 +40,6 @@ function makeWrapper() {
   return ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client: queryClient }, children);
 }
-
-describe('useTodayLesson', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it('returns lesson data on success', async () => {
-    mockLessonService.getTodayLesson.mockResolvedValueOnce(mockLesson);
-    const { result } = renderHook(() => useTodayLesson(), { wrapper: makeWrapper() });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data).toEqual(mockLesson);
-  });
-
-  it('is in loading state initially', async () => {
-    mockLessonService.getTodayLesson.mockResolvedValueOnce(mockLesson);
-    const { result } = renderHook(() => useTodayLesson(), { wrapper: makeWrapper() });
-    expect(result.current.isLoading).toBe(true);
-  });
-
-  it('returns error state on failure', async () => {
-    mockLessonService.getTodayLesson.mockRejectedValueOnce(new Error('API error'));
-    const { result } = renderHook(() => useTodayLesson(), { wrapper: makeWrapper() });
-    await waitFor(() => expect(result.current.isError).toBe(true));
-  });
-
-  it('calls lessonService.getTodayLesson once', async () => {
-    mockLessonService.getTodayLesson.mockResolvedValueOnce(mockLesson);
-    const { result } = renderHook(() => useTodayLesson(), { wrapper: makeWrapper() });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockLessonService.getTodayLesson).toHaveBeenCalledTimes(1);
-  });
-});
 
 describe('useSaveLesson (ticket 017 chunk 3)', () => {
   beforeEach(() => jest.clearAllMocks());

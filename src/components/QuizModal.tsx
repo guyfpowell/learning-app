@@ -8,9 +8,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import type { Lesson, QuizFeedback } from '@learning/shared';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
 import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
+import { extractError } from '@/lib/errors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
@@ -20,6 +22,15 @@ interface QuizModalProps {
   visible: boolean;
   lesson: Lesson;
   onClose: () => void;
+}
+
+function ProgressBar({ value }: { value: number }) {
+  const clamped = Math.min(100, Math.max(0, value));
+  return (
+    <View style={styles.progressTrack} testID="quiz-progress-bar">
+      <View style={[styles.progressFill, { width: `${clamped}%` as `${number}%` }]} />
+    </View>
+  );
 }
 
 function TrackAverageBadge({
@@ -61,18 +72,23 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | undefined>(undefined);
   const [wrongAnswer, setWrongAnswer] = useState<string | undefined>(undefined);
   const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set());
+  const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const router = useRouter();
   const submit = useSubmitQuiz();
   const saveLesson = useSaveLesson();
   const unsaveLesson = useUnsaveLesson();
   const quizzes = lesson.quizzes;
   const scoreAnim = useRef(new Animated.Value(0)).current;
+  const milestoneAnim = useRef(new Animated.Value(0.8)).current;
 
   // Reset state each time the modal opens; resume from first unresolved question
   useEffect(() => {
     if (visible) {
       const resolved = new Set<string>(lesson.resolvedQuizIds ?? []);
       setResolvedIds(resolved);
+      const allResolved = quizzes.length > 0 && quizzes.every(q => resolved.has(q.id));
+      setAlreadyCompleted(quizzes.length > 0 && (!!lesson.quizCompleted || allResolved));
       const startIdx = quizzes.findIndex(q => !resolved.has(q.id));
       setCurrentQuizIndex(startIdx === -1 ? 0 : startIdx);
       setSelectedAnswer(undefined);
@@ -80,6 +96,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
       setIsSaved(!!lesson.isSaved);
       submit.reset();
       scoreAnim.setValue(0);
+      milestoneAnim.setValue(0.8);
     }
   }, [visible, lesson.id, lesson.isSaved]);
 
@@ -93,7 +110,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     }
   }
 
-  // Animate score only at lesson finalization
+  // Animate score and milestone card only at lesson finalization
   useEffect(() => {
     if (submit.data?.lessonFinalized) {
       Animated.spring(scoreAnim, {
@@ -102,6 +119,14 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
         tension: 80,
         useNativeDriver: true,
       }).start();
+      if (submit.data.milestone) {
+        Animated.spring(milestoneAnim, {
+          toValue: 1,
+          friction: 5,
+          tension: 80,
+          useNativeDriver: true,
+        }).start();
+      }
     }
   }, [submit.data]);
 
@@ -111,13 +136,19 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     setSelectedAnswer(option);
   }
 
-  // Advance to the next question that has not yet been resolved
+  // Advance to the next question that has not yet been resolved.
+  // If none remains, the lesson is already fully resolved server-side — show
+  // the "already completed" view instead of silently re-showing a dead question.
   function advanceToNextUnresolved(justResolvedId?: string) {
     const newResolved = new Set(resolvedIds);
     if (justResolvedId) newResolved.add(justResolvedId);
     setResolvedIds(newResolved);
     const nextIdx = quizzes.findIndex((q, i) => i > currentQuizIndex && !newResolved.has(q.id));
-    setCurrentQuizIndex(nextIdx === -1 ? currentQuizIndex : nextIdx);
+    if (nextIdx === -1) {
+      setAlreadyCompleted(true);
+    } else {
+      setCurrentQuizIndex(nextIdx);
+    }
     setSelectedAnswer(undefined);
     setWrongAnswer(undefined);
     submit.reset();
@@ -125,10 +156,10 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
 
   // 409 LESSON_003 means this question was already answered — advance instead of erroring
   function handleQuizError(error: unknown) {
-    const axiosError = error as { response?: { status?: number; data?: { error?: { code?: string } } } };
+    const axiosError = error as { response?: { status?: number; data?: { code?: string } } };
     if (
       axiosError?.response?.status === 409 &&
-      axiosError?.response?.data?.error?.code === 'LESSON_003'
+      axiosError?.response?.data?.code === 'LESSON_003'
     ) {
       advanceToNextUnresolved(current?.id);
     }
@@ -154,6 +185,15 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
       { lessonId: lesson.id, answers: {}, skipRetake: true },
       { onError: handleQuizError }
     );
+  }
+
+  function handleNavigateAfterQuiz(nextId: string | null | undefined) {
+    onClose();
+    if (nextId) {
+      router.replace(`/(tabs)/lesson/${nextId}` as never);
+    } else {
+      router.replace('/(tabs)/lessons' as never);
+    }
   }
 
   // ─── Wrong first attempt — retake offer ───────────────────────────────────────
@@ -254,12 +294,16 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
 
             {/* Milestone celebration */}
             {milestone && (
-              <View style={styles.milestoneCard} accessibilityRole="alert">
+              <Animated.View
+                testID="milestone-card"
+                style={[styles.milestoneCard, { transform: [{ scale: milestoneAnim }], opacity: milestoneAnim }]}
+                accessibilityRole="alert"
+              >
                 <Text style={styles.milestoneText}>🎉 {milestone}!</Text>
                 <Text style={styles.milestoneSubtext}>
                   {streak >= 30 ? "You're unstoppable." : "Keep going!"}
                 </Text>
-              </View>
+              </Animated.View>
             )}
 
             {feedbacks.map((fb: QuizFeedback) => (
@@ -286,7 +330,36 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
               </View>
             )}
 
-            <Button label="Done" onPress={onClose} style={styles.doneBtn} accessibilityLabel="Close and return to lessons" />
+            <Button
+              label={submit.data.nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
+              onPress={() => handleNavigateAfterQuiz(submit.data?.nextLessonId)}
+              style={styles.doneBtn}
+            />
+          </ScrollView>
+        </View>
+      </Modal>
+    );
+  }
+
+  // ─── Already completed — no unresolved question left, and no fresh result to show ──
+  if (alreadyCompleted) {
+    return (
+      <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
+            <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
+              <Text style={styles.closeText}>✕</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.content}>
+            <Text style={styles.resultHeading}>Already Completed</Text>
+            <Text style={styles.completedBody}>You've already finished this lesson's quiz.</Text>
+            <Button
+              label={lesson.nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
+              onPress={() => handleNavigateAfterQuiz(lesson.nextLessonId)}
+              style={styles.doneBtn}
+            />
           </ScrollView>
         </View>
       </Modal>
@@ -310,9 +383,17 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
           ) : (
             <>
               {quizzes.length > 1 && (
-                <Text style={styles.progress}>
-                  Question {currentQuizIndex + 1} of {quizzes.length}
-                </Text>
+                <View style={styles.progressWrap}>
+                  <View style={styles.progressRow}>
+                    <Text style={styles.progress}>
+                      Question {currentQuizIndex + 1} of {quizzes.length}
+                    </Text>
+                    <Text style={styles.progress}>
+                      {Math.round(((currentQuizIndex + 1) / quizzes.length) * 100)}%
+                    </Text>
+                  </View>
+                  <ProgressBar value={((currentQuizIndex + 1) / quizzes.length) * 100} />
+                </View>
               )}
 
               <Text style={styles.question}>{current.question}</Text>
@@ -346,7 +427,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
               )}
 
               {submit.isError && (
-                <Text style={styles.error}>Submission failed. Please try again.</Text>
+                <Text testID="submit-error" style={styles.error}>{extractError(submit.error)}</Text>
               )}
 
               <Button
@@ -384,11 +465,27 @@ const styles = StyleSheet.create({
     color:      colors.textMuted,
   },
   content:   { padding: spacing.md, flexGrow: 1 },
+  progressWrap: { marginBottom: spacing.md },
+  progressRow: {
+    flexDirection:  'row',
+    justifyContent: 'space-between',
+    marginBottom:   spacing.xs,
+  },
   progress: {
     fontFamily:   font.medium,
     fontSize:     fontSize.sm,
     color:        colors.textMuted,
-    marginBottom: spacing.md,
+  },
+  progressTrack: {
+    height:          6,
+    backgroundColor: colors.border,
+    borderRadius:    3,
+    overflow:        'hidden',
+  },
+  progressFill: {
+    height:          6,
+    backgroundColor: colors.teal,
+    borderRadius:    3,
   },
   question: {
     fontFamily:   font.bold,
@@ -416,6 +513,13 @@ const styles = StyleSheet.create({
   optionTextSelected: { color: colors.teal },
   optionDisabled: { opacity: 0.4 },
   optionTextDisabled: { textDecorationLine: 'line-through' },
+  completedBody: {
+    fontFamily:   font.regular,
+    fontSize:     fontSize.base,
+    color:        colors.textMuted,
+    textAlign:    'center',
+    marginBottom: spacing.xl,
+  },
   keyTakeaway: {
     fontFamily:   font.regular,
     fontSize:     fontSize.base,

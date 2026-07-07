@@ -35,7 +35,7 @@ export function useNotifications() {
   }, []);
 }
 
-async function registerForPushNotifications(): Promise<void> {
+export async function registerForPushNotifications(): Promise<void> {
   if (!Device.isDevice) {
     // Push tokens are not available in simulator — skip silently
     return;

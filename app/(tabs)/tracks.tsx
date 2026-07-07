@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { useSkills, useEnrollments, useEnroll } from '@/hooks/useTrack';
+import { extractError } from '@/lib/errors';
 import type { SkillWithAccess } from '@learning/shared';
 
 const categoryLabel: Record<SkillWithAccess['category'], string> = {
@@ -15,7 +17,7 @@ const categoryLabel: Record<SkillWithAccess['category'], string> = {
   'business':           'Business',
 };
 
-function PremiumModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+function PremiumModal({ visible, onClose, onUpgrade }: { visible: boolean; onClose: () => void; onUpgrade: () => void }) {
   return (
     <Modal testID="premium-modal" visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.modalOverlay} onPress={onClose}>
@@ -25,7 +27,7 @@ function PremiumModal({ visible, onClose }: { visible: boolean; onClose: () => v
           <Text style={styles.modalBody}>
             Upgrade to unlock unlimited access to all premium tracks.
           </Text>
-          <Button label="Upgrade now" style={styles.upgradeBtn} onPress={onClose} />
+          <Button testID="upgrade-now-btn" label="Upgrade now" style={styles.upgradeBtn} onPress={onUpgrade} />
           <Pressable testID="dismiss-btn" onPress={onClose} style={styles.dismissBtn}>
             <Text style={styles.dismissText}>Maybe later</Text>
           </Pressable>
@@ -36,8 +38,9 @@ function PremiumModal({ visible, onClose }: { visible: boolean; onClose: () => v
 }
 
 export default function TracksScreen() {
-  const { data: skills, isLoading: skillsLoading } = useSkills();
-  const { data: enrollments, isLoading: enrollmentsLoading } = useEnrollments();
+  const router = useRouter();
+  const { data: skills, isLoading: skillsLoading, isError: skillsError, error: skillsErr } = useSkills();
+  const { data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr } = useEnrollments();
   const enroll = useEnroll();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
 
@@ -52,6 +55,18 @@ export default function TracksScreen() {
         {isLoading && (
           <View testID="tracks-loading">
             <Spinner fullScreen />
+          </View>
+        )}
+
+        {(skillsError || enrollmentsError) && !isLoading && (
+          <View testID="tracks-load-error">
+            <Text style={styles.errorText}>{extractError(skillsErr ?? enrollmentsErr)}</Text>
+          </View>
+        )}
+
+        {enroll.isError && (
+          <View testID="tracks-enrol-error">
+            <Text style={styles.errorText}>{extractError(enroll.error)}</Text>
           </View>
         )}
 
@@ -102,7 +117,7 @@ export default function TracksScreen() {
                   testID={`enrol-btn-${skill.id}`}
                   label="Enrol"
                   loading={enroll.isPending && enroll.variables === skill.id}
-                  onPress={() => enroll.mutate(skill.id)}
+                  onPress={() => enroll.mutate(skill.id, { onSuccess: () => router.push('/(tabs)/lessons') })}
                 />
               )}
             </Card>
@@ -113,6 +128,7 @@ export default function TracksScreen() {
       <PremiumModal
         visible={premiumModalVisible}
         onClose={() => setPremiumModalVisible(false)}
+        onUpgrade={() => { setPremiumModalVisible(false); router.push('/(tabs)/settings'); }}
       />
     </SafeAreaView>
   );
@@ -153,6 +169,12 @@ const styles = StyleSheet.create({
   },
   lockedBtn: {
     backgroundColor: colors.border,
+  },
+  errorText: {
+    fontFamily: font.regular,
+    fontSize: fontSize.sm,
+    color: colors.error,
+    marginBottom: spacing.sm,
   },
   modalOverlay: {
     flex:            1,

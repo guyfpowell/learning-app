@@ -10,19 +10,22 @@ import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
 } from '@/hooks/useNotificationPrefs';
+import { usePushStatus } from '@/hooks/usePushStatus';
+import { extractError } from '@/lib/errors';
 
 type ReminderTime = 'morning' | 'afternoon' | 'evening';
 
 const REMINDER_TIMES: { value: ReminderTime; label: string }[] = [
-  { value: 'morning', label: 'Morning' },
-  { value: 'afternoon', label: 'Afternoon' },
-  { value: 'evening', label: 'Evening' },
+  { value: 'morning', label: 'Morning (8 AM)' },
+  { value: 'afternoon', label: 'Afternoon (1 PM)' },
+  { value: 'evening', label: 'Evening (7 PM)' },
 ];
 
 export default function SettingsScreen() {
   const user = useAuthStore((s) => s.user);
   const { data, isLoading } = useNotificationPreferences();
   const updatePrefs = useUpdateNotificationPreferences();
+  const { permissionStatus, register } = usePushStatus();
 
   const [enableDailyReminder, setEnableDailyReminder] = useState(false);
   const [reminderTime, setReminderTime] = useState<ReminderTime>('morning');
@@ -60,6 +63,24 @@ export default function SettingsScreen() {
             <Text style={styles.userEmail}>{user.email}</Text>
           </Card>
         )}
+
+        {/* Push Notifications */}
+        <Text style={styles.sectionLabel}>Push Notifications</Text>
+        <Card style={styles.card}>
+          {permissionStatus === 'granted' ? (
+            <Text testID="push-status-enabled" style={styles.pushEnabledText}>
+              Push notifications are enabled
+            </Text>
+          ) : permissionStatus === 'denied' ? (
+            <Text testID="push-status-blocked" style={styles.pushBlockedText}>
+              Notifications are blocked. Enable them in your device settings.
+            </Text>
+          ) : (
+            <View testID="push-status-prompt">
+              <Button label="Enable notifications" onPress={register} />
+            </View>
+          )}
+        </Card>
 
         {/* Notifications */}
         <Text style={styles.sectionLabel}>Notifications</Text>
@@ -145,7 +166,7 @@ export default function SettingsScreen() {
           <Text style={styles.successMsg}>Settings saved</Text>
         )}
         {updatePrefs.isError && (
-          <Text style={styles.errorMsg}>Failed to save settings. Please try again.</Text>
+          <Text testID="settings-error" style={styles.errorMsg}>{extractError(updatePrefs.error)}</Text>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -228,6 +249,18 @@ const styles = StyleSheet.create({
   },
   timeBtnTextSelected: {
     color: colors.teal,
+  },
+  pushEnabledText: {
+    fontFamily: font.medium,
+    fontSize: fontSize.base,
+    color: colors.success,
+    paddingVertical: spacing.xs,
+  },
+  pushBlockedText: {
+    fontFamily: font.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+    paddingVertical: spacing.xs,
   },
   saveBtn: { marginTop: spacing.lg },
   successMsg: {

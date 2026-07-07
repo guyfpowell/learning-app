@@ -1,6 +1,6 @@
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -12,9 +12,12 @@ import {
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useSkills, useCompleteOnboarding } from '@/hooks/useOnboarding';
+import { useAuthStore } from '@/store/auth.store';
+import api from '@/lib/api';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { SENIORITY_LABELS } from '@learning/shared';
 import type { Seniority, SkillWithAccess } from '@learning/shared';
@@ -31,9 +34,9 @@ const SENIORITY_ORDER: Seniority[] = [
 ];
 
 const PREFERRED_TIME_LABELS: Record<PreferredTime, string> = {
-  morning: 'Morning (7:00 AM)',
-  afternoon: 'Afternoon (12:00 PM)',
-  evening: 'Evening (6:00 PM)',
+  morning: 'Morning (8 AM)',
+  afternoon: 'Afternoon (1 PM)',
+  evening: 'Evening (7 PM)',
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -60,9 +63,8 @@ function SeniorityStep({
 }) {
   return (
     <>
-      <Text style={styles.stepHeading}>What's your seniority level?</Text>
-      <Text style={styles.stepSub}>
-        We'll tailor content to your experience.
+      <Text style={styles.stepHeading}>
+        How would you describe your experience level?
       </Text>
       {SENIORITY_ORDER.map((key) => {
         const { label, years, titles } = SENIORITY_LABELS[key];
@@ -98,6 +100,7 @@ function TracksStep({
   isError,
   selectedIds,
   onToggle,
+  onLockPress,
   isPremiumUser,
 }: {
   skills: SkillWithAccess[] | undefined;
@@ -105,12 +108,12 @@ function TracksStep({
   isError: boolean;
   selectedIds: string[];
   onToggle: (id: string) => void;
+  onLockPress: () => void;
   isPremiumUser: boolean;
 }) {
   if (isLoading) {
     return (
       <View style={styles.centered} testID="tracks-loading">
-        <ActivityIndicator size="large" color={colors.teal} />
         <Text style={styles.loadingText}>Loading tracks…</Text>
       </View>
     );
@@ -128,13 +131,11 @@ function TracksStep({
 
   return (
     <>
-      <Text style={styles.stepHeading}>
-        {isPremiumUser ? 'Choose your tracks' : 'Choose a track to start'}
-      </Text>
+      <Text style={styles.stepHeading}>Which tracks do you want to learn?</Text>
       <Text style={styles.stepSub}>
         {isPremiumUser
-          ? 'Select the skills you want to develop.'
-          : 'Select one track to begin your learning journey.'}
+          ? 'Choose as many tracks as you like.'
+          : 'Choose one track to get started. Upgrade to unlock all tracks.'}
       </Text>
       {skills.map((skill) => {
         const isSelected = selectedIds.includes(skill.id);
@@ -143,7 +144,7 @@ function TracksStep({
           <Pressable
             key={skill.id}
             testID={`skill-${skill.id}`}
-            onPress={() => !isLocked && onToggle(skill.id)}
+            onPress={() => (isLocked ? onLockPress() : onToggle(skill.id))}
             style={[
               styles.optionCard,
               isSelected && styles.optionCardSelected,
@@ -189,25 +190,20 @@ function TimezoneStep({
 }) {
   return (
     <>
-      <Text style={styles.stepHeading}>When do you learn best?</Text>
-      <Text style={styles.stepSub}>
-        We'll schedule reminders around your preferred time.
-      </Text>
-
       <Text style={styles.fieldLabel}>Timezone</Text>
       <TextInput
         testID="timezone-input"
         style={styles.textInput}
         value={timezone}
         onChangeText={onTimezoneChange}
-        placeholder="UTC"
+        placeholder="UTC, America/New_York, etc."
         autoCapitalize="none"
         autoCorrect={false}
         returnKeyType="done"
       />
 
       <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>
-        Preferred time
+        Preferred learning time
       </Text>
       {(Object.entries(PREFERRED_TIME_LABELS) as [PreferredTime, string][]).map(
         ([key, label]) => {
@@ -237,6 +233,8 @@ function TimezoneStep({
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
   const { data: skills, isLoading: skillsLoading, isError: skillsError } = useSkills();
   const complete = useCompleteOnboarding();
 
@@ -245,23 +243,43 @@ export default function OnboardingScreen() {
   const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
   const [timezone, setTimezone] = useState('UTC');
   const [preferredTime, setPreferredTime] = useState<PreferredTime>('morning');
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
 
   const isPremiumUser = !!skills?.length && skills.every((s) => s.userHasAccess);
 
   useEffect(() => {
     if (complete.isSuccess) {
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/lessons');
     }
   }, [complete.isSuccess]);
 
   function handleToggleTrack(id: string) {
-    setSelectedTrackIds((prev) => {
-      if (isPremiumUser) {
-        return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-      }
-      // Free user: single selection
-      return prev.includes(id) ? [] : [id];
-    });
+    if (isPremiumUser) {
+      setSelectedTrackIds((prev) =>
+        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      );
+      return;
+    }
+    // Free user: single selection; prompt upgrade if already have one selected
+    if (selectedTrackIds.includes(id)) {
+      setSelectedTrackIds([]);
+    } else if (selectedTrackIds.length > 0) {
+      setShowUpgradeModal(true);
+    } else {
+      setSelectedTrackIds([id]);
+    }
+  }
+
+  async function handleUpgrade() {
+    setUpgrading(true);
+    try {
+      await api.post('/auth/dummy-upgrade');
+      await queryClient.invalidateQueries({ queryKey: ['skills'] });
+      setShowUpgradeModal(false);
+    } finally {
+      setUpgrading(false);
+    }
   }
 
   function handleNext() {
@@ -305,11 +323,15 @@ export default function OnboardingScreen() {
             <StepIndicator step={step} />
           </View>
 
+          <Text style={styles.greeting}>Welcome, {user?.name ?? 'there'}!</Text>
+          <Text style={styles.greetingSub}>Let's set up your learning preferences</Text>
+
           <Card style={styles.card}>
             {complete.isError && (
               <View style={styles.errorBanner}>
                 <Text style={styles.errorBannerText}>
-                  Something went wrong. Please try again.
+                  {(complete.error as Error | null)?.message ??
+                    'Something went wrong. Please try again.'}
                 </Text>
               </View>
             )}
@@ -324,6 +346,7 @@ export default function OnboardingScreen() {
                 isError={skillsError}
                 selectedIds={selectedTrackIds}
                 onToggle={handleToggleTrack}
+                onLockPress={() => setShowUpgradeModal(true)}
                 isPremiumUser={isPremiumUser}
               />
             )}
@@ -346,15 +369,40 @@ export default function OnboardingScreen() {
             ) : (
               <Button
                 testID="onboarding-submit"
-                label="Get started"
+                label={complete.isPending ? 'Saving…' : 'Get started'}
                 onPress={handleSubmit}
-                loading={complete.isPending}
+                disabled={complete.isPending}
                 style={styles.actionBtn}
               />
             )}
           </Card>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        transparent
+        visible={showUpgradeModal}
+        animationType="fade"
+        onRequestClose={() => setShowUpgradeModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowUpgradeModal(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Unlock all tracks with Premium</Text>
+            <Text style={styles.modalBody}>
+              Upgrade to Premium to access all learning tracks and learn at your own pace.
+            </Text>
+            <Button
+              label={upgrading ? 'Upgrading…' : 'Upgrade now'}
+              onPress={handleUpgrade}
+              disabled={upgrading}
+              style={styles.modalBtn}
+            />
+            <Pressable onPress={() => setShowUpgradeModal(false)} style={styles.modalCancelBtn}>
+              <Text style={styles.modalCancelText}>Maybe later</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -387,6 +435,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.4)',
   },
   stepDotActive: { backgroundColor: colors.white },
+  greeting: {
+    fontFamily: font.bold,
+    fontSize: fontSize.xl,
+    color: colors.white,
+    textAlign: 'center',
+  },
+  greetingSub: {
+    fontFamily: font.regular,
+    fontSize: fontSize.sm,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+  },
   card: { gap: spacing.md },
   stepHeading: {
     fontFamily: font.bold,
@@ -493,4 +553,39 @@ const styles = StyleSheet.create({
     color: colors.error,
   },
   actionBtn: { marginTop: spacing.xs },
+  // Upgrade modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  modalCard: {
+    backgroundColor: colors.white,
+    borderRadius: radius.card,
+    padding: spacing.xl,
+    width: '100%',
+    gap: spacing.md,
+  },
+  modalTitle: {
+    fontFamily: font.bold,
+    fontSize: fontSize.lg,
+    color: colors.textDark,
+    textAlign: 'center',
+  },
+  modalBody: {
+    fontFamily: font.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  modalBtn: { marginTop: spacing.xs },
+  modalCancelBtn: { alignItems: 'center', paddingVertical: spacing.sm },
+  modalCancelText: {
+    fontFamily: font.medium,
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+  },
 });

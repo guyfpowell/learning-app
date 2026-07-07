@@ -1,13 +1,15 @@
 import React from 'react';
-import { ActivityIndicator } from 'react-native';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import OnboardingScreen from '../onboarding';
 import { useSkills, useCompleteOnboarding } from '@/hooks/useOnboarding';
+import { useAuthStore } from '@/store/auth.store';
+import api from '@/lib/api';
 import type { SkillWithAccess } from '@learning/shared';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 const mockReplace = jest.fn();
+const mockInvalidateQueries = jest.fn();
 
 jest.mock('@/hooks/useOnboarding', () => ({
   useSkills: jest.fn(),
@@ -22,11 +24,32 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+jest.mock('@/store/auth.store');
+
+jest.mock('@tanstack/react-query', () => ({
+  ...jest.requireActual('@tanstack/react-query'),
+  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+}));
+
+jest.mock('@/lib/api', () => ({
+  __esModule: true,
+  default: { post: jest.fn() },
+}));
+
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 const mockFreeSkill: SkillWithAccess = {
   id: 'skill-1',
   name: 'Product Strategy',
+  premiumStatus: 'free',
+  userHasAccess: true,
+  enrolledSkillId: null,
+  skillPaths: [],
+} as unknown as SkillWithAccess;
+
+const mockFreeSkill2: SkillWithAccess = {
+  id: 'skill-4',
+  name: 'Business Fundamentals',
   premiumStatus: 'free',
   userHasAccess: true,
   enrolledSkillId: null,
@@ -58,6 +81,7 @@ function setSkillsMock(overrides: Record<string, unknown> = {}) {
     data: undefined,
     isLoading: false,
     isError: false,
+    refetch: jest.fn(),
     ...overrides,
   });
 }
@@ -91,6 +115,20 @@ describe('OnboardingScreen', () => {
     jest.clearAllMocks();
     setSkillsMock({ data: [mockFreeSkill, mockLockedSkill] });
     setCompleteMock();
+    (useAuthStore as unknown as jest.Mock).mockReturnValue({ name: 'Alice' });
+  });
+
+  // Welcome greeting
+  describe('Welcome greeting', () => {
+    it('shows welcome greeting with user name', () => {
+      render(<OnboardingScreen />);
+      expect(screen.getByText('Welcome, Alice!')).toBeTruthy();
+    });
+
+    it('shows setup subtitle', () => {
+      render(<OnboardingScreen />);
+      expect(screen.getByText("Let's set up your learning preferences")).toBeTruthy();
+    });
   });
 
   // Step 1 — Seniority
@@ -104,6 +142,11 @@ describe('OnboardingScreen', () => {
       expect(screen.getByTestId('seniority-DIRECTOR')).toBeTruthy();
     });
 
+    it('renders web-aligned step 1 heading', () => {
+      render(<OnboardingScreen />);
+      expect(screen.getByText('How would you describe your experience level?')).toBeTruthy();
+    });
+
     it('shows "Continue" button on step 1', () => {
       render(<OnboardingScreen />);
       expect(screen.getByText('CONTINUE')).toBeTruthy();
@@ -112,15 +155,14 @@ describe('OnboardingScreen', () => {
     it('does not advance to step 2 if no seniority selected', () => {
       render(<OnboardingScreen />);
       fireEvent.press(screen.getByText('CONTINUE'));
-      // Still on step 1 — seniority heading is still visible
-      expect(screen.getByText("What's your seniority level?")).toBeTruthy();
+      expect(screen.getByText('How would you describe your experience level?')).toBeTruthy();
     });
 
     it('advances to step 2 after selecting a seniority and pressing Continue', () => {
       render(<OnboardingScreen />);
       fireEvent.press(screen.getByTestId('seniority-SENIOR'));
       fireEvent.press(screen.getByText('CONTINUE'));
-      expect(screen.queryByText("What's your seniority level?")).toBeNull();
+      expect(screen.queryByText('How would you describe your experience level?')).toBeNull();
     });
   });
 
@@ -151,12 +193,25 @@ describe('OnboardingScreen', () => {
       expect(screen.getByText('🔒 Premium')).toBeTruthy();
     });
 
+    it('shows unified step 2 heading for free user', () => {
+      render(<OnboardingScreen />);
+      advanceToStep2();
+      expect(screen.getByText('Which tracks do you want to learn?')).toBeTruthy();
+    });
+
+    it('shows correct free user helper text with upgrade mention', () => {
+      render(<OnboardingScreen />);
+      advanceToStep2();
+      expect(
+        screen.getByText('Choose one track to get started. Upgrade to unlock all tracks.')
+      ).toBeTruthy();
+    });
+
     it('does not advance to step 3 if no track selected', () => {
       render(<OnboardingScreen />);
       advanceToStep2();
       fireEvent.press(screen.getByText('CONTINUE'));
-      // Still on step 2
-      expect(screen.getByText('Choose a track to start')).toBeTruthy();
+      expect(screen.getByText('Which tracks do you want to learn?')).toBeTruthy();
     });
 
     it('advances to step 3 after selecting a track and pressing Continue', () => {
@@ -164,14 +219,53 @@ describe('OnboardingScreen', () => {
       advanceToStep2();
       fireEvent.press(screen.getByTestId('skill-skill-1'));
       fireEvent.press(screen.getByText('CONTINUE'));
-      expect(screen.queryByText('Choose a track to start')).toBeNull();
+      expect(screen.queryByText('Which tracks do you want to learn?')).toBeNull();
     });
 
     it('shows Back button on step 2 and returns to step 1 when pressed', () => {
       render(<OnboardingScreen />);
       advanceToStep2();
       fireEvent.press(screen.getByTestId('back-button'));
-      expect(screen.getByText("What's your seniority level?")).toBeTruthy();
+      expect(screen.getByText('How would you describe your experience level?')).toBeTruthy();
+    });
+
+    it('shows upgrade modal when locked skill is tapped', () => {
+      render(<OnboardingScreen />);
+      advanceToStep2();
+      fireEvent.press(screen.getByTestId('skill-skill-2'));
+      expect(screen.getByText('Unlock all tracks with Premium')).toBeTruthy();
+    });
+
+    it('shows upgrade modal when free user tries to select a second track', () => {
+      // Need at least one locked skill so isPremiumUser = false (all-accessible = premium)
+      setSkillsMock({ data: [mockFreeSkill, mockFreeSkill2, mockLockedSkill] });
+      render(<OnboardingScreen />);
+      advanceToStep2();
+      fireEvent.press(screen.getByTestId('skill-skill-1'));
+      fireEvent.press(screen.getByTestId('skill-skill-4'));
+      expect(screen.getByText('Unlock all tracks with Premium')).toBeTruthy();
+    });
+
+    it('closes upgrade modal when "Maybe later" is pressed', () => {
+      render(<OnboardingScreen />);
+      advanceToStep2();
+      fireEvent.press(screen.getByTestId('skill-skill-2'));
+      expect(screen.getByText('Unlock all tracks with Premium')).toBeTruthy();
+      fireEvent.press(screen.getByText('Maybe later'));
+      expect(screen.queryByText('Unlock all tracks with Premium')).toBeNull();
+    });
+
+    it('calls upgrade API and invalidates skills on "Upgrade now"', async () => {
+      (api.post as jest.Mock).mockResolvedValueOnce({});
+      render(<OnboardingScreen />);
+      advanceToStep2();
+      fireEvent.press(screen.getByTestId('skill-skill-2'));
+      // Button component uppercases all labels
+      fireEvent.press(screen.getByText('UPGRADE NOW'));
+      await waitFor(() => {
+        expect(api.post).toHaveBeenCalledWith('/auth/dummy-upgrade');
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['skills'] });
+      });
     });
   });
 
@@ -181,10 +275,16 @@ describe('OnboardingScreen', () => {
       setSkillsMock({ data: [mockFreeSkill, mockPremiumSkill] });
     });
 
-    it('shows multi-select heading for premium user', () => {
+    it('shows unified step 2 heading for premium user', () => {
       render(<OnboardingScreen />);
       advanceToStep2();
-      expect(screen.getByText('Choose your tracks')).toBeTruthy();
+      expect(screen.getByText('Which tracks do you want to learn?')).toBeTruthy();
+    });
+
+    it('shows correct premium helper text', () => {
+      render(<OnboardingScreen />);
+      advanceToStep2();
+      expect(screen.getByText('Choose as many tracks as you like.')).toBeTruthy();
     });
 
     it('allows selecting multiple tracks for premium user', () => {
@@ -192,9 +292,8 @@ describe('OnboardingScreen', () => {
       advanceToStep2();
       fireEvent.press(screen.getByTestId('skill-skill-1'));
       fireEvent.press(screen.getByTestId('skill-skill-3'));
-      // Both selected — pressing Continue should advance
       fireEvent.press(screen.getByText('CONTINUE'));
-      expect(screen.queryByText('Choose your tracks')).toBeNull();
+      expect(screen.queryByText('Which tracks do you want to learn?')).toBeNull();
     });
   });
 
@@ -207,12 +306,28 @@ describe('OnboardingScreen', () => {
       expect(input.props.value).toBe('UTC');
     });
 
-    it('shows all preferred time options', () => {
+    it('shows timezone placeholder with format hint', () => {
+      render(<OnboardingScreen />);
+      advanceToStep3();
+      const input = screen.getByTestId('timezone-input');
+      expect(input.props.placeholder).toBe('UTC, America/New_York, etc.');
+    });
+
+    it('shows "Preferred learning time" field label', () => {
+      render(<OnboardingScreen />);
+      advanceToStep3();
+      expect(screen.getByText('Preferred learning time')).toBeTruthy();
+    });
+
+    it('shows all preferred time options with clock times', () => {
       render(<OnboardingScreen />);
       advanceToStep3();
       expect(screen.getByTestId('preferred-time-morning')).toBeTruthy();
       expect(screen.getByTestId('preferred-time-afternoon')).toBeTruthy();
       expect(screen.getByTestId('preferred-time-evening')).toBeTruthy();
+      expect(screen.getByText('Morning (8 AM)')).toBeTruthy();
+      expect(screen.getByText('Afternoon (1 PM)')).toBeTruthy();
+      expect(screen.getByText('Evening (7 PM)')).toBeTruthy();
     });
 
     it('shows "Get started" submit button', () => {
@@ -221,9 +336,15 @@ describe('OnboardingScreen', () => {
       expect(screen.getByText('GET STARTED')).toBeTruthy();
     });
 
+    it('shows "Saving…" text while submit is pending', () => {
+      setCompleteMock({ isPending: true });
+      render(<OnboardingScreen />);
+      advanceToStep3();
+      expect(screen.getByText('SAVING…')).toBeTruthy();
+    });
+
     it('calls mutate with correct args on submit', () => {
       render(<OnboardingScreen />);
-      // Select seniority ASSOCIATE and track skill-1, then submit on step 3
       fireEvent.press(screen.getByTestId('seniority-ASSOCIATE'));
       fireEvent.press(screen.getByText('CONTINUE'));
       fireEvent.press(screen.getByTestId('skill-skill-1'));
@@ -239,34 +360,37 @@ describe('OnboardingScreen', () => {
       });
     });
 
-    it('shows error banner when mutation fails', () => {
-      setCompleteMock({ isError: true });
+    it('shows real error message when mutation fails', () => {
+      setCompleteMock({
+        isError: true,
+        error: { message: 'Please select your experience level' },
+      });
+      render(<OnboardingScreen />);
+      advanceToStep3();
+      expect(screen.getByText('Please select your experience level')).toBeTruthy();
+    });
+
+    it('falls back to generic message when error has no message', () => {
+      setCompleteMock({ isError: true, error: null });
       render(<OnboardingScreen />);
       advanceToStep3();
       expect(screen.getByText('Something went wrong. Please try again.')).toBeTruthy();
-    });
-
-    it('shows loading indicator on submit button when pending', () => {
-      setCompleteMock({ isPending: true });
-      const { UNSAFE_getByType } = render(<OnboardingScreen />);
-      advanceToStep3();
-      expect(UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
     });
 
     it('shows Back button on step 3 and returns to step 2 when pressed', () => {
       render(<OnboardingScreen />);
       advanceToStep3();
       fireEvent.press(screen.getByTestId('back-button'));
-      expect(screen.getByText('Choose a track to start')).toBeTruthy();
+      expect(screen.getByText('Which tracks do you want to learn?')).toBeTruthy();
     });
   });
 
   // Navigation
   describe('Navigation after completion', () => {
-    it('navigates to tabs when mutation succeeds', () => {
+    it('navigates to lessons tab when mutation succeeds', () => {
       setCompleteMock({ isSuccess: true });
       render(<OnboardingScreen />);
-      expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
+      expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lessons');
     });
   });
 });

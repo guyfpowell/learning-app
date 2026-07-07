@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { lessonService } from '@/services/lesson.service';
 
-export function useTodayLesson() {
+export function useLesson(id: string) {
   return useQuery({
-    queryKey: ['lesson', 'today'],
-    queryFn: () => lessonService.getTodayLesson(),
+    queryKey: ['lesson', id],
+    queryFn: () => lessonService.getLesson(id),
+    enabled: !!id,
   });
 }
 

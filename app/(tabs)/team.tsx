@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { useTeamSummary, useTeamMemberProgress, useTeamSkillGaps, useTeamLeaderboard } from '@/hooks/useTeam';
+import { extractError } from '@/lib/errors';
 import type { SkillGap } from '@learning/shared';
 
 function ProgressBar({ pct, color }: { pct: number; color: string }) {
@@ -14,9 +15,15 @@ function ProgressBar({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-function gapColor(avgScore: number): string {
-  if (avgScore < 60) return colors.error;
-  if (avgScore < 80) return '#F59E0B';
+const MEDAL_COLORS = ['#F59E0B', '#94A3B8', '#B45309'] as const;
+
+export function rankColor(idx: number): string {
+  return idx < 3 ? MEDAL_COLORS[idx] : colors.textMuted;
+}
+
+export function gapColor(avgScore: number): string {
+  if (avgScore < 50) return colors.error;
+  if (avgScore < 70) return '#F59E0B';
   return colors.teal;
 }
 
@@ -49,7 +56,9 @@ export default function TeamScreen() {
   if (hasError) {
     return (
       <SafeAreaView style={styles.centered}>
-        <Text style={styles.errorText}>Failed to load team data</Text>
+        <Text testID="team-error" style={styles.errorText}>
+          {extractError(summaryQ.error ?? membersQ.error ?? gapsQ.error ?? leaderQ.error)}
+        </Text>
       </SafeAreaView>
     );
   }
@@ -101,7 +110,12 @@ export default function TeamScreen() {
         ) : (
           leaderboard.map((entry, idx) => (
             <View key={entry.userId} style={styles.leaderRow}>
-              <Text style={styles.leaderRank}>#{idx + 1}</Text>
+              <Text
+                testID={`rank-badge-${idx + 1}`}
+                style={[styles.leaderRank, { color: rankColor(idx) }]}
+              >
+                #{idx + 1}
+              </Text>
               <View style={styles.leaderInfo}>
                 <Text style={styles.leaderName}>{entry.name}</Text>
                 <Text style={styles.metaText}>{entry.lessonsCompleted} lessons · 🔥 {entry.streak}</Text>

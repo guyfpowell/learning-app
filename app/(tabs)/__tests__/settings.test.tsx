@@ -6,6 +6,7 @@ import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
 } from '@/hooks/useNotificationPrefs';
+import { usePushStatus } from '@/hooks/usePushStatus';
 import type { NotificationPreference } from '@learning/shared';
 
 jest.mock('@/store/auth.store', () => ({ useAuthStore: jest.fn() }));
@@ -13,6 +14,8 @@ jest.mock('@/hooks/useNotificationPrefs', () => ({
   useNotificationPreferences: jest.fn(),
   useUpdateNotificationPreferences: jest.fn(),
 }));
+
+jest.mock('@/hooks/usePushStatus', () => ({ usePushStatus: jest.fn() }));
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -38,6 +41,11 @@ const mockPrefs: NotificationPreference = {
 };
 
 const mockMutate = jest.fn();
+const mockRegister = jest.fn();
+
+function setPushStatusMock(permissionStatus: 'granted' | 'denied' | 'undetermined' = 'granted') {
+  (usePushStatus as jest.Mock).mockReturnValue({ permissionStatus, register: mockRegister });
+}
 
 function setQueryMock(overrides: Record<string, unknown> = {}) {
   (useNotificationPreferences as jest.Mock).mockReturnValue({
@@ -64,6 +72,7 @@ describe('SettingsScreen', () => {
     (useAuthStore as unknown as jest.Mock).mockReturnValue(mockUser);
     setQueryMock();
     setMutationMock();
+    setPushStatusMock();
   });
 
   it('renders without errors', () => {
@@ -109,25 +118,48 @@ describe('SettingsScreen', () => {
   it('hides reminder time picker when daily reminder is off', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: false } });
     render(<SettingsScreen />);
-    expect(screen.queryByText('Morning')).toBeNull();
-    expect(screen.queryByText('Afternoon')).toBeNull();
-    expect(screen.queryByText('Evening')).toBeNull();
+    expect(screen.queryByText('Morning (8 AM)')).toBeNull();
+    expect(screen.queryByText('Afternoon (1 PM)')).toBeNull();
+    expect(screen.queryByText('Evening (7 PM)')).toBeNull();
   });
 
   it('shows reminder time picker when daily reminder is on', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: true } });
     render(<SettingsScreen />);
-    expect(screen.getByText('Morning')).toBeTruthy();
-    expect(screen.getByText('Afternoon')).toBeTruthy();
-    expect(screen.getByText('Evening')).toBeTruthy();
+    expect(screen.getByText('Morning (8 AM)')).toBeTruthy();
+    expect(screen.getByText('Afternoon (1 PM)')).toBeTruthy();
+    expect(screen.getByText('Evening (7 PM)')).toBeTruthy();
   });
 
   it('toggling daily reminder on reveals time picker', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: false } });
     render(<SettingsScreen />);
-    expect(screen.queryByText('Morning')).toBeNull();
+    expect(screen.queryByText('Morning (8 AM)')).toBeNull();
     fireEvent(screen.getByTestId('toggle-daily-reminder'), 'valueChange', true);
-    expect(screen.getByText('Morning')).toBeTruthy();
+    expect(screen.getByText('Morning (8 AM)')).toBeTruthy();
+  });
+
+  describe('push notification status', () => {
+    it('shows enabled state when permission is granted', () => {
+      setPushStatusMock('granted');
+      render(<SettingsScreen />);
+      expect(screen.getByTestId('push-status-enabled')).toBeTruthy();
+      expect(screen.getByText('Push notifications are enabled')).toBeTruthy();
+    });
+
+    it('shows blocked message when permission is denied', () => {
+      setPushStatusMock('denied');
+      render(<SettingsScreen />);
+      expect(screen.getByTestId('push-status-blocked')).toBeTruthy();
+      expect(screen.getByText('Notifications are blocked. Enable them in your device settings.')).toBeTruthy();
+    });
+
+    it('shows enable button when permission is undetermined', () => {
+      setPushStatusMock('undetermined');
+      render(<SettingsScreen />);
+      expect(screen.getByTestId('push-status-prompt')).toBeTruthy();
+      expect(screen.getByText('ENABLE NOTIFICATIONS')).toBeTruthy();
+    });
   });
 
   it('pressing Save Settings calls mutate with current prefs', () => {
@@ -157,9 +189,19 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('Settings saved')).toBeTruthy();
   });
 
-  it('shows error message when save fails', () => {
-    setMutationMock({ isError: true });
+  it('shows fallback error message when save fails with no API message', () => {
+    setMutationMock({ isError: true, error: null });
     render(<SettingsScreen />);
-    expect(screen.getByText('Failed to save settings. Please try again.')).toBeTruthy();
+    expect(screen.getByTestId('settings-error')).toBeTruthy();
+    expect(screen.getByText('Something went wrong. Please try again.')).toBeTruthy();
+  });
+
+  it('shows API error message when save fails with API-provided message', () => {
+    setMutationMock({
+      isError: true,
+      error: { response: { data: { message: 'Notification service unavailable' } } },
+    });
+    render(<SettingsScreen />);
+    expect(screen.getByText('Notification service unavailable')).toBeTruthy();
   });
 });

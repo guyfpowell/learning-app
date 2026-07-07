@@ -25,25 +25,6 @@ const mockLesson = {
 describe('lessonService', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  describe('getTodayLesson', () => {
-    it('calls GET /lessons/today', async () => {
-      mockApi.get.mockResolvedValueOnce({ data: mockLesson });
-      await lessonService.getTodayLesson();
-      expect(mockApi.get).toHaveBeenCalledWith('/lessons/today');
-    });
-
-    it('returns the lesson on success', async () => {
-      mockApi.get.mockResolvedValueOnce({ data: mockLesson });
-      const result = await lessonService.getTodayLesson();
-      expect(result).toEqual(mockLesson);
-    });
-
-    it('throws on network error', async () => {
-      mockApi.get.mockRejectedValueOnce(new Error('Network error'));
-      await expect(lessonService.getTodayLesson()).rejects.toThrow('Network error');
-    });
-  });
-
   describe('saveLesson (ticket 017 chunk 3)', () => {
     it('calls POST /lessons/:id/save and returns the result', async () => {
       mockApi.post.mockResolvedValueOnce({ data: { saved: true } });

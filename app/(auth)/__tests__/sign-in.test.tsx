@@ -133,4 +133,13 @@ describe('SignInScreen', () => {
     fireEvent.press(screen.getByText('Create one'));
     expect(mockPush).toHaveBeenCalledWith('/(auth)/register');
   });
+
+  it('shows password minimum-length error when password is fewer than 8 chars', () => {
+    render(<SignInScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'user@example.com');
+    fireEvent.changeText(screen.getByPlaceholderText('••••••••'), 'short');
+    fireEvent.press(screen.getByText('SIGN IN'));
+    expect(screen.getByText('Password must be at least 8 characters')).toBeTruthy();
+    expect(mockMutate).not.toHaveBeenCalled();
+  });
 });

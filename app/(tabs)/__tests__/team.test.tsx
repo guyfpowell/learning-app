@@ -1,12 +1,13 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
-import TeamScreen from '../team';
+import TeamScreen, { gapColor, rankColor } from '../team';
 import {
   useTeamSummary,
   useTeamMemberProgress,
   useTeamSkillGaps,
   useTeamLeaderboard,
 } from '@/hooks/useTeam';
+import { colors } from '@/theme';
 import type { TeamSummary, MemberProgress, SkillGap, LeaderboardEntry } from '@learning/shared';
 
 jest.mock('@/hooks/useTeam', () => ({
@@ -66,6 +67,13 @@ const mockLeaderboard: LeaderboardEntry[] = [
   { userId: 'u-2', name: 'Bob Smith',    streak: 0, lessonsCompleted: 3 },
 ];
 
+const mockLeaderboard4: LeaderboardEntry[] = [
+  { userId: 'u-1', name: 'Alice Johnson', streak: 7, lessonsCompleted: 10 },
+  { userId: 'u-2', name: 'Bob Smith',     streak: 5, lessonsCompleted: 8 },
+  { userId: 'u-3', name: 'Carol White',   streak: 3, lessonsCompleted: 5 },
+  { userId: 'u-4', name: 'Dave Green',    streak: 0, lessonsCompleted: 2 },
+];
+
 function seedDefaults() {
   (useTeamSummary as jest.Mock).mockReturnValue({ data: mockSummary, isLoading: false, error: null });
   (useTeamMemberProgress as jest.Mock).mockReturnValue({ data: mockMembers, isLoading: false, error: null });
@@ -92,10 +100,26 @@ describe('TeamScreen', () => {
   });
 
   describe('error state', () => {
-    it('shows error message when a query fails', () => {
+    it('shows error text element when a query fails', () => {
+      (useTeamSummary as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, error: new Error('something') });
+      render(<TeamScreen />);
+      expect(screen.getByTestId('team-error')).toBeTruthy();
+    });
+
+    it('shows the API-provided error message when present', () => {
+      (useTeamSummary as jest.Mock).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        error: { response: { data: { message: 'Team service unavailable' } } },
+      });
+      render(<TeamScreen />);
+      expect(screen.getByText('Team service unavailable')).toBeTruthy();
+    });
+
+    it('shows fallback message for plain Error instances', () => {
       (useTeamSummary as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, error: new Error('Network error') });
       render(<TeamScreen />);
-      expect(screen.getByText(/Failed to load team data/i)).toBeTruthy();
+      expect(screen.getByText('Something went wrong. Please try again.')).toBeTruthy();
     });
   });
 
@@ -198,6 +222,50 @@ describe('TeamScreen', () => {
       (useTeamSkillGaps as jest.Mock).mockReturnValue({ data: [], isLoading: false, error: null });
       render(<TeamScreen />);
       expect(screen.getByText('No skill gap data yet.')).toBeTruthy();
+    });
+  });
+
+  describe('skill gap colour thresholds (P7)', () => {
+    it('returns error color at score 49', () => {
+      expect(gapColor(49)).toBe(colors.error);
+    });
+    it('returns amber at score 50', () => {
+      expect(gapColor(50)).toBe('#F59E0B');
+    });
+    it('returns amber at score 69', () => {
+      expect(gapColor(69)).toBe('#F59E0B');
+    });
+    it('returns teal at score 70', () => {
+      expect(gapColor(70)).toBe(colors.teal);
+    });
+  });
+
+  describe('leaderboard medals (P7)', () => {
+    beforeEach(() => {
+      (useTeamLeaderboard as jest.Mock).mockReturnValue({ data: mockLeaderboard4, isLoading: false, error: null });
+    });
+
+    it('renders rank badge testIDs for all 4 entries', () => {
+      render(<TeamScreen />);
+      expect(screen.getByTestId('rank-badge-1')).toBeTruthy();
+      expect(screen.getByTestId('rank-badge-2')).toBeTruthy();
+      expect(screen.getByTestId('rank-badge-3')).toBeTruthy();
+      expect(screen.getByTestId('rank-badge-4')).toBeTruthy();
+    });
+    it('rankColor gives rank 1 gold', () => {
+      expect(rankColor(0)).toBe('#F59E0B');
+    });
+    it('rankColor gives rank 2 silver', () => {
+      expect(rankColor(1)).toBe('#94A3B8');
+    });
+    it('rankColor gives rank 3 bronze', () => {
+      expect(rankColor(2)).toBe('#B45309');
+    });
+    it('rankColor gives rank 4 a non-medal colour', () => {
+      const c = rankColor(3);
+      expect(c).not.toBe('#F59E0B');
+      expect(c).not.toBe('#94A3B8');
+      expect(c).not.toBe('#B45309');
     });
   });
 });

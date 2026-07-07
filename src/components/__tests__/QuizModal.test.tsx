@@ -3,16 +3,19 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import { QuizModal } from '../QuizModal';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
 import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
+import { useRouter } from 'expo-router';
 
 jest.mock('@/hooks/useQuiz', () => ({ useSubmitQuiz: jest.fn() }));
 jest.mock('@/hooks/useLesson', () => ({
   useSaveLesson: jest.fn(),
   useUnsaveLesson: jest.fn(),
 }));
+jest.mock('expo-router', () => ({ useRouter: jest.fn() }));
 
 const mockMutate = jest.fn();
 const mockSaveMutate = jest.fn();
 const mockUnsaveMutate = jest.fn();
+const mockReplace = jest.fn();
 
 function setQuizMock(overrides: Record<string, unknown> = {}) {
   (useSubmitQuiz as jest.Mock).mockReturnValue({
@@ -147,6 +150,7 @@ describe('QuizModal', () => {
     setQuizMock();
     (useSaveLesson as jest.Mock).mockReturnValue({ mutate: mockSaveMutate });
     (useUnsaveLesson as jest.Mock).mockReturnValue({ mutate: mockUnsaveMutate });
+    (useRouter as jest.Mock).mockReturnValue({ replace: mockReplace });
   });
 
   it('does not render content when visible=false', () => {
@@ -167,6 +171,17 @@ describe('QuizModal', () => {
   it('does not show progress indicator for single-question lessons', () => {
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
     expect(screen.queryByText('Question 1 of 1')).toBeNull();
+  });
+
+  it('shows a progress percentage and ProgressBar for multi-question lessons', () => {
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    expect(screen.getByText('50%')).toBeTruthy();
+    expect(screen.getByTestId('quiz-progress-bar')).toBeTruthy();
+  });
+
+  it('does not show a ProgressBar for single-question lessons', () => {
+    render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+    expect(screen.queryByTestId('quiz-progress-bar')).toBeNull();
   });
 
   it('renders multiple-choice options', () => {
@@ -238,10 +253,20 @@ describe('QuizModal', () => {
     expect(screen.getByText('Because it matches market needs.')).toBeTruthy();
   });
 
-  it('shows error message when submission fails', () => {
-    setQuizMock({ isError: true });
+  it('shows fallback error message when submission fails with no API message', () => {
+    setQuizMock({ isError: true, error: null });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('Submission failed. Please try again.')).toBeTruthy();
+    expect(screen.getByTestId('submit-error')).toBeTruthy();
+    expect(screen.getByText('Something went wrong. Please try again.')).toBeTruthy();
+  });
+
+  it('shows API error message when submission fails with API-provided message', () => {
+    setQuizMock({
+      isError: true,
+      error: { response: { data: { message: 'Failed to submit answer' } } },
+    });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    expect(screen.getByText('Failed to submit answer')).toBeTruthy();
   });
 
   it('shows "no quiz" message when lesson has no quizzes', () => {
@@ -255,11 +280,47 @@ describe('QuizModal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('calls onClose when Done is pressed in results', () => {
-    setQuizMock({ data: mockResult });
+  it('shows "Back to Dashboard" button in terminal view when nextLessonId is null', () => {
+    setQuizMock({ data: { ...mockResult, nextLessonId: null } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    fireEvent.press(screen.getByText('DONE'));
+    expect(screen.getByText('BACK TO DASHBOARD')).toBeTruthy();
+    expect(screen.queryByText('DONE')).toBeNull();
+  });
+
+  it('"Back to Dashboard" in terminal view calls onClose and navigates to lessons', () => {
+    setQuizMock({ data: { ...mockResult, nextLessonId: null } });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    fireEvent.press(screen.getByText('BACK TO DASHBOARD'));
     expect(onClose).toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lessons');
+  });
+
+  it('shows "Next Lesson" button in terminal view when nextLessonId is present', () => {
+    setQuizMock({ data: { ...mockResult, nextLessonId: 'lesson-2' } });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    expect(screen.getByText('NEXT LESSON')).toBeTruthy();
+    expect(screen.queryByText('DONE')).toBeNull();
+  });
+
+  it('"Next Lesson" in terminal view calls onClose and navigates to that lesson', () => {
+    setQuizMock({ data: { ...mockResult, nextLessonId: 'lesson-2' } });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    fireEvent.press(screen.getByText('NEXT LESSON'));
+    expect(onClose).toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lesson/lesson-2');
+  });
+
+  it('renders an animated milestone card when milestone is set on finalize', () => {
+    setQuizMock({ data: { ...mockResult, milestone: '7-day streak', streak: 7 } });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    expect(screen.getByTestId('milestone-card')).toBeTruthy();
+    expect(screen.getByText('🎉 7-day streak!')).toBeTruthy();
+  });
+
+  it('does not render the milestone card when milestone is null', () => {
+    setQuizMock({ data: { ...mockResult, milestone: null } });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    expect(screen.queryByTestId('milestone-card')).toBeNull();
   });
 
   it('renders coaching card when coaching message is present', () => {
@@ -346,7 +407,7 @@ describe('QuizModal', () => {
       const resetMock = jest.fn();
       (useSubmitQuiz as jest.Mock).mockReturnValue({
         mutate: jest.fn((_, { onError }) =>
-          onError({ response: { status: 409, data: { error: { code: 'LESSON_003' } } } })
+          onError({ response: { status: 409, data: { code: 'LESSON_003' } } })
         ),
         reset: resetMock,
         isPending: false,
@@ -374,6 +435,75 @@ describe('QuizModal', () => {
         { lessonId: 'lesson-1', answers: { 'q-1': 'Option A' } },
         expect.anything()
       );
+    });
+  });
+
+  describe('already-completed handling (bug fix — 409 LESSON_003 with no unresolved question left)', () => {
+    it('shows "Already Completed" on open when lesson.quizCompleted is true, instead of a live question', () => {
+      const completedLesson = { ...singleQuizLesson, quizCompleted: true };
+      render(<QuizModal visible={true} lesson={completedLesson} onClose={onClose} />);
+      expect(screen.getByText('Already Completed')).toBeTruthy();
+      expect(screen.queryByText('What is product-market fit?')).toBeNull();
+    });
+
+    it('shows "Already Completed" on open when every quiz id is already in resolvedQuizIds', () => {
+      const allResolvedLesson = { ...singleQuizLesson, resolvedQuizIds: ['q-1'] };
+      render(<QuizModal visible={true} lesson={allResolvedLesson} onClose={onClose} />);
+      expect(screen.getByText('Already Completed')).toBeTruthy();
+    });
+
+    it('does not show "Already Completed" for a lesson with no quizzes (keeps "no quiz" message)', () => {
+      const completedNoQuiz = { ...mockLessonNoQuiz, quizCompleted: true };
+      render(<QuizModal visible={true} lesson={completedNoQuiz} onClose={onClose} />);
+      expect(screen.getByText('No quiz available for this lesson.')).toBeTruthy();
+      expect(screen.queryByText('Already Completed')).toBeNull();
+    });
+
+    it('409 LESSON_003 on the last/only unresolved question → shows "Already Completed" instead of silently resetting', () => {
+      const resetMock = jest.fn();
+      (useSubmitQuiz as jest.Mock).mockReturnValue({
+        mutate: jest.fn((_, { onError }) =>
+          onError({ response: { status: 409, data: { code: 'LESSON_003' } } })
+        ),
+        reset: resetMock,
+        isPending: false,
+        isError: false,
+        data: undefined,
+      });
+
+      const { rerender } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      fireEvent.press(screen.getByText('Option A'));
+      fireEvent.press(screen.getByText('SUBMIT'));
+
+      setQuizMock({ reset: resetMock });
+      rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      expect(screen.getByText('Already Completed')).toBeTruthy();
+      expect(screen.queryByText('What is product-market fit?')).toBeNull();
+    });
+
+    it('"Back to Dashboard" on "Already Completed" calls onClose and navigates to lessons when no nextLessonId', () => {
+      const completedLesson = { ...singleQuizLesson, quizCompleted: true };
+      render(<QuizModal visible={true} lesson={completedLesson} onClose={onClose} />);
+      expect(screen.getByText('BACK TO DASHBOARD')).toBeTruthy();
+      fireEvent.press(screen.getByText('BACK TO DASHBOARD'));
+      expect(onClose).toHaveBeenCalled();
+      expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lessons');
+    });
+
+    it('"Next Lesson" on "Already Completed" navigates to next lesson when nextLessonId present', () => {
+      const completedLesson = { ...singleQuizLesson, quizCompleted: true, nextLessonId: 'lesson-99' };
+      render(<QuizModal visible={true} lesson={completedLesson} onClose={onClose} />);
+      expect(screen.getByText('NEXT LESSON')).toBeTruthy();
+      fireEvent.press(screen.getByText('NEXT LESSON'));
+      expect(onClose).toHaveBeenCalled();
+      expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lesson/lesson-99');
+    });
+
+    it('a fresh finalized result in the same session still shows the real terminal view, not "Already Completed"', () => {
+      setQuizMock({ data: { ...mockResult, lessonFinalized: true } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByText('Quiz Complete!')).toBeTruthy();
+      expect(screen.queryByText('Already Completed')).toBeNull();
     });
   });
 

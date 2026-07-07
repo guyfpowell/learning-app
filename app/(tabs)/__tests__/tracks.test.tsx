@@ -4,6 +4,9 @@ import TracksScreen from '../tracks';
 import { useSkills, useEnrollments, useEnroll } from '@/hooks/useTrack';
 import type { SkillWithAccess, TrackEnrollmentWithProgress } from '@learning/shared';
 
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+
 jest.mock('@/hooks/useTrack', () => ({
   useSkills:      jest.fn(),
   useEnrollments: jest.fn(),
@@ -71,16 +74,27 @@ function setMocks({
   enrollments = [] as TrackEnrollmentWithProgress[],
   skillsLoading = false,
   enrollmentsLoading = false,
-  enroll = { mutate: mockMutate, isPending: false, variables: undefined as string | undefined },
+  skillsError = false,
+  skillsErr = null as unknown,
+  enrollmentsError = false,
+  enrollmentsErr = null as unknown,
+  enroll = {
+    mutate: mockMutate,
+    isPending: false,
+    variables: undefined as string | undefined,
+    isError: false,
+    error: null as unknown,
+  },
 } = {}) {
-  (useSkills      as jest.Mock).mockReturnValue({ data: skills,      isLoading: skillsLoading });
-  (useEnrollments as jest.Mock).mockReturnValue({ data: enrollments, isLoading: enrollmentsLoading });
+  (useSkills      as jest.Mock).mockReturnValue({ data: skills,      isLoading: skillsLoading, isError: skillsError, error: skillsErr });
+  (useEnrollments as jest.Mock).mockReturnValue({ data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr });
   (useEnroll      as jest.Mock).mockReturnValue(enroll);
 }
 
 describe('TracksScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPush.mockClear();
     setMocks();
   });
 
@@ -137,7 +151,7 @@ describe('TracksScreen', () => {
   it('pressing Enrol calls mutate with skill id', () => {
     render(<TracksScreen />);
     fireEvent.press(screen.getByTestId('enrol-btn-skill-1'));
-    expect(mockMutate).toHaveBeenCalledWith('skill-1');
+    expect(mockMutate).toHaveBeenCalledWith('skill-1', expect.objectContaining({ onSuccess: expect.any(Function) }));
   });
 
   it('shows Currently enrolled text and Enrolled badge for enrolled skill', () => {
@@ -182,5 +196,59 @@ describe('TracksScreen', () => {
     fireEvent.press(screen.getByTestId('upgrade-btn-skill-2'));
     expect(screen.getByText('Premium Content')).toBeTruthy();
     fireEvent.press(screen.getByTestId('dismiss-btn'));
+  });
+
+  describe('navigation', () => {
+    it('successful enrol navigates to Home', () => {
+      (useEnroll as jest.Mock).mockReturnValue({
+        mutate: jest.fn().mockImplementation((_id: string, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.()),
+        isPending: false,
+        variables: undefined,
+        isError: false,
+        error: null,
+      });
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('enrol-btn-skill-1'));
+      expect(mockPush).toHaveBeenCalledWith('/(tabs)/lessons');
+    });
+
+    it('pressing Upgrade now in PremiumModal navigates to settings', () => {
+      setMocks({ skills: [premiumSkill] });
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('upgrade-btn-skill-2'));
+      fireEvent.press(screen.getByTestId('upgrade-now-btn'));
+      expect(mockPush).toHaveBeenCalledWith('/(tabs)/settings');
+    });
+  });
+
+  describe('error banners', () => {
+    it('shows load error banner when skills query fails', () => {
+      setMocks({ skillsError: true, skillsErr: { response: { data: { message: 'Skills unavailable' } } } });
+      render(<TracksScreen />);
+      expect(screen.getByTestId('tracks-load-error')).toBeTruthy();
+      expect(screen.getByText('Skills unavailable')).toBeTruthy();
+    });
+
+    it('shows load error banner when enrollments query fails', () => {
+      setMocks({ enrollmentsError: true, enrollmentsErr: { response: { data: { message: 'Enrollments unavailable' } } } });
+      render(<TracksScreen />);
+      expect(screen.getByTestId('tracks-load-error')).toBeTruthy();
+      expect(screen.getByText('Enrollments unavailable')).toBeTruthy();
+    });
+
+    it('shows enrol error banner when enrol mutation fails', () => {
+      setMocks({
+        enroll: {
+          mutate: mockMutate,
+          isPending: false,
+          variables: undefined,
+          isError: true,
+          error: { response: { data: { message: 'Enrol failed' } } },
+        },
+      });
+      render(<TracksScreen />);
+      expect(screen.getByTestId('tracks-enrol-error')).toBeTruthy();
+      expect(screen.getByText('Enrol failed')).toBeTruthy();
+    });
   });
 });

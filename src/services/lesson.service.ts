@@ -2,8 +2,8 @@ import api from '@/lib/api';
 import type { Lesson, LessonSummary } from '@learning/shared';
 
 export const lessonService = {
-  async getTodayLesson(): Promise<Lesson> {
-    const { data } = await api.get<Lesson>('/lessons/today');
+  async getLesson(id: string): Promise<Lesson> {
+    const { data } = await api.get<Lesson>(`/lessons/${id}`);
     return data;
   },
 
