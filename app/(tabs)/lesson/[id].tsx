@@ -20,6 +20,8 @@ const difficultyVariant = {
   advanced:     'error',
 } as const;
 
+type LessonPhase = 'collapsed' | 'expanded' | 'takeaway';
+
 function isPremiumError(error: unknown): boolean {
   return (
     isAxiosError(error) &&
@@ -126,7 +128,7 @@ export default function LessonDetailScreen() {
   const [quizVisible, setQuizVisible] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const [phase, setPhase] = useState<LessonPhase>('collapsed');
   const saveLesson = useSaveLesson();
   const unsaveLesson = useUnsaveLesson();
 
@@ -135,7 +137,7 @@ export default function LessonDetailScreen() {
   }, [lesson?.id, lesson?.isSaved]);
 
   useEffect(() => {
-    setCompleted(!!lesson?.quizCompleted);
+    setPhase(lesson?.quizCompleted ? 'takeaway' : 'collapsed');
   }, [lesson?.id, lesson?.quizCompleted]);
 
   const enrollment = lesson?.skillPath?.skillId
@@ -218,11 +220,11 @@ export default function LessonDetailScreen() {
                     />
                   )}
                   {lesson.topicName && (
+                    <Text style={styles.topicName}>{lesson.topicName}</Text>
+                  )}
+                  {lesson.topicName && lesson.lessonIndex != null && lesson.totalLessons != null && (
                     <Text style={styles.positionLabel}>
-                      {lesson.topicName}
-                      {lesson.lessonIndex != null && lesson.totalLessons != null
-                        ? ` · Lesson ${lesson.lessonIndex} of ${lesson.totalLessons}`
-                        : ''}
+                      {`· Lesson ${lesson.lessonIndex} of ${lesson.totalLessons}`}
                     </Text>
                   )}
                 </View>
@@ -252,7 +254,7 @@ export default function LessonDetailScreen() {
                 <Text testID="lesson-summary" style={styles.summaryText}>{lesson.summary}</Text>
               )}
 
-              {lesson.mediaUrl && (
+              {phase === 'expanded' && lesson.mediaUrl && (
                 <Image
                   testID="lesson-media"
                   source={{ uri: lesson.mediaUrl }}
@@ -262,34 +264,43 @@ export default function LessonDetailScreen() {
                 />
               )}
 
-              <LessonBody raw={lesson.content} />
+              {phase === 'expanded' && <LessonBody raw={lesson.content} />}
 
-              {completed && (
+              {phase === 'takeaway' && (
                 <View testID="lesson-completed-banner" style={styles.completedBanner}>
                   <Text style={styles.completedBannerText}>✓ Lesson completed!</Text>
                 </View>
               )}
 
-              {completed && lesson.keyTakeaway && (
+              {phase === 'takeaway' && lesson.keyTakeaway && (
                 <View testID="key-takeaway" style={styles.takeawayBlock}>
                   <Text style={styles.takeawayLabel}>Key takeaway</Text>
                   <Text style={styles.takeawayText}>{lesson.keyTakeaway}</Text>
                 </View>
               )}
 
-              {!completed && (
+              {phase === 'collapsed' && (
                 <Button
-                  testID="complete-btn"
-                  label="Complete Lesson"
-                  style={[styles.quizBtn, styles.completeBtn]}
-                  onPress={() => setCompleted(true)}
+                  testID="continue-btn"
+                  label="Continue"
+                  style={styles.quizBtn}
+                  onPress={() => setPhase('expanded')}
                 />
               )}
 
-              {completed && (
+              {phase === 'expanded' && (
+                <Button
+                  testID="key-takeaway-btn"
+                  label="Key Takeaway"
+                  style={[styles.quizBtn, styles.completeBtn]}
+                  onPress={() => setPhase('takeaway')}
+                />
+              )}
+
+              {phase === 'takeaway' && (
                 <Button
                   testID="lesson-quiz-btn"
-                  label="Take Quiz"
+                  label="Test My Knowledge"
                   style={styles.quizBtn}
                   onPress={() => setQuizVisible(true)}
                 />
@@ -349,6 +360,11 @@ const styles = StyleSheet.create({
     alignItems:    'center',
     gap:           spacing.sm,
     flexWrap:      'wrap',
+  },
+  topicName: {
+    fontFamily: font.bold,
+    fontSize:   fontSize.sm,
+    color:      colors.teal,
   },
   positionLabel: {
     fontFamily: font.regular,

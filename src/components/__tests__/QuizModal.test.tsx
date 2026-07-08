@@ -593,6 +593,47 @@ describe('QuizModal', () => {
     });
   });
 
+  describe('Chunk 3 — Quiz complete: key takeaway card + correct-answer highlight', () => {
+    const resultWithIncorrectFeedback = {
+      ...mockResult,
+      feedbacks: [
+        {
+          quizId: 'q-1',
+          question: 'What is product-market fit?',
+          userAnswer: 'Option B',
+          correctAnswer: 'Option A',
+          isCorrect: false,
+          explanation: 'Because it matches market needs.',
+        },
+      ],
+    };
+
+    it('shows key takeaway card in terminal view when lesson.keyTakeaway is set', () => {
+      setQuizMock({ data: mockResult });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByTestId('quiz-key-takeaway')).toBeTruthy();
+      expect(screen.getByText('Fit beats features.')).toBeTruthy();
+    });
+
+    it('does not show key takeaway card in terminal view when lesson.keyTakeaway is null', () => {
+      setQuizMock({ data: mockResult });
+      render(<QuizModal visible={true} lesson={{ ...mockLesson, keyTakeaway: null }} onClose={onClose} />);
+      expect(screen.queryByTestId('quiz-key-takeaway')).toBeNull();
+    });
+
+    it('shows correct answer text prominently for incorrect feedback in terminal view', () => {
+      setQuizMock({ data: resultWithIncorrectFeedback });
+      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      expect(screen.getByText('Correct: Option A')).toBeTruthy();
+    });
+
+    it('does not show key takeaway card in per-question feedback view (mid-capstone)', () => {
+      setQuizMock({ data: q1CorrectNotFinalized });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.queryByTestId('quiz-key-takeaway')).toBeNull();
+    });
+  });
+
   describe('bookmark (ticket 017 chunk 3)', () => {
     it('is not shown while the quiz question is active (before submitting)', () => {
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);

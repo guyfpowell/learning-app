@@ -84,11 +84,44 @@ export default function LessonsScreen() {
         {activeEnrollments.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionHeading}>Active Tracks</Text>
-            {activeEnrollments.map(e => {
+            {activeEnrollments.flatMap(e => {
               const pct = flooredPct(e);
               const nextLesson = e.nextLesson;
               const level = (nextLesson as any)?.skillPath?.level as string | undefined;
-              return (
+              const cards = [];
+
+              if (nextLesson) {
+                cards.push(
+                  <Card key={`${e.skillId}-next`} testID={`next-lesson-card-${e.skillId}`} style={styles.nextLessonCard}>
+                    <Text style={styles.nextLessonTrackName}>{e.skill.name}</Text>
+                    <View style={styles.nextLessonMeta}>
+                      {level && (
+                        <Badge
+                          label={level}
+                          variant={difficultyVariant[level as keyof typeof difficultyVariant] ?? 'info'}
+                        />
+                      )}
+                      {(nextLesson as any).topicName && (
+                        <Text style={styles.positionLabel}>
+                          {(nextLesson as any).topicName} · Lesson {(nextLesson as any).lessonIndex} of {(nextLesson as any).totalLessons}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={styles.nextLessonTitle}>{(nextLesson as any).title}</Text>
+                    {(nextLesson as any).summary && (
+                      <Text style={styles.nextLessonSummary}>{(nextLesson as any).summary}</Text>
+                    )}
+                    <Button
+                      testID={`next-lesson-btn-${e.skillId}`}
+                      label="Start Lesson →"
+                      style={styles.continueBtn}
+                      onPress={() => router.push(`/(tabs)/lesson/${(nextLesson as any).id}`)}
+                    />
+                  </Card>
+                );
+              }
+
+              cards.push(
                 <Card key={e.skillId} testID={`enrollment-card-${e.skillId}`} style={styles.enrollmentCard}>
                   <View style={styles.enrollmentHeader}>
                     <Text style={styles.enrollmentTitle}>{e.skill.name}</Text>
@@ -102,34 +135,13 @@ export default function LessonsScreen() {
                   <Text style={styles.lessonsCount}>
                     {e.completedLessons} of {e.totalLessons} lessons complete
                   </Text>
-                  {nextLesson ? (
-                    <View style={styles.nextLessonSection}>
-                      <Text style={styles.nextLessonTitle}>{(nextLesson as any).title}</Text>
-                      <View style={styles.nextLessonMeta}>
-                        {level && (
-                          <Badge
-                            label={level}
-                            variant={difficultyVariant[level as keyof typeof difficultyVariant] ?? 'info'}
-                          />
-                        )}
-                        {(nextLesson as any).topicName && (
-                          <Text style={styles.positionLabel}>
-                            {(nextLesson as any).topicName} · Lesson {(nextLesson as any).lessonIndex} of {(nextLesson as any).totalLessons}
-                          </Text>
-                        )}
-                      </View>
-                      <Button
-                        testID={`next-lesson-btn-${e.skillId}`}
-                        label="Next Lesson →"
-                        style={styles.continueBtn}
-                        onPress={() => router.push(`/(tabs)/lesson/${(nextLesson as any).id}`)}
-                      />
-                    </View>
-                  ) : (
+                  {!nextLesson && (
                     <Text style={styles.noNextLesson}>No lessons available yet.</Text>
                   )}
                 </Card>
               );
+
+              return cards;
             })}
           </View>
         )}
@@ -263,12 +275,21 @@ const styles = StyleSheet.create({
     fontSize:   fontSize.sm,
     color:      colors.textMuted,
   },
-  nextLessonSection: {
-    gap:          spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop:   spacing.sm,
-    marginTop:    spacing.xs,
+  nextLessonCard: {
+    gap: spacing.sm,
+  },
+  nextLessonTrackName: {
+    fontFamily:    font.medium,
+    fontSize:      fontSize.xs,
+    color:         colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  nextLessonSummary: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.textMuted,
+    fontStyle:  'italic',
   },
   nextLessonTitle: {
     fontFamily: font.medium,

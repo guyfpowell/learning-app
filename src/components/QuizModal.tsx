@@ -306,6 +306,14 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
               </Animated.View>
             )}
 
+            {/* Key takeaway card */}
+            {lesson.keyTakeaway && (
+              <View testID="quiz-key-takeaway" style={styles.quizKeyTakeawayCard}>
+                <Text style={styles.quizKeyTakeawayLabel}>KEY TAKEAWAY</Text>
+                <Text style={styles.quizKeyTakeawayText}>{lesson.keyTakeaway}</Text>
+              </View>
+            )}
+
             {feedbacks.map((fb: QuizFeedback) => (
               <View
                 key={fb.quizId}
@@ -597,9 +605,30 @@ const styles = StyleSheet.create({
   correct:    { color: colors.success },
   incorrect:  { color: colors.error },
   correctAnswer: {
+    fontFamily: font.bold,
+    fontSize:   fontSize.base,
+    color:      colors.success,
+  },
+  quizKeyTakeawayCard: {
+    backgroundColor: colors.teal + '10',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.teal,
+    borderRadius:    radius.card,
+    padding:         spacing.md,
+    marginBottom:    spacing.md,
+    gap:             spacing.xs,
+  },
+  quizKeyTakeawayLabel: {
+    fontFamily:    font.bold,
+    fontSize:      fontSize.xs,
+    color:         colors.teal,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  quizKeyTakeawayText: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
-    color:      colors.textMuted,
+    color:      colors.textDark,
   },
   explanation: {
     fontFamily: font.regular,

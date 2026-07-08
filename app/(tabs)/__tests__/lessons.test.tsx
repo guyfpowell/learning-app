@@ -131,7 +131,7 @@ describe('LessonsScreen', () => {
     it('shows active enrollment card with track name', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.getByText('Product Foundations')).toBeTruthy();
+      expect(screen.getAllByText('Product Foundations').length).toBeGreaterThanOrEqual(1);
     });
 
     it('shows % complete on enrollment card', () => {
@@ -170,13 +170,14 @@ describe('LessonsScreen', () => {
       expect(screen.getByText('Foundations · Lesson 1 of 10')).toBeTruthy();
     });
 
-    it('shows Next Lesson button on active enrollment card', () => {
+    it('shows Start Lesson button in next-lesson card', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
       expect(screen.getByTestId('next-lesson-btn-skill-1')).toBeTruthy();
+      expect(screen.getByText('START LESSON →')).toBeTruthy();
     });
 
-    it('navigates to lesson detail when Next Lesson is pressed', () => {
+    it('navigates to lesson detail when Start Lesson is pressed', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('next-lesson-btn-skill-1'));
@@ -236,6 +237,36 @@ describe('LessonsScreen', () => {
         render(<LessonsScreen />);
         expect(screen.queryByTestId('track-map-level')).toBeNull();
       });
+    });
+  });
+
+  describe('Chunk 1 — Next Lesson card', () => {
+    it('renders a separate next-lesson card before the enrollment card', () => {
+      setEnrollmentsMock([mockEnrollment]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('next-lesson-card-skill-1')).toBeTruthy();
+      expect(screen.getByTestId('enrollment-card-skill-1')).toBeTruthy();
+    });
+
+    it('shows lesson summary in the next-lesson card when present', () => {
+      setEnrollmentsMock([{
+        ...mockEnrollment,
+        nextLesson: { ...mockNextLesson, summary: 'Learn the basics of PM.' },
+      }]);
+      render(<LessonsScreen />);
+      expect(screen.getByText('Learn the basics of PM.')).toBeTruthy();
+    });
+
+    it('does not render next-lesson card when nextLesson is null', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, nextLesson: null }]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('next-lesson-card-skill-1')).toBeNull();
+    });
+
+    it('shows track name in the next-lesson card', () => {
+      setEnrollmentsMock([mockEnrollment]);
+      render(<LessonsScreen />);
+      expect(screen.getAllByText('Product Foundations').length).toBeGreaterThanOrEqual(1);
     });
   });
 
