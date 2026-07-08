@@ -22,9 +22,36 @@ jest.mock('@/hooks/useNotifications', () => ({
   useNotifications: jest.fn(),
 }));
 
+const mockUseCurrentUser = jest.fn();
+const mockMutate = jest.fn();
+
+jest.mock('@/hooks/useEmailVerification', () => ({
+  useCurrentUser: () => mockUseCurrentUser(),
+  useResendVerification: () => ({ mutate: mockMutate, isPending: false }),
+}));
+
 describe('(tabs) layout', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseCurrentUser.mockReturnValue({ data: undefined });
+  });
+
   it('renders without errors', () => {
     const TabsLayout = require('../_layout').default;
     expect(() => render(<TabsLayout />)).not.toThrow();
+  });
+
+  it('shows the verification banner when the current user is unverified', () => {
+    mockUseCurrentUser.mockReturnValue({ data: { id: 'u1', emailVerified: false } });
+    const TabsLayout = require('../_layout').default;
+    const { getByText } = render(<TabsLayout />);
+    expect(getByText(/verify your email/i)).toBeTruthy();
+  });
+
+  it('hides the verification banner when the current user is verified', () => {
+    mockUseCurrentUser.mockReturnValue({ data: { id: 'u1', emailVerified: true } });
+    const TabsLayout = require('../_layout').default;
+    const { queryByText } = render(<TabsLayout />);
+    expect(queryByText(/verify your email/i)).toBeNull();
   });
 });

@@ -15,7 +15,6 @@ describe('useAuthStore', () => {
     useAuthStore.setState({
       user: null,
       accessToken: null,
-      refreshToken: null,
       _hasHydrated: false,
     });
   });
@@ -24,30 +23,27 @@ describe('useAuthStore', () => {
     const state = useAuthStore.getState();
     expect(state.user).toBeNull();
     expect(state.accessToken).toBeNull();
-    expect(state.refreshToken).toBeNull();
     expect(state._hasHydrated).toBe(false);
   });
 
   describe('setAuth', () => {
-    it('sets user, accessToken and refreshToken', () => {
-      useAuthStore.getState().setAuth(mockUser, 'access-123', 'refresh-456');
+    it('sets user and accessToken', () => {
+      useAuthStore.getState().setAuth(mockUser, 'access-123');
 
       const state = useAuthStore.getState();
       expect(state.user).toEqual(mockUser);
       expect(state.accessToken).toBe('access-123');
-      expect(state.refreshToken).toBe('refresh-456');
     });
   });
 
   describe('clearAuth', () => {
-    it('resets user, accessToken and refreshToken to null', () => {
-      useAuthStore.getState().setAuth(mockUser, 'access-123', 'refresh-456');
+    it('resets user and accessToken to null', () => {
+      useAuthStore.getState().setAuth(mockUser, 'access-123');
       useAuthStore.getState().clearAuth();
 
       const state = useAuthStore.getState();
       expect(state.user).toBeNull();
       expect(state.accessToken).toBeNull();
-      expect(state.refreshToken).toBeNull();
     });
   });
 

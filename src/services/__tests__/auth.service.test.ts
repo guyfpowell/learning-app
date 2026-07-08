@@ -2,7 +2,7 @@ import { authService } from '../auth.service';
 
 jest.mock('@/lib/api', () => ({
   __esModule: true,
-  default: { post: jest.fn() },
+  default: { post: jest.fn(), get: jest.fn() },
 }));
 
 jest.mock('@sentry/react-native', () => ({
@@ -76,9 +76,40 @@ describe('authService', () => {
   });
 
   describe('logout', () => {
-    it('resolves without error (stateless JWT — no server call)', async () => {
+    it('calls POST /auth/logout to revoke the server-side session', async () => {
+      mockApi.post.mockResolvedValueOnce({ data: {} });
+
+      await authService.logout();
+
+      expect(mockApi.post).toHaveBeenCalledWith('/auth/logout');
+    });
+
+    it('resolves without throwing even if the server call fails', async () => {
+      mockApi.post.mockRejectedValueOnce(new Error('network error'));
+
       await expect(authService.logout()).resolves.toBeUndefined();
-      expect(mockApi.post).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getMe', () => {
+    it('calls GET /auth/me and returns the current user', async () => {
+      const mockUser = { id: 'u1', email: 'user@example.com', name: 'User', role: 'user', emailVerified: false };
+      (mockApi.get as jest.Mock).mockResolvedValueOnce({ data: mockUser });
+
+      const result = await authService.getMe();
+
+      expect(mockApi.get).toHaveBeenCalledWith('/auth/me');
+      expect(result).toEqual(mockUser);
+    });
+  });
+
+  describe('resendVerification', () => {
+    it('calls POST /auth/resend-verification', async () => {
+      mockApi.post.mockResolvedValueOnce({ data: {} });
+
+      await authService.resendVerification();
+
+      expect(mockApi.post).toHaveBeenCalledWith('/auth/resend-verification');
     });
   });
 });

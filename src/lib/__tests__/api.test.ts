@@ -3,10 +3,12 @@ jest.mock('expo-constants', () => ({
 }));
 
 const mockClearAuth = jest.fn();
+const mockSetAuth = jest.fn();
 const mockGetState = jest.fn(() => ({
   accessToken: 'test-token',
   user: { id: '1', email: 'test@example.com', name: 'Test' },
   clearAuth: mockClearAuth,
+  setAuth: mockSetAuth,
 }));
 
 jest.mock('@/store/auth.store', () => ({
@@ -120,25 +122,54 @@ describe('api module', () => {
   // ─── Response interceptor ────────────────────────────────────────────────────
 
   describe('response interceptor — 401 handling', () => {
-    it('clears auth and redirects to sign-in on 401 from non-auth endpoint', async () => {
+    it('clears auth and redirects to sign-in on 401 from non-auth endpoint when refresh fails', async () => {
       (global as any).__DEV__ = true;
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
       mockGetState.mockReturnValue({
         accessToken: 'tok',
         user: { id: '1', email: 'test@example.com', name: 'Test' },
         clearAuth: mockClearAuth,
+        setAuth: mockSetAuth,
       });
 
       let api: any;
       jest.isolateModules(() => { api = require('@/lib/api').default; });
+      jest.spyOn(api, 'post').mockRejectedValue(new Error('refresh failed'));
 
       const rejected = getResponseInterceptorRejected(api);
-      const error = { response: { status: 401 }, config: { url: '/lessons/1' }, code: 'ERR_BAD_REQUEST' };
+      const error = { response: { status: 401 }, config: { url: '/lessons/1', headers: {} }, code: 'ERR_BAD_REQUEST' };
 
       await expect(rejected(error)).rejects.toEqual(error);
       expect(mockClearAuth).toHaveBeenCalled();
       expect(mockQueryClear).toHaveBeenCalled();
       expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+    });
+
+    it('refreshes via the httpOnly cookie (no body) and retries the original request on 401', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
+      mockGetState.mockReturnValue({
+        accessToken: 'expired-tok',
+        user: { id: '1', email: 'test@example.com', name: 'Test' },
+        clearAuth: mockClearAuth,
+        setAuth: mockSetAuth,
+      });
+
+      let api: any;
+      jest.isolateModules(() => { api = require('@/lib/api').default; });
+      jest.spyOn(api, 'post').mockResolvedValue({ data: { token: 'new-access-token' } });
+      jest.spyOn(api, 'request').mockResolvedValue({ data: 'ok' });
+
+      const rejected = getResponseInterceptorRejected(api);
+      const error = { response: { status: 401 }, config: { url: '/lessons/1', headers: {} }, code: 'ERR_BAD_REQUEST' };
+
+      await rejected(error);
+
+      expect(api.post).toHaveBeenCalledWith('/auth/refresh', undefined, expect.objectContaining({
+        headers: { 'X-Skip-Refresh': 'true' },
+      }));
+      expect(mockClearAuth).not.toHaveBeenCalled();
+      expect(error.config.headers['Authorization']).toBe('Bearer new-access-token');
     });
 
     it('passes 401 from /auth/ endpoint directly to caller (wrong credentials)', async () => {

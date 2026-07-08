@@ -18,7 +18,10 @@ if (!__DEV__ && (!BASE_URL || BASE_URL === 'http://localhost:3000/api')) {
   );
 }
 
-const api = axios.create({ baseURL: BASE_URL, timeout: 15000 });
+// withCredentials lets the native HTTP stack store and resend the httpOnly
+// refresh_token cookie the API sets on login/register/refresh (same cookie-based
+// refresh flow as the web client — see AuthController.setRefreshTokenCookie).
+const api = axios.create({ baseURL: BASE_URL, timeout: 15000, withCredentials: true });
 
 // ─── Request: security check + inject Bearer token ───────────────────────────
 api.interceptors.request.use((config) => {
@@ -39,17 +42,15 @@ let isRefreshing = false;
 let refreshQueue: Array<(token: string) => void> = [];
 
 async function tryRefresh(): Promise<string | null> {
-  const { refreshToken } = useAuthStore.getState();
-  if (!refreshToken) return null;
-
   try {
-    const res = await api.post('/auth/refresh', { refreshToken }, {
+    // No body — the refresh token travels only as the httpOnly cookie.
+    const res = await api.post('/auth/refresh', undefined, {
       // Skip the interceptor for this request
       headers: { 'X-Skip-Refresh': 'true' },
     });
-    const { token: newToken, refreshToken: newRefreshToken } = res.data;
+    const { token: newToken } = res.data;
     const { user } = useAuthStore.getState();
-    if (user) useAuthStore.getState().setAuth(user, newToken, newRefreshToken);
+    if (user) useAuthStore.getState().setAuth(user, newToken);
     return newToken;
   } catch {
     return null;

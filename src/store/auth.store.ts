@@ -6,11 +6,10 @@ import type { UserAuth } from '@learning/shared';
 interface AuthState {
   user: UserAuth | null;
   accessToken: string | null;
-  refreshToken: string | null;
   hasOnboarded: boolean | null;
   /** True once SecureStore rehydration has completed. Use to gate the auth redirect. */
   _hasHydrated: boolean;
-  setAuth: (user: UserAuth, accessToken: string, refreshToken: string) => void;
+  setAuth: (user: UserAuth, accessToken: string) => void;
   clearAuth: () => void;
   setHasHydrated: (value: boolean) => void;
   setHasOnboarded: (value: boolean) => void;
@@ -27,13 +26,12 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       accessToken: null,
-      refreshToken: null,
       hasOnboarded: null,
       _hasHydrated: false,
-      setAuth: (user, accessToken, refreshToken) =>
-        set({ user, accessToken, refreshToken }),
+      setAuth: (user, accessToken) =>
+        set({ user, accessToken }),
       clearAuth: () =>
-        set({ user: null, accessToken: null, refreshToken: null, hasOnboarded: null }),
+        set({ user: null, accessToken: null, hasOnboarded: null }),
       setHasHydrated: (value) => set({ _hasHydrated: value }),
       setHasOnboarded: (value) => set({ hasOnboarded: value }),
     }),
@@ -44,7 +42,6 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
         hasOnboarded: state.hasOnboarded,
       }),
       onRehydrateStorage: () => (state) => {
