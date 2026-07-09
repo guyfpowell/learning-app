@@ -157,7 +157,7 @@ export default function ProgressScreen() {
               <SavedLessonRow
                 key={lesson.id}
                 lesson={lesson}
-                onPress={() => router.push('/(tabs)/lesson/' + lesson.id)}
+                onPress={() => router.push({ pathname: '/(tabs)/lesson/[id]', params: { id: lesson.id } })}
               />
             ))}
           </View>

@@ -51,7 +51,8 @@ const mockQuiz2 = {
 const mockLesson = {
   id: 'lesson-1',
   skillPathId: 'sp-1',
-  day: 1,
+  lessonNumber: 1,
+  isTeaser: false,
   title: 'Introduction to PM',
   content: '{}',
   keyTakeaway: 'Fit beats features.',
@@ -617,7 +618,7 @@ describe('QuizModal', () => {
 
     it('does not show key takeaway card in terminal view when lesson.keyTakeaway is null', () => {
       setQuizMock({ data: mockResult });
-      render(<QuizModal visible={true} lesson={{ ...mockLesson, keyTakeaway: null }} onClose={onClose} />);
+      render(<QuizModal visible={true} lesson={{ ...mockLesson, keyTakeaway: undefined }} onClose={onClose} />);
       expect(screen.queryByTestId('quiz-key-takeaway')).toBeNull();
     });
 

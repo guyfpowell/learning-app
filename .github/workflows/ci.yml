@@ -32,6 +32,9 @@ jobs:
 
       - run: pnpm lint
 
+      # Typechecks app source + unit tests. e2e/ is excluded (has its own
+      # e2e/tsconfig.json; Detox types are scoped there to avoid SystemElement
+      # global conflicts with @testing-library/react-native).
       - run: pnpm exec tsc --noEmit
 
       - run: pnpm test:ci

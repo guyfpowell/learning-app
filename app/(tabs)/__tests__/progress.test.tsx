@@ -252,7 +252,7 @@ describe('ProgressScreen — saved lessons', () => {
     (useSavedLessons as jest.Mock).mockReturnValue({ data: [mockSavedLesson] });
     render(<ProgressScreen />);
     fireEvent.press(screen.getByTestId('saved-lesson-row'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/lesson/lesson-42');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(tabs)/lesson/[id]', params: { id: 'lesson-42' } });
   });
 
   it('shows empty state when no saved lessons', () => {

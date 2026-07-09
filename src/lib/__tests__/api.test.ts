@@ -4,7 +4,15 @@ jest.mock('expo-constants', () => ({
 
 const mockClearAuth = jest.fn();
 const mockSetAuth = jest.fn();
-const mockGetState = jest.fn(() => ({
+const mockGetState = jest.fn<
+  {
+    accessToken: string | null;
+    user: { id: string; email: string; name: string } | null;
+    clearAuth: typeof mockClearAuth;
+    setAuth: typeof mockSetAuth;
+  },
+  []
+>(() => ({
   accessToken: 'test-token',
   user: { id: '1', email: 'test@example.com', name: 'Test' },
   clearAuth: mockClearAuth,
@@ -106,7 +114,7 @@ describe('api module', () => {
     it('does not inject Authorization when no token', () => {
       (global as any).__DEV__ = true;
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
-      mockGetState.mockReturnValueOnce({ accessToken: null, user: null, clearAuth: mockClearAuth });
+      mockGetState.mockReturnValueOnce({ accessToken: null, user: null, clearAuth: mockClearAuth, setAuth: mockSetAuth });
 
       let api: any;
       jest.isolateModules(() => { api = require('@/lib/api').default; });
@@ -161,7 +169,7 @@ describe('api module', () => {
       jest.spyOn(api, 'request').mockResolvedValue({ data: 'ok' });
 
       const rejected = getResponseInterceptorRejected(api);
-      const error = { response: { status: 401 }, config: { url: '/lessons/1', headers: {} }, code: 'ERR_BAD_REQUEST' };
+      const error = { response: { status: 401 }, config: { url: '/lessons/1', headers: {} as Record<string, string> }, code: 'ERR_BAD_REQUEST' };
 
       await rejected(error);
 
