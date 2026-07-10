@@ -236,14 +236,14 @@ describe('OnboardingScreen', () => {
       expect(screen.getByText('Unlock all tracks with Premium')).toBeTruthy();
     });
 
-    it('shows upgrade modal when free user tries to select a second track', () => {
+    it('selecting a different free track replaces selection without showing upgrade modal', () => {
       // Need at least one locked skill so isPremiumUser = false (all-accessible = premium)
       setSkillsMock({ data: [mockFreeSkill, mockFreeSkill2, mockLockedSkill] });
       render(<OnboardingScreen />);
       advanceToStep2();
       fireEvent.press(screen.getByTestId('skill-skill-1'));
       fireEvent.press(screen.getByTestId('skill-skill-4'));
-      expect(screen.getByText('Unlock all tracks with Premium')).toBeTruthy();
+      expect(screen.queryByText('Unlock all tracks with Premium')).toBeNull();
     });
 
     it('closes upgrade modal when "Maybe later" is pressed', () => {
@@ -265,6 +265,60 @@ describe('OnboardingScreen', () => {
       await waitFor(() => {
         expect(api.post).toHaveBeenCalledWith('/auth/dummy-upgrade');
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['skills'] });
+      });
+    });
+  });
+
+  // Step 2 — Premium track selection with skip (free user, Chunk 5)
+  describe('Step 2 (premium track selection with skip, free user)', () => {
+    beforeEach(() => {
+      setSkillsMock({ data: [mockFreeSkill, mockLockedSkill] });
+    });
+
+    it('selecting a premium track adds it to selection and opens the upgrade modal', () => {
+      render(<OnboardingScreen />);
+      advanceToStep2();
+      fireEvent.press(screen.getByTestId('skill-skill-2'));
+      expect(screen.getByText('Unlock all tracks with Premium')).toBeTruthy();
+    });
+
+    it('"Maybe later" closes modal, premium track stays selected, info banner appears', () => {
+      render(<OnboardingScreen />);
+      advanceToStep2();
+      fireEvent.press(screen.getByTestId('skill-skill-2'));
+      fireEvent.press(screen.getByText('Maybe later'));
+      expect(screen.queryByText('Unlock all tracks with Premium')).toBeNull();
+      expect(screen.getByTestId('premium-track-info-banner')).toBeTruthy();
+      expect(
+        screen.getByText(
+          "You'll get a limited preview of premium tracks until you upgrade."
+        )
+      ).toBeTruthy();
+    });
+
+    it('can proceed to step 3 with a premium track selected after skipping upgrade', () => {
+      render(<OnboardingScreen />);
+      advanceToStep2();
+      fireEvent.press(screen.getByTestId('skill-skill-2'));
+      fireEvent.press(screen.getByText('Maybe later'));
+      fireEvent.press(screen.getByText('CONTINUE'));
+      expect(screen.queryByText('Which tracks do you want to learn?')).toBeNull();
+      expect(screen.getByText('Timezone')).toBeTruthy();
+    });
+
+    it('submitting with a premium track calls mutate with the premium track id', () => {
+      render(<OnboardingScreen />);
+      fireEvent.press(screen.getByTestId('seniority-ASSOCIATE'));
+      fireEvent.press(screen.getByText('CONTINUE'));
+      fireEvent.press(screen.getByTestId('skill-skill-2'));
+      fireEvent.press(screen.getByText('Maybe later'));
+      fireEvent.press(screen.getByText('CONTINUE'));
+      fireEvent.press(screen.getByText('GET STARTED'));
+      expect(mockMutate).toHaveBeenCalledWith({
+        seniority: 'ASSOCIATE',
+        trackIds: ['skill-2'],
+        timezone: 'UTC',
+        preferredTime: 'morning',
       });
     });
   });

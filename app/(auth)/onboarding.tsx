@@ -102,6 +102,7 @@ function TracksStep({
   onToggle,
   onLockPress,
   isPremiumUser,
+  premiumTrackSkipped,
 }: {
   skills: SkillWithAccess[] | undefined;
   isLoading: boolean;
@@ -110,6 +111,7 @@ function TracksStep({
   onToggle: (id: string) => void;
   onLockPress: () => void;
   isPremiumUser: boolean;
+  premiumTrackSkipped: boolean;
 }) {
   if (isLoading) {
     return (
@@ -144,11 +146,13 @@ function TracksStep({
           <Pressable
             key={skill.id}
             testID={`skill-${skill.id}`}
-            onPress={() => (isLocked ? onLockPress() : onToggle(skill.id))}
+            onPress={() => {
+              onToggle(skill.id);
+              if (isLocked && !isSelected) onLockPress();
+            }}
             style={[
               styles.optionCard,
               isSelected && styles.optionCardSelected,
-              isLocked && styles.optionCardLocked,
             ]}
           >
             {isPremiumUser ? (
@@ -156,12 +160,12 @@ function TracksStep({
                 {isSelected && <Text style={styles.checkmark}>✓</Text>}
               </View>
             ) : (
-              <View style={[styles.radioOuter, !isLocked && isSelected && styles.radioOuterSelected]}>
-                {!isLocked && isSelected && <View style={styles.radioInner} />}
+              <View style={[styles.radioOuter, isSelected && styles.radioOuterSelected]}>
+                {isSelected && <View style={styles.radioInner} />}
               </View>
             )}
             <View style={styles.optionTextWrap}>
-              <Text style={[styles.optionLabel, isLocked && styles.optionLabelLocked]}>
+              <Text style={styles.optionLabel}>
                 {skill.name}
               </Text>
               {isLocked && (
@@ -173,6 +177,13 @@ function TracksStep({
           </Pressable>
         );
       })}
+      {premiumTrackSkipped && (
+        <View style={styles.infoBanner} testID="premium-track-info-banner">
+          <Text style={styles.infoBannerText}>
+            You'll get a limited preview of premium tracks until you upgrade.
+          </Text>
+        </View>
+      )}
     </>
   );
 }
@@ -245,6 +256,7 @@ export default function OnboardingScreen() {
   const [preferredTime, setPreferredTime] = useState<PreferredTime>('morning');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
+  const [premiumTrackSkipped, setPremiumTrackSkipped] = useState(false);
 
   const isPremiumUser = !!skills?.length && skills.every((s) => s.userHasAccess);
 
@@ -261,14 +273,26 @@ export default function OnboardingScreen() {
       );
       return;
     }
-    // Free user: single selection; prompt upgrade if already have one selected
+    // Free user: single selection
     if (selectedTrackIds.includes(id)) {
+      // Deselecting the current track
       setSelectedTrackIds([]);
-    } else if (selectedTrackIds.length > 0) {
-      setShowUpgradeModal(true);
+      setPremiumTrackSkipped(false);
     } else {
+      // Selecting a new track (replaces any existing selection)
       setSelectedTrackIds([id]);
+      const skill = skills?.find((s) => s.id === id);
+      if (skill?.userHasAccess !== false) {
+        // Switched to a free track — clear skip banner
+        setPremiumTrackSkipped(false);
+      }
+      // If locked, onLockPress() in the press handler opens the upgrade modal
     }
+  }
+
+  function handleMaybeLater() {
+    setShowUpgradeModal(false);
+    setPremiumTrackSkipped(true);
   }
 
   async function handleUpgrade() {
@@ -348,6 +372,7 @@ export default function OnboardingScreen() {
                 onToggle={handleToggleTrack}
                 onLockPress={() => setShowUpgradeModal(true)}
                 isPremiumUser={isPremiumUser}
+                premiumTrackSkipped={premiumTrackSkipped}
               />
             )}
             {step === 3 && (
@@ -383,13 +408,16 @@ export default function OnboardingScreen() {
         transparent
         visible={showUpgradeModal}
         animationType="fade"
-        onRequestClose={() => setShowUpgradeModal(false)}
+        onRequestClose={handleMaybeLater}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowUpgradeModal(false)}>
+        <Pressable style={styles.modalOverlay} onPress={handleMaybeLater}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Unlock all tracks with Premium</Text>
             <Text style={styles.modalBody}>
-              Upgrade to Premium to access all learning tracks and learn at your own pace.
+              Get unlimited access to all tracks and every lesson, instantly.
+            </Text>
+            <Text style={styles.modalBody}>
+              Or continue with a limited preview of premium tracks.
             </Text>
             <Button
               label={upgrading ? 'Upgrading…' : 'Upgrade now'}
@@ -397,7 +425,7 @@ export default function OnboardingScreen() {
               disabled={upgrading}
               style={styles.modalBtn}
             />
-            <Pressable onPress={() => setShowUpgradeModal(false)} style={styles.modalCancelBtn}>
+            <Pressable onPress={handleMaybeLater} style={styles.modalCancelBtn}>
               <Text style={styles.modalCancelText}>Maybe later</Text>
             </Pressable>
           </Pressable>
@@ -473,7 +501,6 @@ const styles = StyleSheet.create({
     borderColor: colors.teal,
     backgroundColor: '#EEF2FF',
   },
-  optionCardLocked: { opacity: 0.5 },
   radioOuter: {
     width: 20,
     height: 20,
@@ -508,7 +535,6 @@ const styles = StyleSheet.create({
     color: colors.textDark,
   },
   optionLabelSelected: { color: colors.teal },
-  optionLabelLocked: { color: colors.textMuted },
   optionSub: {
     fontFamily: font.regular,
     fontSize: fontSize.xs,
@@ -553,6 +579,21 @@ const styles = StyleSheet.create({
     color: colors.error,
   },
   actionBtn: { marginTop: spacing.xs },
+  // Premium track info banner
+  infoBanner: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: radius.btn,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  infoBannerText: {
+    fontFamily: font.regular,
+    fontSize: fontSize.sm,
+    color: colors.vivid,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   // Upgrade modal
   modalOverlay: {
     flex: 1,
