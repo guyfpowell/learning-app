@@ -19,6 +19,32 @@ import { useRegister } from '@/hooks/useAuth';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { extractError } from '@/lib/errors';
 
+const SYMBOL_RE = /[!@#$%^&*()[\]{}|;:,.<>?\-_=+/]/;
+
+const PASSWORD_CRITERIA = [
+  { label: 'At least 10 characters', test: (pw: string) => pw.length >= 10 },
+  { label: 'At least 1 uppercase letter', test: (pw: string) => /[A-Z]/.test(pw) },
+  { label: 'At least 1 lowercase letter', test: (pw: string) => /[a-z]/.test(pw) },
+  { label: 'At least 1 number', test: (pw: string) => /[0-9]/.test(pw) },
+  { label: 'At least 1 symbol (! @ # $ % ^ & * …)', test: (pw: string) => SYMBOL_RE.test(pw) },
+];
+
+function PasswordHint({ password }: { password: string }) {
+  return (
+    <View style={hintStyles.container}>
+      {PASSWORD_CRITERIA.map(({ label, test }) => {
+        const met = test(password);
+        return (
+          <View key={label} style={hintStyles.row}>
+            <Text style={[hintStyles.icon, met && hintStyles.iconMet]}>{met ? '✓' : '○'}</Text>
+            <Text style={[hintStyles.label, met && hintStyles.labelMet]}>{label}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function validateName(name: string): string | null {
   if (!name.trim()) return 'Name is required';
   return null;
@@ -32,7 +58,8 @@ function validateEmail(email: string): string | null {
 
 function validatePassword(password: string): string | null {
   if (!password) return 'Password is required';
-  if (password.length < 8) return 'Password must be at least 8 characters';
+  const unmet = PASSWORD_CRITERIA.filter(c => !c.test(password)).map(c => c.label);
+  if (unmet.length > 0) return `Password must include: ${unmet.join(', ')}`;
   return null;
 }
 
@@ -46,11 +73,12 @@ export default function RegisterScreen() {
   const router = useRouter();
   const register = useRegister();
 
-  const [name, setName]           = useState('');
-  const [email, setEmail]         = useState('');
-  const [password, setPassword]   = useState('');
-  const [confirm, setConfirm]     = useState('');
-  const [touched, setTouched]     = useState({ name: false, email: false, password: false, confirm: false });
+  const [name, setName]                     = useState('');
+  const [email, setEmail]                   = useState('');
+  const [password, setPassword]             = useState('');
+  const [confirm, setConfirm]               = useState('');
+  const [touched, setTouched]               = useState({ name: false, email: false, password: false, confirm: false });
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   const nameError     = touched.name     ? validateName(name)                       : null;
   const emailError    = touched.email    ? validateEmail(email)                     : null;
@@ -131,18 +159,22 @@ export default function RegisterScreen() {
                 returnKeyType="next"
               />
 
-              <Input
-                testID="register-password"
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                onBlur={() => setTouched((t) => ({ ...t, password: true }))}
-                error={passwordError ?? undefined}
-                placeholder="Min 8 characters"
-                secureTextEntry
-                autoComplete="new-password"
-                returnKeyType="next"
-              />
+              <View>
+                <Input
+                  testID="register-password"
+                  label="Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+                  error={passwordError ?? undefined}
+                  placeholder="Min 10 characters"
+                  secureTextEntry
+                  autoComplete="new-password"
+                  returnKeyType="next"
+                />
+                {passwordFocused && <PasswordHint password={password} />}
+              </View>
 
               <Input
                 testID="register-confirm"
@@ -256,5 +288,35 @@ const styles = StyleSheet.create({
   },
   linkBold: {
     fontFamily: font.bold,
+  },
+});
+
+const hintStyles = StyleSheet.create({
+  container: {
+    marginTop: spacing.xs,
+    gap: 4,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  icon: {
+    fontFamily: font.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+    width: 16,
+  },
+  iconMet: {
+    color: colors.success,
+  },
+  label: {
+    fontFamily: font.regular,
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+    flex: 1,
+  },
+  labelMet: {
+    color: colors.success,
   },
 });

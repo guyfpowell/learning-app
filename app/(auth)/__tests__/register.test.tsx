@@ -36,8 +36,8 @@ function setRegisterMock(overrides: Record<string, unknown> = {}) {
 function fillValidForm() {
   fireEvent.changeText(screen.getByPlaceholderText('Your full name'), 'Jane Doe');
   fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'jane@example.com');
-  fireEvent.changeText(screen.getByPlaceholderText('Min 8 characters'), 'password123');
-  fireEvent.changeText(screen.getByPlaceholderText('Repeat your password'), 'password123');
+  fireEvent.changeText(screen.getByPlaceholderText('Min 10 characters'), 'TestPass1!');
+  fireEvent.changeText(screen.getByPlaceholderText('Repeat your password'), 'TestPass1!');
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -52,7 +52,7 @@ describe('RegisterScreen', () => {
     render(<RegisterScreen />);
     expect(screen.getByPlaceholderText('Your full name')).toBeTruthy();
     expect(screen.getByPlaceholderText('you@example.com')).toBeTruthy();
-    expect(screen.getByPlaceholderText('Min 8 characters')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Min 10 characters')).toBeTruthy();
     expect(screen.getByPlaceholderText('Repeat your password')).toBeTruthy();
     expect(screen.getByText('CREATE ACCOUNT')).toBeTruthy();
   });
@@ -66,21 +66,21 @@ describe('RegisterScreen', () => {
     expect(screen.getByText('Please confirm your password')).toBeTruthy();
   });
 
-  it('shows password too short error', () => {
+  it('shows password complexity error for a password that only fails length', () => {
     render(<RegisterScreen />);
     fireEvent.changeText(screen.getByPlaceholderText('Your full name'), 'Jane');
     fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'jane@example.com');
-    fireEvent.changeText(screen.getByPlaceholderText('Min 8 characters'), 'short');
+    fireEvent.changeText(screen.getByPlaceholderText('Min 10 characters'), 'Short1!');
     fireEvent.press(screen.getByText('CREATE ACCOUNT'));
-    expect(screen.getByText('Password must be at least 8 characters')).toBeTruthy();
+    expect(screen.getByText('Password must include: At least 10 characters')).toBeTruthy();
   });
 
   it('shows password mismatch error', () => {
     render(<RegisterScreen />);
     fireEvent.changeText(screen.getByPlaceholderText('Your full name'), 'Jane');
     fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'jane@example.com');
-    fireEvent.changeText(screen.getByPlaceholderText('Min 8 characters'), 'password123');
-    fireEvent.changeText(screen.getByPlaceholderText('Repeat your password'), 'different123');
+    fireEvent.changeText(screen.getByPlaceholderText('Min 10 characters'), 'TestPass1!');
+    fireEvent.changeText(screen.getByPlaceholderText('Repeat your password'), 'TestPass2!');
     fireEvent.press(screen.getByText('CREATE ACCOUNT'));
     expect(screen.getByText('Passwords do not match')).toBeTruthy();
   });
@@ -98,7 +98,7 @@ describe('RegisterScreen', () => {
     expect(mockMutate).toHaveBeenCalledWith({
       name: 'Jane Doe',
       email: 'jane@example.com',
-      password: 'password123',
+      password: 'TestPass1!',
     });
   });
 
@@ -108,13 +108,13 @@ describe('RegisterScreen', () => {
     // Name has trimable whitespace; the screen trims before calling mutate
     fireEvent.changeText(screen.getByPlaceholderText('Your full name'), '  Jane Doe  ');
     fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'JANE@EXAMPLE.COM');
-    fireEvent.changeText(screen.getByPlaceholderText('Min 8 characters'), 'password123');
-    fireEvent.changeText(screen.getByPlaceholderText('Repeat your password'), 'password123');
+    fireEvent.changeText(screen.getByPlaceholderText('Min 10 characters'), 'TestPass1!');
+    fireEvent.changeText(screen.getByPlaceholderText('Repeat your password'), 'TestPass1!');
     fireEvent.press(screen.getByText('CREATE ACCOUNT'));
     expect(mockMutate).toHaveBeenCalledWith({
       name: 'Jane Doe',
       email: 'jane@example.com',
-      password: 'password123',
+      password: 'TestPass1!',
     });
   });
 
