@@ -18,6 +18,20 @@ export function useSkills() {
   });
 }
 
+export function useProfile() {
+  return useQuery({
+    queryKey: ['user-profile'],
+    queryFn: () => userService.getProfile(),
+  });
+}
+
+export function useUpdateProfile() {
+  return useMutation({
+    mutationFn: (input: { preferredTime: string; timezone: string }) =>
+      userService.updateProfile(input),
+  });
+}
+
 export function useCompleteOnboarding() {
   const setHasOnboarded = useAuthStore((s) => s.setHasOnboarded);
 

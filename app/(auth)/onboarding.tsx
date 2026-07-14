@@ -1,18 +1,16 @@
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useSkills, useCompleteOnboarding } from '@/hooks/useOnboarding';
@@ -23,7 +21,6 @@ import { SENIORITY_LABELS } from '@learning/shared';
 import type { Seniority, SkillWithAccess } from '@learning/shared';
 
 type Step = 1 | 2 | 3;
-type PreferredTime = 'morning' | 'afternoon' | 'evening';
 
 const SENIORITY_ORDER: Seniority[] = [
   'ASSOCIATE',
@@ -33,11 +30,11 @@ const SENIORITY_ORDER: Seniority[] = [
   'DIRECTOR',
 ];
 
-const PREFERRED_TIME_LABELS: Record<PreferredTime, string> = {
-  morning: 'Morning (8 AM)',
-  afternoon: 'Afternoon (1 PM)',
-  evening: 'Evening (7 PM)',
-};
+function timeToDate(hour: number, minute: number): Date {
+  const d = new Date();
+  d.setHours(hour, minute, 0, 0);
+  return d;
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -188,54 +185,30 @@ function TracksStep({
   );
 }
 
-function TimezoneStep({
-  timezone,
-  onTimezoneChange,
-  preferredTime,
-  onPreferredTimeChange,
+function ReminderTimeStep({
+  preferredHour,
+  preferredMinute,
+  onTimeChange,
 }: {
-  timezone: string;
-  onTimezoneChange: (v: string) => void;
-  preferredTime: PreferredTime;
-  onPreferredTimeChange: (v: PreferredTime) => void;
+  preferredHour: number;
+  preferredMinute: number;
+  onTimeChange: (hour: number, minute: number) => void;
 }) {
+  function handleChange(_event: DateTimePickerEvent, date: Date | undefined) {
+    if (!date) return;
+    onTimeChange(date.getHours(), date.getMinutes());
+  }
+
   return (
     <>
-      <Text style={styles.fieldLabel}>Timezone</Text>
-      <TextInput
-        testID="timezone-input"
-        style={styles.textInput}
-        value={timezone}
-        onChangeText={onTimezoneChange}
-        placeholder="UTC, America/New_York, etc."
-        autoCapitalize="none"
-        autoCorrect={false}
-        returnKeyType="done"
+      <Text style={styles.stepHeading}>Preferred learning time</Text>
+      <DateTimePicker
+        testID="reminder-time-picker"
+        value={timeToDate(preferredHour, preferredMinute)}
+        mode="time"
+        display="spinner"
+        onChange={handleChange}
       />
-
-      <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>
-        Preferred learning time
-      </Text>
-      {(Object.entries(PREFERRED_TIME_LABELS) as [PreferredTime, string][]).map(
-        ([key, label]) => {
-          const isSelected = preferredTime === key;
-          return (
-            <Pressable
-              key={key}
-              testID={`preferred-time-${key}`}
-              onPress={() => onPreferredTimeChange(key)}
-              style={[styles.optionCard, isSelected && styles.optionCardSelected]}
-            >
-              <View style={[styles.radioOuter, isSelected && styles.radioOuterSelected]}>
-                {isSelected && <View style={styles.radioInner} />}
-              </View>
-              <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>
-                {label}
-              </Text>
-            </Pressable>
-          );
-        }
-      )}
     </>
   );
 }
@@ -252,8 +225,8 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState<Step>(1);
   const [seniority, setSeniority] = useState<Seniority | null>(null);
   const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
-  const [timezone, setTimezone] = useState('UTC');
-  const [preferredTime, setPreferredTime] = useState<PreferredTime>('morning');
+  const [preferredHour, setPreferredHour] = useState(8);
+  const [preferredMinute, setPreferredMinute] = useState(0);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
   const [premiumTrackSkipped, setPremiumTrackSkipped] = useState(false);
@@ -275,18 +248,14 @@ export default function OnboardingScreen() {
     }
     // Free user: single selection
     if (selectedTrackIds.includes(id)) {
-      // Deselecting the current track
       setSelectedTrackIds([]);
       setPremiumTrackSkipped(false);
     } else {
-      // Selecting a new track (replaces any existing selection)
       setSelectedTrackIds([id]);
       const skill = skills?.find((s) => s.id === id);
       if (skill?.userHasAccess !== false) {
-        // Switched to a free track — clear skip banner
         setPremiumTrackSkipped(false);
       }
-      // If locked, onLockPress() in the press handler opens the upgrade modal
     }
   }
 
@@ -323,86 +292,91 @@ export default function OnboardingScreen() {
 
   function handleSubmit() {
     if (!seniority || selectedTrackIds.length === 0) return;
-    complete.mutate({ seniority, trackIds: selectedTrackIds, timezone, preferredTime });
+    const hh = String(preferredHour).padStart(2, '0');
+    const mm = String(preferredMinute).padStart(2, '0');
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    complete.mutate({
+      seniority,
+      trackIds: selectedTrackIds,
+      timezone,
+      preferredTime: `${hh}:${mm}`,
+    });
   }
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
       >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.header}>
-            {step > 1 ? (
-              <Pressable testID="back-button" onPress={handleBack} style={styles.backBtn}>
-                <Text style={styles.backBtnText}>← Back</Text>
-              </Pressable>
-            ) : (
-              <View style={styles.backBtnPlaceholder} />
-            )}
-            <StepIndicator step={step} />
-          </View>
+        <View style={styles.header}>
+          {step > 1 ? (
+            <Pressable testID="back-button" onPress={handleBack} style={styles.backBtn}>
+              <Text style={styles.backBtnText}>← Back</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.backBtnPlaceholder} />
+          )}
+          <StepIndicator step={step} />
+        </View>
 
-          <Text style={styles.greeting}>Welcome, {user?.name ?? 'there'}!</Text>
-          <Text style={styles.greetingSub}>Let's set up your learning preferences</Text>
+        <Text style={styles.greeting}>Welcome, {user?.name ?? 'there'}!</Text>
+        <Text style={styles.greetingSub}>Let's set up your learning preferences</Text>
 
-          <Card style={styles.card}>
-            {complete.isError && (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorBannerText}>
-                  {(complete.error as Error | null)?.message ??
-                    'Something went wrong. Please try again.'}
-                </Text>
-              </View>
-            )}
+        <Card style={styles.card}>
+          {complete.isError && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>
+                {(complete.error as Error | null)?.message ??
+                  'Something went wrong. Please try again.'}
+              </Text>
+            </View>
+          )}
 
-            {step === 1 && (
-              <SeniorityStep selected={seniority} onSelect={setSeniority} />
-            )}
-            {step === 2 && (
-              <TracksStep
-                skills={skills}
-                isLoading={skillsLoading}
-                isError={skillsError}
-                selectedIds={selectedTrackIds}
-                onToggle={handleToggleTrack}
-                onLockPress={() => setShowUpgradeModal(true)}
-                isPremiumUser={isPremiumUser}
-                premiumTrackSkipped={premiumTrackSkipped}
-              />
-            )}
-            {step === 3 && (
-              <TimezoneStep
-                timezone={timezone}
-                onTimezoneChange={setTimezone}
-                preferredTime={preferredTime}
-                onPreferredTimeChange={setPreferredTime}
-              />
-            )}
+          {step === 1 && (
+            <SeniorityStep selected={seniority} onSelect={setSeniority} />
+          )}
+          {step === 2 && (
+            <TracksStep
+              skills={skills}
+              isLoading={skillsLoading}
+              isError={skillsError}
+              selectedIds={selectedTrackIds}
+              onToggle={handleToggleTrack}
+              onLockPress={() => setShowUpgradeModal(true)}
+              isPremiumUser={isPremiumUser}
+              premiumTrackSkipped={premiumTrackSkipped}
+            />
+          )}
+          {step === 3 && (
+            <ReminderTimeStep
+              preferredHour={preferredHour}
+              preferredMinute={preferredMinute}
+              onTimeChange={(h, m) => {
+                setPreferredHour(h);
+                setPreferredMinute(m);
+              }}
+            />
+          )}
 
-            {step < 3 ? (
-              <Button
-                testID="onboarding-next"
-                label="Continue"
-                onPress={handleNext}
-                style={styles.actionBtn}
-              />
-            ) : (
-              <Button
-                testID="onboarding-submit"
-                label={complete.isPending ? 'Saving…' : 'Get started'}
-                onPress={handleSubmit}
-                disabled={complete.isPending}
-                style={styles.actionBtn}
-              />
-            )}
-          </Card>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          {step < 3 ? (
+            <Button
+              testID="onboarding-next"
+              label="Continue"
+              onPress={handleNext}
+              style={styles.actionBtn}
+            />
+          ) : (
+            <Button
+              testID="onboarding-submit"
+              label={complete.isPending ? 'Saving…' : 'Get started'}
+              onPress={handleSubmit}
+              disabled={complete.isPending}
+              style={styles.actionBtn}
+            />
+          )}
+        </Card>
+      </ScrollView>
 
       <Modal
         transparent
@@ -439,7 +413,6 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.vivid },
-  flex: { flex: 1 },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
@@ -545,22 +518,6 @@ const styles = StyleSheet.create({
     fontFamily: font.medium,
     fontSize: fontSize.xs,
     color: colors.textMuted,
-  },
-  fieldLabel: {
-    fontFamily: font.medium,
-    fontSize: fontSize.sm,
-    color: colors.textDark,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.input,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontFamily: font.regular,
-    fontSize: fontSize.base,
-    color: colors.textDark,
-    backgroundColor: colors.white,
   },
   centered: { alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.md },
   loadingText: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },

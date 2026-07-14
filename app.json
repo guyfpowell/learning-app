@@ -47,11 +47,16 @@
     "scheme": "learning",
     "extra": {
       "eas": {
-        "projectId": ""
-      }
+        "projectId": "c3c06dd2-a11e-4128-b733-8b31eaca5740"
+      },
+      "router": {}
     },
     "runtimeVersion": {
       "policy": "sdkVersion"
+    },
+    "owner": "guyfpowell",
+    "updates": {
+      "url": "https://u.expo.dev/c3c06dd2-a11e-4128-b733-8b31eaca5740"
     }
   }
 }

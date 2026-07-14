@@ -3,7 +3,7 @@ import type { NotificationPreference } from '@learning/shared';
 
 export type UpdatePreferencesInput = Pick<
   NotificationPreference,
-  'enableDailyReminder' | 'reminderTime' | 'enableStreak' | 'enableLessonAvailable'
+  'enableDailyReminder' | 'enableStreak' | 'enableLessonAvailable'
 >;
 
 export const notificationService = {

@@ -36,6 +36,22 @@ jest.mock('@/lib/api', () => ({
   default: { post: jest.fn() },
 }));
 
+// ─── Intl timezone mock ───────────────────────────────────────────────────────
+
+beforeAll(() => {
+  jest.spyOn(Intl, 'DateTimeFormat').mockImplementation(() => ({
+    resolvedOptions: () => ({ timeZone: 'UTC' }),
+    format: jest.fn(),
+    formatToParts: jest.fn(),
+    formatRange: jest.fn(),
+    formatRangeToParts: jest.fn(),
+  }) as unknown as Intl.DateTimeFormat);
+});
+
+afterAll(() => {
+  jest.restoreAllMocks();
+});
+
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 const mockFreeSkill: SkillWithAccess = {
@@ -303,7 +319,7 @@ describe('OnboardingScreen', () => {
       fireEvent.press(screen.getByText('Maybe later'));
       fireEvent.press(screen.getByText('CONTINUE'));
       expect(screen.queryByText('Which tracks do you want to learn?')).toBeNull();
-      expect(screen.getByText('Timezone')).toBeTruthy();
+      expect(screen.getByText('Preferred learning time')).toBeTruthy();
     });
 
     it('submitting with a premium track calls mutate with the premium track id', () => {
@@ -318,7 +334,7 @@ describe('OnboardingScreen', () => {
         seniority: 'ASSOCIATE',
         trackIds: ['skill-2'],
         timezone: 'UTC',
-        preferredTime: 'morning',
+        preferredTime: '08:00',
       });
     });
   });
@@ -351,37 +367,21 @@ describe('OnboardingScreen', () => {
     });
   });
 
-  // Step 3 — Timezone + Preferred Time
-  describe('Step 3 — Timezone and Preferred Time', () => {
-    it('shows timezone input with default UTC', () => {
-      render(<OnboardingScreen />);
-      advanceToStep3();
-      const input = screen.getByTestId('timezone-input');
-      expect(input.props.value).toBe('UTC');
-    });
-
-    it('shows timezone placeholder with format hint', () => {
-      render(<OnboardingScreen />);
-      advanceToStep3();
-      const input = screen.getByTestId('timezone-input');
-      expect(input.props.placeholder).toBe('UTC, America/New_York, etc.');
-    });
-
-    it('shows "Preferred learning time" field label', () => {
+  // Step 3 — Time picker
+  describe('Step 3 — Preferred learning time', () => {
+    it('shows "Preferred learning time" heading', () => {
       render(<OnboardingScreen />);
       advanceToStep3();
       expect(screen.getByText('Preferred learning time')).toBeTruthy();
     });
 
-    it('shows all preferred time options with clock times', () => {
+    it('shows the native time picker defaulting to 8:00', () => {
       render(<OnboardingScreen />);
       advanceToStep3();
-      expect(screen.getByTestId('preferred-time-morning')).toBeTruthy();
-      expect(screen.getByTestId('preferred-time-afternoon')).toBeTruthy();
-      expect(screen.getByTestId('preferred-time-evening')).toBeTruthy();
-      expect(screen.getByText('Morning (8 AM)')).toBeTruthy();
-      expect(screen.getByText('Afternoon (1 PM)')).toBeTruthy();
-      expect(screen.getByText('Evening (7 PM)')).toBeTruthy();
+      const picker = screen.getByTestId('reminder-time-picker');
+      const value = new Date(picker.props.date);
+      expect(value.getHours()).toBe(8);
+      expect(value.getMinutes()).toBe(0);
     });
 
     it('shows "Get started" submit button', () => {
@@ -397,20 +397,41 @@ describe('OnboardingScreen', () => {
       expect(screen.getByText('SAVING…')).toBeTruthy();
     });
 
-    it('calls mutate with correct args on submit', () => {
+    it('calls mutate with HH:mm preferredTime and auto-detected timezone on submit', () => {
       render(<OnboardingScreen />);
       fireEvent.press(screen.getByTestId('seniority-ASSOCIATE'));
       fireEvent.press(screen.getByText('CONTINUE'));
       fireEvent.press(screen.getByTestId('skill-skill-1'));
       fireEvent.press(screen.getByText('CONTINUE'));
-      fireEvent.changeText(screen.getByTestId('timezone-input'), 'Europe/London');
-      fireEvent.press(screen.getByTestId('preferred-time-evening'));
+      const picker = screen.getByTestId('reminder-time-picker');
+      const newTime = new Date();
+      newTime.setHours(19, 0, 0, 0);
+      fireEvent(picker, 'change', { nativeEvent: { timestamp: newTime.getTime() } });
       fireEvent.press(screen.getByText('GET STARTED'));
       expect(mockMutate).toHaveBeenCalledWith({
         seniority: 'ASSOCIATE',
         trackIds: ['skill-1'],
-        timezone: 'Europe/London',
-        preferredTime: 'evening',
+        timezone: 'UTC',
+        preferredTime: '19:00',
+      });
+    });
+
+    it('includes minute in preferredTime when non-zero minute is selected', () => {
+      render(<OnboardingScreen />);
+      fireEvent.press(screen.getByTestId('seniority-ASSOCIATE'));
+      fireEvent.press(screen.getByText('CONTINUE'));
+      fireEvent.press(screen.getByTestId('skill-skill-1'));
+      fireEvent.press(screen.getByText('CONTINUE'));
+      const picker = screen.getByTestId('reminder-time-picker');
+      const newTime = new Date();
+      newTime.setHours(9, 30, 0, 0);
+      fireEvent(picker, 'change', { nativeEvent: { timestamp: newTime.getTime() } });
+      fireEvent.press(screen.getByText('GET STARTED'));
+      expect(mockMutate).toHaveBeenCalledWith({
+        seniority: 'ASSOCIATE',
+        trackIds: ['skill-1'],
+        timezone: 'UTC',
+        preferredTime: '09:30',
       });
     });
 

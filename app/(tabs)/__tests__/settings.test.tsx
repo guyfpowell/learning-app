@@ -6,6 +6,7 @@ import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
 } from '@/hooks/useNotificationPrefs';
+import { useProfile, useUpdateProfile } from '@/hooks/useOnboarding';
 import { usePushStatus } from '@/hooks/usePushStatus';
 import type { NotificationPreference } from '@learning/shared';
 
@@ -14,7 +15,10 @@ jest.mock('@/hooks/useNotificationPrefs', () => ({
   useNotificationPreferences: jest.fn(),
   useUpdateNotificationPreferences: jest.fn(),
 }));
-
+jest.mock('@/hooks/useOnboarding', () => ({
+  useProfile: jest.fn(),
+  useUpdateProfile: jest.fn(),
+}));
 jest.mock('@/hooks/usePushStatus', () => ({ usePushStatus: jest.fn() }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -26,6 +30,24 @@ jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn(() => Promise.resolve()),
   deleteItemAsync: jest.fn(() => Promise.resolve()),
 }));
+
+// ─── Intl timezone mock ───────────────────────────────────────────────────────
+
+beforeAll(() => {
+  jest.spyOn(Intl, 'DateTimeFormat').mockImplementation(() => ({
+    resolvedOptions: () => ({ timeZone: 'UTC' }),
+    format: jest.fn(),
+    formatToParts: jest.fn(),
+    formatRange: jest.fn(),
+    formatRangeToParts: jest.fn(),
+  }) as unknown as Intl.DateTimeFormat);
+});
+
+afterAll(() => {
+  jest.restoreAllMocks();
+});
+
+// ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 const mockUser = { id: 'u1', email: 'user@example.com', name: 'Test User' };
 
@@ -41,6 +63,7 @@ const mockPrefs: NotificationPreference = {
 };
 
 const mockMutate = jest.fn();
+const mockProfileMutate = jest.fn();
 const mockRegister = jest.fn();
 
 function setPushStatusMock(permissionStatus: 'granted' | 'denied' | 'undetermined' = 'granted') {
@@ -62,6 +85,26 @@ function setMutationMock(overrides: Record<string, unknown> = {}) {
     isPending: false,
     isSuccess: false,
     isError: false,
+    error: null,
+    ...overrides,
+  });
+}
+
+function setProfileQueryMock(overrides: Record<string, unknown> = {}) {
+  (useProfile as jest.Mock).mockReturnValue({
+    data: { preferredTime: '08:00' },
+    isLoading: false,
+    ...overrides,
+  });
+}
+
+function setProfileMutationMock(overrides: Record<string, unknown> = {}) {
+  (useUpdateProfile as jest.Mock).mockReturnValue({
+    mutate: mockProfileMutate,
+    isPending: false,
+    isSuccess: false,
+    isError: false,
+    error: null,
     ...overrides,
   });
 }
@@ -72,6 +115,8 @@ describe('SettingsScreen', () => {
     (useAuthStore as unknown as jest.Mock).mockReturnValue(mockUser);
     setQueryMock();
     setMutationMock();
+    setProfileQueryMock();
+    setProfileMutationMock();
     setPushStatusMock();
   });
 
@@ -115,28 +160,34 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('New lesson available')).toBeTruthy();
   });
 
-  it('hides reminder time picker when daily reminder is off', () => {
+  it('hides the time picker when daily reminder is off', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: false } });
     render(<SettingsScreen />);
-    expect(screen.queryByText('Morning (8 AM)')).toBeNull();
-    expect(screen.queryByText('Afternoon (1 PM)')).toBeNull();
-    expect(screen.queryByText('Evening (7 PM)')).toBeNull();
+    expect(screen.queryByTestId('reminder-time-picker')).toBeNull();
   });
 
-  it('shows reminder time picker when daily reminder is on', () => {
+  it('shows the time picker when daily reminder is on', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: true } });
     render(<SettingsScreen />);
-    expect(screen.getByText('Morning (8 AM)')).toBeTruthy();
-    expect(screen.getByText('Afternoon (1 PM)')).toBeTruthy();
-    expect(screen.getByText('Evening (7 PM)')).toBeTruthy();
+    expect(screen.getByTestId('reminder-time-picker')).toBeTruthy();
   });
 
-  it('toggling daily reminder on reveals time picker', () => {
+  it('toggling daily reminder on reveals the time picker', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: false } });
     render(<SettingsScreen />);
-    expect(screen.queryByText('Morning (8 AM)')).toBeNull();
+    expect(screen.queryByTestId('reminder-time-picker')).toBeNull();
     fireEvent(screen.getByTestId('toggle-daily-reminder'), 'valueChange', true);
-    expect(screen.getByText('Morning (8 AM)')).toBeTruthy();
+    expect(screen.getByTestId('reminder-time-picker')).toBeTruthy();
+  });
+
+  it('initialises the time picker from profile preferredTime', () => {
+    setProfileQueryMock({ data: { preferredTime: '14:30' } });
+    setQueryMock({ data: { ...mockPrefs, enableDailyReminder: true } });
+    render(<SettingsScreen />);
+    const picker = screen.getByTestId('reminder-time-picker');
+    const value = new Date(picker.props.date);
+    expect(value.getHours()).toBe(14);
+    expect(value.getMinutes()).toBe(30);
   });
 
   describe('push notification status', () => {
@@ -162,29 +213,38 @@ describe('SettingsScreen', () => {
     });
   });
 
-  it('pressing Save Settings calls mutate with current prefs', () => {
+  it('pressing Save Settings calls both mutations with correct args', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: false, enableStreak: true, enableLessonAvailable: true } });
     render(<SettingsScreen />);
     fireEvent.press(screen.getByText('SAVE SETTINGS'));
     expect(mockMutate).toHaveBeenCalledWith({
       enableDailyReminder: false,
-      reminderTime: undefined,
       enableStreak: true,
       enableLessonAvailable: true,
     });
+    expect(mockProfileMutate).toHaveBeenCalledWith({
+      preferredTime: '08:00',
+      timezone: 'UTC',
+    });
   });
 
-  it('includes reminder time in mutate call when daily reminder is on', () => {
-    setQueryMock({ data: { ...mockPrefs, enableDailyReminder: true, reminderTime: 'afternoon' } });
+  it('Save Settings sends updated time when picker is changed', () => {
+    setQueryMock({ data: { ...mockPrefs, enableDailyReminder: true } });
     render(<SettingsScreen />);
+    const picker = screen.getByTestId('reminder-time-picker');
+    const newTime = new Date();
+    newTime.setHours(20, 15, 0, 0);
+    fireEvent(picker, 'change', { nativeEvent: { timestamp: newTime.getTime() } });
     fireEvent.press(screen.getByText('SAVE SETTINGS'));
-    expect(mockMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ enableDailyReminder: true, reminderTime: 'afternoon' })
-    );
+    expect(mockProfileMutate).toHaveBeenCalledWith({
+      preferredTime: '20:15',
+      timezone: 'UTC',
+    });
   });
 
-  it('shows success message after save', () => {
+  it('shows success message when both saves succeed', () => {
     setMutationMock({ isSuccess: true });
+    setProfileMutationMock({ isSuccess: true });
     render(<SettingsScreen />);
     expect(screen.getByText('Settings saved')).toBeTruthy();
   });
@@ -196,12 +256,22 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('Something went wrong. Please try again.')).toBeTruthy();
   });
 
-  it('shows API error message when save fails with API-provided message', () => {
+  it('shows API error message when notification prefs save fails', () => {
     setMutationMock({
       isError: true,
       error: { response: { data: { message: 'Notification service unavailable' } } },
     });
     render(<SettingsScreen />);
     expect(screen.getByText('Notification service unavailable')).toBeTruthy();
+  });
+
+  it('shows error when profile update fails', () => {
+    setProfileMutationMock({
+      isError: true,
+      error: { response: { data: { message: 'Profile update failed' } } },
+    });
+    render(<SettingsScreen />);
+    expect(screen.getByTestId('settings-error')).toBeTruthy();
+    expect(screen.getByText('Profile update failed')).toBeTruthy();
   });
 });

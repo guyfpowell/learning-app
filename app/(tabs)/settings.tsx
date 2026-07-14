@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, font, fontSize, spacing, radius } from '@/theme';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
@@ -10,45 +11,58 @@ import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
 } from '@/hooks/useNotificationPrefs';
+import { useProfile, useUpdateProfile } from '@/hooks/useOnboarding';
 import { usePushStatus } from '@/hooks/usePushStatus';
 import { extractError } from '@/lib/errors';
 
-type ReminderTime = 'morning' | 'afternoon' | 'evening';
-
-const REMINDER_TIMES: { value: ReminderTime; label: string }[] = [
-  { value: 'morning', label: 'Morning (8 AM)' },
-  { value: 'afternoon', label: 'Afternoon (1 PM)' },
-  { value: 'evening', label: 'Evening (7 PM)' },
-];
+function timeToDate(hour: number, minute: number): Date {
+  const d = new Date();
+  d.setHours(hour, minute, 0, 0);
+  return d;
+}
 
 export default function SettingsScreen() {
   const user = useAuthStore((s) => s.user);
   const { data, isLoading } = useNotificationPreferences();
   const updatePrefs = useUpdateNotificationPreferences();
+  const { data: profile } = useProfile();
+  const updateProfile = useUpdateProfile();
   const { permissionStatus, register } = usePushStatus();
 
   const [enableDailyReminder, setEnableDailyReminder] = useState(false);
-  const [reminderTime, setReminderTime] = useState<ReminderTime>('morning');
+  const [preferredHour, setPreferredHour] = useState(8);
+  const [preferredMinute, setPreferredMinute] = useState(0);
   const [enableStreak, setEnableStreak] = useState(true);
   const [enableLessonAvailable, setEnableLessonAvailable] = useState(true);
 
   useEffect(() => {
     if (data) {
       setEnableDailyReminder(data.enableDailyReminder);
-      setReminderTime(data.reminderTime ?? 'morning');
       setEnableStreak(data.enableStreak);
       setEnableLessonAvailable(data.enableLessonAvailable);
     }
   }, [data]);
 
+  useEffect(() => {
+    if (profile?.preferredTime && /^\d{2}:\d{2}$/.test(profile.preferredTime)) {
+      const [h, m] = profile.preferredTime.split(':').map(Number);
+      setPreferredHour(h);
+      setPreferredMinute(m);
+    }
+  }, [profile]);
+
   function handleSave() {
-    updatePrefs.mutate({
-      enableDailyReminder,
-      reminderTime: enableDailyReminder ? reminderTime : undefined,
-      enableStreak,
-      enableLessonAvailable,
-    });
+    const hh = String(preferredHour).padStart(2, '0');
+    const mm = String(preferredMinute).padStart(2, '0');
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    updateProfile.mutate({ preferredTime: `${hh}:${mm}`, timezone });
+    updatePrefs.mutate({ enableDailyReminder, enableStreak, enableLessonAvailable });
   }
+
+  const isSaving = updatePrefs.isPending || updateProfile.isPending;
+  const isSaveSuccess = updatePrefs.isSuccess && updateProfile.isSuccess;
+  const isSaveError = updatePrefs.isError || updateProfile.isError;
+  const saveError = updatePrefs.error ?? updateProfile.error;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -104,24 +118,17 @@ export default function SettingsScreen() {
               </View>
 
               {enableDailyReminder && (
-                <View style={styles.timePicker}>
-                  {REMINDER_TIMES.map(({ value, label }) => (
-                    <Pressable
-                      key={value}
-                      onPress={() => setReminderTime(value)}
-                      style={[styles.timeBtn, reminderTime === value && styles.timeBtnSelected]}
-                    >
-                      <Text
-                        style={[
-                          styles.timeBtnText,
-                          reminderTime === value && styles.timeBtnTextSelected,
-                        ]}
-                      >
-                        {label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
+                <DateTimePicker
+                  testID="reminder-time-picker"
+                  value={timeToDate(preferredHour, preferredMinute)}
+                  mode="time"
+                  display="spinner"
+                  onChange={(_event: DateTimePickerEvent, date: Date | undefined) => {
+                    if (!date) return;
+                    setPreferredHour(date.getHours());
+                    setPreferredMinute(date.getMinutes());
+                  }}
+                />
               )}
 
               <View style={styles.divider} />
@@ -158,15 +165,15 @@ export default function SettingsScreen() {
         <Button
           label="Save Settings"
           onPress={handleSave}
-          loading={updatePrefs.isPending}
+          loading={isSaving}
           style={styles.saveBtn}
         />
 
-        {updatePrefs.isSuccess && (
+        {isSaveSuccess && (
           <Text style={styles.successMsg}>Settings saved</Text>
         )}
-        {updatePrefs.isError && (
-          <Text testID="settings-error" style={styles.errorMsg}>{extractError(updatePrefs.error)}</Text>
+        {isSaveError && (
+          <Text testID="settings-error" style={styles.errorMsg}>{extractError(saveError)}</Text>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -223,32 +230,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
     marginVertical: spacing.xs,
-  },
-  timePicker: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  timeBtn: {
-    flex: 1,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radius.btn,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  timeBtnSelected: {
-    borderColor: colors.teal,
-    backgroundColor: colors.teal + '15',
-  },
-  timeBtnText: {
-    fontFamily: font.medium,
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-  },
-  timeBtnTextSelected: {
-    color: colors.teal,
   },
   pushEnabledText: {
     fontFamily: font.medium,
