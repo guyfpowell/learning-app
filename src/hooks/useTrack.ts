@@ -25,3 +25,14 @@ export function useEnroll() {
     },
   });
 }
+
+export function useSetActiveTrack() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (skillId: string) => trackService.setActiveTrack(skillId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      queryClient.invalidateQueries({ queryKey: ['skills'] });
+    },
+  });
+}

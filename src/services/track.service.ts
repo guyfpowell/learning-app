@@ -13,4 +13,7 @@ export const trackService = {
   async enroll(skillId: string): Promise<void> {
     await api.post('/enrollments', { skillId });
   },
+  async setActiveTrack(skillId: string): Promise<void> {
+    await api.patch('/enrollments/active', { skillId });
+  },
 };

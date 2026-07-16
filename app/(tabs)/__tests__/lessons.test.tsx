@@ -48,6 +48,8 @@ const mockEnrollment = {
   nextLesson: mockNextLesson,
   levels: [],
   enrolledAt: new Date(),
+  upgradeRequired: false,
+  isActive: false,
 };
 
 const mockCompletedEnrollment = {
@@ -58,6 +60,7 @@ const mockCompletedEnrollment = {
   completedLessons: 30,
   percentComplete: 100,
   nextLesson: null,
+  isActive: false,
 };
 
 const mockProgress = {
@@ -294,6 +297,45 @@ describe('LessonsScreen', () => {
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('browse-tracks-btn'));
       expect(mockPush).toHaveBeenCalledWith('/(tabs)/tracks');
+    });
+  });
+
+  describe('active track prominence (ticket 044)', () => {
+    const secondEnrollment = {
+      ...mockEnrollment,
+      id: 'enrollment-3',
+      skillId: 'skill-3',
+      skill: { id: 'skill-3', name: 'Business Strategy', category: 'Business', description: '' },
+      nextLesson: { ...mockNextLesson, id: 'lesson-3', title: 'Business Foundations' },
+      isActive: true,
+    };
+
+    it('active track next-lesson card appears before non-active tracks', () => {
+      // secondEnrollment is active; mockEnrollment is not active
+      setEnrollmentsMock([mockEnrollment, secondEnrollment]);
+      render(<LessonsScreen />);
+      const activeCard = screen.getByTestId('next-lesson-card-skill-3');
+      const otherCard  = screen.getByTestId('next-lesson-card-skill-1');
+      // active card should appear earlier in the stringified JSON tree
+      const json = JSON.stringify(screen.toJSON());
+      const activeIndex = json.indexOf('next-lesson-card-skill-3');
+      const otherIndex  = json.indexOf('next-lesson-card-skill-1');
+      expect(activeCard).toBeTruthy();
+      expect(otherCard).toBeTruthy();
+      expect(activeIndex).toBeGreaterThan(-1);
+      expect(activeIndex).toBeLessThan(otherIndex);
+    });
+
+    it('shows ACTIVE badge on the active track next-lesson card', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, isActive: true }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('active-track-label-skill-1')).toBeTruthy();
+    });
+
+    it('does not show ACTIVE badge on non-active track next-lesson card', () => {
+      setEnrollmentsMock([mockEnrollment]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('active-track-label-skill-1')).toBeNull();
     });
   });
 });

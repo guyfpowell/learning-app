@@ -52,7 +52,8 @@ export default function LessonsScreen() {
   const router = useRouter();
 
   const activeEnrollments: TrackEnrollmentWithProgress[] =
-    enrollmentsData?.filter(e => e.percentComplete < 100) ?? [];
+    (enrollmentsData?.filter(e => e.percentComplete < 100) ?? [])
+      .sort((a, b) => (b.isActive ? 1 : 0) - (a.isActive ? 1 : 0));
   const completedEnrollments: TrackEnrollmentWithProgress[] =
     enrollmentsData?.filter(e => e.percentComplete >= 100) ?? [];
   const hasNoEnrollments = Array.isArray(enrollmentsData) && enrollmentsData.length === 0;
@@ -93,6 +94,11 @@ export default function LessonsScreen() {
               if (nextLesson) {
                 cards.push(
                   <Card key={`${e.skillId}-next`} testID={`next-lesson-card-${e.skillId}`} style={styles.nextLessonCard}>
+                    {e.isActive && (
+                      <View testID={`active-track-label-${e.skillId}`}>
+                        <Badge label="Active" variant="success" />
+                      </View>
+                    )}
                     <Text style={styles.nextLessonTrackName}>{e.skill.name}</Text>
                     <View style={styles.nextLessonMeta}>
                       {level && (

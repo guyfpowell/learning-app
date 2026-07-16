@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
-import { useSkills, useEnrollments, useEnroll } from '@/hooks/useTrack';
+import { useSkills, useEnrollments, useEnroll, useSetActiveTrack } from '@/hooks/useTrack';
 import { extractError } from '@/lib/errors';
 import type { SkillWithAccess } from '@learning/shared';
 
@@ -42,10 +42,12 @@ export default function TracksScreen() {
   const { data: skills, isLoading: skillsLoading, isError: skillsError, error: skillsErr } = useSkills();
   const { data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr } = useEnrollments();
   const enroll = useEnroll();
+  const setActive = useSetActiveTrack();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
 
   const isLoading = skillsLoading || enrollmentsLoading;
   const enrolledSkillIds = new Set(enrollments?.map((e) => e.skillId) ?? []);
+  const activeSkillId = enrollments?.find((e) => e.isActive)?.skillId ?? null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -70,8 +72,15 @@ export default function TracksScreen() {
           </View>
         )}
 
+        {setActive.isError && (
+          <View testID="tracks-set-active-error">
+            <Text style={styles.errorText}>{extractError(setActive.error)}</Text>
+          </View>
+        )}
+
         {!isLoading && skills?.map((skill) => {
           const isEnrolled = enrolledSkillIds.has(skill.id);
+          const isActiveMark = activeSkillId === skill.id;
           const isLocked = !skill.userHasAccess;
           const totalHours = skill.skillPaths.reduce((sum, p) => sum + p.durationHours, 0);
 
@@ -82,6 +91,11 @@ export default function TracksScreen() {
                 {isEnrolled && (
                   <View testID={`enrolled-badge-${skill.id}`}>
                     <Badge label="Enrolled" variant="success" />
+                  </View>
+                )}
+                {isActiveMark && (
+                  <View testID={`active-badge-${skill.id}`}>
+                    <Badge label="Active" variant="info" />
                   </View>
                 )}
                 {isLocked && (
@@ -102,9 +116,24 @@ export default function TracksScreen() {
               </Text>
 
               {isEnrolled ? (
-                <Text testID={`enrolled-text-${skill.id}`} style={styles.enrolledText}>
-                  Currently enrolled
-                </Text>
+                isActiveMark ? (
+                  <Text testID={`active-text-${skill.id}`} style={styles.activeText}>
+                    Active track
+                  </Text>
+                ) : (
+                  <>
+                    <Text testID={`enrolled-text-${skill.id}`} style={styles.enrolledText}>
+                      Currently enrolled
+                    </Text>
+                    <Button
+                      testID={`make-active-btn-${skill.id}`}
+                      label="Make active"
+                      loading={setActive.isPending && setActive.variables === skill.id}
+                      style={styles.makeActiveBtn}
+                      onPress={() => setActive.mutate(skill.id)}
+                    />
+                  </>
+                )
               ) : isLocked ? (
                 <Button
                   testID={`upgrade-btn-${skill.id}`}
@@ -167,8 +196,16 @@ const styles = StyleSheet.create({
     fontSize:   fontSize.sm,
     color:      colors.success,
   },
+  activeText: {
+    fontFamily: font.medium,
+    fontSize:   fontSize.sm,
+    color:      colors.teal,
+  },
   lockedBtn: {
     backgroundColor: colors.border,
+  },
+  makeActiveBtn: {
+    backgroundColor: colors.teal,
   },
   errorText: {
     fontFamily: font.regular,

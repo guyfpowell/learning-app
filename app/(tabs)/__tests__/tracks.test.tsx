@@ -1,16 +1,17 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import TracksScreen from '../tracks';
-import { useSkills, useEnrollments, useEnroll } from '@/hooks/useTrack';
+import { useSkills, useEnrollments, useEnroll, useSetActiveTrack } from '@/hooks/useTrack';
 import type { SkillWithAccess, TrackEnrollmentWithProgress } from '@learning/shared';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 
 jest.mock('@/hooks/useTrack', () => ({
-  useSkills:      jest.fn(),
-  useEnrollments: jest.fn(),
-  useEnroll:      jest.fn(),
+  useSkills:         jest.fn(),
+  useEnrollments:    jest.fn(),
+  useEnroll:         jest.fn(),
+  useSetActiveTrack: jest.fn(),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -65,9 +66,17 @@ const mockEnrollment: TrackEnrollmentWithProgress = {
   percentComplete:  30,
   nextLesson:       null,
   levels:           [],
+  upgradeRequired:  false,
+  isActive:         false,
+};
+
+const activeEnrollment: TrackEnrollmentWithProgress = {
+  ...mockEnrollment,
+  isActive: true,
 };
 
 const mockMutate = jest.fn();
+const mockSetActive = jest.fn();
 
 function setMocks({
   skills = [baseSkill],
@@ -85,10 +94,18 @@ function setMocks({
     isError: false,
     error: null as unknown,
   },
+  setActiveTrack = {
+    mutate: mockSetActive,
+    isPending: false,
+    variables: undefined as string | undefined,
+    isError: false,
+    error: null as unknown,
+  },
 } = {}) {
-  (useSkills      as jest.Mock).mockReturnValue({ data: skills,      isLoading: skillsLoading, isError: skillsError, error: skillsErr });
-  (useEnrollments as jest.Mock).mockReturnValue({ data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr });
-  (useEnroll      as jest.Mock).mockReturnValue(enroll);
+  (useSkills         as jest.Mock).mockReturnValue({ data: skills,      isLoading: skillsLoading, isError: skillsError, error: skillsErr });
+  (useEnrollments    as jest.Mock).mockReturnValue({ data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr });
+  (useEnroll         as jest.Mock).mockReturnValue(enroll);
+  (useSetActiveTrack as jest.Mock).mockReturnValue(setActiveTrack);
 }
 
 describe('TracksScreen', () => {
@@ -249,6 +266,70 @@ describe('TracksScreen', () => {
       render(<TracksScreen />);
       expect(screen.getByTestId('tracks-enrol-error')).toBeTruthy();
       expect(screen.getByText('Enrol failed')).toBeTruthy();
+    });
+
+    it('shows set-active error banner when setActiveTrack fails', () => {
+      setMocks({
+        enrollments: [mockEnrollment],
+        setActiveTrack: {
+          mutate: mockSetActive,
+          isPending: false,
+          variables: undefined,
+          isError: true,
+          error: { response: { data: { message: 'Not enrolled in that track' } } },
+        },
+      });
+      render(<TracksScreen />);
+      expect(screen.getByTestId('tracks-set-active-error')).toBeTruthy();
+      expect(screen.getByText('Not enrolled in that track')).toBeTruthy();
+    });
+  });
+
+  describe('active track affordance (ticket 044)', () => {
+    it('shows ACTIVE badge for enrolled active track', () => {
+      setMocks({ skills: [baseSkill], enrollments: [activeEnrollment] });
+      render(<TracksScreen />);
+      expect(screen.getByTestId('active-badge-skill-1')).toBeTruthy();
+      expect(screen.getByText('ACTIVE')).toBeTruthy();
+    });
+
+    it('shows "Active track" label for enrolled active track', () => {
+      setMocks({ skills: [baseSkill], enrollments: [activeEnrollment] });
+      render(<TracksScreen />);
+      expect(screen.getByTestId('active-text-skill-1')).toBeTruthy();
+      expect(screen.getByText('Active track')).toBeTruthy();
+    });
+
+    it('does not show "Make active" button for the active track', () => {
+      setMocks({ skills: [baseSkill], enrollments: [activeEnrollment] });
+      render(<TracksScreen />);
+      expect(screen.queryByTestId('make-active-btn-skill-1')).toBeNull();
+    });
+
+    it('shows "Make active" button for enrolled non-active track', () => {
+      setMocks({ skills: [baseSkill], enrollments: [mockEnrollment] });
+      render(<TracksScreen />);
+      expect(screen.getByTestId('make-active-btn-skill-1')).toBeTruthy();
+      expect(screen.getByText('MAKE ACTIVE')).toBeTruthy();
+    });
+
+    it('pressing "Make active" calls setActiveTrack mutate with skill id', () => {
+      setMocks({ skills: [baseSkill], enrollments: [mockEnrollment] });
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('make-active-btn-skill-1'));
+      expect(mockSetActive).toHaveBeenCalledWith('skill-1');
+    });
+
+    it('does not show "Active track" label for non-active enrolled track', () => {
+      setMocks({ skills: [baseSkill], enrollments: [mockEnrollment] });
+      render(<TracksScreen />);
+      expect(screen.queryByTestId('active-text-skill-1')).toBeNull();
+    });
+
+    it('does not show ACTIVE badge for non-active enrolled track', () => {
+      setMocks({ skills: [baseSkill], enrollments: [mockEnrollment] });
+      render(<TracksScreen />);
+      expect(screen.queryByTestId('active-badge-skill-1')).toBeNull();
     });
   });
 });
