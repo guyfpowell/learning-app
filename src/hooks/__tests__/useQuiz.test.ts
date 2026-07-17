@@ -79,4 +79,40 @@ describe('useSubmitQuiz', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
   });
+
+  it('invalidates enrollments, progress, and lesson caches when lessonFinalized is true', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: queryClient }, children);
+
+    mockQuizService.submitQuiz.mockResolvedValueOnce({ ...mockResult, lessonFinalized: true } as any);
+    const { result } = renderHook(() => useSubmitQuiz(), { wrapper });
+
+    act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' } }); });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['enrollments'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['progress'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['lesson', 'lesson-1'] });
+  });
+
+  it('does NOT invalidate caches when lessonFinalized is false', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: queryClient }, children);
+
+    mockQuizService.submitQuiz.mockResolvedValueOnce({ ...mockResult, lessonFinalized: false } as any);
+    const { result } = renderHook(() => useSubmitQuiz(), { wrapper });
+
+    act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' } }); });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).not.toHaveBeenCalled();
+  });
 });
