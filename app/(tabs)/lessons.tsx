@@ -89,6 +89,7 @@ export default function LessonsScreen() {
               const pct = flooredPct(e);
               const nextLesson = e.nextLesson;
               const level = (nextLesson as any)?.skillPath?.level as string | undefined;
+              const levelLabel = (nextLesson as any)?.skillPath?.levelLabel as string | null | undefined;
               const cards = [];
 
               if (nextLesson) {
@@ -103,7 +104,7 @@ export default function LessonsScreen() {
                     <View style={styles.nextLessonMeta}>
                       {level && (
                         <Badge
-                          label={level}
+                          label={levelLabel ?? level}
                           variant={difficultyVariant[level as keyof typeof difficultyVariant] ?? 'info'}
                         />
                       )}

@@ -25,7 +25,7 @@ export function TrackMap({
         const pct =
           lvl.completedLessons > 0 ? Math.max(1, Math.round(lvl.percentComplete)) : 0;
         const isActive = currentLevel === lvl.level;
-        const label = lvl.level.charAt(0).toUpperCase() + lvl.level.slice(1);
+        const label = lvl.levelLabel ?? (lvl.level.charAt(0).toUpperCase() + lvl.level.slice(1));
         return (
           <View
             key={lvl.level}

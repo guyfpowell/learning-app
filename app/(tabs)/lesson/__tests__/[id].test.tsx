@@ -243,6 +243,34 @@ describe('LessonDetailScreen', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/(tabs)/settings');
   });
 
+  describe('Chunk 5 — levelLabel display', () => {
+    it('shows levelLabel in level badge when set', () => {
+      (useLesson as jest.Mock).mockReturnValue({
+        isLoading: false, isError: false,
+        data: {
+          ...mockLesson,
+          skillPath: { level: 'beginner', skillId: 'skill-1', levelLabel: 'Breaking into product' },
+        },
+        error: null,
+      });
+      render(<LessonDetailScreen />);
+      expect(screen.getAllByText('BREAKING INTO PRODUCT').length).toBeGreaterThan(0);
+    });
+
+    it('falls back to canonical level name when levelLabel is null', () => {
+      (useLesson as jest.Mock).mockReturnValue({
+        isLoading: false, isError: false,
+        data: {
+          ...mockLesson,
+          skillPath: { level: 'beginner', skillId: 'skill-1', levelLabel: null },
+        },
+        error: null,
+      });
+      render(<LessonDetailScreen />);
+      expect(screen.getAllByText('BEGINNER').length).toBeGreaterThan(0);
+    });
+  });
+
   describe('Chunk 2 — 3-phase flow', () => {
     it('media hidden in collapsed and takeaway phases, visible in expanded', () => {
       const lesson = { ...mockLesson, mediaUrl: 'https://example.com/image.jpg' };

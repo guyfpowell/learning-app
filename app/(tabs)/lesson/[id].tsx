@@ -211,7 +211,7 @@ export default function LessonDetailScreen() {
                 <View style={styles.trackMeta}>
                   {lesson.skillPath?.level && (
                     <Badge
-                      label={lesson.skillPath.level}
+                      label={lesson.skillPath.levelLabel ?? lesson.skillPath.level}
                       variant={
                         difficultyVariant[
                           lesson.skillPath.level as keyof typeof difficultyVariant
@@ -239,8 +239,8 @@ export default function LessonDetailScreen() {
 
               <View style={styles.meta}>
                 <Badge
-                  label={lesson.difficulty}
-                  variant={difficultyVariant[lesson.difficulty]}
+                  label={lesson.skillPath?.levelLabel ?? lesson.difficulty}
+                  variant={difficultyVariant[lesson.difficulty as keyof typeof difficultyVariant] ?? 'info'}
                 />
                 <Text style={styles.duration}>{lesson.durationMinutes} minutes</Text>
                 {lesson.isTeaser && (

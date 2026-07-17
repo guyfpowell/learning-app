@@ -167,6 +167,27 @@ describe('LessonsScreen', () => {
       expect(screen.getByText('BEGINNER')).toBeTruthy();
     });
 
+    it('shows levelLabel in Badge when set on active track card', () => {
+      const enrollment = {
+        ...mockEnrollment,
+        nextLesson: { ...mockNextLesson, skillPath: { level: 'beginner', levelLabel: 'Breaking into product' } },
+      };
+      setEnrollmentsMock([enrollment]);
+      render(<LessonsScreen />);
+      expect(screen.getByText('BREAKING INTO PRODUCT')).toBeTruthy();
+      expect(screen.queryByText('BEGINNER')).toBeNull();
+    });
+
+    it('falls back to canonical level when levelLabel is null on active track card', () => {
+      const enrollment = {
+        ...mockEnrollment,
+        nextLesson: { ...mockNextLesson, skillPath: { level: 'beginner', levelLabel: null } },
+      };
+      setEnrollmentsMock([enrollment]);
+      render(<LessonsScreen />);
+      expect(screen.getByText('BEGINNER')).toBeTruthy();
+    });
+
     it('shows position label on enrollment card', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
