@@ -35,8 +35,8 @@ const baseSkill: SkillWithAccess = {
   userHasAccess: true,
   enrolledSkillId: null,
   skillPaths: [
-    { id: 'sp-1', skillId: 'skill-1', level: 'beginner',     durationHours: 4, isPremium: false, createdAt: new Date(), updatedAt: new Date() },
-    { id: 'sp-2', skillId: 'skill-1', level: 'intermediate', durationHours: 6, isPremium: false, createdAt: new Date(), updatedAt: new Date() },
+    { id: 'sp-1', skillId: 'skill-1', level: 'beginner',     levelLabel: null, durationHours: 4, isPremium: false, createdAt: new Date(), updatedAt: new Date() },
+    { id: 'sp-2', skillId: 'skill-1', level: 'intermediate', levelLabel: null, durationHours: 6, isPremium: false, createdAt: new Date(), updatedAt: new Date() },
   ],
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -50,7 +50,7 @@ const premiumSkill: SkillWithAccess = {
   premiumStatus: 'premium',
   userHasAccess: false,
   skillPaths: [
-    { id: 'sp-3', skillId: 'skill-2', level: 'beginner', durationHours: 8, isPremium: true, createdAt: new Date(), updatedAt: new Date() },
+    { id: 'sp-3', skillId: 'skill-2', level: 'beginner', levelLabel: null, durationHours: 8, isPremium: true, createdAt: new Date(), updatedAt: new Date() },
   ],
 };
 
@@ -68,6 +68,8 @@ const mockEnrollment: TrackEnrollmentWithProgress = {
   levels:           [],
   upgradeRequired:  false,
   isActive:         false,
+  canSkipTopic:     false,
+  canSkipLevel:     false,
 };
 
 const activeEnrollment: TrackEnrollmentWithProgress = {

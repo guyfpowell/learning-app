@@ -36,3 +36,23 @@ export function useSetActiveTrack() {
     },
   });
 }
+
+export function useSkipTopic() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (skillId: string) => trackService.skipTopic(skillId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+    },
+  });
+}
+
+export function useSkipLevel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (skillId: string) => trackService.skipLevel(skillId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+    },
+  });
+}

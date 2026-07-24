@@ -5,7 +5,7 @@ import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { useEnrollments } from '@/hooks/useTrack';
+import { useEnrollments, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
 import type { TrackEnrollmentWithProgress } from '@learning/shared';
 import { TrackMap } from '@/components/ui/TrackMap';
@@ -50,6 +50,8 @@ export default function LessonsScreen() {
   const { data: enrollmentsData } = useEnrollments();
   const { data: progress } = useProgress();
   const router = useRouter();
+  const skipTopic = useSkipTopic();
+  const skipLevel = useSkipLevel();
 
   const activeEnrollments: TrackEnrollmentWithProgress[] =
     (enrollmentsData?.filter(e => e.percentComplete < 100) ?? [])
@@ -124,6 +126,26 @@ export default function LessonsScreen() {
                       style={styles.continueBtn}
                       onPress={() => router.push(`/(tabs)/lesson/${(nextLesson as any).id}`)}
                     />
+                    {e.canSkipTopic && (
+                      <Button
+                        testID={`skip-topic-btn-${e.skillId}`}
+                        label="Skip Topic →"
+                        variant="outline"
+                        style={styles.skipBtn}
+                        loading={skipTopic.isPending}
+                        onPress={() => skipTopic.mutate(e.skillId)}
+                      />
+                    )}
+                    {e.canSkipLevel && (
+                      <Button
+                        testID={`skip-level-btn-${e.skillId}`}
+                        label="Skip Level →"
+                        variant="outline"
+                        style={styles.skipBtn}
+                        loading={skipLevel.isPending}
+                        onPress={() => skipLevel.mutate(e.skillId)}
+                      />
+                    )}
                   </Card>
                 );
               }
@@ -321,6 +343,9 @@ const styles = StyleSheet.create({
     fontStyle:  'italic',
   },
   continueBtn: {
+    marginTop: spacing.xs,
+  },
+  skipBtn: {
     marginTop: spacing.xs,
   },
   completedCard: {

@@ -1,13 +1,17 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import LessonsScreen from '../lessons';
-import { useEnrollments } from '@/hooks/useTrack';
+import { useEnrollments, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
 
 const mockPush = jest.fn();
+const mockSkipTopicMutate = jest.fn();
+const mockSkipLevelMutate = jest.fn();
 
 jest.mock('@/hooks/useTrack', () => ({
   useEnrollments: jest.fn(),
+  useSkipTopic: jest.fn(),
+  useSkipLevel: jest.fn(),
 }));
 
 jest.mock('@/hooks/useProgress', () => ({
@@ -50,6 +54,8 @@ const mockEnrollment = {
   enrolledAt: new Date(),
   upgradeRequired: false,
   isActive: false,
+  canSkipTopic: false,
+  canSkipLevel: false,
 };
 
 const mockCompletedEnrollment = {
@@ -83,6 +89,8 @@ describe('LessonsScreen', () => {
     jest.clearAllMocks();
     setEnrollmentsMock(undefined);
     setProgressMock(undefined);
+    (useSkipTopic as jest.Mock).mockReturnValue({ mutate: mockSkipTopicMutate, isPending: false });
+    (useSkipLevel as jest.Mock).mockReturnValue({ mutate: mockSkipLevelMutate, isPending: false });
   });
 
   it('renders without errors', () => {
@@ -291,6 +299,67 @@ describe('LessonsScreen', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
       expect(screen.getAllByText('Product Foundations').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('skip topic/level (ticket 057)', () => {
+    it('shows Skip Topic button when canSkipTopic is true', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipTopic: true }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('skip-topic-btn-skill-1')).toBeTruthy();
+    });
+
+    it('does not show Skip Topic button when canSkipTopic is false', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipTopic: false }]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('skip-topic-btn-skill-1')).toBeNull();
+    });
+
+    it('shows Skip Level button when canSkipLevel is true', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipLevel: true }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('skip-level-btn-skill-1')).toBeTruthy();
+    });
+
+    it('does not show Skip Level button when canSkipLevel is false', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipLevel: false }]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('skip-level-btn-skill-1')).toBeNull();
+    });
+
+    it('calls skipTopic mutation with skillId when Skip Topic is pressed', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipTopic: true }]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('skip-topic-btn-skill-1'));
+      expect(mockSkipTopicMutate).toHaveBeenCalledWith('skill-1');
+    });
+
+    it('calls skipLevel mutation with skillId when Skip Level is pressed', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipLevel: true }]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('skip-level-btn-skill-1'));
+      expect(mockSkipLevelMutate).toHaveBeenCalledWith('skill-1');
+    });
+
+    it('disables Skip Topic button while skip-topic mutation is pending', () => {
+      (useSkipTopic as jest.Mock).mockReturnValue({ mutate: mockSkipTopicMutate, isPending: true });
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipTopic: true }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('skip-topic-btn-skill-1').props.accessibilityState?.disabled).toBe(true);
+    });
+
+    it('disables Skip Level button while skip-level mutation is pending', () => {
+      (useSkipLevel as jest.Mock).mockReturnValue({ mutate: mockSkipLevelMutate, isPending: true });
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipLevel: true }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('skip-level-btn-skill-1').props.accessibilityState?.disabled).toBe(true);
+    });
+
+    it('does not show either skip button when both flags are false', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipTopic: false, canSkipLevel: false }]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('skip-topic-btn-skill-1')).toBeNull();
+      expect(screen.queryByTestId('skip-level-btn-skill-1')).toBeNull();
     });
   });
 

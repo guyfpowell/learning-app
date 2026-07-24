@@ -16,4 +16,12 @@ export const trackService = {
   async setActiveTrack(skillId: string): Promise<void> {
     await api.patch('/enrollments/active', { skillId });
   },
+  async skipTopic(skillId: string): Promise<TrackEnrollmentWithProgress[]> {
+    const { data } = await api.post<TrackEnrollmentWithProgress[]>(`/enrollments/${skillId}/skip-topic`);
+    return data;
+  },
+  async skipLevel(skillId: string): Promise<TrackEnrollmentWithProgress[]> {
+    const { data } = await api.post<TrackEnrollmentWithProgress[]>(`/enrollments/${skillId}/skip-level`);
+    return data;
+  },
 };
