@@ -334,4 +334,40 @@ describe('TracksScreen', () => {
       expect(screen.queryByTestId('active-badge-skill-1')).toBeNull();
     });
   });
+
+  describe('Build my own path card (049)', () => {
+    // Premium here is DERIVED — access to a skill that is actually premium.
+    // `userHasAccess` alone is true for free users on free tracks, which would
+    // hand everyone the builder.
+    it('offers Start when the user has access to a premium track', () => {
+      setMocks({ skills: [baseSkill, { ...premiumSkill, userHasAccess: true }] });
+      const { getByTestId, queryByTestId } = render(<TracksScreen />);
+      expect(getByTestId('build-path-start')).toBeTruthy();
+      expect(queryByTestId('build-path-upgrade')).toBeNull();
+    });
+
+    it('offers an upgrade to a free user rather than hiding the card', () => {
+      setMocks({ skills: [baseSkill, premiumSkill] });
+      const { getByTestId, queryByTestId } = render(<TracksScreen />);
+      expect(getByTestId('build-path-upgrade')).toBeTruthy();
+      expect(queryByTestId('build-path-start')).toBeNull();
+      // Still discoverable — the point of showing it at all.
+      expect(getByTestId('build-path-card')).toBeTruthy();
+    });
+
+    it('never routes a free user into the builder', () => {
+      setMocks({ skills: [baseSkill, premiumSkill] });
+      const { getByTestId } = render(<TracksScreen />);
+      fireEvent.press(getByTestId('build-path-upgrade'));
+      expect(mockPush).not.toHaveBeenCalledWith('/build');
+      expect(getByTestId('premium-modal')).toBeTruthy();
+    });
+
+    it('routes a premium user to the builder', () => {
+      setMocks({ skills: [baseSkill, { ...premiumSkill, userHasAccess: true }] });
+      const { getByTestId } = render(<TracksScreen />);
+      fireEvent.press(getByTestId('build-path-start'));
+      expect(mockPush).toHaveBeenCalledWith('/build');
+    });
+  });
 });

@@ -44,6 +44,15 @@ export default function TracksScreen() {
   const enroll = useEnroll();
   const setActive = useSetActiveTrack();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
+  // Derived, not read from the auth record: `UserAuth` carries no premium flag,
+  // and adding one would change a contract BOTH clients read.
+  //
+  // `skill.userHasAccess` alone is NOT the signal — free users have access to
+  // free tracks, so it reads as premium for everyone. Access to a skill that is
+  // actually premium is the thing only a subscriber has.
+  const isPremium = skills?.some(
+    (sk) => sk.premiumStatus === 'premium' && sk.userHasAccess
+  ) ?? false;
 
   const isLoading = skillsLoading || enrollmentsLoading;
   const enrolledSkillIds = new Set(enrollments?.map((e) => e.skillId) ?? []);
@@ -76,6 +85,31 @@ export default function TracksScreen() {
           <View testID="tracks-set-active-error">
             <Text style={styles.errorText}>{extractError(setActive.error)}</Text>
           </View>
+        )}
+
+        {/* Alongside the tracks, not a seventh tab — it is an alternative to
+            picking a track, and web places it in the same grid. Premium gates
+            BUILDING a path; track access itself never is. */}
+        {!isLoading && (
+          <Card testID="build-path-card" style={styles.card}>
+            <View style={styles.badgeRow}>
+              <Badge label={isPremium ? 'Albert' : 'Premium'} variant={isPremium ? 'info' : 'warning'} />
+            </View>
+            <Text style={styles.skillName}>Build my own path</Text>
+            <Text style={styles.skillHours}>
+              Tell me about your role and what you want to get better at, and I’ll
+              build a path from the whole curriculum instead of a fixed track.
+            </Text>
+            <Button
+              testID={isPremium ? 'build-path-start' : 'build-path-upgrade'}
+              label={isPremium ? 'Start' : 'Upgrade to build a path'}
+              variant={isPremium ? 'primary' : 'outline'}
+              onPress={() => {
+                if (isPremium) router.push('/build');
+                else setPremiumModalVisible(true);
+              }}
+            />
+          </Card>
         )}
 
         {!isLoading && skills?.map((skill) => {
