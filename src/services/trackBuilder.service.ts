@@ -24,7 +24,9 @@ export interface BuiltPlanTopic {
 }
 
 export interface BuiltPlan {
-  shouldAsk: boolean;
+  shouldAsk: boolean
+  isFoundation: boolean
+  sessionId?: string | null;
   name: string;
   level: string;
   levelConfidence: number;
@@ -40,6 +42,7 @@ export interface BuiltPlan {
  * forgotten in a UI, on either platform.
  */
 export interface RefinedPlan {
+  sessionId?: string | null;
   intent: string;
   intentConfidence: number;
   action: 'refine' | 'accept' | 'restart' | 'reject' | 'replace' | 'unhandled';
@@ -79,27 +82,25 @@ export interface TrackBuilderTurn {
 }
 
 export const trackBuilderService = {
-  /** Statement in, finished plan out. */
-  async buildPlan(statement: string, maxClosureHops?: number | null): Promise<BuiltPlan> {
+  /** The server records the turn; the client only carries the session id back. */
+  async buildPlan(
+    statement: string, maxClosureHops?: number | null, sessionId?: string | null,
+  ): Promise<BuiltPlan> {
     const { data } = await api.post<BuiltPlan>('/track-builder/plan', {
       statement,
       maxClosureHops: maxClosureHops ?? null,
+      sessionId: sessionId ?? null,
     });
     return data;
   },
 
-  async refinePlan(statement: string, plan: BuiltPlanTopic[]): Promise<RefinedPlan> {
-    const { data } = await api.post<RefinedPlan>('/track-builder/refine', { statement, plan });
+  async refinePlan(
+    statement: string, plan: BuiltPlanTopic[], sessionId?: string | null,
+  ): Promise<RefinedPlan> {
+    const { data } = await api.post<RefinedPlan>('/track-builder/refine', {
+      statement, plan, sessionId: sessionId ?? null,
+    });
     return data;
-  },
-
-  async startSession(turn: TrackBuilderTurn): Promise<{ id: string }> {
-    const { data } = await api.post<{ id: string }>('/track-builder/sessions', { turn });
-    return data;
-  },
-
-  async appendTurn(sessionId: string, turn: TrackBuilderTurn): Promise<void> {
-    await api.put(`/track-builder/sessions/${sessionId}`, { turn });
   },
 
   async createPlan(input: {

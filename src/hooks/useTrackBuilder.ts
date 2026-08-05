@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Sentry from '@sentry/react-native';
 import { trackBuilderService } from '@/services/trackBuilder.service';
 import type { BuiltPlanTopic, TrackPlanTopic, TrackBuilderTurn } from '@/services/trackBuilder.service';
 
@@ -13,15 +12,15 @@ import type { BuiltPlanTopic, TrackPlanTopic, TrackBuilderTurn } from '@/service
 
 export function useBuildPlan() {
   return useMutation({
-    mutationFn: (v: { statement: string; maxClosureHops?: number | null }) =>
-      trackBuilderService.buildPlan(v.statement, v.maxClosureHops),
+    mutationFn: (v: { statement: string; maxClosureHops?: number | null; sessionId?: string | null }) =>
+      trackBuilderService.buildPlan(v.statement, v.maxClosureHops, v.sessionId),
   });
 }
 
 export function useRefinePlan() {
   return useMutation({
-    mutationFn: (v: { statement: string; plan: BuiltPlanTopic[] }) =>
-      trackBuilderService.refinePlan(v.statement, v.plan),
+    mutationFn: (v: { statement: string; plan: BuiltPlanTopic[]; sessionId?: string | null }) =>
+      trackBuilderService.refinePlan(v.statement, v.plan, v.sessionId),
   });
 }
 
@@ -48,27 +47,3 @@ export function useTrackPlans() {
   });
 }
 
-/**
- * Record a turn.
- *
- * Fire-and-forget for the USER — a plan they can see is worth more than our
- * record of it — but never silent for us. Swallowing the error made a totally
- * broken write (missing table) look identical to a working one, which is how
- * the first real test went unlogged.
- */
-export function useRecordTurn() {
-  return async (sessionId: string | null, turn: TrackBuilderTurn): Promise<string | null> => {
-    try {
-      if (sessionId) {
-        await trackBuilderService.appendTurn(sessionId, turn);
-        return sessionId;
-      }
-      const { id } = await trackBuilderService.startSession(turn);
-      return id;
-    } catch (err) {
-      console.error('[track-builder] failed to record turn — this statement is lost', err);
-      Sentry.captureException(err, { tags: { area: 'track-builder', op: 'record-turn' } });
-      return sessionId;
-    }
-  };
-}

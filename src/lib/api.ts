@@ -30,6 +30,9 @@ api.interceptors.request.use((config) => {
     return Promise.reject(new Error(`[api] Insecure API URL in production: ${BASE_URL}`));
   }
 
+  // See the same header on web: which surface, stated not inferred.
+  config.headers['X-Client'] = 'mobile';
+
   const { accessToken } = useAuthStore.getState();
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;

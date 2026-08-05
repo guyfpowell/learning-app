@@ -5,12 +5,15 @@ import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { useBuildPlan, useRecordTurn } from '@/hooks/useTrackBuilder';
+import { useBuildPlan } from '@/hooks/useTrackBuilder';
 import { useDraftStore } from '@/store/trackBuilder.store';
 import { extractError } from '@/lib/errors';
 
 /**
  * Build my own path — ticket 049 Chunk 5, mobile parity.
+ *
+ * Turn logging is the SERVER's job — this screen holds a session id and
+ * nothing else.
  *
  * No model on the device. Inference is an API call, so this screen is an
  * ordinary form: no asset download, no readiness state, no ONNX runtime in the
@@ -32,25 +35,15 @@ export default function BuildScreen() {
   const sessionId = useRef<string | null>(null);
 
   const buildPlan = useBuildPlan();
-  const recordTurn = useRecordTurn();
   const setDraft = useDraftStore((s) => s.setDraft);
 
   const onBuild = async () => {
     setAsk(null);
     setError(null);
     try {
-      const result = await buildPlan.mutateAsync({ statement: text });
+      const result = await buildPlan.mutateAsync({ statement: text, sessionId: sessionId.current });
+      sessionId.current = result.sessionId ?? sessionId.current;
 
-      void recordTurn(sessionId.current, {
-        text,
-        intent: result.intent,
-        intentConfidence: result.intentConfidence,
-        level: result.level,
-        levelConfidence: result.levelConfidence,
-        planSize: result.topics.length,
-        shouldAsk: result.shouldAsk,
-        at: new Date().toISOString(),
-      }).then((id) => { sessionId.current = id; });
 
       // A trained outcome, not an error: the corpus deliberately contains
       // records with no areas at all. Asking beats building something wrong.

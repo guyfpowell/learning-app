@@ -91,7 +91,9 @@ export default function BuildReviewScreen() {
     setClosureDepth(depth);
     setError(null);
     try {
-      updateResult(await rebuild.mutateAsync({ statement: draft.statement, maxClosureHops: depth }));
+      updateResult(await rebuild.mutateAsync({
+        statement: draft.statement, maxClosureHops: depth, sessionId: draft.sessionId,
+      }));
     } catch (err) {
       setError(extractError(err));
     }
@@ -102,7 +104,9 @@ export default function BuildReviewScreen() {
     setError(null);
     setNotice(null);
     try {
-      const r = await refine.mutateAsync({ statement: followUp, plan: result.topics });
+      const r = await refine.mutateAsync({
+        statement: followUp, plan: result.topics, sessionId: draft.sessionId,
+      });
       const previous = result.topics;
 
       switch (r.action) {
