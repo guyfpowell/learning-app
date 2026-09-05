@@ -9629,5 +9629,494 @@
       "PM"
     ],
     "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2r100jv45gbu4qx8o34",
+    "stableKey": "12:beginner:0",
+    "trackId": 12,
+    "levelId": "beginner",
+    "topicName": "Working with designers — what they need from you, and what you get back",
+    "displayOrder": 1,
+    "tags": [
+      "engineering-collaboration",
+      "problem-briefing",
+      "cross-functional-coordination",
+      "design-brief",
+      "constraint-discovery",
+      "feedback-craft"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2rs00l345gbo6qbt8h9",
+    "stableKey": "12:beginner:1",
+    "trackId": 12,
+    "levelId": "beginner",
+    "topicName": "Reading a screen — the vocabulary you need to be useful",
+    "displayOrder": 9,
+    "tags": [
+      "engineering-collaboration",
+      "information-architecture",
+      "product-communication-storytelling",
+      "feedback-craft"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2sa00lx45gbeho6d2tu",
+    "stableKey": "12:beginner:2",
+    "trackId": 12,
+    "levelId": "beginner",
+    "topicName": "Giving feedback that improves the design",
+    "displayOrder": 17,
+    "tags": [
+      "feedback-craft",
+      "engineering-collaboration",
+      "design-feedback",
+      "product-communication-storytelling",
+      "requirements-user-stories"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2u800p745gb3ct9mbjx",
+    "stableKey": "12:beginner:3",
+    "trackId": 12,
+    "levelId": "beginner",
+    "topicName": "How people find things — information architecture for PMs",
+    "displayOrder": 25,
+    "tags": [
+      "information-architecture",
+      "engineering-collaboration",
+      "product-communication-storytelling",
+      "requirements-user-stories"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2f1003r45gbwbzhjoxs",
+    "stableKey": "12:beginner:4",
+    "trackId": 12,
+    "levelId": "beginner",
+    "topicName": "The shape of a flow — the paths users actually take",
+    "displayOrder": 33,
+    "tags": [
+      "information-architecture",
+      "engineering-collaboration",
+      "edge-case-coverage",
+      "requirements-user-stories",
+      "drop-off-analysis"
+    ],
+    "targetRoles": [
+      "PM"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2u900p945gbtk2udd8v",
+    "stableKey": "12:beginner:5",
+    "trackId": 12,
+    "levelId": "beginner",
+    "topicName": "Accessibility — designing for the users you'd otherwise exclude",
+    "displayOrder": 41,
+    "tags": [
+      "accessibility",
+      "regulated-industries",
+      "engineering-collaboration",
+      "requirements-user-stories"
+    ],
+    "targetRoles": [
+      "PM",
+      "Other"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2ua00pb45gb6mlryr91",
+    "stableKey": "12:intermediate:0",
+    "trackId": 12,
+    "levelId": "intermediate",
+    "topicName": "Consistency at scale — design systems and the cost of the one-off",
+    "displayOrder": 1,
+    "tags": [
+      "engineering-collaboration",
+      "design-debt",
+      "design-system",
+      "technical-debt-tradeoffs",
+      "estimation-conversations"
+    ],
+    "targetRoles": [
+      "PM"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2ub00pd45gboi7f1h8m",
+    "stableKey": "12:intermediate:1",
+    "trackId": 12,
+    "levelId": "intermediate",
+    "topicName": "The product's words — content design for PMs",
+    "displayOrder": 9,
+    "tags": [
+      "engineering-collaboration",
+      "clarity-discipline",
+      "audience-tailoring",
+      "written-communication"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2ud00pf45gb36u2gpjg",
+    "stableKey": "12:intermediate:2",
+    "trackId": 12,
+    "levelId": "intermediate",
+    "topicName": "Designing across platforms — mobile, web, and what actually changes",
+    "displayOrder": 17,
+    "tags": [
+      "design-collaboration",
+      "user-flow-design",
+      "affordance-reading",
+      "interface-states",
+      "design-brief"
+    ],
+    "targetRoles": [
+      "PM"
+    ],
+    "prerequisites": [
+      "12:beginner:1",
+      "12:beginner:4"
+    ]
+  },
+  {
+    "topicId": "cmtotd2l300bn45gb5i6ppu7z",
+    "stableKey": "12:intermediate:3",
+    "trackId": 12,
+    "levelId": "intermediate",
+    "topicName": "The first session — designing the beginning of the relationship",
+    "displayOrder": 25,
+    "tags": [
+      "activation-definition",
+      "aha-moment-identification",
+      "progressive-disclosure-confidence",
+      "information-architecture",
+      "engineering-collaboration"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2ue00ph45gbdspdnax1",
+    "stableKey": "12:intermediate:4",
+    "trackId": 12,
+    "levelId": "intermediate",
+    "topicName": "Persuasion or manipulation — patterns, trust, and where the line is",
+    "displayOrder": 33,
+    "tags": [
+      "dark-patterns",
+      "consent-management",
+      "regulated-industries",
+      "conversion-optimisation",
+      "metric-gaming"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2ug00pj45gbutq812aj",
+    "stableKey": "12:intermediate:5",
+    "trackId": 12,
+    "levelId": "intermediate",
+    "topicName": "Design debt and the redesign question",
+    "displayOrder": 41,
+    "tags": [
+      "technical-debt-tradeoffs",
+      "novelty-effects",
+      "customer-migration",
+      "evidence-based-decision-making"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": [
+      "12:intermediate:0"
+    ]
+  },
+  {
+    "topicId": "cmtotd2oa00fz45gbmwk70zak",
+    "stableKey": "13:beginner:0",
+    "trackId": 13,
+    "levelId": "beginner",
+    "topicName": "What happens between the tap and the answer",
+    "displayOrder": 1,
+    "tags": [
+      "technical-fluency-for-pms",
+      "engineering-collaboration",
+      "performance",
+      "constraint-discovery"
+    ],
+    "targetRoles": [
+      "PM",
+      "Other"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2uh00pl45gbgylkof9l",
+    "stableKey": "13:beginner:1",
+    "trackId": 13,
+    "levelId": "beginner",
+    "topicName": "APIs — the contract between systems",
+    "displayOrder": 9,
+    "tags": [
+      "technical-fluency-for-pms",
+      "api-backwards-compatibility",
+      "interface-contracts",
+      "engineering-collaboration",
+      "integration-tax"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": [
+      "13:beginner:0"
+    ]
+  },
+  {
+    "topicId": "cmtotd2ui00pn45gbot207q9z",
+    "stableKey": "13:beginner:2",
+    "trackId": 13,
+    "levelId": "beginner",
+    "topicName": "Where the data lives — and why \"just add a field\" isn't free",
+    "displayOrder": 17,
+    "tags": [
+      "technical-fluency-for-pms",
+      "data-model-plain-english",
+      "database-first-bottleneck",
+      "constraint-discovery",
+      "engineering-collaboration"
+    ],
+    "targetRoles": [
+      "PM"
+    ],
+    "prerequisites": [
+      "13:beginner:0"
+    ]
+  },
+  {
+    "topicId": "cmtotd2uk00pp45gbnbe0panl",
+    "stableKey": "13:beginner:3",
+    "trackId": 13,
+    "levelId": "beginner",
+    "topicName": "Identity, access, and the security questions you'll be asked",
+    "displayOrder": 25,
+    "tags": [
+      "technical-fluency-for-pms",
+      "security-basics",
+      "auth-buy-decision",
+      "vulnerability-classes",
+      "enterprise-b2b"
+    ],
+    "targetRoles": [
+      "PM"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2ul00pr45gbsc4gzbkj",
+    "stableKey": "13:beginner:4",
+    "trackId": 13,
+    "levelId": "beginner",
+    "topicName": "How systems are put together — services, queues, and why architecture reaches your roadmap",
+    "displayOrder": 33,
+    "tags": [
+      "architecture",
+      "technical-fluency-for-pms",
+      "dependency-management",
+      "engineering-collaboration",
+      "estimation-conversations"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": [
+      "13:beginner:0",
+      "13:beginner:1"
+    ]
+  },
+  {
+    "topicId": "cmtotd2og00g745gbpsirhbdl",
+    "stableKey": "13:beginner:5",
+    "trackId": 13,
+    "levelId": "beginner",
+    "topicName": "Fast, slow, and why — the anatomy of performance",
+    "displayOrder": 41,
+    "tags": [
+      "technical-fluency-for-pms",
+      "performance",
+      "performance-budget",
+      "latency-perception-thresholds",
+      "engineering-collaboration"
+    ],
+    "targetRoles": [
+      "PM",
+      "Other"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2um00pt45gblk6ilt0a",
+    "stableKey": "13:intermediate:0",
+    "trackId": 13,
+    "levelId": "intermediate",
+    "topicName": "Mobile is different — stores, versions, and releases you can't take back",
+    "displayOrder": 1,
+    "tags": [
+      "technical-fluency-for-pms",
+      "release-states",
+      "phased-rollout",
+      "kill-switch",
+      "engineering-collaboration"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2un00pv45gbh47qaao0",
+    "stableKey": "13:intermediate:1",
+    "trackId": 13,
+    "levelId": "intermediate",
+    "topicName": "Data protection in practice — UK GDPR for product decisions",
+    "displayOrder": 9,
+    "tags": [
+      "data-governance-privacy",
+      "regulated-industries",
+      "consent-management",
+      "right-to-deletion-design",
+      "data-residency-mapping",
+      "data-minimisation-practice"
+    ],
+    "targetRoles": [
+      "PM",
+      "AI Engineer",
+      "Founder"
+    ],
+    "prerequisites": [
+      "13:beginner:2",
+      "13:beginner:3"
+    ]
+  },
+  {
+    "topicId": "cmtotd2uo00px45gb6rl17ilq",
+    "stableKey": "13:intermediate:2",
+    "trackId": 13,
+    "levelId": "intermediate",
+    "topicName": "Migrations — changing the engine while it's running",
+    "displayOrder": 17,
+    "tags": [
+      "platform-migration",
+      "expand-and-contract-migration",
+      "parallel-run-migration",
+      "rollback-plan-pre-deploy",
+      "migration-rehearsal",
+      "customer-migration"
+    ],
+    "targetRoles": [
+      "PM",
+      "AI Engineer"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2uq00pz45gbblllhqjq",
+    "stableKey": "13:intermediate:3",
+    "trackId": 13,
+    "levelId": "intermediate",
+    "topicName": "Technical debt under the bonnet — what it actually is",
+    "displayOrder": 25,
+    "tags": [
+      "technical-debt-tradeoffs",
+      "technical-fluency-for-pms",
+      "debt-ledger",
+      "engineering-health-signals",
+      "deprecation-tracking"
+    ],
+    "targetRoles": [
+      "PM",
+      "AI Engineer"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2ur00q145gbft4qakwd",
+    "stableKey": "13:intermediate:4",
+    "trackId": 13,
+    "levelId": "intermediate",
+    "topicName": "Reliability — uptime, SLAs, and what \"down\" actually means",
+    "displayOrder": 33,
+    "tags": [
+      "reliability-target-setting",
+      "slo-design",
+      "blast-radius-calibration",
+      "graceful-failure-design",
+      "incident-user-comms",
+      "technical-fluency-for-pms"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": []
+  },
+  {
+    "topicId": "cmtotd2us00q345gbm906awn4",
+    "stableKey": "13:intermediate:5",
+    "trackId": 13,
+    "levelId": "intermediate",
+    "topicName": "What your product costs to run",
+    "displayOrder": 41,
+    "tags": [
+      "unit-economics",
+      "technical-fluency-for-pms",
+      "cost-scaling-divergence",
+      "total-cost-of-ownership",
+      "pnl-literacy"
+    ],
+    "targetRoles": [
+      "PM",
+      "Founder"
+    ],
+    "prerequisites": []
   }
 ]
