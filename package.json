@@ -20,7 +20,7 @@
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.2.3",
     "@expo/vector-icons": "^15.1.1",
-    "@learning/shared": "file:../learning/packages/shared",
+    "@learning/shared": "link:../learning/packages/shared",
     "@react-native-community/datetimepicker": "8.4.4",
     "@sentry/react-native": "^8.17.2",
     "@tanstack/react-query": "^5.101.2",

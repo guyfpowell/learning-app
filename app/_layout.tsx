@@ -55,7 +55,8 @@ SplashScreen.preventAutoHideAsync();
  * Rules (priority order):
  * 1. Not hydrated → do nothing (splash visible)
  * 2. No token + not on auth screen → sign-in
- * 3. Authenticated + not on (tabs) → (tabs)
+ * 3. Authenticated + on an auth screen or the root index → (tabs)
+ *    (standalone routes such as /build are left alone)
  */
 export function AuthGate() {
   const { _hasHydrated, accessToken, hasOnboarded } = useAuthStore();
@@ -66,7 +67,6 @@ export function AuthGate() {
     if (!_hasHydrated) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const inTabsGroup = segments[0] === '(tabs)';
     const inOnboarding = inAuthGroup && segments[1] === 'onboarding';
 
     if (!accessToken) {
@@ -80,11 +80,18 @@ export function AuthGate() {
       return;
     }
 
-    // Onboarded (true) or unknown (null = existing user before this field existed) — go to tabs
-    if (!inTabsGroup) {
+    // Onboarded (true) or unknown (null = existing user before this field existed).
+    //
+    // Redirect ONLY from the two places that have nowhere else to go: the auth
+    // group, and the root index (a bare spinner that exists purely to be routed
+    // away from). The previous rule was "not in (tabs)", which also swept up
+    // standalone routes like /build and /build-review and bounced them back to
+    // lessons the instant they mounted.
+    const atRootIndex = segments.length === 0;
+    if (inAuthGroup || atRootIndex) {
       router.replace('/(tabs)/lessons');
     }
-  }, [_hasHydrated, accessToken, hasOnboarded, segments[0], segments[1]]);
+  }, [_hasHydrated, accessToken, hasOnboarded, segments.length, segments[0], segments[1]]);
 
   return null;
 }

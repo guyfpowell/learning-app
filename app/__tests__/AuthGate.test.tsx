@@ -119,6 +119,33 @@ describe('AuthGate', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
+  // Regression: the rule used to be "authenticated and not in (tabs) -> (tabs)",
+  // which evicted every standalone route the moment it mounted. Tapping
+  // "build your own path" landed the user back on the lessons tab.
+  it('leaves an authenticated user on a standalone route such as /build', () => {
+    mockAuthState._hasHydrated = true;
+    mockAuthState.accessToken = 'tok';
+    mockSegments = ['build'];
+    render(<AuthGate />);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('leaves an authenticated user on /build-review', () => {
+    mockAuthState._hasHydrated = true;
+    mockAuthState.accessToken = 'tok';
+    mockSegments = ['build-review'];
+    render(<AuthGate />);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('still sends an unauthenticated user off a standalone route to sign-in', () => {
+    mockAuthState._hasHydrated = true;
+    mockAuthState.accessToken = null;
+    mockSegments = ['build'];
+    render(<AuthGate />);
+    expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+  });
+
   it('navigates to sign-in when token cleared mid-session', () => {
     mockAuthState._hasHydrated = true;
     mockAuthState.accessToken = 'tok';
