@@ -23,9 +23,61 @@ export interface BuiltPlanTopic {
   hops: number;
 }
 
+/**
+ * One request the statement broke into, and where it has got to.
+ *
+ * A statement is not one ask. "Learn more about AI and understand my tech lead"
+ * is two, and they are held apart for their whole life: each carries its own
+ * verdict, its own question, its own answers and its own stated depth. The app
+ * passes this array back on every turn — a build is one session, so it lives in
+ * the conversation and not in a table.
+ */
+export interface RequestChunk {
+  id: string;
+  /** The user's own words for this request. Never our vocabulary. */
+  text: string;
+  verdict: 'too-broad' | 'too-vague' | 'unservable' | 'ready';
+  /** What to ask. Null once the request is `ready` — or `unservable`. */
+  question: string | null;
+  /**
+   * Why there is nothing to ask. Set on `unservable`: we understood exactly,
+   * and we do not teach it, so no answer would help.
+   */
+  reason?: string;
+  answers: string[];
+  statedLevel: 'beginner' | 'intermediate' | 'advanced' | null;
+  scope: string[];
+  measured: {
+    matchedWords: number;
+    matchedTopics: number;
+    topTrack: number | null;
+    trackCoverage: number;
+  };
+}
+
+/**
+ * What one turn of the question loop returned.
+ *
+ * `plan` is null while any request is still open — however good the others
+ * are. Nothing is built until every request has closed.
+ */
+export interface ChunkTurn {
+  sessionId?: string | null;
+  chunks: RequestChunk[];
+  questions: string[];
+  shouldAsk: boolean;
+  plan: BuiltPlan | null;
+  /** Set by /negate when the negation named nothing. */
+  negationQuestion?: string | null;
+}
+
 export interface BuiltPlan {
   shouldAsk: boolean
   isFoundation: boolean
+  /** The requests, to be passed back on the next turn. */
+  chunks: RequestChunk[];
+  /** One question per still-open request, in the user's own words. */
+  questions: string[];
   sessionId?: string | null;
   name: string;
   level: string;
@@ -90,6 +142,29 @@ export const trackBuilderService = {
       statement,
       maxClosureHops: maxClosureHops ?? null,
       sessionId: sessionId ?? null,
+    });
+    return data;
+  },
+
+  /**
+   * Answer ONE open request. The others are untouched — an answer about which
+   * parts of AI says nothing about what understanding a tech lead means.
+   */
+  async answerChunk(
+    chunks: RequestChunk[], chunkId: string, answer: string, sessionId?: string | null,
+  ): Promise<ChunkTurn> {
+    const { data } = await api.post<ChunkTurn>('/track-builder/answer', {
+      chunks, chunkId, answer, sessionId: sessionId ?? null,
+    });
+    return data;
+  },
+
+  /** The only turn that removes a request. */
+  async negateChunk(
+    chunks: RequestChunk[], negated: string, sessionId?: string | null,
+  ): Promise<ChunkTurn> {
+    const { data } = await api.post<ChunkTurn>('/track-builder/negate', {
+      chunks, negated, sessionId: sessionId ?? null,
     });
     return data;
   },
