@@ -18,7 +18,12 @@ export interface BuiltPlanTopic {
   topicName: string;
   level: string;
   reason?: string;
-  /** null means the planner added it as groundwork, not the model. */
+  /**
+   * `RequestChunk.id` of the request that asked for this topic. Null means
+   * nobody did directly — dependency closure pulled it in as groundwork.
+   */
+  request?: string | null;
+  /** The same value under its old name. */
   area: string | null;
   hops: number;
 }
@@ -61,10 +66,30 @@ export interface RequestChunk {
  * `plan` is null while any request is still open — however good the others
  * are. Nothing is built until every request has closed.
  */
+/**
+ * One word of the user's own, as the understanding cloud shows it — Rule 10.
+ *
+ * `request` is what they asked for, `detail` how they qualified it, `context`
+ * who they are. Context is greyed rather than hidden: a user seeing their
+ * industry come out large is how they catch it being mistaken for their ask.
+ */
+export interface CloudTerm {
+  text: string;
+  kind: 'request' | 'detail' | 'context';
+  /** 0–1, relative to the largest term. Size, not importance. */
+  weight: number;
+  /** Negated — shown struck through, never removed. */
+  struck: boolean;
+  /** `RequestChunk.id` it came from. */
+  request: string;
+}
+
 export interface ChunkTurn {
   sessionId?: string | null;
   chunks: RequestChunk[];
   questions: string[];
+  /** What we understood, in their words. Shown between asking and answering. */
+  cloud?: CloudTerm[];
   shouldAsk: boolean;
   plan: BuiltPlan | null;
   /** Set by /negate when the negation named nothing. */
@@ -73,11 +98,18 @@ export interface ChunkTurn {
 
 export interface BuiltPlan {
   shouldAsk: boolean
+  /**
+   * The loop gave up asking and built with what it had, rather than building
+   * because everything resolved. Rule 6 — say so on the review screen.
+   */
+  stoppedAtFloor?: boolean;
   isFoundation: boolean
   /** The requests, to be passed back on the next turn. */
   chunks: RequestChunk[];
   /** One question per still-open request, in the user's own words. */
   questions: string[];
+  /** What we understood, in their words. Shown between asking and answering. */
+  cloud?: CloudTerm[];
   sessionId?: string | null;
   name: string;
   level: string;
@@ -98,6 +130,8 @@ export interface RefinedPlan {
   intent: string;
   intentConfidence: number;
   action: 'refine' | 'accept' | 'restart' | 'reject' | 'replace' | 'unhandled';
+  /** Set when a removal named none of the user's requests — nothing was removed. */
+  question?: string | null;
   clauses: { text: string; polarity: string }[];
   plan: BuiltPlanTopic[];
   removed: { stableKey: string; clause: string; sim: number }[];
@@ -169,11 +203,18 @@ export const trackBuilderService = {
     return data;
   },
 
+  /**
+   * `chunks` are the requests the plan was built from, and they matter:
+   * a removal is matched against the words the user used for each request, so
+   * without them "take out the job stuff" names nothing and comes back as a
+   * question instead of being acted on.
+   */
   async refinePlan(
     statement: string, plan: BuiltPlanTopic[], sessionId?: string | null,
+    chunks?: RequestChunk[],
   ): Promise<RefinedPlan> {
     const { data } = await api.post<RefinedPlan>('/track-builder/refine', {
-      statement, plan, sessionId: sessionId ?? null,
+      statement, plan, sessionId: sessionId ?? null, chunks: chunks ?? [],
     });
     return data;
   },

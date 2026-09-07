@@ -104,8 +104,12 @@ export default function BuildReviewScreen() {
     setError(null);
     setNotice(null);
     try {
+      // The requests go with it: a removal is matched against the words the user
+      // used for each one, so without them "take out the job stuff" names
+      // nothing and comes back as a question instead of being acted on.
       const r = await refine.mutateAsync({
         statement: followUp, plan: result.topics, sessionId: draft.sessionId,
+        chunks: result.chunks,
       });
       const previous = result.topics;
 
@@ -163,6 +167,16 @@ export default function BuildReviewScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Your path</Text>
+
+        {/* Rule 6 — the loop settled rather than resolved. Say so: a plan built
+            with part of the request still unanswered must not present itself as
+            the finished article, and the user is the one who can correct it. */}
+        {result.stoppedAtFloor === true && (
+          <Text testID="stopped-at-floor" style={styles.settled}>
+            I didn’t get to the bottom of everything you said, so this is my best
+            go at it. Tell me what to change below.
+          </Text>
+        )}
 
         <Card style={styles.card}>
           <Text style={styles.label}>Name</Text>
@@ -257,6 +271,7 @@ export default function BuildReviewScreen() {
 const styles = StyleSheet.create({
   safe:      { flex: 1, backgroundColor: colors.bg },
   content:   { padding: spacing.lg, gap: spacing.md },
+  settled: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textDark },
   title:     { fontFamily: font.bold, fontSize: fontSize.xl, color: colors.textDark },
   card:      { gap: spacing.sm },
   label: {

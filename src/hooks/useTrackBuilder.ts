@@ -41,8 +41,10 @@ export function useNegateChunk() {
 
 export function useRefinePlan() {
   return useMutation({
-    mutationFn: (v: { statement: string; plan: BuiltPlanTopic[]; sessionId?: string | null }) =>
-      trackBuilderService.refinePlan(v.statement, v.plan, v.sessionId),
+    mutationFn: (v: {
+      statement: string; plan: BuiltPlanTopic[]; sessionId?: string | null;
+      chunks?: RequestChunk[];
+    }) => trackBuilderService.refinePlan(v.statement, v.plan, v.sessionId, v.chunks),
   });
 }
 

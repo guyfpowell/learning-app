@@ -6,7 +6,8 @@ import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useAnswerChunk, useBuildPlan } from '@/hooks/useTrackBuilder';
-import type { BuiltPlan, RequestChunk } from '@/services/trackBuilder.service';
+import type { BuiltPlan, CloudTerm, RequestChunk } from '@/services/trackBuilder.service';
+import { UnderstandingCloud } from '@/components/trackBuilder/UnderstandingCloud';
 import { useDraftStore } from '@/store/trackBuilder.store';
 import { extractError } from '@/lib/errors';
 
@@ -73,6 +74,11 @@ export default function BuildScreen() {
   const [chunks, setChunks] = useState<RequestChunk[]>([]);
   /** Answer being typed, per request id. One box each, all visible. */
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  /**
+   * What we understood, in their words — Rule 10. Shown between asking and
+   * answering so a misreading is correctable before a plan exists.
+   */
+  const [cloud, setCloud] = useState<CloudTerm[]>([]);
   const sessionId = useRef<string | null>(null);
 
   const buildPlan = useBuildPlan();
@@ -92,6 +98,7 @@ export default function BuildScreen() {
       const result = await buildPlan.mutateAsync({ statement: text, sessionId: sessionId.current });
       sessionId.current = result.sessionId ?? sessionId.current;
       setChunks(result.chunks ?? []);
+      setCloud(result.cloud ?? []);
 
       if (result.shouldAsk) {
         // A per-request question is the normal case; the generic line is only
@@ -122,6 +129,7 @@ export default function BuildScreen() {
       });
       sessionId.current = turn.sessionId ?? sessionId.current;
       setChunks(turn.chunks);
+      setCloud(turn.cloud ?? []);
       setDrafts((d) => ({ ...d, [chunkId]: '' }));
 
       if (turn.plan && !turn.shouldAsk) {
@@ -162,6 +170,8 @@ export default function BuildScreen() {
             textAlignVertical="top"
             editable={!busy}
           />
+
+          <UnderstandingCloud terms={cloud} />
 
           {refused.map((c) => (
             <Text key={c.id} testID={`build-refused-${c.id}`} style={styles.ask}>
