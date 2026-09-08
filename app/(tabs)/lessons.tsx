@@ -9,6 +9,7 @@ import { useEnrollments, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
 import type { TrackEnrollmentWithProgress } from '@learning/shared';
 import { TrackMap } from '@/components/ui/TrackMap';
+import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 
 const difficultyVariant = {
   beginner:     'success',
@@ -64,7 +65,12 @@ export default function LessonsScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
 
-        {progress && progress.currentStreak > 3 && (
+        {/* First thing on the screen — 069 items 1+2. It used to render below the
+            streak card and the stats row, so a brand-new user met a wall of zeros
+            before reaching the one action available to them. */}
+        {hasNoEnrollments && <NoTrackNotice />}
+
+        {progress && !hasNoEnrollments && progress.currentStreak > 3 && (
           <View testID="streak-banner" style={styles.streakBanner}>
             <Text style={styles.streakBannerText}>
               {'You\'re on a '}
@@ -74,7 +80,7 @@ export default function LessonsScreen() {
           </View>
         )}
 
-        {progress && (
+        {progress && !hasNoEnrollments && (
           <Card testID="streak-card" style={styles.streakCard}>
             <View style={styles.streakRow}>
               <Text style={styles.streakEmoji}>🔥</Text>
@@ -187,20 +193,7 @@ export default function LessonsScreen() {
           </View>
         )}
 
-        {hasNoEnrollments && (
-          <Card testID="start-learning-card" style={styles.card}>
-            <Text style={styles.emptyTitle}>Start Learning</Text>
-            <Text style={styles.emptyBody}>Browse available tracks and enrol to get started.</Text>
-            <Button
-              testID="browse-tracks-btn"
-              label="Browse Tracks →"
-              style={styles.quizBtn}
-              onPress={() => router.push('/(tabs)/tracks')}
-            />
-          </Card>
-        )}
-
-        {progress && (
+        {progress && !hasNoEnrollments && (
           <View style={styles.statsRow}>
             <Card style={styles.statCard}>
               <Text style={styles.statValue}>{progress.totalLessonsCompleted}</Text>

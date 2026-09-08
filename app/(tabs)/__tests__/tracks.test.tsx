@@ -70,6 +70,8 @@ const mockEnrollment: TrackEnrollmentWithProgress = {
   isActive:         false,
   canSkipTopic:     false,
   canSkipLevel:     false,
+  averageScore:     null,
+  capstoneScore:    null,
 };
 
 const activeEnrollment: TrackEnrollmentWithProgress = {

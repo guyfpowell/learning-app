@@ -130,6 +130,32 @@ describe('api module', () => {
   // ─── Response interceptor ────────────────────────────────────────────────────
 
   describe('response interceptor — 401 handling', () => {
+    // 069 A1 — syncTimezone() on register was signing brand-new users out.
+    it('does NOT sign out when a background request 401s and refresh fails', async () => {
+      (global as any).__DEV__ = true;
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
+      mockGetState.mockReturnValue({
+        accessToken: 'tok',
+        user: { id: '1', email: 'test@example.com', name: 'Test' },
+        clearAuth: mockClearAuth,
+        setAuth: mockSetAuth,
+      });
+
+      let api: any;
+      jest.isolateModules(() => { api = require('@/lib/api').default; });
+      jest.spyOn(api, 'post').mockRejectedValue(new Error('refresh failed'));
+
+      const rejected = getResponseInterceptorRejected(api);
+      const error = {
+        response: { status: 401 },
+        config: { url: '/users/profile', headers: { 'X-Background': 'true' } },
+        code: 'ERR_BAD_REQUEST',
+      };
+
+      await expect(rejected(error)).rejects.toEqual(error);
+      expect(mockClearAuth).not.toHaveBeenCalled();
+    });
+
     it('clears auth and redirects to sign-in on 401 from non-auth endpoint when refresh fails', async () => {
       (global as any).__DEV__ = true;
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';

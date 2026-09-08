@@ -16,6 +16,7 @@ jest.mock('expo-router', () => ({
     { Screen: () => null }
   ),
   useSegments: () => mockSegments,
+  usePathname: () => (mockSegments.length === 0 ? '/' : '/' + mockSegments.join('/')),
   useRouter: () => ({ replace: mockReplace }),
 }));
 

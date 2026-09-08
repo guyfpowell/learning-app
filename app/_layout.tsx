@@ -4,7 +4,7 @@ import {
   Poppins_700Bold,
   useFonts,
 } from '@expo-google-fonts/poppins';
-import { Stack, useSegments, useRouter } from 'expo-router';
+import { Stack, useSegments, useRouter, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import { Component, useEffect, useRef } from 'react';
@@ -61,6 +61,7 @@ SplashScreen.preventAutoHideAsync();
 export function AuthGate() {
   const { _hasHydrated, accessToken } = useAuthStore();
   const segments = useSegments();
+  const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
@@ -82,11 +83,16 @@ export function AuthGate() {
     // away from). The previous rule was "not in (tabs)", which also swept up
     // standalone routes like /build and /build-review and bounced them back to
     // lessons the instant they mounted.
-    const atRootIndex = segments.length === 0;
+    // Checked by pathname, not `segments.length === 0`. Typed routes give
+    // `useSegments()` a non-empty tuple type, so that comparison was statically
+    // impossible and never fired — a signed-in user landed on `index.tsx` and sat
+    // on its spinner forever. `usePathname()` returns '/' at the root index and is
+    // both type-safe and correct at runtime.
+    const atRootIndex = pathname === '/';
     if (inAuthGroup || atRootIndex) {
       router.replace('/(tabs)/lessons');
     }
-  }, [_hasHydrated, accessToken, segments.length, segments[0]]);
+  }, [_hasHydrated, accessToken, pathname, segments[0]]);
 
   return null;
 }

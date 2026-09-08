@@ -10,6 +10,7 @@ import { useProgress } from '@/hooks/useProgress';
 import { useSavedLessons } from '@/hooks/useLesson';
 import { useEnrollments } from '@/hooks/useTrack';
 import { TrackMap } from '@/components/ui/TrackMap';
+import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 
 function flooredPct(enrollment: TrackEnrollmentWithProgress): number {
   return enrollment.completedLessons > 0
@@ -145,9 +146,7 @@ export default function ProgressScreen() {
         )}
 
         {hasNoEnrollments && (
-          <Text testID="no-enrollments-msg" style={styles.empty}>
-            No active tracks. Browse Tracks to get started.
-          </Text>
+          <NoTrackNotice body="Your progress and track map appear here once you're on a track." />
         )}
 
         <Text style={styles.sectionHeading}>Saved</Text>

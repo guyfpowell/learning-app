@@ -12,7 +12,7 @@ import { useAuthStore } from '@/store/auth.store';
 function syncTimezone() {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   if (!timezone) return;
-  void userService.updateProfile({ timezone }).catch(() => {});
+  void userService.syncTimezone(timezone).catch(() => {});
 }
 
 export function useLogin() {

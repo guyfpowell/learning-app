@@ -13,6 +13,15 @@ jest.mock('@/services/auth.service', () => ({
   },
 }));
 
+// register calls syncTimezone(), which hits userService. Unmocked it made a real
+// request, and the 401 interceptor in api.ts signed the user back out mid-test.
+jest.mock('@/services/user.service', () => ({
+  userService: {
+    updateProfile: jest.fn(() => Promise.resolve({})),
+    syncTimezone: jest.fn(() => Promise.resolve()),
+  },
+}));
+
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
   setItemAsync: jest.fn(() => Promise.resolve()),
@@ -42,7 +51,7 @@ describe('useLogin', () => {
   });
 
   it('calls authService.login with credentials', async () => {
-    mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'tok', hasOnboarded: false });
+    mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'tok' });
 
     const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
     act(() => { result.current.mutate({ email: 'user@example.com', password: 'pass' }); });
@@ -52,7 +61,7 @@ describe('useLogin', () => {
   });
 
   it('stores auth in the store on success', async () => {
-    mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'access-token', hasOnboarded: false });
+    mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'access-token' });
 
     const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
     act(() => { result.current.mutate({ email: 'user@example.com', password: 'pass' }); });
@@ -67,7 +76,7 @@ describe('useRegister', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('calls authService.register with email, password and name', async () => {
-    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok', hasOnboarded: false });
+    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok' });
 
     const { result } = renderHook(() => useRegister(), { wrapper: makeWrapper() });
     act(() => { result.current.mutate({ email: 'new@example.com', password: 'pass', name: 'New User' }); });
@@ -81,7 +90,7 @@ describe('useRegister', () => {
   });
 
   it('stores auth in the store on success', async () => {
-    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok-reg', hasOnboarded: false });
+    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok-reg' });
 
     const { result } = renderHook(() => useRegister(), { wrapper: makeWrapper() });
     act(() => { result.current.mutate({ email: 'new@example.com', password: 'pass', name: 'New User' }); });

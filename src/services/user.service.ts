@@ -1,4 +1,4 @@
-import api from '@/lib/api';
+import api, { BACKGROUND_REQUEST } from '@/lib/api';
 import type { UserAuth, UserProfile, Seniority } from '@learning/shared';
 
 export interface UpdateProfileInput {
@@ -29,5 +29,14 @@ export const userService = {
 
   async updateProfile(input: UpdateProfileInput): Promise<void> {
     await api.patch('/users/profile', input);
+  },
+
+  /**
+   * Silent timezone sync — ticket 069 items 1+2. Onboarding was the only thing
+   * that set the timezone; without it reminders fall back to a server default.
+   * Marked as background so a failure here can never sign the user out.
+   */
+  async syncTimezone(timezone: string): Promise<void> {
+    await api.patch('/users/profile', { timezone }, BACKGROUND_REQUEST);
   },
 };

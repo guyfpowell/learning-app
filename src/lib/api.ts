@@ -40,6 +40,24 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+/**
+ * Marks a request as non-critical background work — ticket 069 A1.
+ *
+ * Such a request still refreshes on a 401 (so it succeeds whenever it can), but
+ * it must **never** be the thing that signs the user out. `syncTimezone()` on
+ * register was: a fire-and-forget profile PATCH whose failure ran
+ * `signOutAndRedirect()` and bounced a brand-new user to sign-in on the happiest
+ * path in the product. A caller's own `.catch()` cannot prevent that — the
+ * interceptor fires first.
+ *
+ * Safety: this does not strand a dead session. If the session is genuinely gone,
+ * the next foreground request 401s, fails refresh, and signs out properly. This
+ * only stops a background ping being what decides it.
+ *
+ * Spread into any fire-and-forget call: `api.patch(url, body, BACKGROUND_REQUEST)`.
+ */
+export const BACKGROUND_REQUEST = { headers: { 'X-Background': 'true' } } as const;
+
 // ─── Response: on 401 → try refresh, then sign out if refresh fails ──────────
 let isRefreshing = false;
 let refreshQueue: Array<(token: string) => void> = [];
@@ -113,7 +131,9 @@ api.interceptors.response.use(
       }
 
       refreshQueue = [];
-      signOutAndRedirect();
+      if (!error.config?.headers?.['X-Background']) {
+        signOutAndRedirect();
+      }
     }
 
     return Promise.reject(error);

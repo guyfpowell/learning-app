@@ -161,7 +161,7 @@ describe('ProgressScreen — enrollment cards', () => {
   it('shows empty state when enrollments array is empty', () => {
     (useEnrollments as jest.Mock).mockReturnValue({ data: [] });
     render(<ProgressScreen />);
-    expect(screen.getByTestId('no-enrollments-msg')).toBeTruthy();
+    expect(screen.getByTestId('no-track-notice')).toBeTruthy();
   });
 
   it('does not show enrollment sections while loading (data undefined)', () => {
@@ -169,7 +169,7 @@ describe('ProgressScreen — enrollment cards', () => {
     render(<ProgressScreen />);
     expect(screen.queryByText('Active Tracks')).toBeNull();
     expect(screen.queryByText('Completed Tracks')).toBeNull();
-    expect(screen.queryByTestId('no-enrollments-msg')).toBeNull();
+    expect(screen.queryByTestId('no-track-notice')).toBeNull();
   });
 
   it('does not show completed section for active-only enrollments', () => {

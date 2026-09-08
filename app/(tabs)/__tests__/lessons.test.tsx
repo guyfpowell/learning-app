@@ -363,30 +363,47 @@ describe('LessonsScreen', () => {
     });
   });
 
-  describe('empty state (ticket 019 ch5)', () => {
-    it('shows Start Learning card when no enrollments', () => {
+  describe('no-track state (069 items 1+2)', () => {
+    it('shows the no-track notice when no enrollments', () => {
       setEnrollmentsMock([]);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('start-learning-card')).toBeTruthy();
+      expect(screen.getByTestId('no-track-notice')).toBeTruthy();
     });
 
-    it('does not show Start Learning card when enrollments exist', () => {
+    it('hides the notice when enrollments exist', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.queryByTestId('start-learning-card')).toBeNull();
+      expect(screen.queryByTestId('no-track-notice')).toBeNull();
     });
 
-    it('does not show Start Learning card when enrollments are loading', () => {
+    it('hides the notice while enrollments are loading', () => {
       setEnrollmentsMock(undefined);
       render(<LessonsScreen />);
-      expect(screen.queryByTestId('start-learning-card')).toBeNull();
+      expect(screen.queryByTestId('no-track-notice')).toBeNull();
     });
 
-    it('navigates to tracks tab when Browse Tracks button is pressed', () => {
+    it('routes to tracks from the notice', () => {
       setEnrollmentsMock([]);
       render(<LessonsScreen />);
-      fireEvent.press(screen.getByTestId('browse-tracks-btn'));
+      fireEvent.press(screen.getByTestId('no-track-browse-btn'));
       expect(mockPush).toHaveBeenCalledWith('/(tabs)/tracks');
+    });
+
+    // A brand-new user used to meet a 0-day streak, 0 lessons and 0% average
+    // before reaching the one action open to them.
+    it('suppresses the zeroed streak card while no track is enrolled', () => {
+      setEnrollmentsMock([]);
+      setProgressMock(mockProgress);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('streak-card')).toBeNull();
+      expect(screen.queryByTestId('streak-banner')).toBeNull();
+    });
+
+    it('shows the streak card again once a track is enrolled', () => {
+      setEnrollmentsMock([mockEnrollment]);
+      setProgressMock(mockProgress);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('streak-card')).toBeTruthy();
     });
   });
 
