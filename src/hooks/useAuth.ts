@@ -1,29 +1,39 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { authService, type LoginInput, type RegisterInput } from '@/services/auth.service';
+import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/store/auth.store';
+
+/**
+ * Onboarding used to collect the timezone. With it gone, the device is the only
+ * source, so sync it on registration. Best-effort: a failure here must never
+ * block sign-up, it only means reminders fall back to the server default until
+ * the user opens Settings.
+ */
+function syncTimezone() {
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (!timezone) return;
+  void userService.updateProfile({ timezone }).catch(() => {});
+}
 
 export function useLogin() {
   const setAuth = useAuthStore((s) => s.setAuth);
-  const setHasOnboarded = useAuthStore((s) => s.setHasOnboarded);
 
   return useMutation({
     mutationFn: (input: LoginInput) => authService.login(input),
-    onSuccess: ({ user, token, hasOnboarded }) => {
+    onSuccess: ({ user, token }) => {
       setAuth(user, token);
-      setHasOnboarded(hasOnboarded);
     },
   });
 }
 
 export function useRegister() {
   const setAuth = useAuthStore((s) => s.setAuth);
-  const setHasOnboarded = useAuthStore((s) => s.setHasOnboarded);
 
   return useMutation({
     mutationFn: (input: RegisterInput) => authService.register(input),
-    onSuccess: ({ user, token, hasOnboarded }) => {
+    onSuccess: ({ user, token }) => {
       setAuth(user, token);
-      setHasOnboarded(hasOnboarded);
+      syncTimezone();
     },
   });
 }

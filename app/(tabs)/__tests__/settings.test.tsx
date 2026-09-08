@@ -6,7 +6,7 @@ import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
 } from '@/hooks/useNotificationPrefs';
-import { useProfile, useUpdateProfile } from '@/hooks/useOnboarding';
+import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { usePushStatus } from '@/hooks/usePushStatus';
 import type { NotificationPreference } from '@learning/shared';
 
@@ -15,7 +15,7 @@ jest.mock('@/hooks/useNotificationPrefs', () => ({
   useNotificationPreferences: jest.fn(),
   useUpdateNotificationPreferences: jest.fn(),
 }));
-jest.mock('@/hooks/useOnboarding', () => ({
+jest.mock('@/hooks/useProfile', () => ({
   useProfile: jest.fn(),
   useUpdateProfile: jest.fn(),
 }));

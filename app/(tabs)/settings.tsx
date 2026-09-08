@@ -11,7 +11,7 @@ import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
 } from '@/hooks/useNotificationPrefs';
-import { useProfile, useUpdateProfile } from '@/hooks/useOnboarding';
+import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { usePushStatus } from '@/hooks/usePushStatus';
 import { extractError } from '@/lib/errors';
 

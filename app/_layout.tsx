@@ -59,7 +59,7 @@ SplashScreen.preventAutoHideAsync();
  *    (standalone routes such as /build are left alone)
  */
 export function AuthGate() {
-  const { _hasHydrated, accessToken, hasOnboarded } = useAuthStore();
+  const { _hasHydrated, accessToken } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
 
@@ -67,20 +67,15 @@ export function AuthGate() {
     if (!_hasHydrated) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const inOnboarding = inAuthGroup && segments[1] === 'onboarding';
 
     if (!accessToken) {
       if (!inAuthGroup) router.replace('/(auth)/sign-in');
       return;
     }
 
-    // Authenticated but not yet onboarded — hold on onboarding screen
-    if (hasOnboarded === false) {
-      if (!inOnboarding) router.replace('/(auth)/onboarding');
-      return;
-    }
-
-    // Onboarded (true) or unknown (null = existing user before this field existed).
+    // Authenticated. There is no onboarding gate: a user with no track enrolled
+    // can browse the whole app, and every screen that needs a track says so with
+    // a NoTrackNotice rather than being locked away.
     //
     // Redirect ONLY from the two places that have nowhere else to go: the auth
     // group, and the root index (a bare spinner that exists purely to be routed
@@ -91,7 +86,7 @@ export function AuthGate() {
     if (inAuthGroup || atRootIndex) {
       router.replace('/(tabs)/lessons');
     }
-  }, [_hasHydrated, accessToken, hasOnboarded, segments.length, segments[0], segments[1]]);
+  }, [_hasHydrated, accessToken, segments.length, segments[0]]);
 
   return null;
 }

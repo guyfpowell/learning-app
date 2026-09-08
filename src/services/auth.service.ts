@@ -22,7 +22,7 @@ export interface CurrentUser {
 }
 
 export const authService = {
-  async login(input: LoginInput): Promise<{ user: UserAuth; token: string; hasOnboarded: boolean }> {
+  async login(input: LoginInput): Promise<{ user: UserAuth; token: string }> {
     try {
       Sentry.addBreadcrumb({ category: 'auth', message: 'Login attempt', level: 'info' });
 
@@ -34,14 +34,14 @@ export const authService = {
         level: 'info',
       });
 
-      return { user: data.user, token: data.token, hasOnboarded: data.hasOnboarded };
+      return { user: data.user, token: data.token };
     } catch (err) {
       Sentry.captureException(err, { contexts: { auth: { action: 'login', email: input.email } } });
       throw err;
     }
   },
 
-  async register(input: RegisterInput): Promise<{ user: UserAuth; token: string; hasOnboarded: boolean }> {
+  async register(input: RegisterInput): Promise<{ user: UserAuth; token: string }> {
     try {
       Sentry.addBreadcrumb({ category: 'auth', message: 'Registration attempt', level: 'info' });
 
@@ -53,7 +53,7 @@ export const authService = {
         level: 'info',
       });
 
-      return { user: data.user, token: data.token, hasOnboarded: data.hasOnboarded };
+      return { user: data.user, token: data.token };
     } catch (err) {
       Sentry.captureException(err, { contexts: { auth: { action: 'register', email: input.email } } });
       throw err;
