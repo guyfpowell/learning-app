@@ -1,33 +1,31 @@
 /**
- * The question loop on the build screen — 049b Chunk 1b, mobile parity.
+ * The build screen — one statement in, one track out.
  *
- * The rule that matters: **nothing is built while any request is open.** The
- * founding statement of 049b —
- *
- *   "I am a senior product manager at a health tech, been here 4 years,
- *    looking to learn more about AI and be able to understand my tech lead"
- *
- * — is two requests, and one confident area was previously treated as
- * permission to build sixteen lessons from them. Both questions have to be put,
- * each answer has to reach the request it was about, and the review screen must
- * not be reached until every request has closed.
+ * The question-loop cases went on 2026-09-08 (068 Chunk 6b) with the loop they
+ * tested; they are in `archived/2026-09-08-local-track-classifier/`. What is
+ * left is what a build can still do: succeed, or fail in one of two ways, or be
+ * stopped at the length cap.
  *
  * Kept in step with the web test of the same name deliberately: the two clients
  * have diverged before, and a rule that only one of them obeys is not a rule.
  */
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
-import type { RequestChunk } from '@/services/trackBuilder.service';
 
 const mockPush = jest.fn();
 const mockBuild = jest.fn();
-const mockAnswer = jest.fn();
 const mockSetDraft = jest.fn();
 
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+const mockReplace = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace }) }));
+// `isPending` is react-query's, so the screen's `busy` cannot be driven by
+// resolving or hanging `mutateAsync` — it is read at render. The mock reflects
+// a variable the test sets, which is the only honest way to render the waiting
+// state without pulling a QueryClient into the test.
+// Prefixed `mock` because jest only allows that in a module factory.
+let mockPending = false;
 jest.mock('@/hooks/useTrackBuilder', () => ({
-  useBuildPlan: () => ({ mutateAsync: mockBuild, isPending: false }),
-  useAnswerChunk: () => ({ mutateAsync: mockAnswer, isPending: false }),
+  useBuildPlan: () => ({ mutateAsync: mockBuild, isPending: mockPending }),
 }));
 jest.mock('@/store/trackBuilder.store', () => ({
   useDraftStore: (selector: any) => selector({ setDraft: mockSetDraft }),
@@ -39,134 +37,93 @@ const STATEMENT =
   'I am a senior product manager at a health tech, been here 4 years, '
   + 'looking to learn more about AI and be able to understand my tech lead';
 
-const chunk = (over: Partial<RequestChunk> & { id: string }): RequestChunk => ({
-  text: '', verdict: 'ready', question: null, answers: [], statedLevel: null,
-  scope: [], measured: { matchedWords: 0, matchedTopics: 0, topTrack: null, trackCoverage: 0 },
-  ...over,
-});
-
-/** What the server returns for the founding statement: two open requests. */
-const OPEN: RequestChunk[] = [
-  chunk({
-    id: 'c1', text: 'looking to learn more about AI', verdict: 'too-broad',
-    question: '"looking to learn more about AI" covers the whole of AI for Product '
-      + 'Managers. Which parts of it do you want, and how deep should we go?',
-  }),
-  chunk({
-    id: 'c2', text: 'be able to understand my tech lead', verdict: 'too-vague',
-    question: 'What do you mean by "be able to understand my tech lead"? '
-      + "Give me an example of something you'd want to be able to do.",
-  }),
-];
-
-const ASKED = {
-  shouldAsk: true, isFoundation: false, chunks: OPEN,
-  questions: OPEN.map((c) => c.question!),
-  sessionId: 's1', name: '', level: 'Senior', levelConfidence: 0.9,
-  intent: 'none', intentConfidence: 0.9, firedAreas: [], topics: [],
-};
-
-const BUILT = {
-  ...ASKED, shouldAsk: false, questions: [],
-  topics: [{
-    stableKey: '9:beginner:0', order: 0, topicName: 'Your AI toolkit',
-    level: 'beginner', area: null, hops: 0,
-  }],
-};
-
-beforeEach(() => jest.clearAllMocks());
-
 const type = () =>
   fireEvent.changeText(screen.getByTestId('build-statement'), STATEMENT);
 
-describe('a statement with two requests gets two questions', () => {
-  it('asks about both, and builds nothing', async () => {
-    mockBuild.mockResolvedValue(ASKED);
-    render(<BuildScreen />);
-    type();
-    fireEvent.press(screen.getByTestId('build-submit'));
-
-    await waitFor(() => expect(screen.getByTestId('build-question-c1')).toBeTruthy());
-    expect(screen.getByTestId('build-question-c2')).toBeTruthy();
-    // No plan, so no review screen — however confident the areas were.
-    expect(mockPush).not.toHaveBeenCalled();
-  });
-
-  it('sends an answer to the request it was about, and nothing else', async () => {
-    mockBuild.mockResolvedValue(ASKED);
-    mockAnswer.mockResolvedValue({
-      chunks: [{ ...OPEN[0], verdict: 'ready', question: null, answers: ['prompting'] }, OPEN[1]],
-      questions: [OPEN[1].question!], shouldAsk: true, plan: null, sessionId: 's1',
+/**
+ * 068 Chunk 5 — mobile parity for the Claude path.
+ *
+ * The two failure messages are written server-side so both clients say the same
+ * thing. A client that swallows them for a generic line blames the wrong party
+ * half the time, which is exactly what the copy exists to avoid.
+ */
+describe('when the build fails', () => {
+  it('shows the server message rather than a generic line', async () => {
+    mockBuild.mockRejectedValue({
+      response: { data: {
+        error: "That's on us, not you — the part that reads your statement isn't responding.",
+        code: 'TRACK_BUILDER_UNAVAILABLE',
+      } },
     });
     render(<BuildScreen />);
     type();
     fireEvent.press(screen.getByTestId('build-submit'));
-    await waitFor(() => expect(screen.getByTestId('build-answer-c1')).toBeTruthy());
 
-    fireEvent.changeText(screen.getByTestId('build-answer-c1'), 'prompting');
-    fireEvent.press(screen.getByTestId('build-answer-submit-c1'));
-
-    await waitFor(() => expect(mockAnswer).toHaveBeenCalledWith({
-      chunks: OPEN, chunkId: 'c1', answer: 'prompting', sessionId: 's1',
-    }));
-    // c1 has closed; c2 is untouched and still asking.
-    await waitFor(() => expect(screen.queryByTestId('build-question-c1')).toBeNull());
-    expect(screen.getByTestId('build-question-c2')).toBeTruthy();
-    expect(mockPush).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByTestId('build-error')).toBeTruthy());
+    expect(screen.getByTestId('build-error').props.children)
+      .toContain("That's on us, not you");
   });
 
-  it('goes to the review screen only once every request has closed', async () => {
-    mockBuild.mockResolvedValue(ASKED);
-    mockAnswer.mockResolvedValue({
-      chunks: OPEN.map((c) => ({ ...c, verdict: 'ready', question: null })),
-      questions: [], shouldAsk: false, plan: BUILT, sessionId: 's1',
+  it('renders a refusal as a notice, not an error — the person did nothing broken', async () => {
+    // 068 Chunk 9f. Red says "you broke something"; only "that's on us" earns it.
+    mockBuild.mockRejectedValue({
+      response: { data: {
+        error: 'Here’s how I read that: “You are the CEO of a bank.”\n\nTell us what you’re working on.',
+        code: 'TRACK_STATEMENT_TOO_THIN',
+      } },
     });
     render(<BuildScreen />);
     type();
     fireEvent.press(screen.getByTestId('build-submit'));
-    await waitFor(() => expect(screen.getByTestId('build-answer-c1')).toBeTruthy());
 
-    fireEvent.changeText(screen.getByTestId('build-answer-c1'), 'prompting');
-    fireEvent.press(screen.getByTestId('build-answer-submit-c1'));
-
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/build-review'));
-    expect(mockSetDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ result: BUILT, sessionId: 's1' }),
-    );
+    await waitFor(() => expect(screen.getByTestId('build-notice')).toBeTruthy());
+    expect(screen.getByTestId('build-notice').props.children).toContain('how I read that');
+    expect(screen.queryByTestId('build-error')).toBeNull();
   });
 });
 
-describe('a request we understood and do not teach — Rule 5', () => {
-  it('says what it is and asks nothing about it', async () => {
-    mockBuild.mockResolvedValue({
-      ...ASKED,
-      chunks: [chunk({
-        id: 'c1', text: 'PRINCE2', verdict: 'unservable', question: null,
-        reason: '"PRINCE2" is project management — we cover product management, '
-          + "so that's outside what we teach.",
-      })],
-      questions: [],
-    });
+describe('the statement box', () => {
+  it('stops at a paragraph, so nobody is told their words are too long after writing them', () => {
     render(<BuildScreen />);
-    type();
-    fireEvent.press(screen.getByTestId('build-submit'));
-
-    await waitFor(() => expect(screen.getByTestId('build-refused-c1')).toBeTruthy());
-    // No answer box: no answer would help, so asking for one wastes their time.
-    expect(screen.queryByTestId('build-answer-c1')).toBeNull();
-    // And NOT "I couldn't tell what you want" underneath it — we understood
-    // them exactly, and saying both contradicts the line above.
-    expect(screen.queryByTestId('build-ask')).toBeNull();
+    // 1,000 characters — the server's cap, and three times the longest
+    // statement anyone has actually written.
+    expect(screen.getByTestId('build-statement').props.maxLength).toBe(1000);
   });
 });
 
-describe('when nothing could be placed at all', () => {
-  it('falls back to the general question', async () => {
-    mockBuild.mockResolvedValue({ ...ASKED, chunks: [], questions: [] });
-    render(<BuildScreen />);
-    type();
-    fireEvent.press(screen.getByTestId('build-submit'));
+/**
+ * 068 Chunk 7a — a build takes 4–9 seconds and used only to grey the button.
+ * Kept in step with the web test of the same name.
+ */
+describe('while a build is running', () => {
+  afterEach(() => { mockPending = false; });
 
-    await waitFor(() => expect(screen.getByTestId('build-ask')).toBeTruthy());
+  it('says what is happening rather than only greying the button', () => {
+    mockPending = true;
+    render(<BuildScreen />);
+    expect(screen.getByTestId('build-waiting')).toBeTruthy();
+    // No percentage: latency tracks how long the track turns out to be, so a
+    // bar would be a guess presented as a measurement.
+    expect(screen.queryByText(/%/)).toBeNull();
+  });
+
+  it('says nothing while idle', () => {
+    render(<BuildScreen />);
+    expect(screen.queryByTestId('build-waiting')).toBeNull();
+  });
+});
+
+/**
+ * 068 Chunk 9c — `_layout.tsx` sets `headerShown: false` and /build sits outside
+ * the tabs, so without this the screen is a trap: no header, no tab bar, no way
+ * back.
+ */
+describe('getting out', () => {
+  it('offers a way out, and goes to the tabs rather than popping blind', () => {
+    render(<BuildScreen />);
+    fireEvent.press(screen.getByTestId('build-back'));
+    // `replace`, not `back()`: the screen can be arrived at from more than one
+    // place, and a blind pop from a deep link lands nowhere.
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lessons');
   });
 });

@@ -1,39 +1,26 @@
 import { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { useAnswerChunk, useBuildPlan } from '@/hooks/useTrackBuilder';
-import type { BuiltPlan, CloudTerm, RequestChunk } from '@/services/trackBuilder.service';
+import { useBuildPlan } from '@/hooks/useTrackBuilder';
+import type { BuiltPlan, CloudTerm } from '@/services/trackBuilder.service';
 import { UnderstandingCloud } from '@/components/trackBuilder/UnderstandingCloud';
 import { useDraftStore } from '@/store/trackBuilder.store';
-import { extractError } from '@/lib/errors';
+import { extractError, errorCode } from '@/lib/errors';
 
 /**
- * Build my own path — ticket 049 Chunk 5, mobile parity.
- * Ticket 049b Chunk 1b — and the question loop that has to happen before a plan.
+ * Build my own path — statement in, review out.
  *
- * Turn logging is the SERVER's job — this screen holds a session id and
- * nothing else.
+ * **The question loop went on 2026-09-08 — ticket 068 Chunk 6b.** It existed
+ * because the local classifier could place only part of a statement and had to
+ * ask about the rest. One Claude call reads the whole thing, so nothing comes
+ * back open and there is nothing to ask. Kept in step with the web screen, as
+ * it always has been: a rule only one client obeys is not a rule.
  *
- * No model on the device. Inference is an API call, so this screen is an
- * ordinary form: no asset download, no readiness state, no ONNX runtime in the
- * bundle. That was reversed from on-device on 2026-08-04 because the model is
- * still changing and on-device meant every retrain waited for an app release.
- *
- * ── Why this screen is a loop and not a form ───────────────────────────────
- *
- * A statement is not one ask. *"I am a senior PM at a health tech, been here 4
- * years, looking to learn more about AI and be able to understand my tech
- * lead"* is TWO requests plus background, and the two need opposite things
- * said to them: AI is a whole track, so it needs narrowing; "understand my
- * tech lead" names a job title rather than a subject, so it needs explaining.
- * The server holds them apart and returns one question each; this screen shows
- * them and sends one answer at a time back to the request it was about.
- *
- * **Nothing is built while any request is open** — however good the others are.
+ * The term cloud stays — Rule 10, their own words, still built locally.
  */
 
 const PLACEHOLDER =
@@ -41,39 +28,25 @@ const PLACEHOLDER =
   'What do you want to get out of this?';
 
 const MIN_CHARS = 10;
-
 /**
- * Shown only when the server has nothing to ask about AND nothing to say — no
- * request could be placed at all. A per-request question is always better, and
- * so is a refusal that names the discipline, so this is the last resort rather
- * than the normal path.
- */
-const NOTHING_PLACED =
-  'I couldn’t tell what you want to get better at. Tell me what’s hard ' +
-  'right now, or what you’d like to be able to do that you can’t yet.';
-
-/** A request still waiting on an answer. `unservable` never is. */
-const isOpen = (c: RequestChunk) => c.question !== null && c.verdict !== 'unservable';
-
-/**
- * Whether to fall back to the general question.
+ * A statement is a paragraph — 068 Chunk 3, and the server rejects more.
  *
- * A refusal counts as having said something. Printing "I couldn't tell what you
- * want" underneath "PRINCE2 is project management, we don't teach it"
- * contradicts the line above it — we understood them exactly.
+ * Capped in the box rather than validated on submit: being told your words are
+ * too long *after* writing them is the worst version of this, and the longest
+ * real statement anyone has written is 338 characters.
  */
-const nothingToSay = (cs: RequestChunk[]) =>
-  !cs.some(isOpen) && !cs.some((c) => c.verdict === 'unservable');
+const MAX_CHARS = 1000;
 
 export default function BuildScreen() {
   const router = useRouter();
   const [text, setText] = useState('');
-  const [ask, setAsk] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** The requests, as they now stand. Empty until the first build. */
-  const [chunks, setChunks] = useState<RequestChunk[]>([]);
-  /** Answer being typed, per request id. One box each, all visible. */
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  /**
+   * A refusal and a failure look different — 068 Chunk 9f. A notice is a
+   * conversation: here is how we understood you, and here is what would help.
+   * Not red — red says *you broke something*, and only "that's on us" earns it.
+   */
+  const [notice, setNotice] = useState<string | null>(null);
   /**
    * What we understood, in their words — Rule 10. Shown between asking and
    * answering so a misreading is correctable before a plan exists.
@@ -82,9 +55,8 @@ export default function BuildScreen() {
   const sessionId = useRef<string | null>(null);
 
   const buildPlan = useBuildPlan();
-  const answerChunk = useAnswerChunk();
   const setDraft = useDraftStore((s) => s.setDraft);
-  const busy = buildPlan.isPending || answerChunk.isPending;
+  const busy = buildPlan.isPending;
 
   const goToReview = (result: BuiltPlan) => {
     setDraft({ statement: text, sessionId: sessionId.current, result });
@@ -92,66 +64,41 @@ export default function BuildScreen() {
   };
 
   const onBuild = async () => {
-    setAsk(null);
     setError(null);
+    setNotice(null);
     try {
       const result = await buildPlan.mutateAsync({ statement: text, sessionId: sessionId.current });
       sessionId.current = result.sessionId ?? sessionId.current;
-      setChunks(result.chunks ?? []);
       setCloud(result.cloud ?? []);
-
-      if (result.shouldAsk) {
-        // A per-request question is the normal case; the generic line is only
-        // for a statement nothing could be placed from at all.
-        if (nothingToSay(result.chunks ?? [])) setAsk(NOTHING_PLACED);
-        return;
-      }
-
       goToReview(result);
     } catch (err) {
-      setError(extractError(err));
-    }
-  };
-
-  /**
-   * Answer one request. The others are untouched — that is the whole point of
-   * holding them apart, and blending an answer across them is the defect this
-   * loop exists to fix.
-   */
-  const onAnswer = async (chunkId: string) => {
-    const said = (drafts[chunkId] ?? '').trim();
-    if (!said) return;
-    setAsk(null);
-    setError(null);
-    try {
-      const turn = await answerChunk.mutateAsync({
-        chunks, chunkId, answer: said, sessionId: sessionId.current,
-      });
-      sessionId.current = turn.sessionId ?? sessionId.current;
-      setChunks(turn.chunks);
-      setCloud(turn.cloud ?? []);
-      setDrafts((d) => ({ ...d, [chunkId]: '' }));
-
-      if (turn.plan && !turn.shouldAsk) {
-        goToReview(turn.plan);
-        return;
-      }
-      if (nothingToSay(turn.chunks)) setAsk(NOTHING_PLACED);
-    } catch (err) {
-      setError(extractError(err));
+      if (errorCode(err) === 'TRACK_STATEMENT_TOO_THIN') setNotice(extractError(err));
+      else setError(extractError(err));
     }
   };
 
   const tooShort = text.trim().length < MIN_CHARS;
-  const open = chunks.filter(isOpen);
-  // Understood exactly, and not something we teach. There is no question to
-  // ask, so it is stated and the request is closed — never a suggestion of the
-  // nearest thing we do have.
-  const refused = chunks.filter((c) => c.verdict === 'unservable');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* There is no header and no tab bar on these routes —
+            `_layout.tsx` sets `headerShown: false` and /build sits outside the
+            tabs — so without this the screen is a trap. 068 Chunk 9c.
+
+            It goes to the tabs rather than popping the stack: the build screen
+            can be arrived at from more than one place, and a blind `back()`
+            from a deep link lands nowhere. */}
+        <Pressable
+          testID="build-back"
+          onPress={() => router.replace('/(tabs)/lessons')}
+          accessibilityRole="button"
+          accessibilityLabel="Leave without building a path"
+          style={styles.back}
+        >
+          <Text style={styles.backText}>‹  Not now</Text>
+        </Pressable>
+
         <Text style={styles.title}>Build my own path</Text>
         <Text style={styles.subtitle}>
           Describe where you are and what you want. I’ll put together a path from
@@ -164,6 +111,7 @@ export default function BuildScreen() {
             style={styles.input}
             value={text}
             onChangeText={setText}
+            maxLength={MAX_CHARS}
             placeholder={PLACEHOLDER}
             placeholderTextColor={colors.textMuted}
             multiline
@@ -173,42 +121,12 @@ export default function BuildScreen() {
 
           <UnderstandingCloud terms={cloud} />
 
-          {refused.map((c) => (
-            <Text key={c.id} testID={`build-refused-${c.id}`} style={styles.ask}>
-              {c.reason}
-            </Text>
-          ))}
-
-          {ask !== null && (
-            <Text testID="build-ask" style={styles.ask}>{ask}</Text>
+          {notice !== null && (
+            <Text testID="build-notice" style={styles.notice}>{notice}</Text>
           )}
           {error !== null && (
             <Text testID="build-error" style={styles.error}>{error}</Text>
           )}
-
-          {/* One question per open request, each with its own answer box. They
-              are shown together rather than one at a time so the user can see
-              everything that was understood — and everything that was not. */}
-          {open.map((c) => (
-            <View key={c.id} testID={`build-question-${c.id}`} style={styles.question}>
-              <Text style={styles.ask}>{c.question}</Text>
-              <TextInput
-                testID={`build-answer-${c.id}`}
-                style={styles.answer}
-                value={drafts[c.id] ?? ''}
-                onChangeText={(v) => setDrafts((d) => ({ ...d, [c.id]: v }))}
-                multiline
-                textAlignVertical="top"
-                editable={!busy}
-              />
-              <Button
-                testID={`build-answer-submit-${c.id}`}
-                label="Answer"
-                disabled={busy || !(drafts[c.id] ?? '').trim()}
-                onPress={() => void onAnswer(c.id)}
-              />
-            </View>
-          ))}
 
           <Button
             testID="build-submit"
@@ -217,6 +135,23 @@ export default function BuildScreen() {
             onPress={() => void onBuild()}
             style={styles.submit}
           />
+
+          {/* A build takes 4–9 seconds — 068 Chunk 7a. Five seconds of nothing
+              is where a person taps again or leaves, so say what is happening.
+
+              **No progress bar and no percentage.** Latency tracks how long the
+              track turns out to be, which is the one thing we cannot know in
+              advance, so a bar would be a guess presented as a measurement.
+              Kept in step with the web screen, same words. */}
+          {busy && (
+            <View testID="build-waiting" style={styles.waiting}>
+              <ActivityIndicator color={colors.textMuted} />
+              <Text style={styles.waitingText}>
+                Reading what you wrote and picking the topics that serve it. This
+                takes a few seconds — the more you told me, the longer it takes.
+              </Text>
+            </View>
+          )}
         </Card>
       </ScrollView>
     </SafeAreaView>
@@ -225,6 +160,8 @@ export default function BuildScreen() {
 
 const styles = StyleSheet.create({
   safe:     { flex: 1, backgroundColor: colors.bg },
+  back:     { alignSelf: 'flex-start', paddingVertical: spacing.xs, paddingRight: spacing.md },
+  backText: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
   content:  { padding: spacing.lg, gap: spacing.md },
   title:    { fontFamily: font.bold, fontSize: fontSize.xl, color: colors.textDark },
   subtitle: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
@@ -251,6 +188,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   ask:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textDark },
+  waiting:     { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
+  waitingText: { flex: 1, fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
+  notice: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
   error:  { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
   submit: { marginTop: spacing.xs },
 });

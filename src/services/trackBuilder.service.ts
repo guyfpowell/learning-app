@@ -84,19 +84,15 @@ export interface CloudTerm {
   request: string;
 }
 
-export interface ChunkTurn {
-  sessionId?: string | null;
-  chunks: RequestChunk[];
-  questions: string[];
-  /** What we understood, in their words. Shown between asking and answering. */
-  cloud?: CloudTerm[];
-  shouldAsk: boolean;
-  plan: BuiltPlan | null;
-  /** Set by /negate when the negation named nothing. */
-  negationQuestion?: string | null;
-}
-
 export interface BuiltPlan {
+  /**
+   * Which engine built this — ticket 068. `local-fallback` means Claude was
+   * selected and the call failed, so the plan is worse than it should be and
+   * the record says so rather than hiding it.
+   */
+  engine?: 'local' | 'claude' | 'local-fallback';
+  /** Rule 5 — what we do not teach. Empty when there is nothing to say. */
+  notCovered?: string;
   shouldAsk: boolean
   /**
    * The loop gave up asking and built with what it had, rather than building
@@ -184,37 +180,22 @@ export const trackBuilderService = {
    * Answer ONE open request. The others are untouched — an answer about which
    * parts of AI says nothing about what understanding a tech lead means.
    */
-  async answerChunk(
-    chunks: RequestChunk[], chunkId: string, answer: string, sessionId?: string | null,
-  ): Promise<ChunkTurn> {
-    const { data } = await api.post<ChunkTurn>('/track-builder/answer', {
-      chunks, chunkId, answer, sessionId: sessionId ?? null,
-    });
-    return data;
-  },
-
-  /** The only turn that removes a request. */
-  async negateChunk(
-    chunks: RequestChunk[], negated: string, sessionId?: string | null,
-  ): Promise<ChunkTurn> {
-    const { data } = await api.post<ChunkTurn>('/track-builder/negate', {
-      chunks, negated, sessionId: sessionId ?? null,
-    });
-    return data;
-  },
+  // `answerChunk` and `negateChunk` went on 2026-09-08 — 068 Chunk 6b. The
+  // routes behind them went with the local classifier's question loop.
 
   /**
-   * `chunks` are the requests the plan was built from, and they matter:
-   * a removal is matched against the words the user used for each request, so
-   * without them "take out the job stuff" names nothing and comes back as a
-   * question instead of being acted on.
+   * Apply a follow-up to an existing plan.
+   *
+   * `action` is decided server-side so the rule that protects the plan — a
+   * control intent must never rebuild it — cannot be forgotten in a UI, on
+   * either platform.
    */
   async refinePlan(
     statement: string, plan: BuiltPlanTopic[], sessionId?: string | null,
-    chunks?: RequestChunk[],
+    chunks: RequestChunk[] = [],
   ): Promise<RefinedPlan> {
     const { data } = await api.post<RefinedPlan>('/track-builder/refine', {
-      statement, plan, sessionId: sessionId ?? null, chunks: chunks ?? [],
+      statement, plan, sessionId: sessionId ?? null, chunks,
     });
     return data;
   },
@@ -223,6 +204,12 @@ export const trackBuilderService = {
     name: string;
     planJson: { topics: TrackPlanTopic[] };
     inputJson: { turns: TrackBuilderTurn[]; maxClosureHops?: number | null };
+    /**
+     * Which engine built it — 068 Chunk 4. Carried from the build rather than
+     * read from config at save time, which would lie the moment anyone
+     * flipped the toggle between building and accepting.
+     */
+    classifierEngine?: 'local' | 'claude' | 'local-fallback' | null;
   }): Promise<TrackPlan> {
     const { data } = await api.post<TrackPlan>('/track-plans', input);
     return data;

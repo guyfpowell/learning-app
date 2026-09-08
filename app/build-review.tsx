@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
@@ -7,9 +7,10 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useDraftStore } from '@/store/trackBuilder.store';
-import { useRefinePlan, useCreateTrackPlan, useBuildPlan } from '@/hooks/useTrackBuilder';
+import { useRefinePlan, useCreateTrackPlan } from '@/hooks/useTrackBuilder';
 import type { BuiltPlanTopic } from '@/services/trackBuilder.service';
 import { extractError } from '@/lib/errors';
+import { PLAN_FOLLOW_UP_ENABLED } from '@learning/shared';
 
 /**
  * Review the built path — ticket 049 Chunk 5, mobile parity with the web
@@ -25,11 +26,10 @@ import { extractError } from '@/lib/errors';
  * 060 harness, where a correctly-detected refinement destroyed the plan.
  */
 
-const CLOSURE_OPTIONS: { value: number | null; label: string }[] = [
-  { value: null, label: 'Everything' },
-  { value: 1, label: 'Just the basics' },
-  { value: 0, label: 'None' },
-];
+// The closure-depth control went on 2026-09-08 — 068 Chunk 7b. It chose how
+// many prerequisite hops to pull in, and 049f had already removed closure. Worse
+// than inert: every tap called `rebuild`, a real API call and another five
+// seconds, and came back with the same topics.
 
 export default function BuildReviewScreen() {
   const router = useRouter();
@@ -37,7 +37,6 @@ export default function BuildReviewScreen() {
 
   const [name, setName] = useState('');
   const [followUp, setFollowUp] = useState('');
-  const [closureDepth, setClosureDepth] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastChange, setLastChange] = useState<
@@ -45,7 +44,6 @@ export default function BuildReviewScreen() {
   >(null);
 
   const refine = useRefinePlan();
-  const rebuild = useBuildPlan();
   const createPlan = useCreateTrackPlan();
 
   useEffect(() => {
@@ -76,8 +74,11 @@ export default function BuildReviewScreen() {
         },
         inputJson: {
           turns: [{ text: draft.statement, level: result.level }],
-          maxClosureHops: closureDepth,
         },
+        // Which engine built it — 068 Chunk 4. Carried from the build, not read
+        // from config at save time, which would lie the moment anyone flipped
+        // the toggle between building and accepting.
+        classifierEngine: result.engine ?? null,
       });
       clearDraft();
       router.replace(`/(tabs)/lessons?plan=${created.id}`);
@@ -87,18 +88,6 @@ export default function BuildReviewScreen() {
   };
 
   /** Re-request rather than filter: dropping hops changes what survives the cap. */
-  const onChangeDepth = async (depth: number | null) => {
-    setClosureDepth(depth);
-    setError(null);
-    try {
-      updateResult(await rebuild.mutateAsync({
-        statement: draft.statement, maxClosureHops: depth, sessionId: draft.sessionId,
-      }));
-    } catch (err) {
-      setError(extractError(err));
-    }
-  };
-
   const onFollowUp = async () => {
     if (followUp.trim().length === 0) return;
     setError(null);
@@ -159,13 +148,58 @@ export default function BuildReviewScreen() {
     setNotice('Put those back.');
   };
 
-  const chosen = result.topics.filter((t) => t.area !== null).length;
-  const groundwork = result.topics.length - chosen;
-  const busy = refine.isPending || rebuild.isPending || createPlan.isPending;
+  /**
+   * How many needs the track serves — 068 Chunk 7c.
+   *
+   * This used to split the plan into "matched what you asked for" and
+   * "groundwork they build on", by whether a topic carried the id of a request
+   * that lexically resolved to it. On the Claude path almost nothing does —
+   * that is the entire reason the model is there — so a 20-topic track read as
+   * "3 matched, plus 17 they build on". Every topic here was chosen for this
+   * person, and there is no groundwork: closure is gone.
+   */
+  const needCount = new Set(
+    result.topics.map((t) => t.reason).filter(Boolean),
+  ).size;
+
+  /**
+   * The track, grouped under the need each run serves — 068 Chunk 9b.
+   *
+   * The reason under every topic was the same sentence ten times in a row. No
+   * server change: topics come back in the model's order, needs in order and
+   * topics within them in order, so starting a new group when the reason
+   * changes reproduces its structure exactly. A topic with no need joins the
+   * group above it. Kept in step with the web screen.
+   */
+  const runs: { need: string; topics: typeof result.topics }[] = [];
+  for (const t of result.topics) {
+    const need = t.reason ?? '';
+    const last = runs[runs.length - 1];
+    if (!last || (need && need !== last.need)) runs.push({ need, topics: [t] });
+    else last.topics.push(t);
+  }
+  const busy = refine.isPending || createPlan.isPending;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* There is no header and no tab bar on these routes —
+            `_layout.tsx` sets `headerShown: false` and /build sits outside the
+            tabs — so without this the screen is a trap. 068 Chunk 9c.
+
+            It goes to the tabs rather than popping the stack: the build screen
+            can be arrived at from more than one place, and a blind `back()`
+            from a deep link lands nowhere. */}
+        <Pressable
+          testID="review-back"
+          onPress={() => router.replace('/(tabs)/lessons')}
+          accessibilityRole="button"
+          accessibilityLabel="Leave without saving this path"
+          style={styles.back}
+        >
+          <Text style={styles.backText}>‹  Not now</Text>
+        </Pressable>
+
         <Text style={styles.title}>Your path</Text>
 
         {/* Rule 6 — the loop settled rather than resolved. Say so: a plan built
@@ -188,70 +222,81 @@ export default function BuildReviewScreen() {
             placeholderTextColor={colors.textMuted}
           />
           <Text testID="plan-counts" style={styles.counts}>
-            {chosen} topic{chosen === 1 ? '' : 's'} matched what you asked for
-            {groundwork > 0 ? `, plus ${groundwork} that they build on` : ''}.
+            {result.topics.length} topic{result.topics.length === 1 ? '' : 's'}, chosen for
+            what you described
+            {needCount > 0
+              ? `, across ${needCount} thing${needCount === 1 ? '' : 's'} you need to be able to do`
+              : ''}.
           </Text>
-
-          <Text style={styles.label}>Groundwork</Text>
-          <View style={styles.chips}>
-            {CLOSURE_OPTIONS.map((opt) => (
-              <Button
-                key={opt.label}
-                testID={`closure-${opt.label}`}
-                label={opt.label}
-                variant={closureDepth === opt.value ? 'primary' : 'outline'}
-                disabled={busy}
-                onPress={() => void onChangeDepth(opt.value)}
-                style={styles.chip}
-              />
-            ))}
-          </View>
         </Card>
 
         <Card style={styles.card}>
-          {result.topics.map((t) => (
-            <View key={t.stableKey} style={styles.topic}>
-              <Text style={styles.topicName}>{t.topicName}</Text>
-              <View style={styles.badges}>
-                <Badge label={t.level} variant="info" />
-                {/* Groundwork is neutral information, not a warning — but the
-                    palette has no neutral, so `info` for chosen and `warning`
-                    for groundwork keeps them visually distinct. */}
-                <Badge
-                  label={t.area ?? 'Groundwork'}
-                  variant={t.area !== null ? 'success' : 'warning'}
-                />
-              </View>
+          {runs.map((run, i) => (
+            <View key={i} style={styles.run}>
+              {/* The need, as the heading for the run that serves it — the
+                  model's own words about this person. 068 Chunk 9b. */}
+              {run.need ? (
+                <Text testID={`run-need-${i}`} style={styles.runNeed}>{run.need}</Text>
+              ) : null}
+              {run.topics.map((t) => (
+                <View key={t.stableKey} style={styles.topic}>
+                  <Text style={styles.topicName}>{t.topicName}</Text>
+                  <View style={styles.badges}>
+                    <Badge label={t.level} variant="info" />
+                  </View>
+                </View>
+              ))}
             </View>
           ))}
         </Card>
 
-        <Card style={styles.card}>
-          <Text style={styles.label}>Change anything</Text>
-          <TextInput
-            testID="follow-up"
-            style={styles.followUp}
-            value={followUp}
-            onChangeText={setFollowUp}
-            placeholder="e.g. I don’t want the management stuff"
-            placeholderTextColor={colors.textMuted}
-            multiline
-            editable={!busy}
-          />
-          <Button
-            testID="follow-up-submit"
-            label={refine.isPending ? 'Updating…' : 'Update my path'}
-            variant="outline"
-            disabled={busy || followUp.trim().length === 0}
-            onPress={() => void onFollowUp()}
-          />
-          {notice !== null && (
-            <Text testID="refine-notice" style={styles.notice}>{notice}</Text>
-          )}
-          {lastChange !== null && lastChange.removed > 0 && (
-            <Button testID="refine-undo" label="Undo" variant="outline" onPress={undo} />
-          )}
-        </Card>
+        {/* Rule 5 — what we do not teach, said plainly and never swapped for
+            the nearest thing we do.
+
+            **After the track, not before it** — 068 Chunk 9d. It sat above the
+            track until someone used it: you wait six seconds and the first
+            thing under the name is what you are not getting. Rule 5 says say it
+            plainly, not say it first. Kept in step with the web screen. */}
+        {result.notCovered ? (
+          <Card style={styles.card}>
+            <Text style={styles.label}>What this doesn’t cover</Text>
+            <Text testID="not-covered" style={styles.notCovered}>{result.notCovered}</Text>
+          </Card>
+        ) : null}
+
+        {/* The "change anything" box — 068 Chunk 7d. **Hidden, not deleted.**
+            Refinement runs on cue words only since the local classifier went, so
+            a follow-up without one leaves the plan alone and says it did not
+            understand. Flip `PLAN_FOLLOW_UP_ENABLED` to bring it back. Kept in
+            step with the web screen. */}
+        {PLAN_FOLLOW_UP_ENABLED && (
+          <Card style={styles.card}>
+            <Text style={styles.label}>Change anything</Text>
+            <TextInput
+              testID="follow-up"
+              style={styles.followUp}
+              value={followUp}
+              onChangeText={setFollowUp}
+              placeholder="e.g. I don’t want the management stuff"
+              placeholderTextColor={colors.textMuted}
+              multiline
+              editable={!busy}
+            />
+            <Button
+              testID="follow-up-submit"
+              label={refine.isPending ? 'Updating…' : 'Update my path'}
+              variant="outline"
+              disabled={busy || followUp.trim().length === 0}
+              onPress={() => void onFollowUp()}
+            />
+            {notice !== null && (
+              <Text testID="refine-notice" style={styles.notice}>{notice}</Text>
+            )}
+            {lastChange !== null && lastChange.removed > 0 && (
+              <Button testID="refine-undo" label="Undo" variant="outline" onPress={undo} />
+            )}
+          </Card>
+        )}
 
         {error !== null && (
           <Text testID="review-error" style={styles.error}>{error}</Text>
@@ -270,6 +315,8 @@ export default function BuildReviewScreen() {
 
 const styles = StyleSheet.create({
   safe:      { flex: 1, backgroundColor: colors.bg },
+  back:      { alignSelf: 'flex-start', paddingVertical: spacing.xs, paddingRight: spacing.md },
+  backText:  { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
   content:   { padding: spacing.lg, gap: spacing.md },
   settled: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textDark },
   title:     { fontFamily: font.bold, fontSize: fontSize.xl, color: colors.textDark },
@@ -283,8 +330,6 @@ const styles = StyleSheet.create({
     padding: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: 8,
   },
   counts:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
-  chips:     { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
-  chip:      { flexGrow: 1 },
   topic:     { gap: spacing.xs, paddingVertical: spacing.xs },
   topicName: { fontFamily: font.medium, fontSize: fontSize.md, color: colors.textDark },
   badges:    { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
@@ -294,5 +339,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border, borderRadius: 8, textAlignVertical: 'top',
   },
   notice:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textDark },
+  run:     { marginBottom: spacing.md },
+  runNeed: { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.textDark, marginBottom: spacing.xs },
+  notCovered: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
   error:     { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
 });

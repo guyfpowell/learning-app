@@ -19,30 +19,16 @@ export function useBuildPlan() {
   });
 }
 
-/**
- * Answer one open request. A mutation for the same reason building is: the
- * server records the turn, and there is nothing here worth caching.
- */
-export function useAnswerChunk() {
-  return useMutation({
-    mutationFn: (v: {
-      chunks: RequestChunk[]; chunkId: string; answer: string; sessionId?: string | null;
-    }) => trackBuilderService.answerChunk(v.chunks, v.chunkId, v.answer, v.sessionId),
-  });
-}
-
-/** The only turn that removes a request. */
-export function useNegateChunk() {
-  return useMutation({
-    mutationFn: (v: { chunks: RequestChunk[]; negated: string; sessionId?: string | null }) =>
-      trackBuilderService.negateChunk(v.chunks, v.negated, v.sessionId),
-  });
-}
+// `useAnswerChunk` and `useNegateChunk` went on 2026-09-08 — 068 Chunk 6b,
+// with the question loop they drove. Refinement stays: it runs on cue words
+// ("take out", "drop", "keep"), which never needed the model.
 
 export function useRefinePlan() {
   return useMutation({
     mutationFn: (v: {
-      statement: string; plan: BuiltPlanTopic[]; sessionId?: string | null;
+      statement: string;
+      plan: BuiltPlanTopic[];
+      sessionId?: string | null;
       chunks?: RequestChunk[];
     }) => trackBuilderService.refinePlan(v.statement, v.plan, v.sessionId, v.chunks),
   });
@@ -55,6 +41,8 @@ export function useCreateTrackPlan() {
       name: string;
       planJson: { topics: TrackPlanTopic[] };
       inputJson: { turns: TrackBuilderTurn[]; maxClosureHops?: number | null };
+      /** Which engine built it — 068 Chunk 4. */
+      classifierEngine?: 'local' | 'claude' | 'local-fallback' | null;
     }) => trackBuilderService.createPlan(v),
     onSuccess: () => {
       // Custom plans take precedence on the home surface, so both caches move.

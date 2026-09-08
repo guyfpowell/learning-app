@@ -11,6 +11,7 @@ module.exports = {
   transformIgnorePatterns: [
     'node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|@tanstack|zustand))',
   ],
-  testPathIgnorePatterns: ['/node_modules/', '/.expo/'],
+  // `/archived/` holds retired code kept for reading only — 068 Chunk 6.
+  testPathIgnorePatterns: ['/node_modules/', '/.expo/', '/archived/'],
   forceExit: true,
 };
