@@ -1,8 +1,19 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import LessonsScreen from '../lessons';
-import { useEnrollments, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
+import { useEnrollments, useCustomPlans, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
+
+jest.mock('@/components/ui/Ring', () => ({
+  Ring: (props: { value: number; label?: string }) => {
+    const React = require('react');
+    const { View, Text } = require('react-native');
+    return React.createElement(
+      View, { testID: 'streak-ring' },
+      React.createElement(Text, { testID: 'streak-ring-label' }, props.label)
+    );
+  },
+}));
 
 const mockPush = jest.fn();
 const mockSkipTopicMutate = jest.fn();
@@ -10,6 +21,7 @@ const mockSkipLevelMutate = jest.fn();
 
 jest.mock('@/hooks/useTrack', () => ({
   useEnrollments: jest.fn(),
+  useCustomPlans: jest.fn(),
   useSkipTopic: jest.fn(),
   useSkipLevel: jest.fn(),
 }));
@@ -80,14 +92,29 @@ function setEnrollmentsMock(data?: unknown[]) {
   (useEnrollments as jest.Mock).mockReturnValue({ data });
 }
 
+function setCustomPlansMock(data?: unknown[]) {
+  (useCustomPlans as jest.Mock).mockReturnValue({ data });
+}
+
 function setProgressMock(data?: unknown) {
   (useProgress as jest.Mock).mockReturnValue({ data });
 }
+
+const mockCustomPlan = {
+  id: 'plan-1',
+  name: 'My Product Leadership Path',
+  nextLesson: { id: 'lesson-next', title: 'Stakeholder Management Fundamentals' },
+  totalLessons: 20,
+  completedLessons: 5,
+  percentComplete: 25,
+  unresolvedTopics: 0,
+};
 
 describe('LessonsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setEnrollmentsMock(undefined);
+    setCustomPlansMock(undefined);
     setProgressMock(undefined);
     (useSkipTopic as jest.Mock).mockReturnValue({ mutate: mockSkipTopicMutate, isPending: false });
     (useSkipLevel as jest.Mock).mockReturnValue({ mutate: mockSkipLevelMutate, isPending: false });
@@ -97,29 +124,46 @@ describe('LessonsScreen', () => {
     expect(() => render(<LessonsScreen />)).not.toThrow();
   });
 
-  describe('streak card (ticket 019 ch5)', () => {
-    it('shows streak card when currentStreak > 0', () => {
+  describe('streak hero (069 A9)', () => {
+    it('shows streak hero when progress data exists and track enrolled', () => {
       setProgressMock(mockProgress);
+      setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('streak-card')).toBeTruthy();
+      expect(screen.getByTestId('streak-hero')).toBeTruthy();
     });
 
-    it('shows streak day count in streak card', () => {
+    it('shows the Ring inside the streak hero', () => {
       setProgressMock(mockProgress);
+      setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.getByText('5 day streak')).toBeTruthy();
+      expect(screen.getByTestId('streak-ring')).toBeTruthy();
     });
 
-    it('shows streak card at streak 0 with zero-state copy', () => {
+    it('passes streak count as ring label', () => {
+      setProgressMock({ ...mockProgress, currentStreak: 7 });
+      setEnrollmentsMock([mockEnrollment]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('streak-ring-label').props.children).toBe('7');
+    });
+
+    it('shows zero-state copy when streak is 0', () => {
       setProgressMock({ ...mockProgress, currentStreak: 0 });
+      setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('streak-card')).toBeTruthy();
       expect(screen.getByText('Complete a lesson today to start your streak')).toBeTruthy();
     });
 
-    it('does not show streak card when progress is undefined', () => {
+    it('does not show streak hero when progress is undefined', () => {
+      setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.queryByTestId('streak-card')).toBeNull();
+      expect(screen.queryByTestId('streak-hero')).toBeNull();
+    });
+
+    it('does not show streak hero while no track is enrolled', () => {
+      setProgressMock(mockProgress);
+      setEnrollmentsMock([]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('streak-hero')).toBeNull();
     });
   });
 
@@ -391,19 +435,19 @@ describe('LessonsScreen', () => {
 
     // A brand-new user used to meet a 0-day streak, 0 lessons and 0% average
     // before reaching the one action open to them.
-    it('suppresses the zeroed streak card while no track is enrolled', () => {
+    it('suppresses the zeroed streak hero while no track is enrolled', () => {
       setEnrollmentsMock([]);
       setProgressMock(mockProgress);
       render(<LessonsScreen />);
-      expect(screen.queryByTestId('streak-card')).toBeNull();
+      expect(screen.queryByTestId('streak-hero')).toBeNull();
       expect(screen.queryByTestId('streak-banner')).toBeNull();
     });
 
-    it('shows the streak card again once a track is enrolled', () => {
+    it('shows the streak hero again once a track is enrolled', () => {
       setEnrollmentsMock([mockEnrollment]);
       setProgressMock(mockProgress);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('streak-card')).toBeTruthy();
+      expect(screen.getByTestId('streak-hero')).toBeTruthy();
     });
   });
 
@@ -443,6 +487,87 @@ describe('LessonsScreen', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
       expect(screen.queryByTestId('active-track-label-skill-1')).toBeNull();
+    });
+  });
+
+  describe('custom plans section (ticket 071)', () => {
+    it('does not render the custom-plans section when customPlans is empty', () => {
+      setCustomPlansMock([]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('custom-plans-section')).toBeNull();
+    });
+
+    it('does not render the custom-plans section when customPlans is undefined', () => {
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('custom-plans-section')).toBeNull();
+    });
+
+    it('renders the custom-plans section when customPlans is non-empty', () => {
+      setCustomPlansMock([mockCustomPlan]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('custom-plans-section')).toBeTruthy();
+    });
+
+    it('renders the plan name', () => {
+      setCustomPlansMock([mockCustomPlan]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('custom-plan-name-plan-1')).toBeTruthy();
+      expect(screen.getByText('My Product Leadership Path')).toBeTruthy();
+    });
+
+    it('renders the next lesson title and Start Lesson button when nextLesson is set', () => {
+      setCustomPlansMock([mockCustomPlan]);
+      render(<LessonsScreen />);
+      expect(screen.getByText('Stakeholder Management Fundamentals')).toBeTruthy();
+      expect(screen.getByTestId('custom-plan-btn-plan-1')).toBeTruthy();
+    });
+
+    it('navigates to the lesson route when Start Lesson is pressed', () => {
+      setCustomPlansMock([mockCustomPlan]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('custom-plan-btn-plan-1'));
+      expect(mockPush).toHaveBeenCalledWith('/(tabs)/lesson/lesson-next');
+    });
+
+    it('shows no-lesson fallback when nextLesson is null', () => {
+      setCustomPlansMock([{ ...mockCustomPlan, nextLesson: null }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('custom-plan-no-lesson-plan-1')).toBeTruthy();
+      expect(screen.queryByTestId('custom-plan-btn-plan-1')).toBeNull();
+    });
+
+    it('shows unresolved-topics note when unresolvedTopics > 0', () => {
+      setCustomPlansMock([{ ...mockCustomPlan, unresolvedTopics: 3 }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('plan-unresolved-plan-1')).toBeTruthy();
+      expect(screen.getByText('3 topics not yet available')).toBeTruthy();
+    });
+
+    it('uses singular "topic" when unresolvedTopics is 1', () => {
+      setCustomPlansMock([{ ...mockCustomPlan, unresolvedTopics: 1 }]);
+      render(<LessonsScreen />);
+      expect(screen.getByText('1 topic not yet available')).toBeTruthy();
+    });
+
+    it('does not show unresolved-topics note when unresolvedTopics is 0', () => {
+      setCustomPlansMock([mockCustomPlan]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('plan-unresolved-plan-1')).toBeNull();
+    });
+
+    it('suppresses NoTrackNotice when user has no enrollments but has a custom plan', () => {
+      setEnrollmentsMock([]);
+      setCustomPlansMock([mockCustomPlan]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('no-track-notice')).toBeNull();
+    });
+
+    it('shows streak hero when user has a custom plan but no enrollments', () => {
+      setEnrollmentsMock([]);
+      setCustomPlansMock([mockCustomPlan]);
+      setProgressMock(mockProgress);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('streak-hero')).toBeTruthy();
     });
   });
 });

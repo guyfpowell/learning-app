@@ -33,7 +33,7 @@ describe('TrackMap', () => {
       baseLevel,
       { ...baseLevel, level: 'intermediate', levelNum: 2, completedLessons: 0 },
     ];
-    render(<TrackMap levels={levels} currentLevel="beginner" />);
+    render(<TrackMap levels={levels} />);
     expect(screen.getAllByTestId('track-map-level')).toHaveLength(2);
   });
 });

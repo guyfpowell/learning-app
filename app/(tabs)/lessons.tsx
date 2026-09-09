@@ -5,12 +5,12 @@ import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { useEnrollments, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
+import { useEnrollments, useCustomPlans, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
 import type { TrackEnrollmentWithProgress } from '@learning/shared';
 import { TrackMap } from '@/components/ui/TrackMap';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
-import { FlameIcon } from '@/components/ui/Streak';
+import { Ring } from '@/components/ui/Ring';
 
 const difficultyVariant = {
   beginner:     'success',
@@ -50,6 +50,7 @@ function ProgressBar({ value }: { value: number }) {
 
 export default function LessonsScreen() {
   const { data: enrollmentsData } = useEnrollments();
+  const { data: customPlans } = useCustomPlans();
   const { data: progress } = useProgress();
   const router = useRouter();
   const skipTopic = useSkipTopic();
@@ -61,17 +62,64 @@ export default function LessonsScreen() {
   const completedEnrollments: TrackEnrollmentWithProgress[] =
     enrollmentsData?.filter(e => e.percentComplete >= 100) ?? [];
   const hasNoEnrollments = Array.isArray(enrollmentsData) && enrollmentsData.length === 0;
+  // A user with custom plans but no track enrollment still has content — don't show NoTrackNotice.
+  const hasNoContent = hasNoEnrollments && (!customPlans || customPlans.length === 0);
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
 
         {/* First thing on the screen — 069 items 1+2. It used to render below the
-            streak card and the stats row, so a brand-new user met a wall of zeros
+            streak hero and the stats row, so a brand-new user met a wall of zeros
             before reaching the one action available to them. */}
-        {hasNoEnrollments && <NoTrackNotice />}
+        {hasNoContent && <NoTrackNotice />}
 
-        {progress && !hasNoEnrollments && progress.currentStreak > 3 && (
+        {/* Custom-built plans from the Albert track builder (ticket 071).
+            Rendered before enrollments and the streak hero per backend comment. */}
+        {customPlans && customPlans.length > 0 && (
+          <View testID="custom-plans-section" style={styles.section}>
+            <Text style={styles.sectionHeading}>My Path</Text>
+            {customPlans.map(plan => {
+              const pct = plan.totalLessons === 0 ? 0 : Math.min(100, Math.round(plan.percentComplete));
+              return (
+                <Card key={plan.id} testID={`custom-plan-card-${plan.id}`} style={styles.nextLessonCard}>
+                  <Text testID={`custom-plan-name-${plan.id}`} style={styles.nextLessonTrackName}>
+                    {plan.name}
+                  </Text>
+                  <View style={styles.enrollmentHeader}>
+                    <Text style={styles.pctText}>{pct}% complete</Text>
+                  </View>
+                  <ProgressBar value={pct} />
+                  <Text style={styles.lessonsCount}>
+                    {plan.completedLessons} of {plan.totalLessons} lessons complete
+                  </Text>
+                  {plan.unresolvedTopics > 0 && (
+                    <Text testID={`plan-unresolved-${plan.id}`} style={styles.noNextLesson}>
+                      {plan.unresolvedTopics} topic{plan.unresolvedTopics !== 1 ? 's' : ''} not yet available
+                    </Text>
+                  )}
+                  {plan.nextLesson ? (
+                    <>
+                      <Text style={styles.nextLessonTitle}>{plan.nextLesson.title}</Text>
+                      <Button
+                        testID={`custom-plan-btn-${plan.id}`}
+                        label="Start Lesson →"
+                        style={styles.continueBtn}
+                        onPress={() => router.push(`/(tabs)/lesson/${plan.nextLesson!.id}`)}
+                      />
+                    </>
+                  ) : (
+                    <Text testID={`custom-plan-no-lesson-${plan.id}`} style={styles.noNextLesson}>
+                      No lessons available yet.
+                    </Text>
+                  )}
+                </Card>
+              );
+            })}
+          </View>
+        )}
+
+        {progress && !hasNoContent && progress.currentStreak > 3 && (
           <View testID="streak-banner" style={styles.streakBanner}>
             <Text style={styles.streakBannerText}>
               {'You\'re on a '}
@@ -81,14 +129,23 @@ export default function LessonsScreen() {
           </View>
         )}
 
-        {progress && !hasNoEnrollments && (
-          <Card testID="streak-card" style={styles.streakCard}>
-            <View style={styles.streakRow}>
-              <FlameIcon size={24} />
-              <Text style={styles.streakNumber}>{progress.currentStreak} day streak</Text>
+        {/* Streak hero — 069 A9.
+            Ring re-tasks the kit's daily-goal ring to show the streak count.
+            No target, no denominator, no "X of Y" — streak presence only.
+            Value normalised against 30 days so the ring fills gradually. */}
+        {progress && !hasNoContent && (
+          <View testID="streak-hero" style={styles.streakHero}>
+            <Ring
+              value={Math.min(100, (progress.currentStreak / 30) * 100)}
+              size={84}
+              stroke={9}
+              label={String(progress.currentStreak)}
+            />
+            <View style={styles.streakHeroText}>
+              <Text style={styles.streakHeroLabel}>Day streak</Text>
+              <Text style={styles.streakHeroCopy}>{streakCopy(progress.currentStreak)}</Text>
             </View>
-            <Text style={styles.streakCopyText}>{streakCopy(progress.currentStreak)}</Text>
-          </Card>
+          </View>
         )}
 
         {activeEnrollments.length > 0 && (
@@ -165,7 +222,7 @@ export default function LessonsScreen() {
                   </View>
                   <ProgressBar value={pct} />
                   {e.levels?.length > 0 && (
-                    <TrackMap levels={e.levels} currentLevel={level} />
+                    <TrackMap levels={e.levels} />
                   )}
                   <Text style={styles.motivationText}>{trackMotivation(e, pct)}</Text>
                   <Text style={styles.lessonsCount}>
@@ -194,68 +251,71 @@ export default function LessonsScreen() {
           </View>
         )}
 
-        {progress && !hasNoEnrollments && (
-          <View style={styles.statsRow}>
-            <Card style={styles.statCard}>
-              <Text style={styles.statValue}>{progress.totalLessonsCompleted}</Text>
-              <Text style={styles.statLabel}>Lessons Completed</Text>
-            </Card>
-            <Card style={styles.statCard}>
-              <Text style={styles.statValue}>{Math.round(progress.averageScore)}%</Text>
-              <Text style={styles.statLabel}>Avg Score</Text>
-            </Card>
-          </View>
-        )}
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: colors.paper },
   content:   { padding: spacing.md, flexGrow: 1 },
-  card: { gap: spacing.md },
-  quizBtn: { marginTop: spacing.sm },
-  emptyTitle: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.md,
-    color:      colors.textDark,
+
+  // ── Streak hero (069 A9) ─────────────────────────────────────────────────
+  // Replaces the old streak card — ring + label + copy, row layout matching the kit.
+  streakHero: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    gap:            spacing.lg,
+    marginBottom:   spacing.md,
+    padding:        spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius:   16,
   },
-  emptyBody: {
-    fontFamily: font.regular,
+  streakHeroText: {
+    flex: 1,
+    gap:  spacing.xs,
+  },
+  streakHeroLabel: {
+    fontFamily: font.semibold,
     fontSize:   fontSize.base,
-    color:      colors.textMuted,
+    color:      colors.textStrong,
   },
-  streakCard: {
-    gap:          spacing.xs,
-    marginBottom: spacing.md,
-  },
-  streakRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           spacing.sm,
-  },
-  // streakEmoji removed — replaced with FlameIcon SVG (069 A3)
-  streakNumber: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.md,
-    color:      colors.textDark,
-  },
-  streakCopyText: {
+  streakHeroCopy: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
     color:      colors.textMuted,
   },
+
+  // ── Streak banner ────────────────────────────────────────────────────────
+  streakBanner: {
+    padding:         spacing.sm,
+    backgroundColor: colors.coralSoft,
+    borderRadius:    8,
+    borderWidth:     1,
+    borderColor:     colors.coral + '40',
+    marginBottom:    spacing.sm,
+  },
+  streakBannerText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.coral,
+  },
+  streakBannerBold: {
+    fontFamily: font.semibold,
+  },
+
+  // ── Sections ─────────────────────────────────────────────────────────────
   section: {
     gap:          spacing.sm,
     marginBottom: spacing.md,
   },
   sectionHeading: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize:   fontSize.base,
-    color:      colors.textDark,
+    color:      colors.textStrong,
   },
+
+  // ── Enrollment card ───────────────────────────────────────────────────────
   enrollmentCard: {
     gap: spacing.sm,
   },
@@ -265,25 +325,25 @@ const styles = StyleSheet.create({
     alignItems:     'flex-start',
   },
   enrollmentTitle: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize:   fontSize.base,
-    color:      colors.textDark,
+    color:      colors.textStrong,
     flex:       1,
   },
   pctText: {
     fontFamily: font.medium,
     fontSize:   fontSize.sm,
-    color:      colors.teal,
+    color:      colors.brand,
   },
   progressTrack: {
     height:          6,
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderSubtle,
     borderRadius:    3,
     overflow:        'hidden',
   },
   progressFill: {
     height:          6,
-    backgroundColor: colors.teal,
+    backgroundColor: colors.brand,
     borderRadius:    3,
   },
   motivationText: {
@@ -296,6 +356,8 @@ const styles = StyleSheet.create({
     fontSize:   fontSize.sm,
     color:      colors.textMuted,
   },
+
+  // ── Next lesson card ──────────────────────────────────────────────────────
   nextLessonCard: {
     gap: spacing.sm,
   },
@@ -315,7 +377,7 @@ const styles = StyleSheet.create({
   nextLessonTitle: {
     fontFamily: font.medium,
     fontSize:   fontSize.sm,
-    color:      colors.textDark,
+    color:      colors.textStrong,
   },
   nextLessonMeta: {
     flexDirection: 'row',
@@ -340,46 +402,11 @@ const styles = StyleSheet.create({
   skipBtn: {
     marginTop: spacing.xs,
   },
+
+  // ── Completed card ────────────────────────────────────────────────────────
   completedCard: {
     flexDirection:  'row',
     justifyContent: 'space-between',
     alignItems:     'center',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap:           spacing.md,
-    marginTop:     spacing.lg,
-  },
-  statCard: {
-    flex:       1,
-    alignItems: 'center',
-    gap:        spacing.xs,
-  },
-  statValue: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.xl,
-    color:      colors.teal,
-  },
-  statLabel: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textMuted,
-    textAlign:  'center',
-  },
-  streakBanner: {
-    padding:         spacing.sm,
-    backgroundColor: colors.coralSoft,
-    borderRadius:    8,
-    borderWidth:     1,
-    borderColor:     colors.coral + '40',
-    marginBottom:    spacing.sm,
-  },
-  streakBannerText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.coral,
-  },
-  streakBannerBold: {
-    fontFamily: font.bold,
   },
 });

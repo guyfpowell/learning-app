@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -198,12 +198,12 @@ export default function TracksScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: colors.paper },
   content:   { padding: spacing.md, flexGrow: 1 },
   heading: {
-    fontFamily:   font.bold,
+    fontFamily:   font.semibold,
     fontSize:     fontSize.xl,
-    color:        colors.textDark,
+    color:        colors.textStrong,
     marginBottom: spacing.lg,
   },
   card: { gap: spacing.sm, marginBottom: spacing.md },
@@ -213,9 +213,9 @@ const styles = StyleSheet.create({
     gap:           spacing.xs,
   },
   skillName: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize:   fontSize.md,
-    color:      colors.textDark,
+    color:      colors.textStrong,
   },
   skillHours: {
     fontFamily: font.regular,
@@ -233,13 +233,13 @@ const styles = StyleSheet.create({
   activeText: {
     fontFamily: font.medium,
     fontSize:   fontSize.sm,
-    color:      colors.teal,
+    color:      colors.brand,
   },
   lockedBtn: {
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderSubtle,
   },
   makeActiveBtn: {
-    backgroundColor: colors.teal,
+    backgroundColor: colors.brand,
   },
   errorText: {
     fontFamily: font.regular,
@@ -253,18 +253,18 @@ const styles = StyleSheet.create({
     justifyContent:  'flex-end',
   },
   modalSheet: {
-    backgroundColor:     colors.white,
-    borderTopLeftRadius:  20,
-    borderTopRightRadius: 20,
+    backgroundColor:      colors.surface,
+    borderTopLeftRadius:  radius.xl,
+    borderTopRightRadius: radius.xl,
     padding:              spacing.xl,
     gap:                  spacing.md,
     alignItems:           'center',
   },
   modalIcon: { fontSize: 48 },
   modalTitle: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize:   fontSize.lg,
-    color:      colors.textDark,
+    color:      colors.textStrong,
     textAlign:  'center',
   },
   modalBody: {

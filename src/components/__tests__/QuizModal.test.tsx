@@ -695,10 +695,11 @@ describe('QuizModal', () => {
       explanation: 'Because it matches market needs.',
     };
 
-    it('correct: shows Explanation heading before the confirmed answer', () => {
+    it('correct: shows Explanation, then question and confirmed answer in the same box', () => {
       setQuizMock({ data: { ...mockResult, feedbacks: [correctFeedback] } });
       render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       expect(screen.getAllByText('Explanation').length).toBeGreaterThan(0);
+      expect(screen.getByText('What is product-market fit?')).toBeTruthy();
       expect(screen.getByText('✓ Your answer: Option A')).toBeTruthy();
     });
 

@@ -65,7 +65,7 @@ export default function SettingsScreen() {
   const saveError = updatePrefs.error ?? updateProfile.error;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} testID="settings-screen">
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.heading}>Settings</Text>
 
@@ -112,8 +112,8 @@ export default function SettingsScreen() {
                   testID="toggle-daily-reminder"
                   value={enableDailyReminder}
                   onValueChange={setEnableDailyReminder}
-                  trackColor={{ true: colors.teal }}
-                  thumbColor={colors.white}
+                  trackColor={{ true: colors.brand }}
+                  thumbColor={colors.surface}
                 />
               </View>
 
@@ -140,8 +140,8 @@ export default function SettingsScreen() {
                   testID="toggle-streak"
                   value={enableStreak}
                   onValueChange={setEnableStreak}
-                  trackColor={{ true: colors.teal }}
-                  thumbColor={colors.white}
+                  trackColor={{ true: colors.brand }}
+                  thumbColor={colors.surface}
                 />
               </View>
 
@@ -154,8 +154,8 @@ export default function SettingsScreen() {
                   testID="toggle-lesson-available"
                   value={enableLessonAvailable}
                   onValueChange={setEnableLessonAvailable}
-                  trackColor={{ true: colors.teal }}
-                  thumbColor={colors.white}
+                  trackColor={{ true: colors.brand }}
+                  thumbColor={colors.surface}
                 />
               </View>
             </>
@@ -181,16 +181,16 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: colors.paper },
   content: { padding: spacing.md, paddingBottom: spacing.xxl },
   heading: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize: fontSize.xl,
-    color: colors.textDark,
+    color: colors.textStrong,
     marginBottom: spacing.lg,
   },
   sectionLabel: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize: fontSize.sm,
     color: colors.textMuted,
     textTransform: 'uppercase',
@@ -200,9 +200,9 @@ const styles = StyleSheet.create({
   },
   card: { marginBottom: spacing.sm },
   userName: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize: fontSize.md,
-    color: colors.textDark,
+    color: colors.textStrong,
   },
   userEmail: {
     fontFamily: font.regular,
@@ -223,12 +223,12 @@ const styles = StyleSheet.create({
   toggleLabel: {
     fontFamily: font.regular,
     fontSize: fontSize.base,
-    color: colors.textDark,
+    color: colors.textStrong,
     flex: 1,
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderSubtle,
     marginVertical: spacing.xs,
   },
   pushEnabledText: {

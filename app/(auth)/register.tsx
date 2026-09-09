@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   heading: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize: fontSize.lg,
     color: colors.brand,
   },
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   linkBold: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
   },
 });
 

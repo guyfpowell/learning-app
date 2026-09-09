@@ -92,9 +92,13 @@ function signOutAndRedirect() {
 api.interceptors.response.use(
   (response) => {
     // Backend wraps every success response as { success, data, timestamp }.
-    // Unwrap here so services can treat response.data as the model directly.
+    // Unwrap so services can treat response.data as the model directly.
+    // When the backend sends extra top-level fields alongside `data` (e.g. `customPlans`
+    // on GET /enrollments), preserve them so callers can access both. For plain
+    // `{ success, data }` envelopes the behaviour is unchanged.
     if (response.data && typeof response.data === 'object' && 'success' in response.data && 'data' in response.data) {
-      response.data = response.data.data;
+      const { success: _s, timestamp: _ts, data: innerData, ...rest } = response.data as Record<string, unknown>;
+      response.data = Object.keys(rest).length > 0 ? { data: innerData, ...rest } : innerData;
     }
     return response;
   },

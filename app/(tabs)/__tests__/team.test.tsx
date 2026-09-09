@@ -163,7 +163,7 @@ describe('TeamScreen', () => {
 
     it('renders streak for member', () => {
       render(<TeamScreen />);
-      expect(screen.getByText('🔥 7')).toBeTruthy();
+      expect(screen.getByTestId('streak-count-u-1')).toBeTruthy();
     });
 
     it('renders lessons completed count', () => {
@@ -235,8 +235,8 @@ describe('TeamScreen', () => {
     it('returns amber at score 69', () => {
       expect(gapColor(69)).toBe('#F59E0B');
     });
-    it('returns teal at score 70', () => {
-      expect(gapColor(70)).toBe(colors.teal);
+    it('returns brand color at score 70', () => {
+      expect(gapColor(70)).toBe(colors.brand);
     });
   });
 

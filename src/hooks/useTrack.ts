@@ -8,10 +8,22 @@ export function useSkills() {
   });
 }
 
+/** Returns the user's track enrollments. Shape unchanged from before ticket 071. */
 export function useEnrollments() {
   return useQuery({
     queryKey: ['enrollments'],
     queryFn: () => trackService.getEnrollments(),
+    select: (d) => d.enrollments,
+  });
+}
+
+/** Returns custom-built plans from the Albert track builder (ticket 071).
+ *  Shares the ['enrollments'] cache with useEnrollments — one network call. */
+export function useCustomPlans() {
+  return useQuery({
+    queryKey: ['enrollments'],
+    queryFn: () => trackService.getEnrollments(),
+    select: (d) => d.customPlans,
   });
 }
 

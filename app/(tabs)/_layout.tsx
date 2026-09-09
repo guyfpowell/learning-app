@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Tabs } from 'expo-router';
 import { View, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, font, fontSize } from '@/theme';
+import { colors, font, fontSize, spacing } from '@/theme';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useCurrentUser, useResendVerification } from '@/hooks/useEmailVerification';
 
@@ -18,6 +19,11 @@ export default function TabsLayout() {
   // Register for push notifications once the authenticated tab shell mounts
   useNotifications();
 
+  // Safe-area insets — used to push the email verification banner below the
+  // notch / Dynamic Island. The banner renders outside any screen's SafeAreaView,
+  // so it sits at y=0 without this. (069 item 9)
+  const insets = useSafeAreaInsets();
+
   const { data: currentUser } = useCurrentUser();
   const resendVerification = useResendVerification();
   const [resendSent, setResendSent] = useState(false);
@@ -26,11 +32,13 @@ export default function TabsLayout() {
     <View style={{ flex: 1 }}>
       {currentUser && !currentUser.emailVerified && (
         <View
+          testID="email-verification-banner"
           style={{
             backgroundColor: '#fffbeb',
             borderBottomWidth: 1,
             borderBottomColor: '#fde68a',
-            paddingVertical: 10,
+            paddingTop: insets.top + spacing.sm,
+            paddingBottom: spacing.sm,
             paddingHorizontal: 16,
           }}
         >
@@ -57,11 +65,11 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: colors.teal,
+          tabBarActiveTintColor: colors.brand,
           tabBarInactiveTintColor: colors.textMuted,
           tabBarStyle: {
-            backgroundColor: colors.white,
-            borderTopColor: colors.border,
+            backgroundColor: colors.surface,
+            borderTopColor: colors.borderSubtle,
           },
           tabBarLabelStyle: {
             fontFamily: font.medium,

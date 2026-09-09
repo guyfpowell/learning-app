@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
@@ -45,6 +45,8 @@ export default function BuildReviewScreen() {
 
   const refine = useRefinePlan();
   const createPlan = useCreateTrackPlan();
+  // Prevents the !draft guard from bouncing back to /build after onAccept clears the draft.
+  const accepted = useRef(false);
 
   /** Back: pop the stack (lands on /build) if there is somewhere to go, else Tracks. */
   const handleBack = () => {
@@ -54,8 +56,7 @@ export default function BuildReviewScreen() {
 
   useEffect(() => {
     if (!draft) {
-      // Nothing to review — app restarted, or arrived here directly.
-      router.replace('/build');
+      if (!accepted.current) router.replace('/build');
       return;
     }
     setName(draft.result.name);
@@ -86,6 +87,7 @@ export default function BuildReviewScreen() {
         // the toggle between building and accepting.
         classifierEngine: result.engine ?? null,
       });
+      accepted.current = true;
       clearDraft();
       router.replace(`/(tabs)/lessons?plan=${created.id}`);
     } catch (err) {

@@ -77,7 +77,7 @@ function TrackAverageBadge({
  * Single component used by both the mid-capstone per-question view and the
  * terminal results view so both always share the same block order.
  *
- * Correct:   Explanation → Your answer (confirmed correct)
+ * Correct:   Explanation → Question + Your answer (confirmed correct)
  * Incorrect: Correct answer → Explanation → Question + your answer
  */
 function QuizFeedbackCard({ fb }: { fb: QuizFeedback }) {
@@ -89,8 +89,9 @@ function QuizFeedbackCard({ fb }: { fb: QuizFeedback }) {
           <Text style={styles.feedbackSectionLabel}>Explanation</Text>
           <Text style={styles.explanationText}>{fb.explanation}</Text>
         </View>
-        {/* 2. Confirmed correct answer */}
+        {/* 2. Question + confirmed correct answer */}
         <View style={styles.yourAnswerBox}>
+          <Text style={styles.feedbackQuestion}>{fb.question}</Text>
           <Text style={[styles.feedbackAnswerText, styles.correct]}>✓ Your answer: {fb.userAnswer}</Text>
         </View>
       </View>
