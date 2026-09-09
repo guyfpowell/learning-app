@@ -15,9 +15,32 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 const mockPush = jest.fn();
 const mockBuild = jest.fn();
 const mockSetDraft = jest.fn();
-
+const mockBack = jest.fn();
 const mockReplace = jest.fn();
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace }) }));
+let mockCanGoBack = false;
+
+/**
+ * 069 Chunk A6 — the back button is now in the native header (Stack.Screen
+ * headerLeft). Mock Stack.Screen to render headerLeft inline so the testID is
+ * findable by the test renderer.
+ */
+jest.mock('expo-router', () => ({
+  useRouter: () => ({
+    push: mockPush,
+    replace: mockReplace,
+    back: mockBack,
+    canGoBack: () => mockCanGoBack,
+  }),
+  Stack: {
+    Screen: ({ options }: any) => {
+      if (options?.headerLeft) {
+        const HeaderLeft = options.headerLeft;
+        return <HeaderLeft />;
+      }
+      return null;
+    },
+  },
+}));
 // `isPending` is react-query's, so the screen's `busy` cannot be driven by
 // resolving or hanging `mutateAsync` — it is read at render. The mock reflects
 // a variable the test sets, which is the only honest way to render the waiting
@@ -68,7 +91,7 @@ describe('when the build fails', () => {
     // 068 Chunk 9f. Red says "you broke something"; only "that's on us" earns it.
     mockBuild.mockRejectedValue({
       response: { data: {
-        error: 'Here’s how I read that: “You are the CEO of a bank.”\n\nTell us what you’re working on.',
+        error: `Here’s how I read that: "You are the CEO of a bank."\n\nTell us what you’re working on.`,
         code: 'TRACK_STATEMENT_TOO_THIN',
       } },
     });
@@ -114,16 +137,29 @@ describe('while a build is running', () => {
 });
 
 /**
- * 068 Chunk 9c — `_layout.tsx` sets `headerShown: false` and /build sits outside
- * the tabs, so without this the screen is a trap: no header, no tab bar, no way
- * back.
+ * 069 Chunk A6 — native header back replaces the hand-rolled "Not now" Pressable.
+ * Back falls to Tracks (the entry point), not Lessons.
  */
 describe('getting out', () => {
-  it('offers a way out, and goes to the tabs rather than popping blind', () => {
+  afterEach(() => {
+    mockBack.mockReset();
+    mockReplace.mockReset();
+    mockCanGoBack = false;
+  });
+
+  it('falls back to Tracks when there is nothing on the stack', () => {
+    mockCanGoBack = false;
     render(<BuildScreen />);
     fireEvent.press(screen.getByTestId('build-back'));
-    // `replace`, not `back()`: the screen can be arrived at from more than one
-    // place, and a blind pop from a deep link lands nowhere.
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lessons');
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/tracks');
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('pops the stack when there is somewhere to go back to', () => {
+    mockCanGoBack = true;
+    render(<BuildScreen />);
+    fireEvent.press(screen.getByTestId('build-back'));
+    expect(mockBack).toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

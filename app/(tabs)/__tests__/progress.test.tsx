@@ -2,14 +2,12 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import ProgressScreen from '../progress';
 import { useProgress } from '@/hooks/useProgress';
-import { useSavedLessons } from '@/hooks/useLesson';
 import { useEnrollments } from '@/hooks/useTrack';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 
 jest.mock('@/hooks/useProgress', () => ({ useProgress: jest.fn() }));
-jest.mock('@/hooks/useLesson', () => ({ useSavedLessons: jest.fn() }));
 jest.mock('@/hooks/useTrack', () => ({ useEnrollments: jest.fn() }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -29,6 +27,10 @@ const mockActiveEnrollment = {
   completedLessons: 3,
   totalLessons: 10,
   percentComplete: 30,
+  averageScore: null,
+  capstoneScore: null,
+  enrolledAt: new Date('2026-01-01T00:00:00.000Z'),
+  completedAt: null,
 };
 
 const mockCompletedEnrollment = {
@@ -37,6 +39,10 @@ const mockCompletedEnrollment = {
   completedLessons: 15,
   totalLessons: 15,
   percentComplete: 100,
+  averageScore: 85,
+  capstoneScore: 92,
+  enrolledAt: new Date('2026-01-01T00:00:00.000Z'),
+  completedAt: new Date('2026-03-01T00:00:00.000Z'),
 };
 
 function setMock(overrides: Record<string, unknown> = {}) {
@@ -51,7 +57,6 @@ function setMock(overrides: Record<string, unknown> = {}) {
 describe('ProgressScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (useSavedLessons as jest.Mock).mockReturnValue({ data: [] });
     (useEnrollments as jest.Mock).mockReturnValue({ data: undefined });
   });
 
@@ -102,6 +107,13 @@ describe('ProgressScreen', () => {
     expect(screen.getByText('82%')).toBeTruthy();
   });
 
+  it('rounds averageScore in the stats display', () => {
+    setMock({ data: { ...mockStats, averageScore: 83.33 } });
+    render(<ProgressScreen />);
+    expect(screen.getByText('83%')).toBeTruthy();
+    expect(screen.queryByText('83.33%')).toBeNull();
+  });
+
   it('shows last lesson date when available', () => {
     setMock({ data: mockStats });
     render(<ProgressScreen />);
@@ -113,13 +125,27 @@ describe('ProgressScreen', () => {
     render(<ProgressScreen />);
     expect(screen.queryByText(/Last lesson/i)).toBeNull();
   });
+
+  it('shows streak stat card with the flame SVG and count', () => {
+    setMock({ data: mockStats });
+    render(<ProgressScreen />);
+    expect(screen.getByTestId('progress-streak')).toBeTruthy();
+  });
+
+  it('streak is a hero card above the subordinate stats', () => {
+    setMock({ data: mockStats });
+    render(<ProgressScreen />);
+    expect(screen.getByTestId('progress-streak-card')).toBeTruthy();
+    expect(screen.getByTestId('progress-streak')).toBeTruthy();
+    expect(screen.getByTestId('progress-lessons-count')).toBeTruthy();
+    expect(screen.getByTestId('progress-avg-score')).toBeTruthy();
+  });
 });
 
 describe('ProgressScreen — enrollment cards', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useProgress as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: false });
-    (useSavedLessons as jest.Mock).mockReturnValue({ data: [] });
   });
 
   it('shows active enrollment card with track name and % complete', () => {
@@ -142,11 +168,46 @@ describe('ProgressScreen — enrollment cards', () => {
     expect(screen.getByText('Only 7 lessons to complete JavaScript Fundamentals!')).toBeTruthy();
   });
 
-  it('shows completed track with Completed badge', () => {
+  it('shows completed track with Terminus achievement badge', () => {
     (useEnrollments as jest.Mock).mockReturnValue({ data: [mockCompletedEnrollment] });
     render(<ProgressScreen />);
     expect(screen.getByText('React Basics')).toBeTruthy();
-    expect(screen.getByText('COMPLETED')).toBeTruthy();
+    expect(screen.getByText('TERMINUS')).toBeTruthy();
+  });
+
+  it('shows completed track with date and lessons total', () => {
+    (useEnrollments as jest.Mock).mockReturnValue({ data: [mockCompletedEnrollment] });
+    render(<ProgressScreen />);
+    expect(screen.getByTestId('completed-date-skill-2')).toBeTruthy();
+    expect(screen.getByText(/15 of 15 lessons/)).toBeTruthy();
+  });
+
+  it('shows capstone score on completed track card (preferred over average)', () => {
+    (useEnrollments as jest.Mock).mockReturnValue({ data: [mockCompletedEnrollment] });
+    render(<ProgressScreen />);
+    expect(screen.getByText('92%')).toBeTruthy();
+  });
+
+  it('shows average score on completed track card when no capstone', () => {
+    (useEnrollments as jest.Mock).mockReturnValue({
+      data: [{ ...mockCompletedEnrollment, capstoneScore: null }],
+    });
+    render(<ProgressScreen />);
+    expect(screen.getByText('85%')).toBeTruthy();
+  });
+
+  it('shows share and next-track buttons on completed track card', () => {
+    (useEnrollments as jest.Mock).mockReturnValue({ data: [mockCompletedEnrollment] });
+    render(<ProgressScreen />);
+    expect(screen.getByTestId('completed-share-skill-2')).toBeTruthy();
+    expect(screen.getByTestId('completed-next-track-skill-2')).toBeTruthy();
+  });
+
+  it('next-track button routes to tracks tab', () => {
+    (useEnrollments as jest.Mock).mockReturnValue({ data: [mockCompletedEnrollment] });
+    render(<ProgressScreen />);
+    fireEvent.press(screen.getByTestId('completed-next-track-skill-2'));
+    expect(mockPush).toHaveBeenCalledWith('/(tabs)/tracks');
   });
 
   it('shows both active and completed sections when both present', () => {
@@ -183,9 +244,16 @@ describe('ProgressScreen — enrollment cards', () => {
     render(<ProgressScreen />);
     expect(screen.queryByText('Active Tracks')).toBeNull();
   });
+
+  it('does not show Saved section', () => {
+    (useEnrollments as jest.Mock).mockReturnValue({ data: [] });
+    render(<ProgressScreen />);
+    expect(screen.queryByText('Saved')).toBeNull();
+    expect(screen.queryByText('No saved lessons yet.')).toBeNull();
+  });
 });
 
-describe('ProgressScreen — P6', () => {
+describe('ProgressScreen — P6 TrackMap segmented bar', () => {
   const mockLevels = [
     { level: 'beginner', levelNum: 1, totalLessons: 10, completedLessons: 5, percentComplete: 50 },
     { level: 'intermediate', levelNum: 2, totalLessons: 10, completedLessons: 0, percentComplete: 0 },
@@ -193,11 +261,10 @@ describe('ProgressScreen — P6', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (useSavedLessons as jest.Mock).mockReturnValue({ data: [] });
     (useEnrollments as jest.Mock).mockReturnValue({ data: undefined });
   });
 
-  it('renders TrackMap levels on active enrollment card when levels provided', () => {
+  it('renders segmented level nodes on active enrollment card when levels provided', () => {
     setMock({ data: undefined });
     (useEnrollments as jest.Mock).mockReturnValue({
       data: [{ ...mockActiveEnrollment, levels: mockLevels }],
@@ -213,51 +280,5 @@ describe('ProgressScreen — P6', () => {
     });
     render(<ProgressScreen />);
     expect(screen.queryByTestId('track-map-level')).toBeNull();
-  });
-
-  it('shows ProgressBar under average score stat', () => {
-    setMock({ data: mockStats });
-    render(<ProgressScreen />);
-    expect(screen.getByTestId('avg-score-bar')).toBeTruthy();
-  });
-
-  it('shows flame emoji on streak stat card', () => {
-    setMock({ data: mockStats });
-    render(<ProgressScreen />);
-    expect(screen.getByText('🔥')).toBeTruthy();
-  });
-});
-
-describe('ProgressScreen — saved lessons', () => {
-  const mockSavedLesson = {
-    id: 'lesson-42',
-    title: 'Intro to Closures',
-    topicName: 'Functions',
-    skillName: 'JavaScript Fundamentals',
-  };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    (useProgress as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: false });
-    (useEnrollments as jest.Mock).mockReturnValue({ data: undefined });
-  });
-
-  it('renders saved lesson title', () => {
-    (useSavedLessons as jest.Mock).mockReturnValue({ data: [mockSavedLesson] });
-    render(<ProgressScreen />);
-    expect(screen.getByText('Intro to Closures')).toBeTruthy();
-  });
-
-  it('pressing a saved lesson row navigates to the lesson detail route', () => {
-    (useSavedLessons as jest.Mock).mockReturnValue({ data: [mockSavedLesson] });
-    render(<ProgressScreen />);
-    fireEvent.press(screen.getByTestId('saved-lesson-row'));
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(tabs)/lesson/[id]', params: { id: 'lesson-42' } });
-  });
-
-  it('shows empty state when no saved lessons', () => {
-    (useSavedLessons as jest.Mock).mockReturnValue({ data: [] });
-    render(<ProgressScreen />);
-    expect(screen.getByText('No saved lessons yet.')).toBeTruthy();
   });
 });

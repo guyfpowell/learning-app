@@ -1,16 +1,18 @@
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import type { LessonSummary, TrackEnrollmentWithProgress } from '@learning/shared';
+import type { TrackEnrollmentWithProgress } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { useProgress } from '@/hooks/useProgress';
-import { useSavedLessons } from '@/hooks/useLesson';
 import { useEnrollments } from '@/hooks/useTrack';
 import { TrackMap } from '@/components/ui/TrackMap';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
+import { FlameIcon } from '@/components/ui/Streak';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function flooredPct(enrollment: TrackEnrollmentWithProgress): number {
   return enrollment.completedLessons > 0
@@ -24,32 +26,25 @@ function trackMotivation(enrollment: TrackEnrollmentWithProgress, pct: number): 
   return `You're ${pct}% through ${enrollment.skill.name} — keep going!`;
 }
 
-function ProgressBar({ value }: { value: number }) {
-  const clamped = Math.min(100, Math.max(0, value));
-  return (
-    <View style={styles.progressTrack}>
-      <View style={[styles.progressFill, { width: `${clamped}%` as `${number}%` }]} />
-    </View>
-  );
+/** Prefer capstone score; fall back to track average; null if neither. */
+function completedScore(e: TrackEnrollmentWithProgress): number | null {
+  return e.capstoneScore ?? e.averageScore ?? null;
 }
 
-function SavedLessonRow({ lesson, onPress }: { lesson: LessonSummary; onPress: () => void }) {
-  return (
-    <Pressable testID="saved-lesson-row" onPress={onPress}>
-      <Card style={styles.savedRow}>
-        <Text style={styles.savedTitle}>{lesson.title}</Text>
-        <Text style={styles.savedMeta}>
-          {[lesson.topicName, lesson.skillName].filter(Boolean).join(' · ')}
-        </Text>
-      </Card>
-    </Pressable>
+function formatDuration(enrolledAt: Date | string, completedAt: Date | string): string {
+  const days = Math.max(
+    1,
+    Math.round((+new Date(completedAt as string) - +new Date(enrolledAt as string)) / 86400000),
   );
+  if (days >= 14) return `${Math.round(days / 7)} weeks`;
+  return `${days} day${days > 1 ? 's' : ''}`;
 }
+
+// ── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProgressScreen() {
   const router = useRouter();
   const { data, isLoading, isError } = useProgress();
-  const { data: savedLessons } = useSavedLessons();
   const { data: enrollmentsData } = useEnrollments();
 
   const activeEnrollments: TrackEnrollmentWithProgress[] =
@@ -75,25 +70,23 @@ export default function ProgressScreen() {
 
         {data && (
           <>
-            <View style={styles.statsRow}>
-              <Card style={styles.statCard}>
-                <View style={styles.streakStatRow}>
-                  <Text style={styles.streakFlame}>🔥</Text>
-                  <Text testID="progress-streak" style={styles.statValue}>{data.currentStreak}</Text>
-                </View>
-                <Text style={styles.statLabel}>Day Streak</Text>
-              </Card>
+            {/* Hero stat — streak */}
+            <Card testID="progress-streak-card" style={styles.heroCard}>
+              <View style={styles.heroInner}>
+                <FlameIcon size={28} />
+                <Text testID="progress-streak" style={styles.heroValue}>{data.currentStreak}</Text>
+              </View>
+              <Text style={styles.heroLabel}>Day Streak</Text>
+            </Card>
 
+            {/* Subordinate stats */}
+            <View style={styles.statsRow}>
               <Card style={styles.statCard}>
                 <Text testID="progress-lessons-count" style={styles.statValue}>{data.totalLessonsCompleted}</Text>
                 <Text style={styles.statLabel}>Lessons Done</Text>
               </Card>
-
               <Card style={styles.statCard}>
-                <Text testID="progress-avg-score" style={styles.statValue}>{data.averageScore}%</Text>
-                <View testID="avg-score-bar" style={styles.avgScoreBarWrapper}>
-                  <ProgressBar value={Math.round(data.averageScore)} />
-                </View>
+                <Text testID="progress-avg-score" style={styles.statValue}>{Math.round(data.averageScore)}%</Text>
                 <Text style={styles.statLabel}>Avg Score</Text>
               </Card>
             </View>
@@ -101,13 +94,19 @@ export default function ProgressScreen() {
             {data.lastLessonDate && (
               <Card style={styles.dateCard}>
                 <Text style={styles.dateLabel}>
-                  Last lesson: {new Date(data.lastLessonDate).toLocaleDateString()}
+                  Last lesson:{' '}
+                  {new Date(data.lastLessonDate as unknown as string).toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
                 </Text>
               </Card>
             )}
           </>
         )}
 
+        {/* ── Active tracks ─────────────────────────────────────────────── */}
         {activeEnrollments.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionHeading}>Active Tracks</Text>
@@ -119,12 +118,11 @@ export default function ProgressScreen() {
                     <Text style={styles.enrollmentTitle}>{e.skill.name}</Text>
                     <Text style={styles.pctText}>{pct}% complete</Text>
                   </View>
-                  <ProgressBar value={pct} />
                   <Text style={styles.motivationText}>{trackMotivation(e, pct)}</Text>
                   <Text style={styles.lessonsCount}>
                     {e.completedLessons} of {e.totalLessons} lessons complete
                   </Text>
-                  {(e.levels?.length ?? 0) > 0 && (
+                  {e.levels && e.levels.length > 0 && (
                     <TrackMap levels={e.levels} />
                   )}
                 </Card>
@@ -133,50 +131,115 @@ export default function ProgressScreen() {
           </View>
         )}
 
+        {/* ── Completed tracks ──────────────────────────────────────────── */}
         {completedEnrollments.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionHeading}>Completed Tracks</Text>
-            {completedEnrollments.map(e => (
-              <Card key={e.skillId} testID={`completed-card-${e.skillId}`} style={styles.completedCard}>
-                <Text style={styles.enrollmentTitle}>{e.skill.name}</Text>
-                <Badge label="Completed" variant="success" />
-              </Card>
-            ))}
+            {completedEnrollments.map(e => {
+              const score = completedScore(e);
+              return (
+                <Card key={e.skillId} testID={`completed-card-${e.skillId}`} style={styles.completedCard}>
+                  <View style={styles.completedHeader}>
+                    <Text style={[styles.enrollmentTitle, styles.completedTitle]}>{e.skill.name}</Text>
+                    <Badge label="Terminus" variant="success" />
+                  </View>
+
+                  <View style={styles.completedMeta}>
+                    {e.completedAt && (
+                      <Text testID={`completed-date-${e.skillId}`} style={styles.completedMetaText}>
+                        {new Date(e.completedAt as unknown as string).toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                    )}
+                    {e.completedAt && e.enrolledAt && (
+                      <Text style={styles.completedMetaText}>
+                        {' '}· {formatDuration(e.enrolledAt as unknown as string, e.completedAt as unknown as string)}
+                      </Text>
+                    )}
+                    <Text style={styles.completedMetaText}>
+                      {' '}· {e.totalLessons} of {e.totalLessons} lessons
+                    </Text>
+                  </View>
+
+                  {score !== null && (
+                    <Text style={styles.completedScore}>{Math.round(score)}%</Text>
+                  )}
+
+                  <View style={styles.completedActions}>
+                    <Pressable
+                      testID={`completed-next-track-${e.skillId}`}
+                      style={styles.completedActionBtn}
+                      onPress={() => router.push('/(tabs)/tracks')}
+                    >
+                      <Text style={styles.completedActionText}>Find next track →</Text>
+                    </Pressable>
+                    <Pressable
+                      testID={`completed-share-${e.skillId}`}
+                      style={styles.completedShareBtn}
+                      onPress={() =>
+                        Share.share({
+                          message: `I just completed "${e.skill.name}" on Ascent! 🎉`,
+                        })
+                      }
+                    >
+                      <Text style={styles.completedShareText}>Share</Text>
+                    </Pressable>
+                  </View>
+                </Card>
+              );
+            })}
           </View>
         )}
 
         {hasNoEnrollments && (
           <NoTrackNotice body="Your progress and track map appear here once you're on a track." />
         )}
-
-        <Text style={styles.sectionHeading}>Saved</Text>
-        {savedLessons && savedLessons.length > 0 ? (
-          <View style={styles.savedList}>
-            {savedLessons.map((lesson) => (
-              <SavedLessonRow
-                key={lesson.id}
-                lesson={lesson}
-                onPress={() => router.push({ pathname: '/(tabs)/lesson/[id]', params: { id: lesson.id } })}
-              />
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.empty}>No saved lessons yet.</Text>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: colors.paper },
   content:   { padding: spacing.md, flexGrow: 1 },
+
   heading: {
-    fontFamily:   font.bold,
+    fontFamily:   font.semibold,
     fontSize:     fontSize.xl,
-    color:        colors.textDark,
+    color:        colors.textStrong,
     marginBottom: spacing.lg,
   },
+
+  // ── Hero stat (streak) ────────────────────────────────────────────────────
+  heroCard: {
+    alignItems:   'center',
+    paddingVertical: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  heroInner: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           spacing.xs,
+  },
+  heroValue: {
+    fontFamily: font.bold,
+    fontSize:   fontSize.xl,
+    color:      colors.brand,
+  },
+  heroLabel: {
+    fontFamily:  font.regular,
+    fontSize:    fontSize.sm,
+    color:       colors.textMuted,
+    marginTop:   spacing.xs,
+    textAlign:   'center',
+  },
+
+  // ── Subordinate stats ─────────────────────────────────────────────────────
   statsRow: {
     flexDirection: 'row',
     gap:           spacing.sm,
@@ -188,9 +251,9 @@ const styles = StyleSheet.create({
     gap:        spacing.xs,
   },
   statValue: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.xl,
-    color:      colors.teal,
+    fontFamily: font.semibold,
+    fontSize:   fontSize.lg,
+    color:      colors.textStrong,
   },
   statLabel: {
     fontFamily: font.regular,
@@ -198,48 +261,27 @@ const styles = StyleSheet.create({
     color:      colors.textMuted,
     textAlign:  'center',
   },
-  dateCard: { marginTop: spacing.sm },
+
+  // ── Last lesson card ──────────────────────────────────────────────────────
+  dateCard: { marginBottom: spacing.sm },
   dateLabel: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
     color:      colors.textMuted,
   },
+
+  // ── Section headings ──────────────────────────────────────────────────────
   sectionHeading: {
-    fontFamily:   font.bold,
-    fontSize:     fontSize.sm,
-    color:        colors.textMuted,
+    fontFamily:    font.semibold,
+    fontSize:      fontSize.sm,
+    color:         colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginTop:    spacing.lg,
-    marginBottom: spacing.sm,
+    marginTop:     spacing.lg,
+    marginBottom:  spacing.sm,
   },
-  savedList: { gap: spacing.sm },
-  savedRow: { gap: spacing.xs, borderRadius: radius.card },
-  savedTitle: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.base,
-    color:      colors.textDark,
-  },
-  savedMeta: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textMuted,
-  },
-  error: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.base,
-    color:      colors.error,
-    textAlign:  'center',
-    marginTop:  spacing.lg,
-  },
-  empty: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.base,
-    color:      colors.textMuted,
-    textAlign:  'center',
-    marginTop:  spacing.lg,
-  },
-  // ── Enrollment sections ───────────────────────────────────────────────────
+
+  // ── Active enrollment cards ───────────────────────────────────────────────
   section: {
     gap:          spacing.sm,
     marginBottom: spacing.md,
@@ -253,26 +295,15 @@ const styles = StyleSheet.create({
     alignItems:     'flex-start',
   },
   enrollmentTitle: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize:   fontSize.base,
-    color:      colors.textDark,
+    color:      colors.textStrong,
     flex:       1,
   },
   pctText: {
     fontFamily: font.medium,
     fontSize:   fontSize.sm,
-    color:      colors.teal,
-  },
-  progressTrack: {
-    height:          6,
-    backgroundColor: colors.border,
-    borderRadius:    3,
-    overflow:        'hidden',
-  },
-  progressFill: {
-    height:          6,
-    backgroundColor: colors.teal,
-    borderRadius:    3,
+    color:      colors.brand,
   },
   motivationText: {
     fontFamily: font.regular,
@@ -284,20 +315,81 @@ const styles = StyleSheet.create({
     fontSize:   fontSize.sm,
     color:      colors.textMuted,
   },
+
+  // ── Completed track cards ─────────────────────────────────────────────────
   completedCard: {
+    gap: spacing.sm,
+  },
+  completedHeader: {
     flexDirection:  'row',
     justifyContent: 'space-between',
     alignItems:     'center',
   },
-  streakStatRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           spacing.xs,
+  completedTitle: {
+    flex: 1,
   },
-  streakFlame: {
-    fontSize: 18,
+  completedMeta: {
+    flexDirection:  'row',
+    flexWrap:       'wrap',
+    alignItems:     'center',
   },
-  avgScoreBarWrapper: {
-    alignSelf: 'stretch',
+  completedMetaText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.textMuted,
+  },
+  completedScore: {
+    fontFamily: font.bold,
+    fontSize:   fontSize.lg,
+    color:      colors.brand,
+  },
+  completedActions: {
+    flexDirection:  'row',
+    justifyContent: 'space-between',
+    alignItems:     'center',
+    gap:            spacing.sm,
+    marginTop:      spacing.xs,
+  },
+  completedActionBtn: {
+    flex:            1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.brand,
+    borderRadius:    radius.btn,
+    alignItems:      'center',
+  },
+  completedActionText: {
+    fontFamily: font.semibold,
+    fontSize:   fontSize.sm,
+    color:      colors.onBrand,
+  },
+  completedShareBtn: {
+    paddingVertical:   spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius:      radius.btn,
+    borderWidth:       1,
+    borderColor:       colors.border,
+    alignItems:        'center',
+  },
+  completedShareText: {
+    fontFamily: font.semibold,
+    fontSize:   fontSize.sm,
+    color:      colors.textStrong,
+  },
+
+  // ── Error / empty ─────────────────────────────────────────────────────────
+  error: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.base,
+    color:      colors.error,
+    textAlign:  'center',
+    marginTop:  spacing.lg,
+  },
+  empty: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.base,
+    color:      colors.textMuted,
+    textAlign:  'center',
+    marginTop:  spacing.lg,
   },
 });

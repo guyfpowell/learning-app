@@ -17,7 +17,7 @@ export function Card({ children, padding = spacing.lg, style, ...rest }: CardPro
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
     borderRadius: radius.card,
   },
 });

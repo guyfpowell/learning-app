@@ -12,7 +12,7 @@ import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { QuizModal } from '@/components/QuizModal';
 import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { useEnrollments } from '@/hooks/useTrack';
-import type { LessonContent, TrackEnrollmentWithProgress } from '@learning/shared';
+import type { TrackEnrollmentWithProgress } from '@learning/shared';
 
 const difficultyVariant = {
   beginner:     'success',
@@ -45,34 +45,10 @@ function flooredPct(enrollment: TrackEnrollmentWithProgress): number {
 }
 
 function LessonBody({ raw }: { raw: string }) {
-  let parsed: LessonContent | null = null;
-  try {
-    parsed = JSON.parse(raw) as LessonContent;
-  } catch {
-    // not valid JSON — render as plain text
-  }
-
-  if (!parsed) {
-    return <Text style={styles.contentText}>{raw}</Text>;
-  }
-
   return (
     <View style={styles.contentBlock}>
-      {!!parsed.introduction && (
-        <Text testID="lesson-introduction" style={styles.contentText}>
-          {parsed.introduction}
-        </Text>
-      )}
-      {Array.isArray(parsed.keyPoints) && parsed.keyPoints.length > 0 && (
-        <View style={styles.keyPoints}>
-          {parsed.keyPoints.map((pt, i) => (
-            <Text key={i} style={styles.keyPoint}>• {pt}</Text>
-          ))}
-        </View>
-      )}
-      {!!parsed.example && (
-        <Text style={styles.exampleText}>{parsed.example}</Text>
-      )}
+      <Text style={styles.scenarioLabel}>Scenario</Text>
+      <Text testID="scenario-content" style={styles.contentText}>{raw}</Text>
     </View>
   );
 }
@@ -333,7 +309,7 @@ export default function LessonDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: colors.paper },
   content:   { padding: spacing.md, flexGrow: 1 },
 
   trackHeader: {
@@ -353,7 +329,7 @@ const styles = StyleSheet.create({
   trackPct: {
     fontFamily: font.medium,
     fontSize:   fontSize.sm,
-    color:      colors.teal,
+    color:      colors.brand,
   },
   trackMeta: {
     flexDirection: 'row',
@@ -364,7 +340,7 @@ const styles = StyleSheet.create({
   topicName: {
     fontFamily: font.bold,
     fontSize:   fontSize.sm,
-    color:      colors.teal,
+    color:      colors.brand,
   },
   positionLabel: {
     fontFamily: font.regular,
@@ -411,46 +387,34 @@ const styles = StyleSheet.create({
   contentBlock: {
     gap: spacing.sm,
   },
+  scenarioLabel: {
+    fontFamily:    font.bold,
+    fontSize:      fontSize.sm,
+    color:         colors.brand,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
   contentText: {
     fontFamily: font.regular,
     fontSize:   fontSize.base,
     color:      colors.textDark,
     lineHeight: fontSize.base * 1.6,
   },
-  keyPoints: {
-    gap: spacing.xs,
-    paddingLeft: spacing.sm,
-  },
-  keyPoint: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.base,
-    color:      colors.textDark,
-    lineHeight: fontSize.base * 1.5,
-  },
-  exampleText: {
-    fontFamily:      font.regular,
-    fontSize:        fontSize.base,
-    color:           colors.textDark,
-    lineHeight:      fontSize.base * 1.6,
-    backgroundColor: colors.border,
-    borderRadius:    6,
-    padding:         spacing.sm,
-    fontStyle:       'italic',
-  },
   takeawayBlock: {
     borderLeftWidth:  4,
-    borderLeftColor:  colors.teal,
+    borderLeftColor:  colors.brand,
     paddingLeft:      spacing.md,
     paddingVertical:  spacing.sm,
-    backgroundColor:  colors.tealLight + '18',
+    backgroundColor:  colors.brandSoft,
     borderRadius:     4,
     gap:              spacing.xs,
   },
   takeawayLabel: {
     fontFamily:    font.bold,
     fontSize:      fontSize.sm,
-    color:         colors.teal,
+    color:         colors.brand,
     letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   takeawayText: {
     fontFamily: font.regular,
@@ -483,7 +447,7 @@ const styles = StyleSheet.create({
     justifyContent:  'flex-end',
   },
   modalSheet: {
-    backgroundColor:     colors.bg,
+    backgroundColor:     colors.surface,
     borderTopLeftRadius:  20,
     borderTopRightRadius: 20,
     padding:              spacing.xl,

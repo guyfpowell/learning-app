@@ -10,6 +10,7 @@ import { useProgress } from '@/hooks/useProgress';
 import type { TrackEnrollmentWithProgress } from '@learning/shared';
 import { TrackMap } from '@/components/ui/TrackMap';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
+import { FlameIcon } from '@/components/ui/Streak';
 
 const difficultyVariant = {
   beginner:     'success',
@@ -83,7 +84,7 @@ export default function LessonsScreen() {
         {progress && !hasNoEnrollments && (
           <Card testID="streak-card" style={styles.streakCard}>
             <View style={styles.streakRow}>
-              <Text style={styles.streakEmoji}>🔥</Text>
+              <FlameIcon size={24} />
               <Text style={styles.streakNumber}>{progress.currentStreak} day streak</Text>
             </View>
             <Text style={styles.streakCopyText}>{streakCopy(progress.currentStreak)}</Text>
@@ -235,9 +236,7 @@ const styles = StyleSheet.create({
     alignItems:    'center',
     gap:           spacing.sm,
   },
-  streakEmoji: {
-    fontSize: 24,
-  },
+  // streakEmoji removed — replaced with FlameIcon SVG (069 A3)
   streakNumber: {
     fontFamily: font.bold,
     fontSize:   fontSize.md,

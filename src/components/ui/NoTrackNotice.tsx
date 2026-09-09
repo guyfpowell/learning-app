@@ -39,9 +39,9 @@ export function NoTrackNotice({
 const styles = StyleSheet.create({
   card:  { gap: spacing.sm },
   title: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize:   fontSize.md,
-    color:      colors.textDark,
+    color:      colors.textStrong,
   },
   body: {
     fontFamily: font.regular,

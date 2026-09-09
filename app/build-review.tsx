@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -45,6 +45,12 @@ export default function BuildReviewScreen() {
 
   const refine = useRefinePlan();
   const createPlan = useCreateTrackPlan();
+
+  /** Back: pop the stack (lands on /build) if there is somewhere to go, else Tracks. */
+  const handleBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)/tracks');
+  };
 
   useEffect(() => {
     if (!draft) {
@@ -111,7 +117,7 @@ export default function BuildReviewScreen() {
           updateResult({ ...result, topics: r.plan });
           setLastChange({ removed: r.removed.length, previous });
           setNotice(r.removed.length === 0
-            ? 'I couldn’t find anything matching that in your path.'
+            ? `I couldn't find anything matching that in your path.`
             : `Removed ${r.removed.length} topic${r.removed.length === 1 ? '' : 's'}.`);
           break;
         case 'replace':
@@ -130,10 +136,10 @@ export default function BuildReviewScreen() {
           router.replace('/build');
           return;
         case 'reject':
-          setNotice('Dropped that path. Tell me what you’re after and I’ll build another.');
+          setNotice(`Dropped that path. Tell me what you're after and I'll build another.`);
           break;
         default:
-          setNotice('I’m not sure what to change. Try naming the part you don’t want.');
+          setNotice(`I'm not sure what to change. Try naming the part you don't want.`);
       }
       setFollowUp('');
     } catch (err) {
@@ -181,33 +187,38 @@ export default function BuildReviewScreen() {
   const busy = refine.isPending || createPlan.isPending;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      {/* Native header — owns the top safe-area inset (item 8). Replaces the
+          hand-rolled "Not now" pressable. Back lands on /build (canGoBack),
+          or falls to Tracks. 069 Chunk A6. */}
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Review your path',
+          headerStyle: { backgroundColor: colors.paper },
+          headerTitleStyle: { fontFamily: font.semibold, fontSize: fontSize.md, color: colors.textStrong },
+          headerLeft: () => (
+            <Pressable
+              testID="review-back"
+              onPress={handleBack}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              style={styles.headerBackBtn}
+            >
+              <Text style={styles.headerBackText}>‹</Text>
+            </Pressable>
+          ),
+          headerBackVisible: false,
+        }}
+      />
+
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* There is no header and no tab bar on these routes —
-            `_layout.tsx` sets `headerShown: false` and /build sits outside the
-            tabs — so without this the screen is a trap. 068 Chunk 9c.
-
-            It goes to the tabs rather than popping the stack: the build screen
-            can be arrived at from more than one place, and a blind `back()`
-            from a deep link lands nowhere. */}
-        <Pressable
-          testID="review-back"
-          onPress={() => router.replace('/(tabs)/lessons')}
-          accessibilityRole="button"
-          accessibilityLabel="Leave without saving this path"
-          style={styles.back}
-        >
-          <Text style={styles.backText}>‹  Not now</Text>
-        </Pressable>
-
-        <Text style={styles.title}>Your path</Text>
-
         {/* Rule 6 — the loop settled rather than resolved. Say so: a plan built
             with part of the request still unanswered must not present itself as
             the finished article, and the user is the one who can correct it. */}
         {result.stoppedAtFloor === true && (
           <Text testID="stopped-at-floor" style={styles.settled}>
-            I didn’t get to the bottom of everything you said, so this is my best
+            I didn't get to the bottom of everything you said, so this is my best
             go at it. Tell me what to change below.
           </Text>
         )}
@@ -259,7 +270,7 @@ export default function BuildReviewScreen() {
             plainly, not say it first. Kept in step with the web screen. */}
         {result.notCovered ? (
           <Card style={styles.card}>
-            <Text style={styles.label}>What this doesn’t cover</Text>
+            <Text style={styles.label}>What this doesn't cover</Text>
             <Text testID="not-covered" style={styles.notCovered}>{result.notCovered}</Text>
           </Card>
         ) : null}
@@ -277,7 +288,7 @@ export default function BuildReviewScreen() {
               style={styles.followUp}
               value={followUp}
               onChangeText={setFollowUp}
-              placeholder="e.g. I don’t want the management stuff"
+              placeholder="e.g. I don't want the management stuff"
               placeholderTextColor={colors.textMuted}
               multiline
               editable={!busy}
@@ -314,33 +325,32 @@ export default function BuildReviewScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:      { flex: 1, backgroundColor: colors.bg },
-  back:      { alignSelf: 'flex-start', paddingVertical: spacing.xs, paddingRight: spacing.md },
-  backText:  { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
-  content:   { padding: spacing.lg, gap: spacing.md },
-  settled: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textDark },
-  title:     { fontFamily: font.bold, fontSize: fontSize.xl, color: colors.textDark },
-  card:      { gap: spacing.sm },
+  safe:           { flex: 1, backgroundColor: colors.paper },
+  headerBackBtn:  { paddingVertical: spacing.xs, paddingRight: spacing.sm },
+  headerBackText: { fontFamily: font.regular, fontSize: fontSize.lg, color: colors.brand },
+  content:        { padding: spacing.lg, gap: spacing.md },
+  settled:        { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textStrong },
+  card:           { gap: spacing.sm },
   label: {
     fontFamily: font.medium, fontSize: fontSize.xs,
     color: colors.textMuted, textTransform: 'uppercase',
   },
   input: {
-    fontFamily: font.regular, fontSize: fontSize.md, color: colors.textDark,
+    fontFamily: font.regular, fontSize: fontSize.md, color: colors.textStrong,
     padding: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: 8,
   },
   counts:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
   topic:     { gap: spacing.xs, paddingVertical: spacing.xs },
-  topicName: { fontFamily: font.medium, fontSize: fontSize.md, color: colors.textDark },
+  topicName: { fontFamily: font.medium, fontSize: fontSize.md, color: colors.textStrong },
   badges:    { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
   followUp: {
     minHeight: 64, fontFamily: font.regular, fontSize: fontSize.sm,
-    color: colors.textDark, padding: spacing.sm, borderWidth: 1,
+    color: colors.textStrong, padding: spacing.sm, borderWidth: 1,
     borderColor: colors.border, borderRadius: 8, textAlignVertical: 'top',
   },
-  notice:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textDark },
-  run:     { marginBottom: spacing.md },
-  runNeed: { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.textDark, marginBottom: spacing.xs },
+  notice:     { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textStrong },
+  run:        { marginBottom: spacing.md },
+  runNeed:    { fontFamily: font.semibold, fontSize: fontSize.sm, color: colors.textStrong, marginBottom: spacing.xs },
   notCovered: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
-  error:     { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
+  error:      { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
 });

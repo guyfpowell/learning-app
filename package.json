@@ -18,6 +18,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@expo-google-fonts/bricolage-grotesque": "^0.4.1",
+    "@expo-google-fonts/hanken-grotesk": "^0.4.3",
     "@expo-google-fonts/poppins": "^0.2.3",
     "@expo/vector-icons": "^15.1.1",
     "@learning/shared": "link:../learning/packages/shared",

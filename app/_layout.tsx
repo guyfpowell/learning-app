@@ -1,9 +1,14 @@
 import {
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_700Bold,
+  BricolageGrotesque_600SemiBold,
+  BricolageGrotesque_700Bold,
+} from '@expo-google-fonts/bricolage-grotesque';
+import {
+  HankenGrotesk_400Regular,
+  HankenGrotesk_500Medium,
+  HankenGrotesk_600SemiBold,
+  HankenGrotesk_700Bold,
   useFonts,
-} from '@expo-google-fonts/poppins';
+} from '@expo-google-fonts/hanken-grotesk';
 import { Stack, useSegments, useRouter, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
@@ -99,9 +104,12 @@ export function AuthGate() {
 
 function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_700Bold,
+    BricolageGrotesque_600SemiBold,
+    BricolageGrotesque_700Bold,
+    HankenGrotesk_400Regular,
+    HankenGrotesk_500Medium,
+    HankenGrotesk_600SemiBold,
+    HankenGrotesk_700Bold,
   });
   const router = useRouter();
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
@@ -136,7 +144,7 @@ function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryProvider>
-        <StatusBar style="dark" backgroundColor={colors.bg} />
+        <StatusBar style="dark" backgroundColor={colors.paper} />
         <AuthGate />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />

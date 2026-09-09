@@ -256,12 +256,12 @@ describe('LessonsScreen', () => {
         expect(screen.getByText('Advanced')).toBeTruthy();
       });
 
-      it('shows completed/total counts for each level', () => {
+      it('shows the active level label beneath the segmented bar', () => {
+        // beginner: 15/20 (active), intermediate: 5/20 (active), advanced: 0/10 (locked)
+        // first active level found → "Beginner in progress"
         setEnrollmentsMock([{ ...mockEnrollment, levels: mockLevels }]);
         render(<LessonsScreen />);
-        expect(screen.getByText('15/20')).toBeTruthy();
-        expect(screen.getByText('5/20')).toBeTruthy();
-        expect(screen.getByText('0/10')).toBeTruthy();
+        expect(screen.getByText('Beginner in progress')).toBeTruthy();
       });
 
       it('does not render TrackMap when levels is empty', () => {

@@ -43,4 +43,34 @@ describe('Button', () => {
     expect(toJSON()).toBeTruthy();
     expect(screen.getByText('OUTLINE')).toBeTruthy();
   });
+
+  it('renders secondary variant without throwing', () => {
+    const { toJSON } = render(<Button label="Secondary" onPress={jest.fn()} variant="secondary" />);
+    expect(toJSON()).toBeTruthy();
+  });
+
+  it('renders ghost variant without throwing', () => {
+    const { toJSON } = render(<Button label="Ghost" onPress={jest.fn()} variant="ghost" />);
+    expect(toJSON()).toBeTruthy();
+  });
+
+  it('renders coral variant without throwing', () => {
+    const { toJSON } = render(<Button label="Coral" onPress={jest.fn()} variant="coral" />);
+    expect(toJSON()).toBeTruthy();
+  });
+
+  it('renders danger variant without throwing', () => {
+    const { toJSON } = render(<Button label="Danger" onPress={jest.fn()} variant="danger" />);
+    expect(toJSON()).toBeTruthy();
+  });
+
+  it('renders lg size without throwing', () => {
+    const { toJSON } = render(<Button label="Large" onPress={jest.fn()} size="lg" />);
+    expect(toJSON()).toBeTruthy();
+  });
+
+  it('stretches to full width with block prop', () => {
+    const { toJSON } = render(<Button label="Block" onPress={jest.fn()} block />);
+    expect(toJSON()).toBeTruthy();
+  });
 });

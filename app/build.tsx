@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -58,6 +58,12 @@ export default function BuildScreen() {
   const setDraft = useDraftStore((s) => s.setDraft);
   const busy = buildPlan.isPending;
 
+  /** Back: pop the stack if there is somewhere to go, otherwise land on Tracks. */
+  const handleBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)/tracks');
+  };
+
   const goToReview = (result: BuiltPlan) => {
     setDraft({ statement: text, sessionId: sessionId.current, result });
     router.push('/build-review');
@@ -80,28 +86,34 @@ export default function BuildScreen() {
   const tooShort = text.trim().length < MIN_CHARS;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      {/* Native header — owns the top safe-area inset (item 8). Replaces the
+          hand-rolled "Not now" pressable. Back falls to Tracks, which is the
+          entry point from tracks.tsx, not Lessons. 069 Chunk A6. */}
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Build my own path',
+          headerStyle: { backgroundColor: colors.paper },
+          headerTitleStyle: { fontFamily: font.semibold, fontSize: fontSize.md, color: colors.textStrong },
+          headerLeft: () => (
+            <Pressable
+              testID="build-back"
+              onPress={handleBack}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              style={styles.headerBackBtn}
+            >
+              <Text style={styles.headerBackText}>‹</Text>
+            </Pressable>
+          ),
+          headerBackVisible: false,
+        }}
+      />
+
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* There is no header and no tab bar on these routes —
-            `_layout.tsx` sets `headerShown: false` and /build sits outside the
-            tabs — so without this the screen is a trap. 068 Chunk 9c.
-
-            It goes to the tabs rather than popping the stack: the build screen
-            can be arrived at from more than one place, and a blind `back()`
-            from a deep link lands nowhere. */}
-        <Pressable
-          testID="build-back"
-          onPress={() => router.replace('/(tabs)/lessons')}
-          accessibilityRole="button"
-          accessibilityLabel="Leave without building a path"
-          style={styles.back}
-        >
-          <Text style={styles.backText}>‹  Not now</Text>
-        </Pressable>
-
-        <Text style={styles.title}>Build my own path</Text>
         <Text style={styles.subtitle}>
-          Describe where you are and what you want. I’ll put together a path from
+          Describe where you are and what you want. I'll put together a path from
           the whole curriculum rather than a fixed track.
         </Text>
 
@@ -159,38 +171,25 @@ export default function BuildScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:     { flex: 1, backgroundColor: colors.bg },
-  back:     { alignSelf: 'flex-start', paddingVertical: spacing.xs, paddingRight: spacing.md },
-  backText: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
-  content:  { padding: spacing.lg, gap: spacing.md },
-  title:    { fontFamily: font.bold, fontSize: fontSize.xl, color: colors.textDark },
-  subtitle: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
-  card:     { gap: spacing.md },
+  safe:           { flex: 1, backgroundColor: colors.paper },
+  headerBackBtn:  { paddingVertical: spacing.xs, paddingRight: spacing.sm },
+  headerBackText: { fontFamily: font.regular, fontSize: fontSize.lg, color: colors.brand },
+  content:        { padding: spacing.lg, gap: spacing.md },
+  subtitle:       { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
+  card:           { gap: spacing.md },
   input: {
     minHeight: 160,
     fontFamily: font.regular,
     fontSize: fontSize.md,
-    color: colors.textDark,
+    color: colors.textStrong,
     padding: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
   },
-  question: { gap: spacing.sm },
-  answer: {
-    minHeight: 64,
-    fontFamily: font.regular,
-    fontSize: fontSize.md,
-    color: colors.textDark,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-  },
-  ask:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textDark },
   waiting:     { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
   waitingText: { flex: 1, fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
-  notice: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
-  error:  { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
-  submit: { marginTop: spacing.xs },
+  notice:      { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
+  error:       { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
+  submit:      { marginTop: spacing.xs },
 });

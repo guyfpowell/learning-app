@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { Lesson, QuizFeedback } from '@learning/shared';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
@@ -16,7 +17,10 @@ import { extractError } from '@/lib/errors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import { QuizOpt } from '@/components/ui/QuizOpt';
+import type { QuizOptState } from '@/components/ui/QuizOpt';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
+import { FlameIcon } from '@/components/ui/Streak';
 
 interface QuizModalProps {
   visible: boolean;
@@ -67,6 +71,55 @@ function TrackAverageBadge({
   );
 }
 
+/**
+ * QuizFeedbackCard — ticket 069 A4.
+ *
+ * Single component used by both the mid-capstone per-question view and the
+ * terminal results view so both always share the same block order.
+ *
+ * Correct:   Explanation → Your answer (confirmed correct)
+ * Incorrect: Correct answer → Explanation → Question + your answer
+ */
+function QuizFeedbackCard({ fb }: { fb: QuizFeedback }) {
+  if (fb.isCorrect) {
+    return (
+      <View testID={`feedback-card-${fb.quizId}`} style={styles.feedbackWrapper}>
+        {/* 1. Explanation */}
+        <View style={styles.explanationBox}>
+          <Text style={styles.feedbackSectionLabel}>Explanation</Text>
+          <Text style={styles.explanationText}>{fb.explanation}</Text>
+        </View>
+        {/* 2. Confirmed correct answer */}
+        <View style={styles.yourAnswerBox}>
+          <Text style={[styles.feedbackAnswerText, styles.correct]}>✓ Your answer: {fb.userAnswer}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View testID={`feedback-card-${fb.quizId}`} style={styles.feedbackWrapper}>
+      {/* 1. Correct answer */}
+      {fb.correctAnswer != null && (
+        <View style={styles.correctAnswerBox}>
+          <Text style={styles.feedbackSectionLabel}>Correct answer</Text>
+          <Text style={styles.correctAnswerText}>{fb.correctAnswer}</Text>
+        </View>
+      )}
+      {/* 2. Explanation */}
+      <View style={styles.explanationBox}>
+        <Text style={styles.feedbackSectionLabel}>Explanation</Text>
+        <Text style={styles.explanationText}>{fb.explanation}</Text>
+      </View>
+      {/* 3. Question + their wrong answer */}
+      <View style={styles.yourAnswerBox}>
+        <Text style={styles.feedbackQuestion}>{fb.question}</Text>
+        <Text style={[styles.feedbackAnswerText, styles.incorrect]}>✗ Your answer: {fb.userAnswer}</Text>
+      </View>
+    </View>
+  );
+}
+
 export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | undefined>(undefined);
@@ -74,6 +127,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set());
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const submit = useSubmitQuiz();
   const saveLesson = useSaveLesson();
@@ -180,13 +234,6 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     submit.reset();
   }
 
-  function handleSkipRetake() {
-    submit.mutate(
-      { lessonId: lesson.id, answers: {}, skipRetake: true },
-      { onError: handleQuizError }
-    );
-  }
-
   function handleNavigateAfterQuiz(nextId: string | null | undefined) {
     onClose();
     if (nextId) {
@@ -196,12 +243,15 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     }
   }
 
+  // Inset-aware header padding — shared across all five modal blocks
+  const headerStyle = [styles.header, { paddingTop: insets.top + spacing.sm }];
+
   // ─── Wrong first attempt — retake offer ───────────────────────────────────────
   if (submit.data && !submit.data.correct && submit.data.retakeAvailable) {
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <View style={styles.container}>
-          <View style={styles.header}>
+          <View style={headerStyle}>
             <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
             <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
               <Text style={styles.closeText}>✕</Text>
@@ -211,12 +261,6 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
             <Text style={styles.resultHeading}>Incorrect</Text>
             {lesson.keyTakeaway && <Text style={styles.keyTakeaway}>{lesson.keyTakeaway}</Text>}
             <Button label="Try again" onPress={handleTryAgain} style={styles.actionBtn} />
-            <Button
-              label="Next lesson"
-              onPress={handleSkipRetake}
-              loading={submit.isPending}
-              style={styles.actionBtn}
-            />
           </ScrollView>
         </View>
       </Modal>
@@ -229,7 +273,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <View style={styles.container}>
-          <View style={styles.header}>
+          <View style={headerStyle}>
             <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
             <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
               <Text style={styles.closeText}>✕</Text>
@@ -237,21 +281,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
           </View>
           <ScrollView contentContainerStyle={styles.content}>
             <Text style={styles.resultHeading}>{fb?.isCorrect ? 'Correct!' : 'Incorrect'}</Text>
-            {fb && (
-              <View
-                style={[styles.feedbackCard, fb.isCorrect ? styles.feedbackCorrect : styles.feedbackIncorrect]}
-                accessibilityRole="text"
-              >
-                <Text style={styles.feedbackQuestion}>{fb.question}</Text>
-                <Text style={[styles.feedbackAnswer, fb.isCorrect ? styles.correct : styles.incorrect]}>
-                  {fb.isCorrect ? '✓' : '✗'} Your answer: {fb.userAnswer}
-                </Text>
-                {!fb.isCorrect && fb.correctAnswer && (
-                  <Text style={styles.correctAnswer}>Correct: {fb.correctAnswer}</Text>
-                )}
-                <Text style={styles.explanation}>{fb.explanation}</Text>
-              </View>
-            )}
+            {fb && <QuizFeedbackCard fb={fb} />}
             <Button
               label="Next Question"
               onPress={() => advanceToNextUnresolved(current?.id)}
@@ -271,7 +301,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <View style={styles.container}>
-          <View style={styles.header}>
+          <View style={headerStyle}>
             <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
             <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
               <Text style={styles.closeText}>✕</Text>
@@ -288,7 +318,8 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
             {/* Streak counter */}
             {streak > 0 && (
               <View style={styles.streakRow}>
-                <Text style={styles.streakText}>🔥 {streak}-day streak</Text>
+                <FlameIcon size={18} />
+                <Text style={styles.streakText}>{streak}-day streak</Text>
               </View>
             )}
 
@@ -306,35 +337,23 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
               </Animated.View>
             )}
 
-            {/* Key takeaway card */}
-            {lesson.keyTakeaway && (
-              <View testID="quiz-key-takeaway" style={styles.quizKeyTakeawayCard}>
-                <Text style={styles.quizKeyTakeawayLabel}>KEY TAKEAWAY</Text>
-                <Text style={styles.quizKeyTakeawayText}>{lesson.keyTakeaway}</Text>
-              </View>
-            )}
-
+            {/* Feedback cards — one per quiz question */}
             {feedbacks.map((fb: QuizFeedback) => (
-              <View
-                key={fb.quizId}
-                style={[styles.feedbackCard, fb.isCorrect ? styles.feedbackCorrect : styles.feedbackIncorrect]}
-                accessibilityRole="text"
-              >
-                <Text style={styles.feedbackQuestion}>{fb.question}</Text>
-                <Text style={[styles.feedbackAnswer, fb.isCorrect ? styles.correct : styles.incorrect]}>
-                  {fb.isCorrect ? '✓' : '✗'} Your answer: {fb.userAnswer}
-                </Text>
-                {!fb.isCorrect && (
-                  <Text style={styles.correctAnswer}>Correct: {fb.correctAnswer}</Text>
-                )}
-                <Text style={styles.explanation}>{fb.explanation}</Text>
-              </View>
+              <QuizFeedbackCard key={fb.quizId} fb={fb} />
             ))}
 
             {coaching && (
               <View style={styles.coachingCard}>
                 <Text style={styles.coachingLabel}>AI Coaching</Text>
                 <Text style={styles.coachingText}>{coaching}</Text>
+              </View>
+            )}
+
+            {/* Key takeaway — last, per item 6 */}
+            {lesson.keyTakeaway && (
+              <View testID="quiz-key-takeaway" style={styles.quizKeyTakeawayCard}>
+                <Text style={styles.quizKeyTakeawayLabel}>KEY TAKEAWAY</Text>
+                <Text style={styles.quizKeyTakeawayText}>{lesson.keyTakeaway}</Text>
               </View>
             )}
 
@@ -354,7 +373,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <View style={styles.container}>
-          <View style={styles.header}>
+          <View style={headerStyle}>
             <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
             <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
               <Text style={styles.closeText}>✕</Text>
@@ -378,7 +397,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={[headerStyle, styles.headerQuiz]}>
           <View style={styles.spacer} />
           <Pressable onPress={onClose} style={styles.closeBtn}>
             <Text style={styles.closeText}>✕</Text>
@@ -408,20 +427,20 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
 
               {current.type === 'multiple-choice' ? (
                 <View style={styles.options}>
-                  {current.options.map((option) => {
-                    const isSelected = selectedAnswer === option;
-                    const isDisabled = wrongAnswer === option;
+                  {current.options.map((option, idx) => {
+                    const optKey = String.fromCharCode(65 + idx); // A, B, C, D…
+                    let state: QuizOptState = 'idle';
+                    if (wrongAnswer === option) state = 'incorrect';
+                    else if (selectedAnswer === option) state = 'selected';
                     return (
-                      <Pressable
+                      <QuizOpt
                         key={option}
-                        style={[styles.option, isSelected && styles.optionSelected, isDisabled && styles.optionDisabled]}
-                        onPress={() => !isDisabled && handleSelectOption(option)}
-                        disabled={isDisabled}
-                      >
-                        <Text style={[styles.optionText, isSelected && styles.optionTextSelected, isDisabled && styles.optionTextDisabled]}>
-                          {option}
-                        </Text>
-                      </Pressable>
+                        testID={`quiz-opt-${idx}`}
+                        optKey={optKey}
+                        label={option}
+                        state={state}
+                        onPress={() => handleSelectOption(option)}
+                      />
                     );
                   })}
                 </View>
@@ -454,21 +473,24 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
 }
 
 const styles = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: colors.bg },
+  container:   { flex: 1, backgroundColor: colors.paper },
   header: {
     flexDirection:  'row',
     alignItems:     'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingTop:        spacing.lg,
+    // paddingTop is applied inline via useSafeAreaInsets() — not hardcoded here
     paddingBottom:     spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderSubtle,
+  },
+  headerQuiz: {
+    // quiz question view has no bookmark — left spacer maintains alignment
   },
   spacer:    { width: 32 },
   closeBtn:  { padding: spacing.xs },
   closeText: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize:   fontSize.md,
     color:      colors.textMuted,
   },
@@ -486,55 +508,22 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height:          6,
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderSubtle,
     borderRadius:    3,
     overflow:        'hidden',
   },
   progressFill: {
     height:          6,
-    backgroundColor: colors.teal,
+    backgroundColor: colors.brand,
     borderRadius:    3,
   },
   question: {
-    fontFamily:   font.bold,
+    fontFamily:   font.semibold,
     fontSize:     fontSize.md,
-    color:        colors.textDark,
+    color:        colors.textStrong,
     marginBottom: spacing.lg,
   },
   options:   { gap: spacing.sm, marginBottom: spacing.lg },
-  option: {
-    borderWidth:     1,
-    borderColor:     colors.border,
-    borderRadius:    radius.btn,
-    padding:         spacing.md,
-    backgroundColor: colors.white,
-  },
-  optionSelected: {
-    borderColor:     colors.teal,
-    backgroundColor: colors.teal + '10',
-  },
-  optionText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.base,
-    color:      colors.textDark,
-  },
-  optionTextSelected: { color: colors.teal },
-  optionDisabled: { opacity: 0.4 },
-  optionTextDisabled: { textDecorationLine: 'line-through' },
-  completedBody: {
-    fontFamily:   font.regular,
-    fontSize:     fontSize.base,
-    color:        colors.textMuted,
-    textAlign:    'center',
-    marginBottom: spacing.xl,
-  },
-  keyTakeaway: {
-    fontFamily:   font.regular,
-    fontSize:     fontSize.base,
-    color:        colors.textDark,
-    textAlign:    'center',
-    marginBottom: spacing.xl,
-  },
   shortAnswerInput:   { marginBottom: spacing.lg },
   actionBtn:          { marginTop: spacing.sm },
   error: {
@@ -550,19 +539,33 @@ const styles = StyleSheet.create({
     textAlign:  'center',
     marginTop:  spacing.xl,
   },
-  // Results
+  completedBody: {
+    fontFamily:   font.regular,
+    fontSize:     fontSize.base,
+    color:        colors.textMuted,
+    textAlign:    'center',
+    marginBottom: spacing.xl,
+  },
+  keyTakeaway: {
+    fontFamily:   font.regular,
+    fontSize:     fontSize.base,
+    color:        colors.textBody,
+    textAlign:    'center',
+    marginBottom: spacing.xl,
+  },
+  // ─── Results ────────────────────────────────────────────────────────────────
   resultHeading: {
-    fontFamily:   font.bold,
+    fontFamily:   font.semibold,
     fontSize:     fontSize.xl,
-    color:        colors.textDark,
+    color:        colors.textStrong,
     textAlign:    'center',
     marginTop:    spacing.lg,
     marginBottom: spacing.md,
   },
   scorePercent: {
-    fontFamily:   font.bold,
+    fontFamily:   font.semibold,
     fontSize:     fontSize.xxl,
-    color:        colors.teal,
+    color:        colors.brand,
     textAlign:    'center',
   },
   scoreFraction: {
@@ -580,82 +583,31 @@ const styles = StyleSheet.create({
     gap:           spacing.xs,
   },
   trackAverageBadge: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize:   fontSize.lg ?? fontSize.md,
   },
   trackAverageUp:   { color: colors.success },
   trackAverageDown: { color: colors.error },
   trackAverageFlat: { color: colors.success },
-  feedbackCard: {
-    backgroundColor: colors.white,
-    borderRadius:    radius.card,
-    padding:         spacing.md,
-    marginBottom:    spacing.md,
-    gap:             spacing.xs,
-  },
-  feedbackQuestion: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.sm,
-    color:      colors.textDark,
-  },
-  feedbackAnswer: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-  },
-  correct:    { color: colors.success },
-  incorrect:  { color: colors.error },
-  correctAnswer: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.base,
-    color:      colors.success,
-  },
-  quizKeyTakeawayCard: {
-    backgroundColor: colors.teal + '10',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.teal,
-    borderRadius:    radius.card,
-    padding:         spacing.md,
-    marginBottom:    spacing.md,
-    gap:             spacing.xs,
-  },
-  quizKeyTakeawayLabel: {
-    fontFamily:    font.bold,
-    fontSize:      fontSize.xs,
-    color:         colors.teal,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  quizKeyTakeawayText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textDark,
-  },
-  explanation: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textMuted,
-    fontStyle:  'italic',
-  },
-  doneBtn: { marginTop: spacing.lg },
   streakRow: {
     flexDirection:  'row',
     justifyContent: 'center',
     marginBottom:   spacing.md,
   },
   streakText: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize:   fontSize.base,
-    color:      colors.textDark,
+    color:      colors.textStrong,
   },
   milestoneCard: {
-    backgroundColor: '#f97316',
+    backgroundColor: colors.coral,
     borderRadius:    radius.card,
     padding:         spacing.md,
     marginBottom:    spacing.lg,
     alignItems:      'center',
   },
   milestoneText: {
-    fontFamily: font.bold,
+    fontFamily: font.semibold,
     fontSize:   fontSize.lg ?? fontSize.md,
     color:      '#ffffff',
     textAlign:  'center',
@@ -667,35 +619,102 @@ const styles = StyleSheet.create({
     marginTop:  spacing.xs,
     textAlign:  'center',
   },
-  feedbackCorrect: {
-    backgroundColor: '#f0fdf4',
-    borderLeftWidth: 3,
-    borderLeftColor: colors.success,
+  // ─── QuizFeedbackCard ───────────────────────────────────────────────────────
+  feedbackWrapper: {
+    gap:          spacing.sm,
+    marginBottom: spacing.md,
   },
-  feedbackIncorrect: {
-    backgroundColor: '#fef2f2',
-    borderLeftWidth: 3,
-    borderLeftColor: colors.error,
+  explanationBox: {
+    backgroundColor: colors.brandSoft,
+    borderRadius:    radius.card,
+    padding:         spacing.md,
+    gap:             spacing.xs,
+  },
+  correctAnswerBox: {
+    backgroundColor: colors.successSoft,
+    borderRadius:    radius.card,
+    padding:         spacing.md,
+    gap:             spacing.xs,
+  },
+  yourAnswerBox: {
+    backgroundColor: colors.surface,
+    borderRadius:    radius.card,
+    padding:         spacing.md,
+    gap:             spacing.xs,
+    borderWidth:     1,
+    borderColor:     colors.borderSubtle,
+  },
+  feedbackSectionLabel: {
+    fontFamily:    font.semibold,
+    fontSize:      fontSize.xs,
+    color:         colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  explanationText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.textBody,
+  },
+  correctAnswerText: {
+    fontFamily: font.semibold,
+    fontSize:   fontSize.base,
+    color:      colors.success,
+  },
+  feedbackQuestion: {
+    fontFamily: font.semibold,
+    fontSize:   fontSize.sm,
+    color:      colors.textStrong,
+    marginBottom: spacing.xs,
+  },
+  feedbackAnswerText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+  },
+  correct:    { color: colors.success },
+  incorrect:  { color: colors.error },
+  // ─── Key takeaway / coaching ─────────────────────────────────────────────────
+  quizKeyTakeawayCard: {
+    backgroundColor: colors.brandSoft,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.brand,
+    borderRadius:    radius.card,
+    padding:         spacing.md,
+    marginBottom:    spacing.md,
+    gap:             spacing.xs,
+  },
+  quizKeyTakeawayLabel: {
+    fontFamily:    font.semibold,
+    fontSize:      fontSize.xs,
+    color:         colors.brand,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  quizKeyTakeawayText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.textBody,
   },
   coachingCard: {
-    backgroundColor: colors.teal + '10',
+    backgroundColor: colors.brandSoft,
     borderWidth:     1,
-    borderColor:     colors.teal + '40',
+    borderColor:     colors.brand + '40',
     borderRadius:    radius.card,
     padding:         spacing.md,
     marginBottom:    spacing.md,
     gap:             spacing.xs,
   },
   coachingLabel: {
-    fontFamily:   font.bold,
+    fontFamily:   font.semibold,
     fontSize:     fontSize.xs,
-    color:        colors.teal,
+    color:        colors.brand,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   coachingText: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
-    color:      colors.textDark,
+    color:      colors.textBody,
   },
+  doneBtn: { marginTop: spacing.lg },
 });

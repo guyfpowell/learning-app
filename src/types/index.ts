@@ -5,7 +5,6 @@ export type {
   UserProgress,
   NotificationPreference,
   Lesson,
-  LessonContent,
   Quiz,
   SkillPath,
   Skill,

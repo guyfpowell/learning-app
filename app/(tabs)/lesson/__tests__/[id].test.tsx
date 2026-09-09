@@ -26,11 +26,7 @@ const mockLesson = {
   difficulty: 'beginner' as const,
   durationMinutes: 10,
   isTeaser: false,
-  content: JSON.stringify({
-    introduction: 'Intro text',
-    keyPoints: ['Point 1'],
-    example: 'Example code',
-  }),
+  content: 'You are presenting a strategy to the board when the CFO asks why growth has stalled.',
   summary: 'A test summary',
   keyTakeaway: 'The key takeaway',
   isSaved: false,
@@ -84,13 +80,15 @@ describe('LessonDetailScreen', () => {
     expect(screen.getByText('Test Lesson')).toBeTruthy();
     expect(screen.getByTestId('lesson-summary')).toBeTruthy();
     expect(screen.getByText('A test summary')).toBeTruthy();
-    // Body not visible in collapsed state
-    expect(screen.queryByTestId('lesson-introduction')).toBeNull();
+    // Scenario content not visible in collapsed state
+    expect(screen.queryByTestId('scenario-content')).toBeNull();
+    expect(screen.queryByText('Scenario')).toBeNull();
 
     // Press Continue to expand
     fireEvent.press(screen.getByTestId('continue-btn'));
-    expect(screen.getByTestId('lesson-introduction')).toBeTruthy();
-    expect(screen.getByText('Intro text')).toBeTruthy();
+    expect(screen.getByTestId('scenario-content')).toBeTruthy();
+    expect(screen.getByText('Scenario')).toBeTruthy();
+    expect(screen.getByText(mockLesson.content)).toBeTruthy();
   });
 
   it('renders difficulty badge and duration', () => {
@@ -268,6 +266,33 @@ describe('LessonDetailScreen', () => {
       });
       render(<LessonDetailScreen />);
       expect(screen.getAllByText('BEGINNER').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Chunk A5 — Scenario heading', () => {
+    it('shows Scenario heading and plain prose content when expanded', () => {
+      (useLesson as jest.Mock).mockReturnValue({
+        isLoading: false, isError: false, data: mockLesson, error: null,
+      });
+      render(<LessonDetailScreen />);
+      // Heading and content absent before expand
+      expect(screen.queryByText('Scenario')).toBeNull();
+      expect(screen.queryByTestId('scenario-content')).toBeNull();
+      // Press Continue → expanded
+      fireEvent.press(screen.getByTestId('continue-btn'));
+      expect(screen.getByText('Scenario')).toBeTruthy();
+      expect(screen.getByTestId('scenario-content')).toBeTruthy();
+      expect(screen.getByText(mockLesson.content)).toBeTruthy();
+    });
+
+    it('does not try to JSON.parse content', () => {
+      (useLesson as jest.Mock).mockReturnValue({
+        isLoading: false, isError: false, data: mockLesson, error: null,
+      });
+      render(<LessonDetailScreen />);
+      fireEvent.press(screen.getByTestId('continue-btn'));
+      // Structured-branch testIDs must never appear
+      expect(screen.queryByTestId('lesson-introduction')).toBeNull();
     });
   });
 
