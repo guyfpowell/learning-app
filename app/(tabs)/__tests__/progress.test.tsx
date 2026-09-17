@@ -324,12 +324,65 @@ describe('ProgressScreen — Ticket 070 XP card', () => {
     expect(screen.queryByTestId('xp-card')).toBeNull();
   });
 
-  it('does not show progress bar when nextMilestone is null', () => {
+  it('does not show progress bar when nextMilestone is null and tier is absent', () => {
     (useXp as jest.Mock).mockReturnValue({
-      data: { totalXp: 200000, nextMilestone: null },
+      data: { totalXp: 200000, nextMilestone: null, tier: null },
     });
     render(<ProgressScreen />);
     expect(screen.getByTestId('xp-card')).toBeTruthy();
     expect(screen.queryByTestId('xp-progress-bar')).toBeNull();
+  });
+
+  // ── Ticket 070a — tier / level display ─────────────────────────────────────
+
+  it('shows tier label when tier is provided', () => {
+    (useXp as jest.Mock).mockReturnValue({
+      data: {
+        totalXp: 2200,
+        nextMilestone: { key: 'ridgeline', name: 'Ridgeline', xpRequired: 4000, xpRemaining: 1800 },
+        tier: { key: 'base-camp', name: 'Base Camp', level: 3, label: 'Base Camp III', floor: 2200, ceiling: 2800 },
+      },
+    });
+    render(<ProgressScreen />);
+    expect(screen.getByTestId('xp-tier-label')).toBeTruthy();
+    expect(screen.getByText('Base Camp III')).toBeTruthy();
+  });
+
+  it('shows level progress bar (current level) when tier is set', () => {
+    (useXp as jest.Mock).mockReturnValue({
+      data: {
+        totalXp: 2200,
+        nextMilestone: { key: 'ridgeline', name: 'Ridgeline', xpRequired: 4000, xpRemaining: 1800 },
+        tier: { key: 'base-camp', name: 'Base Camp', level: 3, label: 'Base Camp III', floor: 2200, ceiling: 2800 },
+      },
+    });
+    render(<ProgressScreen />);
+    expect(screen.getByTestId('xp-progress-bar')).toBeTruthy();
+  });
+
+  it('shows "to next level" hint when tier is active', () => {
+    (useXp as jest.Mock).mockReturnValue({
+      data: {
+        totalXp: 2200,
+        nextMilestone: { key: 'ridgeline', name: 'Ridgeline', xpRequired: 4000, xpRemaining: 1800 },
+        tier: { key: 'base-camp', name: 'Base Camp', level: 3, label: 'Base Camp III', floor: 2200, ceiling: 2800 },
+      },
+    });
+    render(<ProgressScreen />);
+    expect(screen.getByTestId('xp-level-hint')).toBeTruthy();
+    expect(screen.getByText('600 XP to next level')).toBeTruthy();
+  });
+
+  it('falls back to next-milestone label when tier is null', () => {
+    (useXp as jest.Mock).mockReturnValue({
+      data: {
+        totalXp: 100,
+        nextMilestone: { key: 'foothills', name: 'Foothills', xpRequired: 150, xpRemaining: 50 },
+        tier: null,
+      },
+    });
+    render(<ProgressScreen />);
+    expect(screen.getByTestId('xp-next-label')).toBeTruthy();
+    expect(screen.queryByTestId('xp-tier-label')).toBeNull();
   });
 });

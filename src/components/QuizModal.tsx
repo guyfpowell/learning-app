@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import type { Lesson, QuizFeedback } from '@learning/shared';
+import type { AchievementKey, Lesson, QuizFeedback } from '@learning/shared';
+import { ACHIEVEMENTS_BY_KEY } from '@learning/shared';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
 import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { extractError } from '@/lib/errors';
@@ -19,8 +20,9 @@ import { Input } from '@/components/ui/Input';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { QuizOpt } from '@/components/ui/QuizOpt';
 import type { QuizOptState } from '@/components/ui/QuizOpt';
-import { colors, font, fontSize, radius, spacing } from '@/theme';
+import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
 import { FlameIcon } from '@/components/ui/Streak';
+import { CelebrationOverlay, XpChipOverlay } from '@/components/ui/CelebrationOverlay';
 
 interface QuizModalProps {
   visible: boolean;
@@ -72,27 +74,33 @@ function TrackAverageBadge({
 }
 
 /**
- * QuizFeedbackCard — ticket 069 A4.
+ * QuizFeedbackCard — ticket 069 A4, reordered + restyled ticket 072f.
  *
  * Single component used by both the mid-capstone per-question view and the
  * terminal results view so both always share the same block order.
  *
- * Correct:   Explanation → Question + Your answer (confirmed correct)
- * Incorrect: Correct answer → Explanation → Question + your answer
+ * Reading order goes context → reason → (key takeaway, rendered once, after
+ * all cards): question/answer first (recessive — reference, not the point),
+ * then Explanation (plain, neutral). For a wrong answer, the correct answer
+ * is a highlighted chip inside the question/answer block, directly beside
+ * the wrong pick it corrects, instead of a standalone block.
+ *
+ * Correct:   Question + your answer (recessive) → Explanation
+ * Incorrect: Question + your answer + correct-answer chip (recessive block) → Explanation
  */
 function QuizFeedbackCard({ fb }: { fb: QuizFeedback }) {
   if (fb.isCorrect) {
     return (
       <View testID={`feedback-card-${fb.quizId}`} style={styles.feedbackWrapper}>
-        {/* 1. Explanation */}
+        {/* 1. Question + confirmed correct answer — reference, recessive */}
+        <View style={styles.answerRefBox}>
+          <Text style={styles.feedbackQuestion}>{fb.question}</Text>
+          <Text style={[styles.feedbackAnswerText, styles.correct]}>✓ Your answer: {fb.userAnswer}</Text>
+        </View>
+        {/* 2. Explanation — plain, neutral */}
         <View style={styles.explanationBox}>
           <Text style={styles.feedbackSectionLabel}>Explanation</Text>
           <Text style={styles.explanationText}>{fb.explanation}</Text>
-        </View>
-        {/* 2. Question + confirmed correct answer */}
-        <View style={styles.yourAnswerBox}>
-          <Text style={styles.feedbackQuestion}>{fb.question}</Text>
-          <Text style={[styles.feedbackAnswerText, styles.correct]}>✓ Your answer: {fb.userAnswer}</Text>
         </View>
       </View>
     );
@@ -100,26 +108,29 @@ function QuizFeedbackCard({ fb }: { fb: QuizFeedback }) {
 
   return (
     <View testID={`feedback-card-${fb.quizId}`} style={styles.feedbackWrapper}>
-      {/* 1. Correct answer */}
-      {fb.correctAnswer != null && (
-        <View style={styles.correctAnswerBox}>
-          <Text style={styles.feedbackSectionLabel}>Correct answer</Text>
-          <Text style={styles.correctAnswerText}>{fb.correctAnswer}</Text>
-        </View>
-      )}
-      {/* 2. Explanation */}
+      {/* 1. Question + wrong answer + correct-answer chip — reference, recessive */}
+      <View style={styles.answerRefBox}>
+        <Text style={styles.feedbackQuestion}>{fb.question}</Text>
+        <Text style={[styles.feedbackAnswerText, styles.incorrect]}>✗ Your answer: {fb.userAnswer}</Text>
+        {fb.correctAnswer != null && (
+          <View style={styles.correctAnswerChip}>
+            <Text style={styles.correctAnswerChipLabel}>Correct answer</Text>
+            <Text style={styles.correctAnswerText}>{fb.correctAnswer}</Text>
+          </View>
+        )}
+      </View>
+      {/* 2. Explanation — plain, neutral */}
       <View style={styles.explanationBox}>
         <Text style={styles.feedbackSectionLabel}>Explanation</Text>
         <Text style={styles.explanationText}>{fb.explanation}</Text>
       </View>
-      {/* 3. Question + their wrong answer */}
-      <View style={styles.yourAnswerBox}>
-        <Text style={styles.feedbackQuestion}>{fb.question}</Text>
-        <Text style={[styles.feedbackAnswerText, styles.incorrect]}>✗ Your answer: {fb.userAnswer}</Text>
-      </View>
     </View>
   );
 }
+
+type CelebrationItem =
+  | { type: 'achievement'; id: string; name: string; description: string }
+  | { type: 'xp'; id: string; amount: number };
 
 export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
@@ -128,6 +139,9 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set());
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [celebrationQueue, setCelebrationQueue] = useState<CelebrationItem[]>([]);
+  const [currentCelebration, setCurrentCelebration] = useState<CelebrationItem | null>(null);
+  const celebrationFired = useRef(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const submit = useSubmitQuiz();
@@ -152,6 +166,9 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
       submit.reset();
       scoreAnim.setValue(0);
       milestoneAnim.setValue(0.8);
+      setCelebrationQueue([]);
+      setCurrentCelebration(null);
+      celebrationFired.current = false;
     }
   }, [visible, lesson.id, lesson.isSaved]);
 
@@ -184,6 +201,36 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
       }
     }
   }, [submit.data]);
+
+  // Build celebration queue on finalization — fires exactly once per quiz session
+  useEffect(() => {
+    if (!submit.data?.lessonFinalized || celebrationFired.current) return;
+    celebrationFired.current = true;
+    const items: CelebrationItem[] = [];
+    const unlocked: AchievementKey[] = submit.data.achievementsUnlocked ?? [];
+    for (const key of unlocked) {
+      const def = ACHIEVEMENTS_BY_KEY[key];
+      if (def) items.push({ type: 'achievement', id: key, name: def.name, description: def.description });
+    }
+    if (submit.data.xpAwarded != null && submit.data.xpAwarded > 0) {
+      items.push({ type: 'xp', id: 'xp-award', amount: submit.data.xpAwarded });
+    }
+    if (items.length > 0) {
+      setCurrentCelebration(items[0]);
+      setCelebrationQueue(items.slice(1));
+    }
+  }, [submit.data]);
+
+  function advanceCelebration() {
+    setCelebrationQueue(q => {
+      if (q.length > 0) {
+        setCurrentCelebration(q[0]);
+        return q.slice(1);
+      }
+      setCurrentCelebration(null);
+      return [];
+    });
+  }
 
   const current = quizzes[currentQuizIndex];
 
@@ -309,7 +356,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={styles.content}>
-            <Text style={styles.resultHeading}>Quiz Complete!</Text>
+            <Text style={styles.resultHeading}>{submit.data.correct ? 'Correct!' : 'Incorrect'}</Text>
 
             {/* Animated track average */}
             <Animated.View style={{ transform: [{ scale: scoreAnim }] }}>
@@ -371,6 +418,26 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
               style={styles.doneBtn}
             />
           </ScrollView>
+
+          {/* Celebration overlays — rendered on top of the terminal view */}
+          {currentCelebration?.type === 'achievement' && (
+            <CelebrationOverlay
+              key={currentCelebration.id}
+              visible
+              title="Achievement Earned!"
+              name={currentCelebration.name}
+              description={currentCelebration.description}
+              onDismiss={advanceCelebration}
+            />
+          )}
+          {currentCelebration?.type === 'xp' && (
+            <XpChipOverlay
+              key={currentCelebration.id}
+              visible
+              xp={currentCelebration.amount}
+              onDismiss={advanceCelebration}
+            />
+          )}
         </View>
       </Modal>
     );
@@ -645,25 +712,39 @@ const styles = StyleSheet.create({
     gap:          spacing.sm,
     marginBottom: spacing.md,
   },
+  // Question + your answer (+ correct answer if wrong) — the reference block.
+  // Recessive on purpose: it's context, not the point.
+  answerRefBox: {
+    backgroundColor: colors.surfaceSunken,
+    borderRadius:    radius.card,
+    padding:         spacing.md,
+    gap:             spacing.xs,
+  },
+  // Explanation — plain, neutral body block. No tint: it shouldn't compete
+  // with the answer block above or the key takeaway below.
   explanationBox: {
-    backgroundColor: colors.brandSoft,
-    borderRadius:    radius.card,
-    padding:         spacing.md,
-    gap:             spacing.xs,
-  },
-  correctAnswerBox: {
-    backgroundColor: colors.successSoft,
-    borderRadius:    radius.card,
-    padding:         spacing.md,
-    gap:             spacing.xs,
-  },
-  yourAnswerBox: {
     backgroundColor: colors.surface,
     borderRadius:    radius.card,
     padding:         spacing.md,
     gap:             spacing.xs,
-    borderWidth:     1,
-    borderColor:     colors.borderSubtle,
+  },
+  // Correct-answer highlight, nested inside the (recessive) answerRefBox so
+  // it still pops via colour even though its container is quiet.
+  correctAnswerChip: {
+    backgroundColor: colors.successSoft,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.success,
+    borderRadius:    radius.sm,
+    padding:         spacing.sm3,
+    marginTop:       spacing.xs,
+    gap:             2,
+  },
+  correctAnswerChipLabel: {
+    fontFamily:    font.semibold,
+    fontSize:      fontSize.xs,
+    color:         colors.success,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   feedbackSectionLabel: {
     fontFamily:    font.semibold,
@@ -683,9 +764,9 @@ const styles = StyleSheet.create({
     color:      colors.success,
   },
   feedbackQuestion: {
-    fontFamily: font.semibold,
+    fontFamily: font.medium,
     fontSize:   fontSize.sm,
-    color:      colors.textStrong,
+    color:      colors.textMuted,
     marginBottom: spacing.xs,
   },
   feedbackAnswerText: {
@@ -695,26 +776,28 @@ const styles = StyleSheet.create({
   correct:    { color: colors.success },
   incorrect:  { color: colors.error },
   // ─── Key takeaway / coaching ─────────────────────────────────────────────────
+  // Strongest treatment on the screen — filled brand card, not a soft tint.
+  // This is the thing the user should carry out of the quiz.
   quizKeyTakeawayCard: {
-    backgroundColor: colors.brandSoft,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.brand,
+    backgroundColor: colors.brand,
     borderRadius:    radius.card,
     padding:         spacing.md,
     marginBottom:    spacing.md,
     gap:             spacing.xs,
+    ...shadow.card,
   },
   quizKeyTakeawayLabel: {
     fontFamily:    font.semibold,
     fontSize:      fontSize.xs,
-    color:         colors.brand,
+    color:         colors.textOnBrand,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    opacity:       0.8,
   },
   quizKeyTakeawayText: {
-    fontFamily: font.regular,
+    fontFamily: font.medium,
     fontSize:   fontSize.sm,
-    color:      colors.textBody,
+    color:      colors.textOnBrand,
   },
   coachingCard: {
     backgroundColor: colors.brandSoft,

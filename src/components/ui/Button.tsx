@@ -22,8 +22,8 @@ interface ButtonProps extends PressableProps {
   label: string;
   variant?: ButtonVariant;
   size?: ButtonSize;
-  /** Full-width (alignSelf: stretch) */
-  block?: boolean;
+  /** Shrink-wrap to label width — opt out of the default full-width centred layout. */
+  inline?: boolean;
   loading?: boolean;
 }
 
@@ -31,7 +31,7 @@ export function Button({
   label,
   variant = 'primary',
   size = 'sm',
-  block = false,
+  inline = false,
   loading = false,
   disabled,
   style,
@@ -44,7 +44,7 @@ export function Button({
       style={({ pressed }) => [
         styles.base,
         size === 'lg' && styles.sizeLg,
-        block && styles.block,
+        inline ? styles.inlineShrink : styles.blockFull,
         variantStyle(variant),
         pressed && !isDisabled && variantPressedStyle(variant),
         isDisabled && styles.disabled,
@@ -113,7 +113,6 @@ const styles = StyleSheet.create({
     alignItems:        'center',
     justifyContent:    'center',
     minHeight:         44,
-    alignSelf:         'flex-start',
   },
   sizeLg: {
     paddingHorizontal: spacing.xl,
@@ -121,8 +120,13 @@ const styles = StyleSheet.create({
     minHeight:         52,
     borderRadius:      radius.sm,
   },
-  block: {
-    alignSelf: 'stretch',
+  blockFull: {
+    alignSelf: 'center',
+    width:     '100%' as const,
+    maxWidth:  420,
+  },
+  inlineShrink: {
+    alignSelf: 'flex-start',
   },
 
   // ── Variant fills ─────────────────────────────────────────────────────────

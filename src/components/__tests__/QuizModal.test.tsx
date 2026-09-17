@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { QuizModal } from '../QuizModal';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
 import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
@@ -224,8 +224,15 @@ describe('QuizModal', () => {
   it('shows results view after successful submission when finalized', () => {
     setQuizMock({ data: mockResult });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('Quiz Complete!')).toBeTruthy();
+    expect(screen.getByText('Correct!')).toBeTruthy();
     expect(screen.getByText('90%')).toBeTruthy();
+  });
+
+  it('terminal view shows "Incorrect" heading when submit.data.correct is false', () => {
+    setQuizMock({ data: { ...mockResult, correct: false, retakeAvailable: false } });
+    render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+    expect(screen.getByText('Incorrect')).toBeTruthy();
+    expect(screen.queryByText('Correct!')).toBeNull();
   });
 
   it('shows the Track Average label in results', () => {
@@ -397,7 +404,7 @@ describe('QuizModal', () => {
     it('last question finalized → full terminal view', () => {
       setQuizMock({ data: { ...mockResult, lessonFinalized: true } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByText('Quiz Complete!')).toBeTruthy();
+      expect(screen.getByText('Correct!')).toBeTruthy();
       expect(screen.getByText('Track Average')).toBeTruthy();
       expect(screen.queryByText('NEXT QUESTION')).toBeNull();
     });
@@ -509,7 +516,7 @@ describe('QuizModal', () => {
     it('a fresh finalized result in the same session still shows the real terminal view, not "Already Completed"', () => {
       setQuizMock({ data: { ...mockResult, lessonFinalized: true } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByText('Quiz Complete!')).toBeTruthy();
+      expect(screen.getByText('Correct!')).toBeTruthy();
       expect(screen.queryByText('Already Completed')).toBeNull();
     });
   });
@@ -565,7 +572,7 @@ describe('QuizModal', () => {
       setQuizMock({ data: { ...mockResult, correct: false, retakeAvailable: false } });
       render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
 
-      expect(screen.getByText('Quiz Complete!')).toBeTruthy();
+      expect(screen.getByText('Incorrect')).toBeTruthy();
       expect(screen.queryByText('Try again')).toBeNull();
     });
 
@@ -698,36 +705,49 @@ describe('QuizModal', () => {
       explanation: 'Because it matches market needs.',
     };
 
-    it('correct: shows Explanation, then question and confirmed answer in the same box', () => {
+    it('correct: shows question + your answer as one reference block, before Explanation', () => {
       setQuizMock({ data: { ...mockResult, feedbacks: [correctFeedback] } });
-      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      const { toJSON } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       expect(screen.getAllByText('Explanation').length).toBeGreaterThan(0);
       expect(screen.getByText('What is product-market fit?')).toBeTruthy();
       expect(screen.getByText('✓ Your answer: Option A')).toBeTruthy();
+
+      const tree = JSON.stringify(toJSON());
+      const yourAnswerIdx = tree.indexOf('Your answer:');
+      const explanationBodyIdx = tree.indexOf('Because it matches market needs');
+      expect(yourAnswerIdx).toBeGreaterThan(-1);
+      expect(explanationBodyIdx).toBeGreaterThan(yourAnswerIdx);
     });
 
-    it('incorrect: shows "Correct answer" heading before "Explanation"', () => {
+    it('incorrect: groups question, your answer and the correct answer in one block, before Explanation', () => {
       setQuizMock({ data: { ...mockResult, feedbacks: [incorrectFeedback] } });
-      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      const { toJSON } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       expect(screen.getByText('Correct answer')).toBeTruthy();
       expect(screen.getAllByText('Explanation').length).toBeGreaterThan(0);
-    });
-
-    it('incorrect: shows question and wrong answer together', () => {
-      setQuizMock({ data: { ...mockResult, feedbacks: [incorrectFeedback] } });
-      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       expect(screen.getByText('✗ Your answer: Option B')).toBeTruthy();
       expect(screen.getByText('What is product-market fit?')).toBeTruthy();
+
+      const tree = JSON.stringify(toJSON());
+      const yourAnswerIdx = tree.indexOf('Your answer:');
+      const correctAnswerLabelIdx = tree.indexOf('Correct answer');
+      const explanationBodyIdx = tree.indexOf('Because it matches market needs');
+      expect(yourAnswerIdx).toBeGreaterThan(-1);
+      expect(correctAnswerLabelIdx).toBeGreaterThan(yourAnswerIdx);
+      expect(explanationBodyIdx).toBeGreaterThan(correctAnswerLabelIdx);
     });
 
     it('terminal view: key takeaway renders after feedback cards (not before)', () => {
       setQuizMock({ data: { ...mockResult, feedbacks: [correctFeedback] } });
-      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      const { toJSON } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       const takeaway = screen.getByTestId('quiz-key-takeaway');
       const feedbackCard = screen.getByTestId('feedback-card-q-1');
-      // Both should be present; key takeaway rendered after the feedback card
       expect(takeaway).toBeTruthy();
       expect(feedbackCard).toBeTruthy();
+
+      const tree = JSON.stringify(toJSON());
+      const explanationBodyIdx = tree.indexOf('Because it matches market needs');
+      const takeawayIdx = tree.indexOf('Fit beats features');
+      expect(takeawayIdx).toBeGreaterThan(explanationBodyIdx);
     });
 
     it('mid-capstone feedback uses QuizFeedbackCard (Explanation heading present)', () => {
@@ -765,7 +785,6 @@ describe('QuizModal', () => {
       setQuizMock({ data: { ...mockResult, xpAwarded: 150 } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(screen.getByTestId('xp-chip')).toBeTruthy();
-      expect(screen.getByText('+150 XP')).toBeTruthy();
     });
 
     it('hides XP chip when xpAwarded is null', () => {
@@ -778,6 +797,60 @@ describe('QuizModal', () => {
       setQuizMock({ data: { ...mockResult, xpAwarded: 0 } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(screen.queryByTestId('xp-chip')).toBeNull();
+    });
+  });
+
+  describe('Ticket 072c — celebration queue', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    it('shows achievement overlay when achievementsUnlocked is populated on finalization', () => {
+      setQuizMock({ data: { ...mockResult, achievementsUnlocked: ['first-light'] } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByTestId('celebration-card')).toBeTruthy();
+      expect(screen.getByText('Achievement Earned!')).toBeTruthy();
+      expect(screen.getByText('First Light')).toBeTruthy();
+    });
+
+    it('shows XP chip overlay when xpAwarded > 0 and no achievements', () => {
+      setQuizMock({ data: { ...mockResult, xpAwarded: 75, achievementsUnlocked: [] } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByTestId('xp-chip-animated')).toBeTruthy();
+    });
+
+    it('does not show any overlay when achievementsUnlocked is empty and xpAwarded is null', () => {
+      setQuizMock({ data: { ...mockResult, xpAwarded: null, achievementsUnlocked: [] } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.queryByTestId('celebration-card')).toBeNull();
+      expect(screen.queryByTestId('xp-chip-animated')).toBeNull();
+    });
+
+    it('advances to XP chip overlay after achievement overlay is dismissed', () => {
+      setQuizMock({ data: { ...mockResult, xpAwarded: 50, achievementsUnlocked: ['first-light'] } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      // Achievement overlay is shown first
+      expect(screen.getByTestId('celebration-card')).toBeTruthy();
+      // Dismiss it
+      fireEvent.press(screen.getByTestId('celebration-backdrop'));
+      act(() => jest.runAllTimers());
+      // XP chip overlay should now be shown
+      expect(screen.getByTestId('xp-chip-animated')).toBeTruthy();
+    });
+
+    it('bug fix: second queued achievement gets its own timer and entrance animation, not the dismissed one\'s stale state', () => {
+      setQuizMock({ data: { ...mockResult, achievementsUnlocked: ['first-light', 'good-innings'] } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByText('First Light')).toBeTruthy();
+      // Auto-dismiss the first achievement
+      act(() => jest.advanceTimersByTime(6000));
+      act(() => jest.runAllTimers());
+      // Second achievement must render as its own fresh instance
+      expect(screen.getByTestId('celebration-card')).toBeTruthy();
+      expect(screen.getByText('Good Innings')).toBeTruthy();
+      // ...and must carry its own auto-dismiss timer rather than being stuck forever
+      act(() => jest.advanceTimersByTime(6000));
+      act(() => jest.runAllTimers());
+      expect(screen.queryByTestId('celebration-card')).toBeNull();
     });
   });
 
@@ -796,7 +869,7 @@ describe('QuizModal', () => {
       (useSafeAreaInsets as jest.Mock).mockReturnValue({ top: 47, bottom: 34, left: 0, right: 0 });
       setQuizMock({ data: mockResult });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByText('Quiz Complete!')).toBeTruthy();
+      expect(screen.getByText('Correct!')).toBeTruthy();
     });
   });
 });

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Tabs } from 'expo-router';
-import { View, Text } from 'react-native';
+import { View, Text, AppState } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, font, fontSize, spacing } from '@/theme';
@@ -18,6 +19,28 @@ function tabIcon(name: IoniconName, focusedName: IoniconName) {
 export default function TabsLayout() {
   // Register for push notifications once the authenticated tab shell mounts
   useNotifications();
+
+  const queryClient = useQueryClient();
+
+  // Refetch currentUser when the app returns to the foreground — the exact
+  // moment the user comes back from the browser after clicking the verify link.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+      }
+    });
+    return () => subscription.remove();
+  }, [queryClient]);
+
+  // Belt and braces — also invalidate whenever any tab screen gains focus, so
+  // switching tabs (e.g. Profile -> Progress) clears a stale banner even if
+  // the foreground event was missed. `useFocusEffect` on this layout would
+  // NOT do this: the layout itself stays mounted/focused across tab switches,
+  // only its child screens' focus changes, so the listener must live on `Tabs`.
+  const invalidateCurrentUser = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+  }, [queryClient]);
 
   // Safe-area insets — used to push the email verification banner below the
   // notch / Dynamic Island. The banner renders outside any screen's SafeAreaView,
@@ -63,6 +86,7 @@ export default function TabsLayout() {
         </View>
       )}
       <Tabs
+        screenListeners={{ focus: invalidateCurrentUser }}
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: colors.brand,

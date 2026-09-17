@@ -1,9 +1,15 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, act } from '@testing-library/react-native';
+import { AppState } from 'react-native';
+
+let capturedTabsProps: any = null;
 
 jest.mock('expo-router', () => ({
   Tabs: Object.assign(
-    ({ children }: any) => children ?? null,
+    (props: any) => {
+      capturedTabsProps = props;
+      return props.children ?? null;
+    },
     { Screen: () => null }
   ),
 }));
@@ -18,7 +24,6 @@ jest.mock('@/theme', () => ({
     textMuted: '#9CA3AF',
     white: '#FFFFFF',
     border: '#E2E8F0',
-    // A9 — design system tokens
     brand: '#1C66D2',
     surface: '#FEFDFB',
     borderSubtle: '#EEEBE5',
@@ -44,10 +49,17 @@ jest.mock('@/hooks/useEmailVerification', () => ({
   useResendVerification: () => ({ mutate: mockMutate, isPending: false }),
 }));
 
+const mockInvalidateQueries = jest.fn();
+
+jest.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
+}));
+
 describe('(tabs) layout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseCurrentUser.mockReturnValue({ data: undefined });
+    capturedTabsProps = null;
   });
 
   it('renders without errors', () => {
@@ -94,6 +106,81 @@ describe('(tabs) layout', () => {
         : banner.props.style ?? {};
       // A hard-coded 10px would not equal 52
       expect(style.paddingTop).not.toBe(10);
+    });
+  });
+
+  describe('Ticket 072a — banner clears after email verification', () => {
+    let addEventListenerSpy: jest.SpyInstance;
+    let capturedAppStateHandler: ((state: string) => void) | null;
+
+    beforeEach(() => {
+      capturedAppStateHandler = null;
+      addEventListenerSpy = jest
+        .spyOn(AppState, 'addEventListener')
+        .mockImplementation((event: any, handler: any) => {
+          if (event === 'change') capturedAppStateHandler = handler;
+          return { remove: jest.fn() } as any;
+        });
+    });
+
+    afterEach(() => {
+      addEventListenerSpy.mockRestore();
+    });
+
+    it('invalidates currentUser query when app returns to active', () => {
+      const TabsLayout = require('../_layout').default;
+      render(<TabsLayout />);
+      expect(capturedAppStateHandler).not.toBeNull();
+      act(() => capturedAppStateHandler!('active'));
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['auth', 'me'] });
+    });
+
+    it('does not invalidate when app enters background', () => {
+      const TabsLayout = require('../_layout').default;
+      render(<TabsLayout />);
+      mockInvalidateQueries.mockClear();
+      act(() => capturedAppStateHandler!('background'));
+      expect(mockInvalidateQueries).not.toHaveBeenCalled();
+    });
+
+    it('does not invalidate when app enters inactive state', () => {
+      const TabsLayout = require('../_layout').default;
+      render(<TabsLayout />);
+      mockInvalidateQueries.mockClear();
+      act(() => capturedAppStateHandler!('inactive'));
+      expect(mockInvalidateQueries).not.toHaveBeenCalled();
+    });
+
+    it('wires a screenListeners.focus handler on Tabs that invalidates currentUser', () => {
+      const TabsLayout = require('../_layout').default;
+      render(<TabsLayout />);
+      mockInvalidateQueries.mockClear();
+      const onFocus = capturedTabsProps?.screenListeners?.focus;
+      expect(typeof onFocus).toBe('function');
+      act(() => onFocus());
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['auth', 'me'] });
+    });
+
+    it('invalidates currentUser again on a second tab focus (e.g. Profile -> Progress)', () => {
+      const TabsLayout = require('../_layout').default;
+      render(<TabsLayout />);
+      mockInvalidateQueries.mockClear();
+      const onFocus = capturedTabsProps.screenListeners.focus;
+      act(() => onFocus()); // e.g. focused Profile
+      act(() => onFocus()); // e.g. focused Progress
+      expect(mockInvalidateQueries).toHaveBeenCalledTimes(2);
+    });
+
+    it('removes the AppState subscription on unmount', () => {
+      const mockRemove = jest.fn();
+      addEventListenerSpy.mockImplementation((event: any, handler: any) => {
+        if (event === 'change') capturedAppStateHandler = handler;
+        return { remove: mockRemove };
+      });
+      const TabsLayout = require('../_layout').default;
+      const { unmount } = render(<TabsLayout />);
+      unmount();
+      expect(mockRemove).toHaveBeenCalled();
     });
   });
 });

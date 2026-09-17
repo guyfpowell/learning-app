@@ -69,8 +69,13 @@ describe('Button', () => {
     expect(toJSON()).toBeTruthy();
   });
 
-  it('stretches to full width with block prop', () => {
-    const { toJSON } = render(<Button label="Block" onPress={jest.fn()} block />);
+  it('is full-width and centred by default', () => {
+    const { toJSON } = render(<Button label="Default" onPress={jest.fn()} />);
+    expect(toJSON()).toBeTruthy();
+  });
+
+  it('renders without throwing when inline prop is set', () => {
+    const { toJSON } = render(<Button label="Inline" onPress={jest.fn()} inline />);
     expect(toJSON()).toBeTruthy();
   });
 });

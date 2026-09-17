@@ -27,7 +27,7 @@ function PremiumModal({ visible, onClose, onUpgrade }: { visible: boolean; onClo
           <Text style={styles.modalBody}>
             Upgrade to unlock unlimited access to all premium tracks.
           </Text>
-          <Button testID="upgrade-now-btn" label="Upgrade now" style={styles.upgradeBtn} onPress={onUpgrade} />
+          <Button testID="upgrade-now-btn" label="Upgrade now" onPress={onUpgrade} />
           <Pressable testID="dismiss-btn" onPress={onClose} style={styles.dismissBtn}>
             <Text style={styles.dismissText}>Maybe later</Text>
           </Pressable>
@@ -274,7 +274,6 @@ const styles = StyleSheet.create({
     textAlign:  'center',
     lineHeight: fontSize.base * 1.5,
   },
-  upgradeBtn: { width: '100%' },
   dismissBtn: { paddingVertical: spacing.sm },
   dismissText: {
     fontFamily: font.regular,

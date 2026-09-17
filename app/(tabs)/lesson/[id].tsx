@@ -86,7 +86,7 @@ function PremiumModal({
               {teasersRemaining} free preview{teasersRemaining === 1 ? '' : 's'} remaining this month
             </Text>
           )}
-          <Button label="Upgrade now" style={styles.upgradeBtn} onPress={onUpgrade} />
+          <Button label="Upgrade now" onPress={onUpgrade} />
           <Pressable onPress={onClose} style={styles.dismissBtn}>
             <Text style={styles.dismissText}>Maybe later</Text>
           </Pressable>
@@ -470,7 +470,6 @@ const styles = StyleSheet.create({
     textAlign:  'center',
     lineHeight: fontSize.base * 1.5,
   },
-  upgradeBtn:  { width: '100%' },
   dismissBtn:  { paddingVertical: spacing.sm },
   dismissText: {
     fontFamily: font.regular,

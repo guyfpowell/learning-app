@@ -98,23 +98,38 @@ export default function ProgressScreen() {
               <Card testID="xp-card" style={styles.xpCard}>
                 <View style={styles.xpHeader}>
                   <Text testID="xp-total" style={styles.xpTotal}>{xpData.totalXp.toLocaleString()} XP</Text>
-                  {xpData.nextMilestone && (
+                  {xpData.tier ? (
+                    <Text testID="xp-tier-label" style={styles.xpTierLabel}>{xpData.tier.label}</Text>
+                  ) : xpData.nextMilestone ? (
                     <Text testID="xp-next-label" style={styles.xpNextLabel}>
                       {xpData.nextMilestone.name} in {xpData.nextMilestone.xpRemaining.toLocaleString()} XP
                     </Text>
-                  )}
+                  ) : null}
                 </View>
-                {xpData.nextMilestone && (
+                {xpData.tier ? (
+                  <>
+                    <Text testID="xp-level-hint" style={styles.xpNextLabel}>
+                      {(xpData.tier.ceiling - xpData.totalXp).toLocaleString()} XP to next level
+                    </Text>
+                    <Progress
+                      testID="xp-progress-bar"
+                      value={Math.round(
+                        ((xpData.totalXp - xpData.tier.floor) /
+                          (xpData.tier.ceiling - xpData.tier.floor)) *
+                          100,
+                      )}
+                      tone="xp"
+                    />
+                  </>
+                ) : xpData.nextMilestone ? (
                   <Progress
                     testID="xp-progress-bar"
                     value={Math.round(
-                      ((xpData.nextMilestone.xpRequired - xpData.nextMilestone.xpRemaining) /
-                        xpData.nextMilestone.xpRequired) *
-                        100,
+                      (xpData.totalXp / xpData.nextMilestone.xpRequired) * 100,
                     )}
                     tone="xp"
                   />
-                )}
+                ) : null}
               </Card>
             )}
 
@@ -310,6 +325,11 @@ const styles = StyleSheet.create({
     fontFamily: font.regular,
     fontSize:   fontSize.xs,
     color:      colors.textMuted,
+  },
+  xpTierLabel: {
+    fontFamily: font.semibold,
+    fontSize:   fontSize.xs,
+    color:      colors.xp,
   },
 
   // ── Last lesson card ──────────────────────────────────────────────────────
