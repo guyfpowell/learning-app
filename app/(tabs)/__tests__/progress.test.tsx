@@ -3,12 +3,14 @@ import { render, screen, fireEvent } from '@testing-library/react-native';
 import ProgressScreen from '../progress';
 import { useProgress } from '@/hooks/useProgress';
 import { useEnrollments } from '@/hooks/useTrack';
+import { useXp } from '@/hooks/useXp';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 
 jest.mock('@/hooks/useProgress', () => ({ useProgress: jest.fn() }));
 jest.mock('@/hooks/useTrack', () => ({ useEnrollments: jest.fn() }));
+jest.mock('@/hooks/useXp', () => ({ useXp: jest.fn() }));
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -58,6 +60,7 @@ describe('ProgressScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useEnrollments as jest.Mock).mockReturnValue({ data: undefined });
+    (useXp as jest.Mock).mockReturnValue({ data: undefined });
   });
 
   it('renders without errors', () => {
@@ -146,6 +149,7 @@ describe('ProgressScreen — enrollment cards', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useProgress as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: false });
+    (useXp as jest.Mock).mockReturnValue({ data: undefined });
   });
 
   it('shows active enrollment card with track name and % complete', () => {
@@ -262,6 +266,7 @@ describe('ProgressScreen — P6 TrackMap segmented bar', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useEnrollments as jest.Mock).mockReturnValue({ data: undefined });
+    (useXp as jest.Mock).mockReturnValue({ data: undefined });
   });
 
   it('renders segmented level nodes on active enrollment card when levels provided', () => {
@@ -280,5 +285,51 @@ describe('ProgressScreen — P6 TrackMap segmented bar', () => {
     });
     render(<ProgressScreen />);
     expect(screen.queryByTestId('track-map-level')).toBeNull();
+  });
+});
+
+describe('ProgressScreen — Ticket 070 XP card', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (useEnrollments as jest.Mock).mockReturnValue({ data: undefined });
+    setMock({ data: mockStats });
+  });
+
+  it('shows XP total when xp data is available', () => {
+    (useXp as jest.Mock).mockReturnValue({
+      data: { totalXp: 1250, nextMilestone: null },
+    });
+    render(<ProgressScreen />);
+    expect(screen.getByTestId('xp-card')).toBeTruthy();
+    expect(screen.getByTestId('xp-total')).toBeTruthy();
+    expect(screen.getByText('1,250 XP')).toBeTruthy();
+  });
+
+  it('shows next milestone label and remaining XP when nextMilestone is set', () => {
+    (useXp as jest.Mock).mockReturnValue({
+      data: {
+        totalXp: 500,
+        nextMilestone: { key: 'base-camp', name: 'Base Camp', xpRequired: 2000, xpRemaining: 1500 },
+      },
+    });
+    render(<ProgressScreen />);
+    expect(screen.getByTestId('xp-next-label')).toBeTruthy();
+    expect(screen.getByText('Base Camp in 1,500 XP')).toBeTruthy();
+    expect(screen.getByTestId('xp-progress-bar')).toBeTruthy();
+  });
+
+  it('hides XP card when xp data is not available', () => {
+    (useXp as jest.Mock).mockReturnValue({ data: undefined });
+    render(<ProgressScreen />);
+    expect(screen.queryByTestId('xp-card')).toBeNull();
+  });
+
+  it('does not show progress bar when nextMilestone is null', () => {
+    (useXp as jest.Mock).mockReturnValue({
+      data: { totalXp: 200000, nextMilestone: null },
+    });
+    render(<ProgressScreen />);
+    expect(screen.getByTestId('xp-card')).toBeTruthy();
+    expect(screen.queryByTestId('xp-progress-bar')).toBeNull();
   });
 });

@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { useProgress } from '@/hooks/useProgress';
 import { useEnrollments } from '@/hooks/useTrack';
+import { useXp } from '@/hooks/useXp';
+import { Progress } from '@/components/ui/Progress';
 import { TrackMap } from '@/components/ui/TrackMap';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { FlameIcon } from '@/components/ui/Streak';
@@ -46,6 +48,7 @@ export default function ProgressScreen() {
   const router = useRouter();
   const { data, isLoading, isError } = useProgress();
   const { data: enrollmentsData } = useEnrollments();
+  const { data: xpData } = useXp();
 
   const activeEnrollments: TrackEnrollmentWithProgress[] =
     enrollmentsData?.filter(e => e.percentComplete < 100) ?? [];
@@ -90,6 +93,30 @@ export default function ProgressScreen() {
                 <Text style={styles.statLabel}>Avg Score</Text>
               </Card>
             </View>
+
+            {xpData && (
+              <Card testID="xp-card" style={styles.xpCard}>
+                <View style={styles.xpHeader}>
+                  <Text testID="xp-total" style={styles.xpTotal}>{xpData.totalXp.toLocaleString()} XP</Text>
+                  {xpData.nextMilestone && (
+                    <Text testID="xp-next-label" style={styles.xpNextLabel}>
+                      {xpData.nextMilestone.name} in {xpData.nextMilestone.xpRemaining.toLocaleString()} XP
+                    </Text>
+                  )}
+                </View>
+                {xpData.nextMilestone && (
+                  <Progress
+                    testID="xp-progress-bar"
+                    value={Math.round(
+                      ((xpData.nextMilestone.xpRequired - xpData.nextMilestone.xpRemaining) /
+                        xpData.nextMilestone.xpRequired) *
+                        100,
+                    )}
+                    tone="xp"
+                  />
+                )}
+              </Card>
+            )}
 
             {data.lastLessonDate && (
               <Card style={styles.dateCard}>
@@ -260,6 +287,29 @@ const styles = StyleSheet.create({
     fontSize:   fontSize.xs,
     color:      colors.textMuted,
     textAlign:  'center',
+  },
+
+  // ── XP card ───────────────────────────────────────────────────────────────
+  xpCard: {
+    gap:          spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  xpHeader: {
+    flexDirection:  'row',
+    justifyContent: 'space-between',
+    alignItems:     'baseline',
+    flexWrap:       'wrap',
+    gap:            spacing.xs,
+  },
+  xpTotal: {
+    fontFamily: font.bold,
+    fontSize:   fontSize.lg,
+    color:      colors.xp,
+  },
+  xpNextLabel: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.xs,
+    color:      colors.textMuted,
   },
 
   // ── Last lesson card ──────────────────────────────────────────────────────

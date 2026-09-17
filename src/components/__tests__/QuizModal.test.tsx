@@ -86,6 +86,7 @@ const wrongPendingResult = {
   nextLessonId: null,
   trackAverage: null,
   previousAverage: null,
+  xpAwarded: null,
 };
 
 // Full finalized result
@@ -99,6 +100,7 @@ const mockResult = {
   nextLessonId: null,
   trackAverage: 90,
   previousAverage: 80,
+  xpAwarded: null,
   feedbacks: [
     {
       quizId: 'q-1',
@@ -132,6 +134,7 @@ const q1CorrectNotFinalized = {
   nextLessonId: null,
   trackAverage: null,
   previousAverage: null,
+  xpAwarded: null,
   feedbacks: [
     {
       quizId: 'q-1',
@@ -754,6 +757,27 @@ describe('QuizModal', () => {
       // All options are initially present
       expect(screen.getByTestId('quiz-opt-0')).toBeTruthy();
       expect(screen.getByTestId('quiz-opt-1')).toBeTruthy();
+    });
+  });
+
+  describe('Ticket 070 — XP chip', () => {
+    it('shows XP chip when xpAwarded > 0 on finalization', () => {
+      setQuizMock({ data: { ...mockResult, xpAwarded: 150 } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByTestId('xp-chip')).toBeTruthy();
+      expect(screen.getByText('+150 XP')).toBeTruthy();
+    });
+
+    it('hides XP chip when xpAwarded is null', () => {
+      setQuizMock({ data: { ...mockResult, xpAwarded: null } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.queryByTestId('xp-chip')).toBeNull();
+    });
+
+    it('hides XP chip when xpAwarded is 0', () => {
+      setQuizMock({ data: { ...mockResult, xpAwarded: 0 } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.queryByTestId('xp-chip')).toBeNull();
     });
   });
 

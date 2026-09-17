@@ -297,7 +297,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
 
   // ─── Terminal / results view — lesson finalized ───────────────────────────────
   if (submit.data) {
-    const { feedbacks, coaching, streak, milestone, trackAverage, previousAverage } = submit.data;
+    const { feedbacks, coaching, streak, milestone, trackAverage, previousAverage, xpAwarded } = submit.data;
     const retakeUsed = wrongAnswer !== undefined;
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -321,6 +321,13 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
               <View style={styles.streakRow}>
                 <FlameIcon size={18} />
                 <Text style={styles.streakText}>{streak}-day streak</Text>
+              </View>
+            )}
+
+            {/* XP award */}
+            {xpAwarded != null && xpAwarded > 0 && (
+              <View testID="xp-chip" style={styles.xpChip}>
+                <Text style={styles.xpChipText}>+{xpAwarded} XP</Text>
               </View>
             )}
 
@@ -599,6 +606,19 @@ const styles = StyleSheet.create({
     fontFamily: font.semibold,
     fontSize:   fontSize.base,
     color:      colors.textStrong,
+  },
+  xpChip: {
+    alignSelf:         'center',
+    backgroundColor:   colors.xpSoft,
+    borderRadius:      radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical:   spacing.xs,
+    marginBottom:      spacing.md,
+  },
+  xpChipText: {
+    fontFamily: font.semibold,
+    fontSize:   fontSize.sm,
+    color:      colors.xp,
   },
   milestoneCard: {
     backgroundColor: colors.coral,
