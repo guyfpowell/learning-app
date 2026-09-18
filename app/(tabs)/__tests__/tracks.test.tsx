@@ -1,21 +1,25 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import TracksScreen from '../tracks';
-import { useSkills, useEnrollments, useEnroll, useSetActiveTrack } from '@/hooks/useTrack';
-import type { SkillWithAccess, TrackEnrollmentWithProgress } from '@learning/shared';
+import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTrack';
+import type { SkillWithAccess, UserPath } from '@learning/shared';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 
 jest.mock('@/hooks/useTrack', () => ({
   useSkills:         jest.fn(),
-  useEnrollments:    jest.fn(),
+  usePaths:          jest.fn(),
   useEnroll:         jest.fn(),
-  useSetActiveTrack: jest.fn(),
+  useSetActivePath:  jest.fn(),
 }));
 
+let capturedEdges: string[] | undefined;
 jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SafeAreaView: ({ children, edges }: { children: React.ReactNode; edges?: string[] }) => {
+    capturedEdges = edges;
+    return <>{children}</>;
+  },
 }));
 
 jest.mock('expo-secure-store', () => ({
@@ -54,10 +58,10 @@ const premiumSkill: SkillWithAccess = {
   ],
 };
 
-const mockEnrollment: TrackEnrollmentWithProgress = {
-  id:               'enr-1',
-  userId:           'user-1',
-  skillId:          'skill-1',
+const mockEnrollment: UserPath = {
+  kind:             'track',
+  id:               'skill-1',
+  name:             baseSkill.name,
   enrolledAt:       '2026-01-01T00:00:00Z',
   completedAt:      null,
   skill:            baseSkill,
@@ -74,7 +78,7 @@ const mockEnrollment: TrackEnrollmentWithProgress = {
   capstoneScore:    null,
 };
 
-const activeEnrollment: TrackEnrollmentWithProgress = {
+const activeEnrollment: UserPath = {
   ...mockEnrollment,
   isActive: true,
 };
@@ -84,7 +88,7 @@ const mockSetActive = jest.fn();
 
 function setMocks({
   skills = [baseSkill],
-  enrollments = [] as TrackEnrollmentWithProgress[],
+  enrollments = [] as UserPath[],
   skillsLoading = false,
   enrollmentsLoading = false,
   skillsError = false,
@@ -107,14 +111,15 @@ function setMocks({
   },
 } = {}) {
   (useSkills         as jest.Mock).mockReturnValue({ data: skills,      isLoading: skillsLoading, isError: skillsError, error: skillsErr });
-  (useEnrollments    as jest.Mock).mockReturnValue({ data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr });
+  (usePaths           as jest.Mock).mockReturnValue({ data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr });
   (useEnroll         as jest.Mock).mockReturnValue(enroll);
-  (useSetActiveTrack as jest.Mock).mockReturnValue(setActiveTrack);
+  (useSetActivePath  as jest.Mock).mockReturnValue(setActiveTrack);
 }
 
 describe('TracksScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    capturedEdges = undefined;
     mockPush.mockClear();
     setMocks();
   });
@@ -317,11 +322,11 @@ describe('TracksScreen', () => {
       expect(screen.getByText('MAKE ACTIVE')).toBeTruthy();
     });
 
-    it('pressing "Make active" calls setActiveTrack mutate with skill id', () => {
+    it('pressing "Make active" calls setActivePath mutate with the path ref', () => {
       setMocks({ skills: [baseSkill], enrollments: [mockEnrollment] });
       render(<TracksScreen />);
       fireEvent.press(screen.getByTestId('make-active-btn-skill-1'));
-      expect(mockSetActive).toHaveBeenCalledWith('skill-1');
+      expect(mockSetActive).toHaveBeenCalledWith({ kind: 'track', id: 'skill-1' });
     });
 
     it('does not show "Active track" label for non-active enrolled track', () => {
@@ -370,6 +375,13 @@ describe('TracksScreen', () => {
       const { getByTestId } = render(<TracksScreen />);
       fireEvent.press(getByTestId('build-path-start'));
       expect(mockPush).toHaveBeenCalledWith('/build');
+    });
+  });
+
+  describe('Ticket 072j — safe-area edges', () => {
+    it('uses edges=[left,right,bottom] so the tab layout owns the top inset', () => {
+      render(<TracksScreen />);
+      expect(capturedEdges).toEqual(['left', 'right', 'bottom']);
     });
   });
 });

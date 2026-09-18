@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import LessonsScreen from '../lessons';
-import { useEnrollments, useCustomPlans, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
+import { usePaths, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
 
 jest.mock('@/components/ui/Ring', () => ({
@@ -20,8 +20,7 @@ const mockSkipTopicMutate = jest.fn();
 const mockSkipLevelMutate = jest.fn();
 
 jest.mock('@/hooks/useTrack', () => ({
-  useEnrollments: jest.fn(),
-  useCustomPlans: jest.fn(),
+  usePaths: jest.fn(),
   useSkipTopic: jest.fn(),
   useSkipLevel: jest.fn(),
 }));
@@ -34,8 +33,12 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
+let capturedEdges: string[] | undefined;
 jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SafeAreaView: ({ children, edges }: { children: React.ReactNode; edges?: string[] }) => {
+    capturedEdges = edges;
+    return <>{children}</>;
+  },
 }));
 
 const mockNextLesson = {
@@ -54,26 +57,29 @@ const mockLevels = [
 ];
 
 const mockEnrollment = {
-  id: 'enrollment-1',
-  userId: 'user-1',
-  skillId: 'skill-1',
+  kind: 'track' as const,
+  id: 'skill-1',
+  name: 'Product Foundations',
   skill: { id: 'skill-1', name: 'Product Foundations', category: 'Product', description: '' },
   totalLessons: 50,
   completedLessons: 25,
   percentComplete: 50,
   nextLesson: mockNextLesson,
   levels: [],
-  enrolledAt: new Date(),
+  enrolledAt: new Date().toISOString(),
+  completedAt: null,
   upgradeRequired: false,
   isActive: false,
   canSkipTopic: false,
   canSkipLevel: false,
+  averageScore: null,
+  capstoneScore: null,
 };
 
 const mockCompletedEnrollment = {
   ...mockEnrollment,
-  id: 'enrollment-2',
-  skillId: 'skill-2',
+  id: 'skill-2',
+  name: 'Product Strategy',
   skill: { ...mockEnrollment.skill, id: 'skill-2', name: 'Product Strategy' },
   completedLessons: 30,
   percentComplete: 100,
@@ -88,12 +94,27 @@ const mockProgress = {
   lastLessonDate: null,
 };
 
+// One array now carries both kinds (ADR-009 C2), so the two old setters write into
+// one list rather than two hooks. Kept as separate helpers so the existing tests read
+// unchanged — what they assert about each kind is still exactly what they asserted.
+let mockTrackPaths: unknown[] | undefined;
+let mockCustomPaths: unknown[] | undefined;
+
+function applyPathsMock() {
+  const data = mockTrackPaths === undefined && mockCustomPaths === undefined
+    ? undefined
+    : [...(mockCustomPaths ?? []), ...(mockTrackPaths ?? [])];
+  (usePaths as jest.Mock).mockReturnValue({ data });
+}
+
 function setEnrollmentsMock(data?: unknown[]) {
-  (useEnrollments as jest.Mock).mockReturnValue({ data });
+  mockTrackPaths = data;
+  applyPathsMock();
 }
 
 function setCustomPlansMock(data?: unknown[]) {
-  (useCustomPlans as jest.Mock).mockReturnValue({ data });
+  mockCustomPaths = data;
+  applyPathsMock();
 }
 
 function setProgressMock(data?: unknown) {
@@ -101,6 +122,7 @@ function setProgressMock(data?: unknown) {
 }
 
 const mockCustomPlan = {
+  kind: 'custom' as const,
   id: 'plan-1',
   name: 'My Product Leadership Path',
   nextLesson: { id: 'lesson-next', title: 'Stakeholder Management Fundamentals' },
@@ -108,11 +130,21 @@ const mockCustomPlan = {
   completedLessons: 5,
   percentComplete: 25,
   unresolvedTopics: 0,
+  levels: [],
+  isActive: false,
+  canSkipTopic: false,
+  canSkipLevel: false,
+  averageScore: null,
+  capstoneScore: null,
+  upgradeRequired: false,
 };
 
 describe('LessonsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    capturedEdges = undefined;
+    mockTrackPaths = undefined;
+    mockCustomPaths = undefined;
     setEnrollmentsMock(undefined);
     setCustomPlansMock(undefined);
     setProgressMock(undefined);
@@ -371,18 +403,25 @@ describe('LessonsScreen', () => {
       expect(screen.queryByTestId('skip-level-btn-skill-1')).toBeNull();
     });
 
-    it('calls skipTopic mutation with skillId when Skip Topic is pressed', () => {
+    it('calls skipTopic mutation with the path ref when Skip Topic is pressed', () => {
       setEnrollmentsMock([{ ...mockEnrollment, canSkipTopic: true }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('skip-topic-btn-skill-1'));
-      expect(mockSkipTopicMutate).toHaveBeenCalledWith('skill-1');
+      expect(mockSkipTopicMutate).toHaveBeenCalledWith({ kind: 'track', id: 'skill-1' });
     });
 
-    it('calls skipLevel mutation with skillId when Skip Level is pressed', () => {
+    it('calls skipLevel mutation with the path ref when Skip Level is pressed', () => {
       setEnrollmentsMock([{ ...mockEnrollment, canSkipLevel: true }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('skip-level-btn-skill-1'));
-      expect(mockSkipLevelMutate).toHaveBeenCalledWith('skill-1');
+      expect(mockSkipLevelMutate).toHaveBeenCalledWith({ kind: 'track', id: 'skill-1' });
+    });
+
+    it('offers Skip Topic on a custom path too — the same affordance a track gets', () => {
+      setCustomPlansMock([{ ...mockCustomPlan, canSkipTopic: true }]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('skip-topic-btn-plan-1'));
+      expect(mockSkipTopicMutate).toHaveBeenCalledWith({ kind: 'custom', id: 'plan-1' });
     });
 
     it('disables Skip Topic button while skip-topic mutation is pending', () => {
@@ -454,16 +493,17 @@ describe('LessonsScreen', () => {
   describe('active track prominence (ticket 044)', () => {
     const secondEnrollment = {
       ...mockEnrollment,
-      id: 'enrollment-3',
-      skillId: 'skill-3',
+      id: 'skill-3',
+      name: 'Business Strategy',
       skill: { id: 'skill-3', name: 'Business Strategy', category: 'Business', description: '' },
       nextLesson: { ...mockNextLesson, id: 'lesson-3', title: 'Business Foundations' },
       isActive: true,
     };
 
-    it('active track next-lesson card appears before non-active tracks', () => {
-      // secondEnrollment is active; mockEnrollment is not active
-      setEnrollmentsMock([mockEnrollment, secondEnrollment]);
+    it('renders paths in the order the server sent them — active first is decided there (C2)', () => {
+      // The server orders paths[] active-first then by recency; the screen must not
+      // re-sort, or the two orderings would drift.
+      setEnrollmentsMock([secondEnrollment, mockEnrollment]);
       render(<LessonsScreen />);
       const activeCard = screen.getByTestId('next-lesson-card-skill-3');
       const otherCard  = screen.getByTestId('next-lesson-card-skill-1');
@@ -490,50 +530,60 @@ describe('LessonsScreen', () => {
     });
   });
 
-  describe('custom plans section (ticket 071)', () => {
-    it('does not render the custom-plans section when customPlans is empty', () => {
+  describe('custom paths render as paths (ticket 074)', () => {
+    it('renders nothing extra when there are no custom paths', () => {
       setCustomPlansMock([]);
       render(<LessonsScreen />);
-      expect(screen.queryByTestId('custom-plans-section')).toBeNull();
+      expect(screen.queryByTestId('next-lesson-card-plan-1')).toBeNull();
     });
 
-    it('does not render the custom-plans section when customPlans is undefined', () => {
-      render(<LessonsScreen />);
-      expect(screen.queryByTestId('custom-plans-section')).toBeNull();
-    });
-
-    it('renders the custom-plans section when customPlans is non-empty', () => {
+    it('renders a custom path through the same card a track uses', () => {
       setCustomPlansMock([mockCustomPlan]);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('custom-plans-section')).toBeTruthy();
+      // Same testIDs as a track: there is one card component now (C16).
+      expect(screen.getByTestId('next-lesson-card-plan-1')).toBeTruthy();
+      expect(screen.getByTestId('enrollment-card-plan-1')).toBeTruthy();
     });
 
-    it('renders the plan name', () => {
+    it('badges a custom path so the user can tell where it came from', () => {
       setCustomPlansMock([mockCustomPlan]);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('custom-plan-name-plan-1')).toBeTruthy();
-      expect(screen.getByText('My Product Leadership Path')).toBeTruthy();
+      expect(screen.getByTestId('custom-path-label-plan-1')).toBeTruthy();
     });
 
-    it('renders the next lesson title and Start Lesson button when nextLesson is set', () => {
+    it('renders the path name', () => {
+      setCustomPlansMock([mockCustomPlan]);
+      render(<LessonsScreen />);
+      // Once on the next-lesson card, once on the progress card — same as a track.
+      expect(screen.getAllByText('My Product Leadership Path').length).toBeGreaterThan(0);
+      expect(screen.getByTestId('path-name-plan-1')).toBeTruthy();
+    });
+
+    it('gives a custom path the next-lesson CTA that was missing (ticket point 3)', () => {
       setCustomPlansMock([mockCustomPlan]);
       render(<LessonsScreen />);
       expect(screen.getByText('Stakeholder Management Fundamentals')).toBeTruthy();
-      expect(screen.getByTestId('custom-plan-btn-plan-1')).toBeTruthy();
+      expect(screen.getByTestId('next-lesson-btn-plan-1')).toBeTruthy();
     });
 
     it('navigates to the lesson route when Start Lesson is pressed', () => {
       setCustomPlansMock([mockCustomPlan]);
       render(<LessonsScreen />);
-      fireEvent.press(screen.getByTestId('custom-plan-btn-plan-1'));
+      fireEvent.press(screen.getByTestId('next-lesson-btn-plan-1'));
       expect(mockPush).toHaveBeenCalledWith('/(tabs)/lesson/lesson-next');
     });
 
     it('shows no-lesson fallback when nextLesson is null', () => {
       setCustomPlansMock([{ ...mockCustomPlan, nextLesson: null }]);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('custom-plan-no-lesson-plan-1')).toBeTruthy();
-      expect(screen.queryByTestId('custom-plan-btn-plan-1')).toBeNull();
+      expect(screen.getByTestId('no-next-lesson-plan-1')).toBeTruthy();
+      expect(screen.queryByTestId('next-lesson-btn-plan-1')).toBeNull();
+    });
+
+    it('can be the active path — the badge is not track-only', () => {
+      setCustomPlansMock([{ ...mockCustomPlan, isActive: true }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('active-track-label-plan-1')).toBeTruthy();
     });
 
     it('shows unresolved-topics note when unresolvedTopics > 0', () => {
@@ -568,6 +618,13 @@ describe('LessonsScreen', () => {
       setProgressMock(mockProgress);
       render(<LessonsScreen />);
       expect(screen.getByTestId('streak-hero')).toBeTruthy();
+    });
+  });
+
+  describe('Ticket 072j — safe-area edges', () => {
+    it('uses edges=[left,right,bottom] so the tab layout owns the top inset', () => {
+      render(<LessonsScreen />);
+      expect(capturedEdges).toEqual(['left', 'right', 'bottom']);
     });
   });
 });

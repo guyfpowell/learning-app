@@ -60,7 +60,7 @@ export function QuizOpt({
       </View>
 
       {/* Option text */}
-      <Text style={[styles.label, state !== 'idle' && styles.labelAnswered]} numberOfLines={3}>
+      <Text style={[styles.label, state !== 'idle' && styles.labelAnswered]}>
         {label}
       </Text>
 
@@ -112,7 +112,7 @@ function keyTextStyle(s: QuizOptState) {
 const styles = StyleSheet.create({
   opt: {
     flexDirection:  'row',
-    alignItems:     'center',
+    alignItems:     'flex-start',
     gap:            spacing.sm,
     padding:        spacing.sm3,
     borderRadius:   radius.md,

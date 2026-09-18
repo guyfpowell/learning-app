@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { trackService } from '@/services/track.service';
+import type { ActivePathRef } from '@learning/shared';
 
 export function useSkills() {
   return useQuery({
@@ -8,63 +9,65 @@ export function useSkills() {
   });
 }
 
-/** Returns the user's track enrollments. Shape unchanged from before ticket 071. */
-export function useEnrollments() {
+/**
+ * Every path the user is learning from, of both kinds, active first (ADR-009 C2).
+ *
+ * There is deliberately no `useCustomPlans` counterpart: a custom path is a path
+ * like any other, and a hook that returned only one kind would invite screens to
+ * branch on kind again.
+ */
+export function usePaths() {
   return useQuery({
     queryKey: ['enrollments'],
-    queryFn: () => trackService.getEnrollments(),
-    select: (d) => d.enrollments,
+    queryFn: () => trackService.getPaths(),
   });
 }
 
-/** Returns custom-built plans from the Albert track builder (ticket 071).
- *  Shares the ['enrollments'] cache with useEnrollments — one network call. */
-export function useCustomPlans() {
-  return useQuery({
-    queryKey: ['enrollments'],
-    queryFn: () => trackService.getEnrollments(),
-    select: (d) => d.customPlans,
-  });
+/** Invalidate everything a path change can affect. */
+function usePathInvalidation() {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+    queryClient.invalidateQueries({ queryKey: ['skills'] });
+  };
 }
 
 export function useEnroll() {
-  const queryClient = useQueryClient();
+  const invalidate = usePathInvalidation();
   return useMutation({
     mutationFn: (skillId: string) => trackService.enroll(skillId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
-      queryClient.invalidateQueries({ queryKey: ['skills'] });
-    },
+    onSuccess: invalidate,
   });
 }
 
-export function useSetActiveTrack() {
-  const queryClient = useQueryClient();
+export function useSetActivePath() {
+  const invalidate = usePathInvalidation();
   return useMutation({
-    mutationFn: (skillId: string) => trackService.setActiveTrack(skillId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
-      queryClient.invalidateQueries({ queryKey: ['skills'] });
-    },
+    mutationFn: (ref: ActivePathRef) => trackService.setActivePath(ref),
+    onSuccess: invalidate,
+  });
+}
+
+export function useRemovePath() {
+  const invalidate = usePathInvalidation();
+  return useMutation({
+    mutationFn: (ref: ActivePathRef) => trackService.removePath(ref),
+    onSuccess: invalidate,
   });
 }
 
 export function useSkipTopic() {
-  const queryClient = useQueryClient();
+  const invalidate = usePathInvalidation();
   return useMutation({
-    mutationFn: (skillId: string) => trackService.skipTopic(skillId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
-    },
+    mutationFn: (ref: ActivePathRef) => trackService.skipTopic(ref),
+    onSuccess: invalidate,
   });
 }
 
 export function useSkipLevel() {
-  const queryClient = useQueryClient();
+  const invalidate = usePathInvalidation();
   return useMutation({
-    mutationFn: (skillId: string) => trackService.skipLevel(skillId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
-    },
+    mutationFn: (ref: ActivePathRef) => trackService.skipLevel(ref),
+    onSuccess: invalidate,
   });
 }

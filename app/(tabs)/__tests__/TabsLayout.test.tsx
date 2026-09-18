@@ -27,6 +27,7 @@ jest.mock('@/theme', () => ({
     brand: '#1C66D2',
     surface: '#FEFDFB',
     borderSubtle: '#EEEBE5',
+    bg: '#F8FAFC',
   },
   font: { medium: 'Hanken_500Medium' },
   fontSize: { xs: 12 },
@@ -81,8 +82,8 @@ describe('(tabs) layout', () => {
     expect(queryByText(/verify your email/i)).toBeNull();
   });
 
-  describe('Chunk A9 — safe-area insets on the verification banner', () => {
-    it('applies top padding from safe-area insets to the banner', () => {
+  describe('Chunk A9 — safe-area insets on the verification banner (revised by Ticket 072j)', () => {
+    it('banner paddingTop is spacing.sm only — top inset is owned by the layout wrapper', () => {
       mockUseCurrentUser.mockReturnValue({ data: { id: 'u1', emailVerified: false } });
       const TabsLayout = require('../_layout').default;
       const { getByTestId } = render(<TabsLayout />);
@@ -90,13 +91,11 @@ describe('(tabs) layout', () => {
       const style = Array.isArray(banner.props.style)
         ? Object.assign({}, ...banner.props.style.filter(Boolean))
         : banner.props.style ?? {};
-      // useSafeAreaInsets returns top:44; spacing.sm = 8; total = 52
-      expect(style.paddingTop).toBe(52);
+      // spacing.sm = 8; insets.top is now owned by tab-top-inset, not the banner
+      expect(style.paddingTop).toBe(8);
     });
 
     it('does not hard-code a fixed paddingTop on the banner', () => {
-      // The old banner used paddingVertical: 10 (no safe-area awareness).
-      // A9 must compute from insets rather than a constant.
       mockUseCurrentUser.mockReturnValue({ data: { id: 'u1', emailVerified: false } });
       const TabsLayout = require('../_layout').default;
       const { getByTestId } = render(<TabsLayout />);
@@ -104,8 +103,42 @@ describe('(tabs) layout', () => {
       const style = Array.isArray(banner.props.style)
         ? Object.assign({}, ...banner.props.style.filter(Boolean))
         : banner.props.style ?? {};
-      // A hard-coded 10px would not equal 52
       expect(style.paddingTop).not.toBe(10);
+    });
+  });
+
+  describe('Ticket 072j — single top-inset owner', () => {
+    it('always renders a top-inset View with paddingTop equal to insets.top', () => {
+      mockUseCurrentUser.mockReturnValue({ data: undefined });
+      const TabsLayout = require('../_layout').default;
+      const { getByTestId } = render(<TabsLayout />);
+      const topInset = getByTestId('tab-top-inset');
+      const style = Array.isArray(topInset.props.style)
+        ? Object.assign({}, ...topInset.props.style.filter(Boolean))
+        : topInset.props.style ?? {};
+      expect(style.paddingTop).toBe(44); // useSafeAreaInsets returns top:44
+    });
+
+    it('tints the top-inset View with the banner colour when the banner is visible', () => {
+      mockUseCurrentUser.mockReturnValue({ data: { id: 'u1', emailVerified: false } });
+      const TabsLayout = require('../_layout').default;
+      const { getByTestId } = render(<TabsLayout />);
+      const topInset = getByTestId('tab-top-inset');
+      const style = Array.isArray(topInset.props.style)
+        ? Object.assign({}, ...topInset.props.style.filter(Boolean))
+        : topInset.props.style ?? {};
+      expect(style.backgroundColor).toBe('#fffbeb');
+    });
+
+    it('uses the normal app background on the top-inset View when the banner is hidden', () => {
+      mockUseCurrentUser.mockReturnValue({ data: { id: 'u1', emailVerified: true } });
+      const TabsLayout = require('../_layout').default;
+      const { getByTestId } = render(<TabsLayout />);
+      const topInset = getByTestId('tab-top-inset');
+      const style = Array.isArray(topInset.props.style)
+        ? Object.assign({}, ...topInset.props.style.filter(Boolean))
+        : topInset.props.style ?? {};
+      expect(style.backgroundColor).toBe('#F8FAFC'); // colors.bg
     });
   });
 

@@ -51,16 +51,25 @@ export default function TabsLayout() {
   const resendVerification = useResendVerification();
   const [resendSent, setResendSent] = useState(false);
 
+  const showBanner = !!(currentUser && !currentUser.emailVerified);
+
   return (
     <View style={{ flex: 1 }}>
-      {currentUser && !currentUser.emailVerified && (
+      <View
+        testID="tab-top-inset"
+        style={{
+          paddingTop: insets.top,
+          backgroundColor: showBanner ? '#fffbeb' : colors.bg,
+        }}
+      />
+      {showBanner && (
         <View
           testID="email-verification-banner"
           style={{
             backgroundColor: '#fffbeb',
             borderBottomWidth: 1,
             borderBottomColor: '#fde68a',
-            paddingTop: insets.top + spacing.sm,
+            paddingTop: spacing.sm,
             paddingBottom: spacing.sm,
             paddingHorizontal: 16,
           }}

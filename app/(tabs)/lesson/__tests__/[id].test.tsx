@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import LessonDetailScreen from '../[id]';
 import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
-import { useEnrollments } from '@/hooks/useTrack';
+import { usePaths } from '@/hooks/useTrack';
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(),
@@ -44,12 +44,14 @@ const mockLesson = {
 };
 
 const mockEnrollment = {
-  skillId: 'skill-1',
+  kind: 'track' as const,
+  id: 'skill-1',
+  name: 'Product Management',
   skill: { name: 'Product Management' },
   percentComplete: 40,
+  levels: [],
   completedLessons: 2,
   totalLessons: 5,
-  levels: [],
 };
 
 beforeEach(() => {
@@ -58,7 +60,7 @@ beforeEach(() => {
   (useRouter as jest.Mock).mockReturnValue(mockRouter);
   (useSaveLesson as jest.Mock).mockReturnValue({ mutate: jest.fn() });
   (useUnsaveLesson as jest.Mock).mockReturnValue({ mutate: jest.fn() });
-  (useEnrollments as jest.Mock).mockReturnValue({ data: [] });
+  (usePaths as jest.Mock).mockReturnValue({ data: [] });
 });
 
 describe('LessonDetailScreen', () => {
@@ -89,6 +91,8 @@ describe('LessonDetailScreen', () => {
     expect(screen.getByTestId('scenario-content')).toBeTruthy();
     expect(screen.getByText('Scenario')).toBeTruthy();
     expect(screen.getByText(mockLesson.content)).toBeTruthy();
+    // Summary hidden once Scenario is on screen
+    expect(screen.queryByTestId('lesson-summary')).toBeNull();
   });
 
   it('renders difficulty badge and duration', () => {
@@ -121,14 +125,16 @@ describe('LessonDetailScreen', () => {
     expect(screen.queryByTestId('key-takeaway-btn')).toBeNull();
     expect(screen.queryByTestId('lesson-completed-banner')).toBeNull();
 
-    // Press Continue → expanded
+    // Press Continue → expanded: summary hidden
     fireEvent.press(screen.getByTestId('continue-btn'));
     expect(screen.queryByTestId('continue-btn')).toBeNull();
     expect(screen.getByTestId('key-takeaway-btn')).toBeTruthy();
+    expect(screen.queryByTestId('lesson-summary')).toBeNull();
 
-    // Press Key Takeaway → takeaway
+    // Press Key Takeaway → takeaway: summary still hidden
     fireEvent.press(screen.getByTestId('key-takeaway-btn'));
     expect(screen.queryByTestId('key-takeaway-btn')).toBeNull();
+    expect(screen.queryByTestId('lesson-summary')).toBeNull();
     expect(screen.getByTestId('lesson-completed-banner')).toBeTruthy();
     expect(screen.getByTestId('key-takeaway')).toBeTruthy();
     expect(screen.getByTestId('lesson-quiz-btn')).toBeTruthy();
@@ -210,7 +216,7 @@ describe('LessonDetailScreen', () => {
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: false, data: mockLesson, error: null,
     });
-    (useEnrollments as jest.Mock).mockReturnValue({ data: [mockEnrollment] });
+    (usePaths as jest.Mock).mockReturnValue({ data: [mockEnrollment] });
     render(<LessonDetailScreen />);
     expect(screen.getByTestId('track-header')).toBeTruthy();
     expect(screen.getByText('Product Management')).toBeTruthy();

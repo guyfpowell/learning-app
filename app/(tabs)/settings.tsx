@@ -65,7 +65,7 @@ export default function SettingsScreen() {
   const saveError = updatePrefs.error ?? updateProfile.error;
 
   return (
-    <SafeAreaView style={styles.container} testID="settings-screen">
+    <SafeAreaView style={styles.container} testID="settings-screen" edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.heading}>Settings</Text>
 

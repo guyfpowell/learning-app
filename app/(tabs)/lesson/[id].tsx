@@ -11,8 +11,8 @@ import { Spinner } from '@/components/ui/Spinner';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { QuizModal } from '@/components/QuizModal';
 import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
-import { useEnrollments } from '@/hooks/useTrack';
-import type { TrackEnrollmentWithProgress } from '@learning/shared';
+import { usePaths } from '@/hooks/useTrack';
+import type { UserPath } from '@learning/shared';
 
 const difficultyVariant = {
   beginner:     'success',
@@ -38,9 +38,9 @@ function isNotFoundError(error: unknown): boolean {
   return isAxiosError(error) && error.response?.status === 404;
 }
 
-function flooredPct(enrollment: TrackEnrollmentWithProgress): number {
-  return enrollment.completedLessons > 0
-    ? Math.max(1, Math.round(enrollment.percentComplete))
+function flooredPct(path: UserPath): number {
+  return path.completedLessons > 0
+    ? Math.max(1, Math.round(path.percentComplete))
     : 0;
 }
 
@@ -100,7 +100,7 @@ export default function LessonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data: lesson, isLoading, isError, error } = useLesson(id ?? '');
-  const { data: enrollments } = useEnrollments();
+  const { data: paths } = usePaths();
   const [quizVisible, setQuizVisible] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -116,8 +116,10 @@ export default function LessonDetailScreen() {
     setPhase(lesson?.quizCompleted ? 'takeaway' : 'collapsed');
   }, [lesson?.id, lesson?.quizCompleted]);
 
+  // The progress bar belongs to the track this lesson sits in. A custom path can
+  // contain the same lesson, but the lesson's own skill is what it is a part of.
   const enrollment = lesson?.skillPath?.skillId
-    ? enrollments?.find(e => e.skillId === lesson.skillPath?.skillId)
+    ? paths?.find(p => p.kind === 'track' && p.id === lesson.skillPath?.skillId)
     : undefined;
   const pct = enrollment ? flooredPct(enrollment) : null;
 
@@ -178,7 +180,7 @@ export default function LessonDetailScreen() {
               <View testID="track-header" style={styles.trackHeader}>
                 {enrollment && (
                   <View style={styles.trackTitleRow}>
-                    <Text style={styles.trackName}>{enrollment.skill.name}</Text>
+                    <Text style={styles.trackName}>{enrollment.name}</Text>
                     {pct !== null && (
                       <Text style={styles.trackPct}>{pct}% complete</Text>
                     )}
@@ -226,7 +228,7 @@ export default function LessonDetailScreen() {
                 )}
               </View>
 
-              {lesson.summary && (
+              {phase === 'collapsed' && lesson.summary && (
                 <Text testID="lesson-summary" style={styles.summaryText}>{lesson.summary}</Text>
               )}
 

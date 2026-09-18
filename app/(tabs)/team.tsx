@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/Progress';
 import { FlameIcon } from '@/components/ui/Streak';
 import { useTeamSummary, useTeamMemberProgress, useTeamSkillGaps, useTeamLeaderboard } from '@/hooks/useTeam';
 import { extractError } from '@/lib/errors';
+import { TEAM_FEATURE_ENABLED } from '@/config/features';
 import type { SkillGap } from '@learning/shared';
 
 const MEDAL_COLORS = ['#F59E0B', '#94A3B8', '#B45309'] as const;
@@ -36,6 +37,17 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 }
 
 export default function TeamScreen() {
+  if (!TEAM_FEATURE_ENABLED) {
+    return (
+      <SafeAreaView style={styles.centered} edges={['left', 'right', 'bottom']}>
+        <Text testID="team-coming-soon" style={styles.comingSoonHeading}>Team features coming soon</Text>
+        <Text testID="team-coming-soon-body" style={styles.comingSoonBody}>
+          We're building team learning dashboards. Check back soon.
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
   const summaryQ  = useTeamSummary();
   const membersQ  = useTeamMemberProgress();
   const gapsQ     = useTeamSkillGaps();
@@ -46,7 +58,7 @@ export default function TeamScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.centered}>
+      <SafeAreaView style={styles.centered} edges={['left', 'right', 'bottom']}>
         <Spinner testID="loading-spinner" fullScreen />
       </SafeAreaView>
     );
@@ -54,7 +66,7 @@ export default function TeamScreen() {
 
   if (hasError) {
     return (
-      <SafeAreaView style={styles.centered}>
+      <SafeAreaView style={styles.centered} edges={['left', 'right', 'bottom']}>
         <Text testID="team-error" style={styles.errorText}>
           {extractError(summaryQ.error ?? membersQ.error ?? gapsQ.error ?? leaderQ.error)}
         </Text>
@@ -68,7 +80,7 @@ export default function TeamScreen() {
   const leaderboard = leaderQ.data ?? [];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.heading}>Team Dashboard</Text>
         <Text style={styles.subheading}>Track your team's learning progress</Text>
@@ -239,4 +251,7 @@ const styles = StyleSheet.create({
   gapSample: { fontFamily: font.regular, fontSize: fontSize.xs, color: colors.textMuted, marginTop: 4 },
 
   errorText: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
+
+  comingSoonHeading: { fontFamily: font.semibold, fontSize: fontSize.xl, color: colors.textStrong, marginBottom: spacing.sm, textAlign: 'center' },
+  comingSoonBody:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted, textAlign: 'center', paddingHorizontal: spacing.lg },
 });

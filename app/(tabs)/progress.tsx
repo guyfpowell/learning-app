@@ -1,63 +1,36 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import type { TrackEnrollmentWithProgress } from '@learning/shared';
+import type { UserPath } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { useProgress } from '@/hooks/useProgress';
-import { useEnrollments } from '@/hooks/useTrack';
+import { usePaths } from '@/hooks/useTrack';
 import { useXp } from '@/hooks/useXp';
 import { Progress } from '@/components/ui/Progress';
-import { TrackMap } from '@/components/ui/TrackMap';
+import { PathProgress } from '@/components/ui/PathProgress';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { FlameIcon } from '@/components/ui/Streak';
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function flooredPct(enrollment: TrackEnrollmentWithProgress): number {
-  return enrollment.completedLessons > 0
-    ? Math.max(1, Math.round(enrollment.percentComplete))
-    : 0;
-}
-
-function trackMotivation(enrollment: TrackEnrollmentWithProgress, pct: number): string {
-  const lessonsLeft = enrollment.totalLessons - enrollment.completedLessons;
-  if (lessonsLeft <= 20) return `Only ${lessonsLeft} lessons to complete ${enrollment.skill.name}!`;
-  return `You're ${pct}% through ${enrollment.skill.name} — keep going!`;
-}
-
-/** Prefer capstone score; fall back to track average; null if neither. */
-function completedScore(e: TrackEnrollmentWithProgress): number | null {
-  return e.capstoneScore ?? e.averageScore ?? null;
-}
-
-function formatDuration(enrolledAt: Date | string, completedAt: Date | string): string {
-  const days = Math.max(
-    1,
-    Math.round((+new Date(completedAt as string) - +new Date(enrolledAt as string)) / 86400000),
-  );
-  if (days >= 14) return `${Math.round(days / 7)} weeks`;
-  return `${days} day${days > 1 ? 's' : ''}`;
-}
 
 // ── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProgressScreen() {
   const router = useRouter();
   const { data, isLoading, isError } = useProgress();
-  const { data: enrollmentsData } = useEnrollments();
+  const { data: paths } = usePaths();
   const { data: xpData } = useXp();
 
-  const activeEnrollments: TrackEnrollmentWithProgress[] =
-    enrollmentsData?.filter(e => e.percentComplete < 100) ?? [];
-  const completedEnrollments: TrackEnrollmentWithProgress[] =
-    enrollmentsData?.filter(e => e.percentComplete >= 100) ?? [];
-  const hasNoEnrollments = Array.isArray(enrollmentsData) && enrollmentsData.length === 0;
+  // Split by state, never by kind (ADR-009 C16) — a custom path belongs in Progress
+  // exactly as a track does. The user-wide stats above already counted its lessons,
+  // because they are computed over UserProgress rows.
+  const inProgress: UserPath[] = paths?.filter(p => p.percentComplete < 100) ?? [];
+  const completed: UserPath[] = paths?.filter(p => p.percentComplete >= 100) ?? [];
+  const hasNoPaths = Array.isArray(paths) && paths.length === 0;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>My Progress</Text>
 
@@ -148,95 +121,33 @@ export default function ProgressScreen() {
           </>
         )}
 
-        {/* ── Active tracks ─────────────────────────────────────────────── */}
-        {activeEnrollments.length > 0 && (
+        {inProgress.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionHeading}>Active Tracks</Text>
-            {activeEnrollments.map(e => {
-              const pct = flooredPct(e);
-              return (
-                <Card key={e.skillId} testID={`enrollment-card-${e.skillId}`} style={styles.enrollmentCard}>
-                  <View style={styles.enrollmentHeader}>
-                    <Text style={styles.enrollmentTitle}>{e.skill.name}</Text>
-                    <Text style={styles.pctText}>{pct}% complete</Text>
-                  </View>
-                  <Text style={styles.motivationText}>{trackMotivation(e, pct)}</Text>
-                  <Text style={styles.lessonsCount}>
-                    {e.completedLessons} of {e.totalLessons} lessons complete
-                  </Text>
-                  {e.levels && e.levels.length > 0 && (
-                    <TrackMap levels={e.levels} />
-                  )}
-                </Card>
-              );
-            })}
+            <Text style={styles.sectionHeading}>Keep Going</Text>
+            {inProgress.map(path => (
+              <PathProgress
+                key={`${path.kind}-${path.id}`}
+                path={path}
+                onFindNext={() => router.push('/(tabs)/tracks')}
+              />
+            ))}
           </View>
         )}
 
-        {/* ── Completed tracks ──────────────────────────────────────────── */}
-        {completedEnrollments.length > 0 && (
+        {completed.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionHeading}>Completed Tracks</Text>
-            {completedEnrollments.map(e => {
-              const score = completedScore(e);
-              return (
-                <Card key={e.skillId} testID={`completed-card-${e.skillId}`} style={styles.completedCard}>
-                  <View style={styles.completedHeader}>
-                    <Text style={[styles.enrollmentTitle, styles.completedTitle]}>{e.skill.name}</Text>
-                    <Badge label="Terminus" variant="success" />
-                  </View>
-
-                  <View style={styles.completedMeta}>
-                    {e.completedAt && (
-                      <Text testID={`completed-date-${e.skillId}`} style={styles.completedMetaText}>
-                        {new Date(e.completedAt as unknown as string).toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric',
-                        })}
-                      </Text>
-                    )}
-                    {e.completedAt && e.enrolledAt && (
-                      <Text style={styles.completedMetaText}>
-                        {' '}· {formatDuration(e.enrolledAt as unknown as string, e.completedAt as unknown as string)}
-                      </Text>
-                    )}
-                    <Text style={styles.completedMetaText}>
-                      {' '}· {e.totalLessons} of {e.totalLessons} lessons
-                    </Text>
-                  </View>
-
-                  {score !== null && (
-                    <Text style={styles.completedScore}>{Math.round(score)}%</Text>
-                  )}
-
-                  <View style={styles.completedActions}>
-                    <Pressable
-                      testID={`completed-next-track-${e.skillId}`}
-                      style={styles.completedActionBtn}
-                      onPress={() => router.push('/(tabs)/tracks')}
-                    >
-                      <Text style={styles.completedActionText}>Find next track →</Text>
-                    </Pressable>
-                    <Pressable
-                      testID={`completed-share-${e.skillId}`}
-                      style={styles.completedShareBtn}
-                      onPress={() =>
-                        Share.share({
-                          message: `I just completed "${e.skill.name}" on Ascent! 🎉`,
-                        })
-                      }
-                    >
-                      <Text style={styles.completedShareText}>Share</Text>
-                    </Pressable>
-                  </View>
-                </Card>
-              );
-            })}
+            <Text style={styles.sectionHeading}>Completed</Text>
+            {completed.map(path => (
+              <PathProgress
+                key={`${path.kind}-${path.id}`}
+                path={path}
+                onFindNext={() => router.push('/(tabs)/tracks')}
+              />
+            ))}
           </View>
         )}
 
-        {hasNoEnrollments && (
+        {hasNoPaths && (
           <NoTrackNotice body="Your progress and track map appear here once you're on a track." />
         )}
       </ScrollView>

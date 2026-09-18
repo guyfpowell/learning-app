@@ -1,8 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import type { AchievementAxis, TrackEnrollmentWithProgress } from '@learning/shared';
+import type { AchievementAxis, AchievementDefinition, AchievementKey, UserPath, UserAchievement } from '@learning/shared';
+import { ACHIEVEMENTS_BY_KEY } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing, shadow } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -10,7 +12,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useAuthStore } from '@/store/auth.store';
 import { useLogout } from '@/hooks/useAuth';
 import { useProgress } from '@/hooks/useProgress';
-import { useEnrollments } from '@/hooks/useTrack';
+import { usePaths } from '@/hooks/useTrack';
 import { useSavedLessons } from '@/hooks/useLesson';
 import { useAchievements } from '@/hooks/useAchievements';
 
@@ -25,9 +27,9 @@ function initials(name: string): string {
     .join('');
 }
 
-function flooredPct(enrollment: TrackEnrollmentWithProgress): number {
-  return enrollment.completedLessons > 0
-    ? Math.max(1, Math.round(enrollment.percentComplete))
+function flooredPct(path: UserPath): number {
+  return path.completedLessons > 0
+    ? Math.max(1, Math.round(path.percentComplete))
     : 0;
 }
 
@@ -44,6 +46,56 @@ const AXIS_ICON: Record<AchievementAxis, keyof typeof Ionicons.glyphMap> = {
   milestone:   'star-outline',
 };
 
+type AchievementItem =
+  | (UserAchievement & { earned: true })
+  | (AchievementDefinition & { earned: false; unlockedAt: undefined });
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// ── Achievement detail modal ──────────────────────────────────────────────────
+
+function AchievementDetailModal({ item, onClose }: { item: AchievementItem; onClose: () => void }) {
+  const iconName = AXIS_ICON[item.axis] ?? 'star-outline';
+  const earned = item.earned;
+  const def = ACHIEVEMENTS_BY_KEY[item.key as AchievementKey];
+
+  return (
+    <Modal transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalOverlay} onPress={onClose}>
+        <Pressable style={styles.modalCard} onPress={() => { /* swallow — keep modal open */ }}>
+          <View testID="achievement-detail-modal" style={styles.modalContent}>
+            <View style={[styles.modalIconCircle, { backgroundColor: earned ? colors.xpSoft : colors.surfaceSunken }]}>
+              <Ionicons name={iconName} size={32} color={earned ? '#BE7C1C' : colors.textSubtle} />
+            </View>
+
+            <Text testID="achievement-detail-name" style={styles.modalName}>{item.name}</Text>
+
+            <Text testID="achievement-detail-description" style={styles.modalDescription}>{item.description}</Text>
+
+            {earned && item.unlockedAt && (
+              <Text testID="achievement-detail-earned-date" style={styles.modalEarnedDate}>
+                Earned {formatDate(item.unlockedAt)}
+              </Text>
+            )}
+
+            {def?.xpThreshold && (
+              <Text testID="achievement-detail-xp" style={styles.modalXp}>
+                {def.xpThreshold.toLocaleString()} XP
+              </Text>
+            )}
+
+            <Pressable testID="achievement-detail-close" onPress={onClose} style={styles.modalCloseBtn}>
+              <Text style={styles.modalCloseTxt}>Close</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 // ── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
@@ -52,21 +104,25 @@ export default function ProfileScreen() {
   const logout = useLogout();
 
   const { data: progress } = useProgress();
-  const { data: enrollmentsData } = useEnrollments();
+  const { data: pathsData } = usePaths();
   const { data: savedData } = useSavedLessons();
   const { data: achievements, isLoading: achievementsLoading } = useAchievements();
 
-  const activeEnrollments = enrollmentsData?.filter(e => e.percentComplete < 100) ?? [];
+  const [selectedKey, setSelectedKey] = useState<AchievementKey | null>(null);
+
+  const activePaths = pathsData?.filter(p => p.percentComplete < 100) ?? [];
   const savedLessons = savedData ?? [];
   const totalUnlocked = achievements?.totalUnlocked ?? 0;
 
-  const allAchievements = [
-    ...(achievements?.unlocked.map(a => ({ ...a, earned: true })) ?? []),
-    ...(achievements?.locked.map(a => ({ ...a, earned: false, unlockedAt: undefined })) ?? []),
+  const allAchievements: AchievementItem[] = [
+    ...(achievements?.unlocked.map(a => ({ ...a, earned: true as const })) ?? []),
+    ...(achievements?.locked.map(a => ({ ...a, earned: false as const, unlockedAt: undefined })) ?? []),
   ];
 
+  const selectedItem = selectedKey ? (allAchievements.find(a => a.key === selectedKey) ?? null) : null;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
         {/* ── Avatar + header ──────────────────────────────────────────────── */}
@@ -99,10 +155,10 @@ export default function ProfileScreen() {
           </Card>
 
           <Card padding={spacing.md} style={styles.statCard}>
-            <Text testID="profile-badge-count" style={styles.statValue}>
+            <Text testID="profile-achievement-count" style={styles.statValue}>
               {totalUnlocked}
             </Text>
-            <Text style={styles.statLabel}>badges</Text>
+            <Text style={styles.statLabel}>achievements</Text>
           </Card>
         </View>
 
@@ -115,11 +171,12 @@ export default function ProfileScreen() {
           <View style={styles.achievementGrid}>
             {allAchievements.map(a => {
               const iconName = AXIS_ICON[a.axis] ?? 'star-outline';
-              const earned = (a as { earned: boolean }).earned;
+              const earned = a.earned;
               return (
-                <View
+                <Pressable
                   key={a.key}
                   testID={`achievement-${a.key}`}
+                  onPress={() => setSelectedKey(a.key as AchievementKey)}
                   style={[styles.achievementCard, shadow.card, { opacity: earned ? 1 : 0.45 }]}
                 >
                   <View style={[styles.iconCircle, { backgroundColor: earned ? colors.xpSoft : colors.surfaceSunken }]}>
@@ -130,7 +187,7 @@ export default function ProfileScreen() {
                     />
                   </View>
                   <Text style={styles.achievementName} numberOfLines={2}>{a.name}</Text>
-                </View>
+                </Pressable>
               );
             })}
           </View>
@@ -163,18 +220,18 @@ export default function ProfileScreen() {
         {/* ── Track progress ────────────────────────────────────────────────── */}
         <Text style={styles.sectionHeading}>Track progress</Text>
 
-        {activeEnrollments.length === 0 ? (
+        {activePaths.length === 0 ? (
           <Card testID="profile-no-tracks" style={styles.emptyCard}>
             <Text style={styles.emptyText}>No tracks enrolled yet.</Text>
           </Card>
         ) : (
           <View style={styles.trackList}>
-            {activeEnrollments.map(e => {
+            {activePaths.map(e => {
               const pct = flooredPct(e);
               return (
-                <View key={e.id} style={styles.trackItem}>
+                <View key={`${e.kind}-${e.id}`} style={styles.trackItem}>
                   <View style={styles.trackRow}>
-                    <Text style={styles.trackName}>{e.skill.name}</Text>
+                    <Text style={styles.trackName}>{e.name}</Text>
                     <Text style={styles.trackPct}>{pct}%</Text>
                   </View>
                   {/* .asc-progress bar — track + fill */}
@@ -197,6 +254,11 @@ export default function ProfileScreen() {
         />
 
       </ScrollView>
+
+      {selectedKey && selectedItem && (
+        <AchievementDetailModal item={selectedItem} onClose={() => setSelectedKey(null)} />
+      )}
+
     </SafeAreaView>
   );
 }
@@ -360,6 +422,73 @@ const styles = StyleSheet.create({
     height:          6,
     backgroundColor: colors.brand,
     borderRadius:    radius.pill,
+  },
+
+  // Achievement detail modal
+  modalOverlay: {
+    flex:            1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent:  'center',
+    alignItems:      'center',
+    padding:         spacing.lg,
+  },
+  modalCard: {
+    width:           '100%',
+    maxWidth:        360,
+    backgroundColor: colors.surface,
+    borderRadius:    radius.xl,
+    padding:         spacing.lg,
+    alignItems:      'center',
+    gap:             spacing.sm,
+  },
+  modalContent: {
+    alignItems: 'center',
+    width:      '100%',
+  },
+  modalIconCircle: {
+    width:          64,
+    height:         64,
+    borderRadius:   32,
+    alignItems:     'center',
+    justifyContent: 'center',
+    marginBottom:   spacing.xs,
+  },
+  modalName: {
+    fontFamily: font.semibold,
+    fontSize:   fontSize.lg,
+    color:      colors.textStrong,
+    textAlign:  'center',
+  },
+  modalDescription: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.textBody,
+    textAlign:  'center',
+  },
+  modalEarnedDate: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.xs,
+    color:      colors.textMuted,
+    textAlign:  'center',
+  },
+  modalXp: {
+    fontFamily: font.semibold,
+    fontSize:   fontSize.xs,
+    color:      '#BE7C1C',
+    textAlign:  'center',
+  },
+  modalCloseBtn: {
+    marginTop:    spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.brandSoft,
+    borderRadius: radius.pill,
+  },
+  modalCloseTxt: {
+    fontFamily: font.semibold,
+    fontSize:   fontSize.sm,
+    color:      colors.brand,
+    textAlign:  'center',
   },
 
   // Misc

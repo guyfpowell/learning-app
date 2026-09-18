@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
-import { useSkills, useEnrollments, useEnroll, useSetActiveTrack } from '@/hooks/useTrack';
+import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTrack';
 import { extractError } from '@/lib/errors';
 import type { SkillWithAccess } from '@learning/shared';
 
@@ -40,9 +40,9 @@ function PremiumModal({ visible, onClose, onUpgrade }: { visible: boolean; onClo
 export default function TracksScreen() {
   const router = useRouter();
   const { data: skills, isLoading: skillsLoading, isError: skillsError, error: skillsErr } = useSkills();
-  const { data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr } = useEnrollments();
+  const { data: paths, isLoading: pathsLoading, isError: pathsError, error: pathsErr } = usePaths();
   const enroll = useEnroll();
-  const setActive = useSetActiveTrack();
+  const setActive = useSetActivePath();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   // Derived, not read from the auth record: `UserAuth` carries no premium flag,
   // and adding one would change a contract BOTH clients read.
@@ -54,12 +54,16 @@ export default function TracksScreen() {
     (sk) => sk.premiumStatus === 'premium' && sk.userHasAccess
   ) ?? false;
 
-  const isLoading = skillsLoading || enrollmentsLoading;
-  const enrolledSkillIds = new Set(enrollments?.map((e) => e.skillId) ?? []);
-  const activeSkillId = enrollments?.find((e) => e.isActive)?.skillId ?? null;
+  const isLoading = skillsLoading || pathsLoading;
+  // This screen is the catalogue of predefined tracks, so it reads only the track
+  // paths. That is a property of what the screen is for, not a kind filter on
+  // rendering — a custom path has no catalogue entry to mark.
+  const trackPaths = paths?.filter((p) => p.kind === 'track') ?? [];
+  const enrolledSkillIds = new Set(trackPaths.map((p) => p.id));
+  const activeSkillId = trackPaths.find((p) => p.isActive)?.id ?? null;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>Tracks</Text>
 
@@ -69,9 +73,9 @@ export default function TracksScreen() {
           </View>
         )}
 
-        {(skillsError || enrollmentsError) && !isLoading && (
+        {(skillsError || pathsError) && !isLoading && (
           <View testID="tracks-load-error">
-            <Text style={styles.errorText}>{extractError(skillsErr ?? enrollmentsErr)}</Text>
+            <Text style={styles.errorText}>{extractError(skillsErr ?? pathsErr)}</Text>
           </View>
         )}
 
@@ -162,9 +166,9 @@ export default function TracksScreen() {
                     <Button
                       testID={`make-active-btn-${skill.id}`}
                       label="Make active"
-                      loading={setActive.isPending && setActive.variables === skill.id}
+                      loading={setActive.isPending && setActive.variables?.id === skill.id}
                       style={styles.makeActiveBtn}
-                      onPress={() => setActive.mutate(skill.id)}
+                      onPress={() => setActive.mutate({ kind: 'track', id: skill.id })}
                     />
                   </>
                 )

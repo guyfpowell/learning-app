@@ -21,8 +21,12 @@ jest.mock('@/hooks/useProfile', () => ({
 }));
 jest.mock('@/hooks/usePushStatus', () => ({ usePushStatus: jest.fn() }));
 
+let capturedEdges: string[] | undefined;
 jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SafeAreaView: ({ children, edges }: { children: React.ReactNode; edges?: string[] }) => {
+    capturedEdges = edges;
+    return <>{children}</>;
+  },
 }));
 
 jest.mock('expo-secure-store', () => ({
@@ -112,6 +116,7 @@ function setProfileMutationMock(overrides: Record<string, unknown> = {}) {
 describe('SettingsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    capturedEdges = undefined;
     (useAuthStore as unknown as jest.Mock).mockReturnValue(mockUser);
     setQueryMock();
     setMutationMock();
@@ -273,5 +278,12 @@ describe('SettingsScreen', () => {
     render(<SettingsScreen />);
     expect(screen.getByTestId('settings-error')).toBeTruthy();
     expect(screen.getByText('Profile update failed')).toBeTruthy();
+  });
+
+  describe('Ticket 072j — safe-area edges', () => {
+    it('uses edges=[left,right,bottom] so the tab layout owns the top inset', () => {
+      render(<SettingsScreen />);
+      expect(capturedEdges).toEqual(['left', 'right', 'bottom']);
+    });
   });
 });

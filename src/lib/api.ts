@@ -93,12 +93,14 @@ api.interceptors.response.use(
   (response) => {
     // Backend wraps every success response as { success, data, timestamp }.
     // Unwrap so services can treat response.data as the model directly.
-    // When the backend sends extra top-level fields alongside `data` (e.g. `customPlans`
-    // on GET /enrollments), preserve them so callers can access both. For plain
-    // `{ success, data }` envelopes the behaviour is unchanged.
+    //
+    // Always the same shape. The old carve-out that preserved sibling top-level keys
+    // existed solely for `customPlans` on GET /enrollments (ticket 071); ADR-009 folded
+    // custom paths into `data`, so nothing sends siblings any more. Removed rather than
+    // left in place: a response shape that varied by endpoint is what forced every
+    // caller to normalise before it could read its own data.
     if (response.data && typeof response.data === 'object' && 'success' in response.data && 'data' in response.data) {
-      const { success: _s, timestamp: _ts, data: innerData, ...rest } = response.data as Record<string, unknown>;
-      response.data = Object.keys(rest).length > 0 ? { data: innerData, ...rest } : innerData;
+      response.data = (response.data as Record<string, unknown>).data;
     }
     return response;
   },

@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import TeamScreen, { gapColor, rankColor } from '../team';
+
+jest.mock('@/config/features', () => ({ TEAM_FEATURE_ENABLED: true }));
 import {
   useTeamSummary,
   useTeamMemberProgress,
@@ -17,8 +19,12 @@ jest.mock('@/hooks/useTeam', () => ({
   useTeamLeaderboard:    jest.fn(),
 }));
 
+let capturedEdges: string[] | undefined;
 jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SafeAreaView: ({ children, edges }: { children: React.ReactNode; edges?: string[] }) => {
+    capturedEdges = edges;
+    return <>{children}</>;
+  },
 }));
 
 jest.mock('expo-secure-store', () => ({
@@ -82,6 +88,7 @@ function seedDefaults() {
 }
 
 beforeEach(() => {
+  capturedEdges = undefined;
   seedDefaults();
 });
 
@@ -266,6 +273,13 @@ describe('TeamScreen', () => {
       expect(c).not.toBe('#F59E0B');
       expect(c).not.toBe('#94A3B8');
       expect(c).not.toBe('#B45309');
+    });
+  });
+
+  describe('Ticket 072j — safe-area edges', () => {
+    it('uses edges=[left,right,bottom] so the tab layout owns the top inset', () => {
+      render(<TeamScreen />);
+      expect(capturedEdges).toEqual(['left', 'right', 'bottom']);
     });
   });
 });

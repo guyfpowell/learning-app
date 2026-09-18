@@ -4,19 +4,23 @@ import ProfileScreen from '../profile';
 import { useAuthStore } from '@/store/auth.store';
 import { useLogout } from '@/hooks/useAuth';
 import { useProgress } from '@/hooks/useProgress';
-import { useEnrollments } from '@/hooks/useTrack';
+import { usePaths } from '@/hooks/useTrack';
 import { useSavedLessons } from '@/hooks/useLesson';
 import { useAchievements } from '@/hooks/useAchievements';
 
 jest.mock('@/store/auth.store', () => ({ useAuthStore: jest.fn() }));
 jest.mock('@/hooks/useAuth', () => ({ useLogout: jest.fn() }));
 jest.mock('@/hooks/useProgress', () => ({ useProgress: jest.fn() }));
-jest.mock('@/hooks/useTrack', () => ({ useEnrollments: jest.fn() }));
+jest.mock('@/hooks/useTrack', () => ({ usePaths: jest.fn() }));
 jest.mock('@/hooks/useLesson', () => ({ useSavedLessons: jest.fn() }));
 jest.mock('@/hooks/useAchievements', () => ({ useAchievements: jest.fn() }));
 
+let capturedEdges: string[] | undefined;
 jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SafeAreaView: ({ children, edges }: { children: React.ReactNode; edges?: string[] }) => {
+    capturedEdges = edges;
+    return <>{children}</>;
+  },
 }));
 
 jest.mock('expo-router', () => ({
@@ -42,15 +46,16 @@ const mockProgress = {
 };
 
 const mockActiveEnrollment = {
-  id: 'e1',
-  skillId: 's1',
+  kind: 'track' as const,
+  id: 's1',
+  name: 'Product Strategy',
   skill: { id: 's1', name: 'Product Strategy', slug: 'product-strategy' },
   percentComplete: 62,
+  levels: [],
   completedLessons: 31,
   totalLessons: 50,
   isActive: true,
   enrolledAt: '2026-08-01T00:00:00Z',
-  levels: [],
 };
 
 const mockSavedLesson = {
@@ -81,7 +86,7 @@ function setDefaults() {
   (useAuthStore as unknown as jest.Mock).mockReturnValue(mockUser);
   (useLogout as jest.Mock).mockReturnValue({ mutate: mockMutate, isPending: false });
   (useProgress as jest.Mock).mockReturnValue({ data: mockProgress, isLoading: false, isError: false });
-  (useEnrollments as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
+  (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
   (useSavedLessons as jest.Mock).mockReturnValue({ data: [mockSavedLesson] });
   (useAchievements as jest.Mock).mockReturnValue({ data: mockAchievementsResponse, isLoading: false });
 }
@@ -91,6 +96,7 @@ function setDefaults() {
 describe('ProfileScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    capturedEdges = undefined;
     setDefaults();
   });
 
@@ -131,9 +137,9 @@ describe('ProfileScreen', () => {
     expect(screen.getByText('42')).toBeTruthy();
   });
 
-  it('shows badge count stat', () => {
+  it('shows achievement count stat', () => {
     render(<ProfileScreen />);
-    expect(screen.getByTestId('profile-badge-count')).toBeTruthy();
+    expect(screen.getByTestId('profile-achievement-count')).toBeTruthy();
     expect(screen.getByText('2')).toBeTruthy(); // totalUnlocked from mockAchievementsResponse
   });
 
@@ -170,6 +176,53 @@ describe('ProfileScreen', () => {
     expect(card.props.style).toEqual(expect.arrayContaining([
       expect.objectContaining({ opacity: 0.45 }),
     ]));
+  });
+
+  // ── Achievement detail modal ─────────────────────────────────────────────────
+
+  it('tapping an earned achievement opens the detail modal', () => {
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByTestId('achievement-first-light'));
+    expect(screen.getByTestId('achievement-detail-modal')).toBeTruthy();
+  });
+
+  it('detail modal shows the achievement name', () => {
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByTestId('achievement-first-light'));
+    expect(screen.getByTestId('achievement-detail-name')).toBeTruthy();
+  });
+
+  it('detail modal shows the achievement description', () => {
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByTestId('achievement-first-light'));
+    expect(screen.getByTestId('achievement-detail-description')).toBeTruthy();
+    expect(screen.getByText('Completed your first lesson')).toBeTruthy();
+  });
+
+  it('earned achievement shows the unlocked date in the modal', () => {
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByTestId('achievement-first-light'));
+    expect(screen.getByTestId('achievement-detail-earned-date')).toBeTruthy();
+  });
+
+  it('tapping a locked achievement also opens the detail modal', () => {
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByTestId('achievement-good-innings'));
+    expect(screen.getByTestId('achievement-detail-modal')).toBeTruthy();
+  });
+
+  it('locked achievement does not show an earned date', () => {
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByTestId('achievement-good-innings'));
+    expect(screen.queryByTestId('achievement-detail-earned-date')).toBeNull();
+  });
+
+  it('close button dismisses the detail modal', () => {
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByTestId('achievement-first-light'));
+    expect(screen.getByTestId('achievement-detail-modal')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('achievement-detail-close'));
+    expect(screen.queryByTestId('achievement-detail-modal')).toBeNull();
   });
 
   // ── Saved lessons ───────────────────────────────────────────────────────────
@@ -211,7 +264,7 @@ describe('ProfileScreen', () => {
   });
 
   it('shows no enrollments empty state when no tracks', () => {
-    (useEnrollments as jest.Mock).mockReturnValue({ data: [] });
+    (usePaths as jest.Mock).mockReturnValue({ data: [] });
     render(<ProfileScreen />);
     expect(screen.getByTestId('profile-no-tracks')).toBeTruthy();
   });
@@ -239,5 +292,12 @@ describe('ProfileScreen', () => {
   it('handles undefined achievements gracefully', () => {
     (useAchievements as jest.Mock).mockReturnValue({ data: undefined, isLoading: true });
     expect(() => render(<ProfileScreen />)).not.toThrow();
+  });
+
+  describe('Ticket 072j — safe-area edges', () => {
+    it('uses edges=[left,right,bottom] so the tab layout owns the top inset', () => {
+      render(<ProfileScreen />);
+      expect(capturedEdges).toEqual(['left', 'right', 'bottom']);
+    });
   });
 });

@@ -43,4 +43,13 @@ describe('QuizOpt', () => {
     render(<QuizOpt optKey="D" label="Last option" testID="opt-d" />);
     expect(screen.getByTestId('opt-d')).toBeTruthy();
   });
+
+  it('renders long answer labels without a numberOfLines cap', () => {
+    const longLabel =
+      'This is a deliberately long answer option that would previously have been truncated ' +
+      'after three lines, making the question unanswerable for the user selecting this option.';
+    render(<QuizOpt optKey="A" label={longLabel} />);
+    const labelEl = screen.getByText(longLabel);
+    expect(labelEl.props.numberOfLines).toBeUndefined();
+  });
 });
