@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { QuizModal } from '@/components/QuizModal';
 import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
+import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
 import type { UserPath } from '@learning/shared';
 
@@ -108,13 +109,39 @@ export default function LessonDetailScreen() {
   const saveLesson = useSaveLesson();
   const unsaveLesson = useUnsaveLesson();
 
+  // Guards against re-initialising phase after the user has manually transitioned
+  const phaseInitialized = useRef<string | null>(null);
+
+  // Server-persisted read position: non-null when the user has opened but not
+  // completed this lesson. undefined = paths query still loading.
+  const resumePhase: 'collapsed' | 'expanded' | 'takeaway' | null | undefined = paths
+    ? (() => {
+        for (const p of paths) {
+          if (p.nextLesson?.id === id) return p.nextLesson.resumePhase ?? null;
+        }
+        return null;
+      })()
+    : undefined;
+
+  // Fire-and-forget position write; failures are silent (spec constraint 6)
+  function updatePosition(lessonId: string, p: LessonPhase) {
+    lessonService.updatePosition(lessonId, p).catch(() => {});
+  }
+
   useEffect(() => {
     setIsSaved(!!lesson?.isSaved);
   }, [lesson?.id, lesson?.isSaved]);
 
   useEffect(() => {
-    setPhase(lesson?.quizCompleted ? 'takeaway' : 'collapsed');
-  }, [lesson?.id, lesson?.quizCompleted]);
+    if (!lesson || phaseInitialized.current === lesson.id) return;
+    if (resumePhase === undefined) return; // wait for paths to load
+    const initial: LessonPhase = lesson.quizCompleted
+      ? 'takeaway'
+      : (resumePhase ?? 'collapsed');
+    setPhase(initial);
+    phaseInitialized.current = lesson.id;
+    updatePosition(lesson.id, initial);
+  }, [lesson?.id, lesson?.quizCompleted, resumePhase]);
 
   // The progress bar belongs to the track this lesson sits in. A custom path can
   // contain the same lesson, but the lesson's own skill is what it is a part of.
@@ -262,7 +289,10 @@ export default function LessonDetailScreen() {
                   testID="continue-btn"
                   label="Continue"
                   style={styles.quizBtn}
-                  onPress={() => setPhase('expanded')}
+                  onPress={() => {
+                    setPhase('expanded');
+                    if (lesson) updatePosition(lesson.id, 'expanded');
+                  }}
                 />
               )}
 
@@ -271,7 +301,10 @@ export default function LessonDetailScreen() {
                   testID="key-takeaway-btn"
                   label="Key Takeaway"
                   style={[styles.quizBtn, styles.completeBtn]}
-                  onPress={() => setPhase('takeaway')}
+                  onPress={() => {
+                    setPhase('takeaway');
+                    if (lesson) updatePosition(lesson.id, 'takeaway');
+                  }}
                 />
               )}
 
@@ -303,7 +336,7 @@ export default function LessonDetailScreen() {
         onClose={() => setPremiumModalVisible(false)}
         onUpgrade={() => {
           setPremiumModalVisible(false);
-          router.push('/(tabs)/settings');
+          router.push('/(tabs)/profile');
         }}
       />
     </SafeAreaView>

@@ -10,7 +10,7 @@ import { useDraftStore } from '@/store/trackBuilder.store';
 import { useRefinePlan, useCreateTrackPlan } from '@/hooks/useTrackBuilder';
 import type { BuiltPlanTopic } from '@/services/trackBuilder.service';
 import { extractError } from '@/lib/errors';
-import { PLAN_FOLLOW_UP_ENABLED } from '@learning/shared';
+import { PLAN_FOLLOW_UP_ENABLED, reasonRuns } from '@learning/shared';
 
 /**
  * Review the built path — ticket 049 Chunk 5, mobile parity with the web
@@ -170,22 +170,9 @@ export default function BuildReviewScreen() {
     result.topics.map((t) => t.reason).filter(Boolean),
   ).size;
 
-  /**
-   * The track, grouped under the need each run serves — 068 Chunk 9b.
-   *
-   * The reason under every topic was the same sentence ten times in a row. No
-   * server change: topics come back in the model's order, needs in order and
-   * topics within them in order, so starting a new group when the reason
-   * changes reproduces its structure exactly. A topic with no need joins the
-   * group above it. Kept in step with the web screen.
-   */
-  const runs: { need: string; topics: typeof result.topics }[] = [];
-  for (const t of result.topics) {
-    const need = t.reason ?? '';
-    const last = runs[runs.length - 1];
-    if (!last || (need && need !== last.need)) runs.push({ need, topics: [t] });
-    else last.topics.push(t);
-  }
+  // The track, grouped under the need each run serves — 068 Chunk 9b.
+  // Algorithm lives in @learning/shared (076c) — one copy, one place.
+  const runs = reasonRuns(result.topics);
   const busy = refine.isPending || createPlan.isPending;
 
   return (

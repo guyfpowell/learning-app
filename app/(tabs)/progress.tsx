@@ -1,18 +1,67 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Share } from 'react-native';
+import { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { UserPath } from '@learning/shared';
-import { colors, font, fontSize, radius, spacing } from '@/theme';
+import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { useProgress } from '@/hooks/useProgress';
-import { usePaths } from '@/hooks/useTrack';
+import { usePaths, useTrackContents } from '@/hooks/useTrack';
 import { useXp } from '@/hooks/useXp';
 import { Progress } from '@/components/ui/Progress';
 import { PathProgress } from '@/components/ui/PathProgress';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { FlameIcon } from '@/components/ui/Streak';
+import { TrackContentsTree } from '@/components/learning/TrackContentsTree';
+
+// ── Expandable path card — wraps PathProgress + lazily-loaded tree ────────────
+
+function ExpandablePathCard({ path, onFindNext }: { path: UserPath; onFindNext: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data: contents, isLoading: treeLoading } = useTrackContents(
+    path.kind,
+    path.id,
+    { enabled: expanded },
+  );
+
+  // Derive initial expand targets from the server's isCurrent markers.
+  // An empty object (no isCurrent group) means fully collapsed — correct for 100% paths.
+  const initialExpanded = useMemo(() => {
+    if (!contents) return undefined;
+    const currentGroup = contents.groups.find(g => g.isCurrent);
+    if (!currentGroup) return undefined;
+    const currentTopic = currentGroup.topics.find(t => t.isCurrent);
+    return { groupKey: currentGroup.key, topicKey: currentTopic?.key };
+  }, [contents]);
+
+  return (
+    <View>
+      <PathProgress path={path} onFindNext={onFindNext} />
+      <Pressable
+        testID={`path-expand-btn-${path.id}`}
+        onPress={() => setExpanded(e => !e)}
+        style={styles.expandToggle}
+        accessibilityRole="button"
+        accessibilityLabel={expanded ? 'Collapse lesson tree' : 'Expand lesson tree'}
+        accessibilityState={{ expanded }}
+        hitSlop={{ top: 4, bottom: 4 }}
+      >
+        <Text style={styles.expandLabel}>{expanded ? 'Hide lessons' : 'Show lessons'}</Text>
+        <Text style={styles.expandChevron}>{expanded ? '▾' : '▸'}</Text>
+      </Pressable>
+
+      {expanded && (
+        <>
+          {treeLoading && <Spinner testID={`tree-loading-${path.id}`} />}
+          {!treeLoading && contents && (
+            <TrackContentsTree contents={contents} initialExpanded={initialExpanded} />
+          )}
+        </>
+      )}
+    </View>
+  );
+}
 
 // ── Screen ───────────────────────────────────────────────────────────────────
 
@@ -125,7 +174,7 @@ export default function ProgressScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionHeading}>Keep Going</Text>
             {inProgress.map(path => (
-              <PathProgress
+              <ExpandablePathCard
                 key={`${path.kind}-${path.id}`}
                 path={path}
                 onFindNext={() => router.push('/(tabs)/tracks')}
@@ -138,7 +187,7 @@ export default function ProgressScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionHeading}>Completed</Text>
             {completed.map(path => (
-              <PathProgress
+              <ExpandablePathCard
                 key={`${path.kind}-${path.id}`}
                 path={path}
                 onFindNext={() => router.push('/(tabs)/tracks')}
@@ -262,100 +311,30 @@ const styles = StyleSheet.create({
     marginBottom:  spacing.sm,
   },
 
-  // ── Active enrollment cards ───────────────────────────────────────────────
+  // ── Path sections ─────────────────────────────────────────────────────────
   section: {
     gap:          spacing.sm,
     marginBottom: spacing.md,
   },
-  enrollmentCard: {
-    gap: spacing.sm,
-  },
-  enrollmentHeader: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'flex-start',
-  },
-  enrollmentTitle: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
-    flex:       1,
-  },
-  pctText: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.sm,
-    color:      colors.brand,
-  },
-  motivationText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-  },
-  lessonsCount: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-  },
 
-  // ── Completed track cards ─────────────────────────────────────────────────
-  completedCard: {
-    gap: spacing.sm,
-  },
-  completedHeader: {
+  // ── Expand toggle row (beneath each PathProgress card) ────────────────────
+  expandToggle: {
     flexDirection:  'row',
-    justifyContent: 'space-between',
     alignItems:     'center',
+    justifyContent: 'flex-end',
+    paddingVertical:   spacing.xs,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
   },
-  completedTitle: {
-    flex: 1,
-  },
-  completedMeta: {
-    flexDirection:  'row',
-    flexWrap:       'wrap',
-    alignItems:     'center',
-  },
-  completedMetaText: {
+  expandLabel: {
     fontFamily: font.regular,
-    fontSize:   fontSize.sm,
+    fontSize:   fontSize.xs,
     color:      colors.textMuted,
   },
-  completedScore: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.lg,
-    color:      colors.brand,
-  },
-  completedActions: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'center',
-    gap:            spacing.sm,
-    marginTop:      spacing.xs,
-  },
-  completedActionBtn: {
-    flex:            1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.brand,
-    borderRadius:    radius.btn,
-    alignItems:      'center',
-  },
-  completedActionText: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.sm,
-    color:      colors.onBrand,
-  },
-  completedShareBtn: {
-    paddingVertical:   spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius:      radius.btn,
-    borderWidth:       1,
-    borderColor:       colors.border,
-    alignItems:        'center',
-  },
-  completedShareText: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.sm,
-    color:      colors.textStrong,
+  expandChevron: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.xs,
+    color:      colors.textMuted,
   },
 
   // ── Error / empty ─────────────────────────────────────────────────────────

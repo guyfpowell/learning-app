@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Pressable, Share } from 'react-native';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Progress } from '@/components/ui/Progress';
 import { TrackMap } from '@/components/ui/TrackMap';
 import type { UserPath } from '@learning/shared';
 
@@ -56,8 +57,12 @@ export function PathProgress({ path, onFindNext }: PathProgressProps) {
         <Text style={styles.lessonsCount}>
           {path.completedLessons} of {path.totalLessons} lessons complete
         </Text>
-        {/* A plan is dependency-ordered, so its levels array is empty (C10). */}
-        {path.levels.length > 0 && <TrackMap levels={path.levels} />}
+        {/* Curated tracks show level strip; custom paths (levels=[]) show a progress bar (C10). */}
+        {path.levels.length > 0 ? (
+          <TrackMap levels={path.levels} />
+        ) : (
+          <Progress value={pct} tone="brand" testID={`path-progress-bar-${path.id}`} />
+        )}
       </Card>
     );
   }

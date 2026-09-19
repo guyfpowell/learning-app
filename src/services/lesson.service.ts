@@ -20,4 +20,8 @@ export const lessonService = {
     const { data } = await api.get<LessonSummary[]>('/lessons/saved');
     return data;
   },
+
+  async updatePosition(lessonId: string, phase: 'collapsed' | 'expanded' | 'takeaway'): Promise<void> {
+    await api.patch(`/lessons/${lessonId}/position`, { phase });
+  },
 };

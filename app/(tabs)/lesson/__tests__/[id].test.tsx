@@ -244,7 +244,7 @@ describe('LessonDetailScreen', () => {
     render(<LessonDetailScreen />);
     fireEvent.press(screen.getByText('LEARN MORE'));
     fireEvent.press(screen.getByText('UPGRADE NOW'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/(tabs)/settings');
+    expect(mockRouter.push).toHaveBeenCalledWith('/(tabs)/profile');
   });
 
   describe('Chunk 5 — levelLabel display', () => {

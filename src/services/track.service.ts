@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { ActivePathRef, SkillWithAccess, UserPath } from '@learning/shared';
+import type { ActivePathRef, SkillWithAccess, TrackContents, UserPath, UserPathKind } from '@learning/shared';
 
 export const trackService = {
   async getSkills(): Promise<SkillWithAccess[]> {
@@ -40,6 +40,12 @@ export const trackService = {
   /** Tracks only — a custom path is dependency-ordered and has no levels (C10). */
   async skipLevel({ kind, id }: ActivePathRef): Promise<UserPath> {
     const { data } = await api.post<UserPath>(`/enrollments/${kind}/${id}/skip-level`);
+    return data;
+  },
+
+  /** GET /enrollments/:kind/:id/contents — the full lesson tree for a path. */
+  async getTrackContents(kind: UserPathKind, id: string): Promise<TrackContents> {
+    const { data } = await api.get<TrackContents>(`/enrollments/${kind}/${id}/contents`);
     return data;
   },
 };

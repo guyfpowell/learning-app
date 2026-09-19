@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
-import SettingsScreen from '../settings';
+import ProfileScreen from '../profile';
 import { useAuthStore } from '@/store/auth.store';
 import {
   useNotificationPreferences,
@@ -8,6 +8,11 @@ import {
 } from '@/hooks/useNotificationPrefs';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { usePushStatus } from '@/hooks/usePushStatus';
+import { useLogout } from '@/hooks/useAuth';
+import { useProgress } from '@/hooks/useProgress';
+import { usePaths } from '@/hooks/useTrack';
+import { useSavedLessons } from '@/hooks/useLesson';
+import { useAchievements } from '@/hooks/useAchievements';
 import type { NotificationPreference } from '@learning/shared';
 
 jest.mock('@/store/auth.store', () => ({ useAuthStore: jest.fn() }));
@@ -20,6 +25,12 @@ jest.mock('@/hooks/useProfile', () => ({
   useUpdateProfile: jest.fn(),
 }));
 jest.mock('@/hooks/usePushStatus', () => ({ usePushStatus: jest.fn() }));
+jest.mock('@/hooks/useAuth', () => ({ useLogout: jest.fn() }));
+jest.mock('@/hooks/useProgress', () => ({ useProgress: jest.fn() }));
+jest.mock('@/hooks/useTrack', () => ({ usePaths: jest.fn() }));
+jest.mock('@/hooks/useLesson', () => ({ useSavedLessons: jest.fn() }));
+jest.mock('@/hooks/useAchievements', () => ({ useAchievements: jest.fn() }));
+jest.mock('expo-router', () => ({ useRouter: () => ({ replace: jest.fn(), push: jest.fn(), back: jest.fn() }) }));
 
 let capturedEdges: string[] | undefined;
 jest.mock('react-native-safe-area-context', () => ({
@@ -113,7 +124,7 @@ function setProfileMutationMock(overrides: Record<string, unknown> = {}) {
   });
 }
 
-describe('SettingsScreen', () => {
+describe('ProfileScreen — settings section (076b: folded in from the Settings tab)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     capturedEdges = undefined;
@@ -123,63 +134,68 @@ describe('SettingsScreen', () => {
     setProfileQueryMock();
     setProfileMutationMock();
     setPushStatusMock();
+    (useLogout as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
+    (useProgress as jest.Mock).mockReturnValue({ data: undefined });
+    (usePaths as jest.Mock).mockReturnValue({ data: [] });
+    (useSavedLessons as jest.Mock).mockReturnValue({ data: [] });
+    (useAchievements as jest.Mock).mockReturnValue({ data: undefined, isLoading: false });
   });
 
   it('renders without errors', () => {
-    expect(() => render(<SettingsScreen />)).not.toThrow();
+    expect(() => render(<ProfileScreen />)).not.toThrow();
   });
 
   it('shows Settings heading', () => {
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.getByText('Settings')).toBeTruthy();
   });
 
   it('shows spinner while loading preferences', () => {
     setQueryMock({ data: undefined, isLoading: true });
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.getByTestId('prefs-loading')).toBeTruthy();
   });
 
   it('shows user name in profile section', () => {
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.getByText('Test User')).toBeTruthy();
   });
 
   it('shows user email in profile section', () => {
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.getByText('user@example.com')).toBeTruthy();
   });
 
   it('shows daily reminder label', () => {
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.getByText('Daily reminder')).toBeTruthy();
   });
 
   it('shows streak milestone label', () => {
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.getByText('Streak milestones')).toBeTruthy();
   });
 
   it('shows new lesson available label', () => {
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.getByText('New lesson available')).toBeTruthy();
   });
 
   it('hides the time picker when daily reminder is off', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: false } });
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.queryByTestId('reminder-time-picker')).toBeNull();
   });
 
   it('shows the time picker when daily reminder is on', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: true } });
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.getByTestId('reminder-time-picker')).toBeTruthy();
   });
 
   it('toggling daily reminder on reveals the time picker', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: false } });
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.queryByTestId('reminder-time-picker')).toBeNull();
     fireEvent(screen.getByTestId('toggle-daily-reminder'), 'valueChange', true);
     expect(screen.getByTestId('reminder-time-picker')).toBeTruthy();
@@ -188,7 +204,7 @@ describe('SettingsScreen', () => {
   it('initialises the time picker from profile preferredTime', () => {
     setProfileQueryMock({ data: { preferredTime: '14:30' } });
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: true } });
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     const picker = screen.getByTestId('reminder-time-picker');
     const value = new Date(picker.props.date);
     expect(value.getHours()).toBe(14);
@@ -198,21 +214,21 @@ describe('SettingsScreen', () => {
   describe('push notification status', () => {
     it('shows enabled state when permission is granted', () => {
       setPushStatusMock('granted');
-      render(<SettingsScreen />);
+      render(<ProfileScreen />);
       expect(screen.getByTestId('push-status-enabled')).toBeTruthy();
       expect(screen.getByText('Push notifications are enabled')).toBeTruthy();
     });
 
     it('shows blocked message when permission is denied', () => {
       setPushStatusMock('denied');
-      render(<SettingsScreen />);
+      render(<ProfileScreen />);
       expect(screen.getByTestId('push-status-blocked')).toBeTruthy();
       expect(screen.getByText('Notifications are blocked. Enable them in your device settings.')).toBeTruthy();
     });
 
     it('shows enable button when permission is undetermined', () => {
       setPushStatusMock('undetermined');
-      render(<SettingsScreen />);
+      render(<ProfileScreen />);
       expect(screen.getByTestId('push-status-prompt')).toBeTruthy();
       expect(screen.getByText('ENABLE NOTIFICATIONS')).toBeTruthy();
     });
@@ -220,7 +236,7 @@ describe('SettingsScreen', () => {
 
   it('pressing Save Settings calls both mutations with correct args', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: false, enableStreak: true, enableLessonAvailable: true } });
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     fireEvent.press(screen.getByText('SAVE SETTINGS'));
     expect(mockMutate).toHaveBeenCalledWith({
       enableDailyReminder: false,
@@ -235,7 +251,7 @@ describe('SettingsScreen', () => {
 
   it('Save Settings sends updated time when picker is changed', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: true } });
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     const picker = screen.getByTestId('reminder-time-picker');
     const newTime = new Date();
     newTime.setHours(20, 15, 0, 0);
@@ -250,13 +266,13 @@ describe('SettingsScreen', () => {
   it('shows success message when both saves succeed', () => {
     setMutationMock({ isSuccess: true });
     setProfileMutationMock({ isSuccess: true });
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.getByText('Settings saved')).toBeTruthy();
   });
 
   it('shows fallback error message when save fails with no API message', () => {
     setMutationMock({ isError: true, error: null });
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.getByTestId('settings-error')).toBeTruthy();
     expect(screen.getByText('Something went wrong. Please try again.')).toBeTruthy();
   });
@@ -266,7 +282,7 @@ describe('SettingsScreen', () => {
       isError: true,
       error: { response: { data: { message: 'Notification service unavailable' } } },
     });
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.getByText('Notification service unavailable')).toBeTruthy();
   });
 
@@ -275,14 +291,21 @@ describe('SettingsScreen', () => {
       isError: true,
       error: { response: { data: { message: 'Profile update failed' } } },
     });
-    render(<SettingsScreen />);
+    render(<ProfileScreen />);
     expect(screen.getByTestId('settings-error')).toBeTruthy();
     expect(screen.getByText('Profile update failed')).toBeTruthy();
   });
 
+  it('places the settings block above the Log Out button', () => {
+    const { toJSON } = render(<ProfileScreen />);
+    const json = JSON.stringify(toJSON());
+    expect(json.indexOf('SAVE SETTINGS')).toBeGreaterThan(-1);
+    expect(json.indexOf('SAVE SETTINGS')).toBeLessThan(json.indexOf('LOG OUT'));
+  });
+
   describe('Ticket 072j — safe-area edges', () => {
     it('uses edges=[left,right,bottom] so the tab layout owns the top inset', () => {
-      render(<SettingsScreen />);
+      render(<ProfileScreen />);
       expect(capturedEdges).toEqual(['left', 'right', 'bottom']);
     });
   });

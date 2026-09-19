@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { trackService } from '@/services/track.service';
-import type { ActivePathRef } from '@learning/shared';
+import type { ActivePathRef, UserPathKind } from '@learning/shared';
 
 export function useSkills() {
   return useQuery({
@@ -69,5 +69,18 @@ export function useSkipLevel() {
   return useMutation({
     mutationFn: (ref: ActivePathRef) => trackService.skipLevel(ref),
     onSuccess: invalidate,
+  });
+}
+
+/**
+ * Full lesson tree for a path of either kind. Invalidated by lesson completion
+ * so the tree reflects progress when the user returns from a lesson.
+ * Query key prefix: ['track-contents'] — useSubmitQuiz invalidates this prefix.
+ */
+export function useTrackContents(kind: UserPathKind, id: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['track-contents', kind, id],
+    queryFn: () => trackService.getTrackContents(kind, id),
+    enabled: (options?.enabled ?? true) && !!kind && !!id,
   });
 }

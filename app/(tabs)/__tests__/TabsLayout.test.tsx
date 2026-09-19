@@ -68,6 +68,16 @@ describe('(tabs) layout', () => {
     expect(() => render(<TabsLayout />)).not.toThrow();
   });
 
+  it('declares tabs in order with Albert rightmost and no Settings tab (076b)', () => {
+    const TabsLayout = require('../_layout').default;
+    render(<TabsLayout />);
+    const names = React.Children.toArray(capturedTabsProps.children)
+      .map((c: any) => c.props.name)
+      // Filter out href:null routes that live inside (tabs)/ but are not tabs
+      .filter((n: string) => !['lesson/[id]', 'track/[kind]/[id]'].includes(n));
+    expect(names).toEqual(['lessons', 'progress', 'profile', 'tracks', 'team', 'albert']);
+  });
+
   it('shows the verification banner when the current user is unverified', () => {
     mockUseCurrentUser.mockReturnValue({ data: { id: 'u1', emailVerified: false } });
     const TabsLayout = require('../_layout').default;

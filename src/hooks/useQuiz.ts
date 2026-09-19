@@ -18,6 +18,8 @@ export function useSubmitQuiz() {
         queryClient.invalidateQueries({ queryKey: ['enrollments'] });
         queryClient.invalidateQueries({ queryKey: ['progress'] });
         queryClient.invalidateQueries({ queryKey: ['lesson', variables.lessonId] });
+        // Refresh the tree on the track detail screen so progress marks update.
+        queryClient.invalidateQueries({ queryKey: ['track-contents'] });
       }
     },
   });

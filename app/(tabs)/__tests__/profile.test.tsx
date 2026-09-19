@@ -14,6 +14,15 @@ jest.mock('@/hooks/useProgress', () => ({ useProgress: jest.fn() }));
 jest.mock('@/hooks/useTrack', () => ({ usePaths: jest.fn() }));
 jest.mock('@/hooks/useLesson', () => ({ useSavedLessons: jest.fn() }));
 jest.mock('@/hooks/useAchievements', () => ({ useAchievements: jest.fn() }));
+jest.mock('@/hooks/useNotificationPrefs', () => ({
+  useNotificationPreferences: jest.fn(() => ({ data: undefined, isLoading: false })),
+  useUpdateNotificationPreferences: jest.fn(() => ({ mutate: jest.fn(), isPending: false, isSuccess: false, isError: false, error: null })),
+}));
+jest.mock('@/hooks/useProfile', () => ({
+  useProfile: jest.fn(() => ({ data: undefined })),
+  useUpdateProfile: jest.fn(() => ({ mutate: jest.fn(), isPending: false, isSuccess: false, isError: false, error: null })),
+}));
+jest.mock('@/hooks/usePushStatus', () => ({ usePushStatus: jest.fn(() => ({ permissionStatus: 'granted', register: jest.fn() })) }));
 
 let capturedEdges: string[] | undefined;
 jest.mock('react-native-safe-area-context', () => ({

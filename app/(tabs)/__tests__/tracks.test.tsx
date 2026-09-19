@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import TracksScreen from '../tracks';
-import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTrack';
+import { useSkills, usePaths, useEnroll, useSetActivePath, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import type { SkillWithAccess, UserPath } from '@learning/shared';
 
 const mockPush = jest.fn();
@@ -12,6 +12,8 @@ jest.mock('@/hooks/useTrack', () => ({
   usePaths:          jest.fn(),
   useEnroll:         jest.fn(),
   useSetActivePath:  jest.fn(),
+  useSkipTopic:      jest.fn(),
+  useSkipLevel:      jest.fn(),
 }));
 
 let capturedEdges: string[] | undefined;
@@ -114,6 +116,8 @@ function setMocks({
   (usePaths           as jest.Mock).mockReturnValue({ data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr });
   (useEnroll         as jest.Mock).mockReturnValue(enroll);
   (useSetActivePath  as jest.Mock).mockReturnValue(setActiveTrack);
+  (useSkipTopic      as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
+  (useSkipLevel      as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
 }
 
 describe('TracksScreen', () => {
@@ -238,12 +242,12 @@ describe('TracksScreen', () => {
       expect(mockPush).toHaveBeenCalledWith('/(tabs)/lessons');
     });
 
-    it('pressing Upgrade now in PremiumModal navigates to settings', () => {
+    it('pressing Upgrade now in PremiumModal navigates to profile', () => {
       setMocks({ skills: [premiumSkill] });
       render(<TracksScreen />);
       fireEvent.press(screen.getByTestId('upgrade-btn-skill-2'));
       fireEvent.press(screen.getByTestId('upgrade-now-btn'));
-      expect(mockPush).toHaveBeenCalledWith('/(tabs)/settings');
+      expect(mockPush).toHaveBeenCalledWith('/(tabs)/profile');
     });
   });
 
@@ -342,39 +346,62 @@ describe('TracksScreen', () => {
     });
   });
 
-  describe('Build my own path card (049)', () => {
-    // Premium here is DERIVED — access to a skill that is actually premium.
-    // `userHasAccess` alone is true for free users on free tracks, which would
-    // hand everyone the builder.
-    it('offers Start when the user has access to a premium track', () => {
-      setMocks({ skills: [baseSkill, { ...premiumSkill, userHasAccess: true }] });
-      const { getByTestId, queryByTestId } = render(<TracksScreen />);
-      expect(getByTestId('build-path-start')).toBeTruthy();
-      expect(queryByTestId('build-path-upgrade')).toBeNull();
+  describe('Albert CTA + custom paths (076b)', () => {
+    const { skill: _skill, ...trackFields } = mockEnrollment;
+    const customPath = {
+      ...trackFields,
+      kind: 'custom',
+      id: 'plan-1',
+      name: 'My Discovery Path',
+    } as unknown as UserPath;
+
+    it('no longer renders the build-path card (moved to the Albert tab)', () => {
+      render(<TracksScreen />);
+      expect(screen.queryByTestId('build-path-card')).toBeNull();
+      expect(screen.queryByTestId('build-path-start')).toBeNull();
+      expect(screen.queryByTestId('build-path-upgrade')).toBeNull();
     });
 
-    it('offers an upgrade to a free user rather than hiding the card', () => {
-      setMocks({ skills: [baseSkill, premiumSkill] });
-      const { getByTestId, queryByTestId } = render(<TracksScreen />);
-      expect(getByTestId('build-path-upgrade')).toBeTruthy();
-      expect(queryByTestId('build-path-start')).toBeNull();
-      // Still discoverable — the point of showing it at all.
-      expect(getByTestId('build-path-card')).toBeTruthy();
+    it('shows a single-line CTA that routes to the Albert tab', () => {
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('albert-cta'));
+      expect(mockPush).toHaveBeenCalledWith('/(tabs)/albert');
     });
 
-    it('never routes a free user into the builder', () => {
-      setMocks({ skills: [baseSkill, premiumSkill] });
-      const { getByTestId } = render(<TracksScreen />);
-      fireEvent.press(getByTestId('build-path-upgrade'));
-      expect(mockPush).not.toHaveBeenCalledWith('/build');
-      expect(getByTestId('premium-modal')).toBeTruthy();
+    it('omits the Your paths section entirely when there are no custom paths', () => {
+      setMocks({ enrollments: [mockEnrollment] });
+      render(<TracksScreen />);
+      expect(screen.queryByTestId('your-paths-section')).toBeNull();
+      expect(screen.queryByText('Your paths')).toBeNull();
     });
 
-    it('routes a premium user to the builder', () => {
-      setMocks({ skills: [baseSkill, { ...premiumSkill, userHasAccess: true }] });
-      const { getByTestId } = render(<TracksScreen />);
-      fireEvent.press(getByTestId('build-path-start'));
-      expect(mockPush).toHaveBeenCalledWith('/build');
+    it('lists custom paths above the pre-built tracks', () => {
+      setMocks({ enrollments: [mockEnrollment, customPath] });
+      render(<TracksScreen />);
+      expect(screen.getByText('Your paths')).toBeTruthy();
+      expect(screen.getByTestId('enrollment-card-plan-1')).toBeTruthy();
+      // track-kind paths are not rendered as PathCards here
+      expect(screen.queryByTestId('enrollment-card-skill-1')).toBeNull();
+      expect(screen.getByText('Pre-built tracks')).toBeTruthy();
+    });
+
+    it('renders the custom paths section before the pre-built heading', () => {
+      setMocks({ enrollments: [customPath] });
+      const { toJSON } = render(<TracksScreen />);
+      const json = JSON.stringify(toJSON());
+      expect(json.indexOf('Your paths')).toBeLessThan(json.indexOf('Pre-built tracks'));
+    });
+
+    it('starting a lesson from a custom path opens that lesson', () => {
+      setMocks({
+        enrollments: [{
+          ...customPath,
+          nextLesson: { id: 'l-9', title: 'T', summary: null, topicName: null, lessonIndex: 1, totalLessons: 1, skillPath: undefined } as never,
+        }],
+      });
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('next-lesson-btn-plan-1'));
+      expect(mockPush).toHaveBeenCalledWith('/(tabs)/lesson/l-9');
     });
   });
 
@@ -382,6 +409,44 @@ describe('TracksScreen', () => {
     it('uses edges=[left,right,bottom] so the tab layout owns the top inset', () => {
       render(<TracksScreen />);
       expect(capturedEdges).toEqual(['left', 'right', 'bottom']);
+    });
+  });
+
+  describe('card-tap navigation (076d)', () => {
+    it('tapping a pre-built skill card navigates to track detail', () => {
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('skill-card-tap-skill-1'));
+      expect(mockPush).toHaveBeenCalledWith('/(tabs)/track/track/skill-1');
+    });
+
+    it('tapping a locked skill card navigates to track detail', () => {
+      setMocks({ skills: [premiumSkill] });
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('skill-card-tap-skill-2'));
+      expect(mockPush).toHaveBeenCalledWith('/(tabs)/track/track/skill-2');
+    });
+
+    it('tapping a custom path card navigates to track detail', () => {
+      const { skill: _skill, ...trackFields } = mockEnrollment;
+      const customPath = {
+        ...trackFields,
+        kind: 'custom',
+        id: 'plan-1',
+        name: 'My Discovery Path',
+        unresolvedTopics: 0,
+      } as unknown as UserPath;
+      setMocks({ enrollments: [customPath] });
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('custom-path-tap-plan-1'));
+      expect(mockPush).toHaveBeenCalledWith('/(tabs)/track/custom/plan-1');
+    });
+
+    it('tapping Enrol on a skill card does NOT navigate to track detail', () => {
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('enrol-btn-skill-1'));
+      // Only the enrol mutation is called; no track-detail navigation
+      expect(mockMutate).toHaveBeenCalled();
+      expect(mockPush).not.toHaveBeenCalledWith('/(tabs)/track/track/skill-1');
     });
   });
 });

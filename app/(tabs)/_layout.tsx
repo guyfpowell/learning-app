@@ -131,9 +131,15 @@ export default function TabsLayout() {
           options={{ title: 'Team', tabBarIcon: tabIcon('people-outline', 'people') }}
         />
         <Tabs.Screen
-          name="settings"
-          options={{ title: 'Settings', tabBarIcon: tabIcon('settings-outline', 'settings') }}
+          name="albert"
+          options={{ title: 'Albert', tabBarIcon: tabIcon('sparkles-outline', 'sparkles') }}
         />
+        {/* lesson/[id] lives inside (tabs)/ so the tab bar stays visible during a
+            lesson (ADR-007). href: null hides it from the tab bar without moving it. */}
+        <Tabs.Screen name="lesson/[id]" options={{ href: null }} />
+        {/* track/[kind]/[id] — detail screen for a path of either kind (076d).
+            href: null prevents it from leaking into the tab bar. */}
+        <Tabs.Screen name="track/[kind]/[id]" options={{ href: null }} />
       </Tabs>
     </View>
   );
