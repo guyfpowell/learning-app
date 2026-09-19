@@ -107,7 +107,10 @@ export interface BuiltPlan {
   /** What we understood, in their words. Shown between asking and answering. */
   cloud?: CloudTerm[];
   sessionId?: string | null;
-  name: string;
+  /** Short label — ≤27 chars, sentence case. Null when the model returned no parseable name. 076f. */
+  name: string | null;
+  /** What this path is for — the first need, verbatim. Null when there are no needs. 076f. */
+  description: string | null;
   level: string;
   levelConfidence: number;
   intent: string;
@@ -146,6 +149,8 @@ export interface TrackPlanTopic {
 export interface TrackPlan {
   id: string;
   name: string;
+  /** What this path is for — the first need, verbatim. Null for plans created before 076f. */
+  description: string | null;
   status: 'active' | 'archived';
   planJson: { topics: TrackPlanTopic[] };
   createdAt: string;
@@ -202,6 +207,8 @@ export const trackBuilderService = {
 
   async createPlan(input: {
     name: string;
+    /** What this path is for — the first need. 076f. */
+    description?: string | null;
     planJson: { topics: TrackPlanTopic[] };
     inputJson: { turns: TrackBuilderTurn[]; maxClosureHops?: number | null };
     /**
