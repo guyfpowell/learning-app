@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import LessonsScreen from '../lessons';
-import { usePaths, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
+import { usePaths, useSkipLesson, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
 
 jest.mock('@/components/ui/Ring', () => ({
@@ -16,11 +16,13 @@ jest.mock('@/components/ui/Ring', () => ({
 }));
 
 const mockPush = jest.fn();
+const mockSkipLessonMutate = jest.fn();
 const mockSkipTopicMutate = jest.fn();
 const mockSkipLevelMutate = jest.fn();
 
 jest.mock('@/hooks/useTrack', () => ({
   usePaths: jest.fn(),
+  useSkipLesson: jest.fn(),
   useSkipTopic: jest.fn(),
   useSkipLevel: jest.fn(),
 }));
@@ -70,6 +72,7 @@ const mockEnrollment = {
   completedAt: null,
   upgradeRequired: false,
   isActive: false,
+  canSkipLesson: false,
   canSkipTopic: false,
   canSkipLevel: false,
   averageScore: null,
@@ -132,6 +135,7 @@ const mockCustomPlan = {
   unresolvedTopics: 0,
   levels: [],
   isActive: false,
+  canSkipLesson: false,
   canSkipTopic: false,
   canSkipLevel: false,
   averageScore: null,
@@ -148,6 +152,7 @@ describe('LessonsScreen', () => {
     setEnrollmentsMock(undefined);
     setCustomPlansMock(undefined);
     setProgressMock(undefined);
+    (useSkipLesson as jest.Mock).mockReturnValue({ mutate: mockSkipLessonMutate, isPending: false });
     (useSkipTopic as jest.Mock).mockReturnValue({ mutate: mockSkipTopicMutate, isPending: false });
     (useSkipLevel as jest.Mock).mockReturnValue({ mutate: mockSkipLevelMutate, isPending: false });
   });
@@ -304,11 +309,13 @@ describe('LessonsScreen', () => {
       expect(screen.queryByTestId('next-lesson-btn-skill-1')).toBeNull();
     });
 
-    it('shows completed enrollment card with track name and Completed badge', () => {
+    it('shows the last completed path (not NoTrackNotice) when all paths are inactive', () => {
+      // A user who finished their active path still has history — NoTrackNotice is wrong for them.
       setEnrollmentsMock([mockCompletedEnrollment]);
       render(<LessonsScreen />);
+      expect(screen.queryByTestId('no-track-notice')).toBeNull();
       expect(screen.getByText('Product Strategy')).toBeTruthy();
-      expect(screen.getByText('COMPLETED')).toBeTruthy();
+      expect(screen.getByTestId('choose-next-path-btn')).toBeTruthy();
     });
 
     it('does not show active enrollment section when no active enrollments', () => {
@@ -375,6 +382,41 @@ describe('LessonsScreen', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
       expect(screen.getAllByText('Product Foundations').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('skip lesson (076h)', () => {
+    it('shows Skip Lesson button when canSkipLesson is true', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipLesson: true }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('skip-lesson-btn-skill-1')).toBeTruthy();
+    });
+
+    it('does not show Skip Lesson button when canSkipLesson is false', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipLesson: false }]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('skip-lesson-btn-skill-1')).toBeNull();
+    });
+
+    it('calls skipLesson mutation with the path ref when Skip Lesson is pressed', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipLesson: true }]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('skip-lesson-btn-skill-1'));
+      expect(mockSkipLessonMutate).toHaveBeenCalledWith({ kind: 'track', id: 'skill-1' });
+    });
+
+    it('works for a custom path too', () => {
+      setCustomPlansMock([{ ...mockCustomPlan, canSkipLesson: true }]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('skip-lesson-btn-plan-1'));
+      expect(mockSkipLessonMutate).toHaveBeenCalledWith({ kind: 'custom', id: 'plan-1' });
+    });
+
+    it('disables Skip Lesson button while the mutation is pending', () => {
+      (useSkipLesson as jest.Mock).mockReturnValue({ mutate: mockSkipLessonMutate, isPending: true });
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipLesson: true }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('skip-lesson-btn-skill-1').props.accessibilityState?.disabled).toBe(true);
     });
   });
 
@@ -500,30 +542,22 @@ describe('LessonsScreen', () => {
       isActive: true,
     };
 
-    it('renders paths in the order the server sent them — active first is decided there (C2)', () => {
-      // The server orders paths[] active-first then by recency; the screen must not
-      // re-sort, or the two orderings would drift.
+    it('shows only the active path — inactive paths are hidden on Home (076g §1)', () => {
+      // Home renders exactly one path card: the active one. Switching paths belongs on Tracks.
       setEnrollmentsMock([secondEnrollment, mockEnrollment]);
       render(<LessonsScreen />);
-      const activeCard = screen.getByTestId('next-lesson-card-skill-3');
-      const otherCard  = screen.getByTestId('next-lesson-card-skill-1');
-      // active card should appear earlier in the stringified JSON tree
-      const json = JSON.stringify(screen.toJSON());
-      const activeIndex = json.indexOf('next-lesson-card-skill-3');
-      const otherIndex  = json.indexOf('next-lesson-card-skill-1');
-      expect(activeCard).toBeTruthy();
-      expect(otherCard).toBeTruthy();
-      expect(activeIndex).toBeGreaterThan(-1);
-      expect(activeIndex).toBeLessThan(otherIndex);
+      expect(screen.getByTestId('enrollment-card-skill-3')).toBeTruthy();
+      expect(screen.queryByTestId('enrollment-card-skill-1')).toBeNull();
     });
 
-    it('shows ACTIVE badge on the active track next-lesson card', () => {
+    it('shows ACTIVE badge on the active path progress card (076g §3)', () => {
+      // Badge moved from next-lesson card to progress card; testID is unchanged.
       setEnrollmentsMock([{ ...mockEnrollment, isActive: true }]);
       render(<LessonsScreen />);
       expect(screen.getByTestId('active-track-label-skill-1')).toBeTruthy();
     });
 
-    it('does not show ACTIVE badge on non-active track next-lesson card', () => {
+    it('does not show ACTIVE badge on a non-active path', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
       expect(screen.queryByTestId('active-track-label-skill-1')).toBeNull();
@@ -625,6 +659,57 @@ describe('LessonsScreen', () => {
     it('uses edges=[left,right,bottom] so the tab layout owns the top inset', () => {
       render(<LessonsScreen />);
       expect(capturedEdges).toEqual(['left', 'right', 'bottom']);
+    });
+  });
+
+  describe('076g — Home is the active path', () => {
+    it('progress card renders before next-lesson card (streak → path progress → next lesson)', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, isActive: true }]);
+      render(<LessonsScreen />);
+      const json = JSON.stringify(screen.toJSON());
+      const enrollmentIdx = json.indexOf('enrollment-card-skill-1');
+      const nextLessonIdx = json.indexOf('next-lesson-card-skill-1');
+      expect(enrollmentIdx).toBeGreaterThan(-1);
+      expect(nextLessonIdx).toBeGreaterThan(-1);
+      expect(enrollmentIdx).toBeLessThan(nextLessonIdx);
+    });
+
+    it('shows only the active path when multiple paths exist', () => {
+      const active = { ...mockEnrollment, id: 'skill-a', name: 'Active Track', isActive: true };
+      const inactive = { ...mockEnrollment, id: 'skill-b', name: 'Inactive Track', isActive: false };
+      setEnrollmentsMock([active, inactive]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('enrollment-card-skill-a')).toBeTruthy();
+      expect(screen.queryByTestId('enrollment-card-skill-b')).toBeNull();
+    });
+
+    it('shows last path + choose-next-path CTA when paths exist but none is active', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, isActive: false }]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('no-track-notice')).toBeNull();
+      expect(screen.getByTestId('enrollment-card-skill-1')).toBeTruthy();
+      expect(screen.getByTestId('choose-next-path-btn')).toBeTruthy();
+    });
+
+    it('routes choose-next-path CTA to Tracks', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, isActive: false }]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('choose-next-path-btn'));
+      expect(mockPush).toHaveBeenCalledWith('/(tabs)/tracks');
+    });
+
+    it('does not show choose-next-path CTA when a path is active', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, isActive: true }]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('choose-next-path-btn')).toBeNull();
+    });
+
+    it('path name testID is in the progress card, not the next-lesson card', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, isActive: true }]);
+      render(<LessonsScreen />);
+      // testID was on the small-uppercase label in next-lesson card; it now lives in enrollment-card.
+      expect(screen.getByTestId('path-name-skill-1')).toBeTruthy();
+      expect(screen.getByTestId('enrollment-card-skill-1')).toBeTruthy();
     });
   });
 });

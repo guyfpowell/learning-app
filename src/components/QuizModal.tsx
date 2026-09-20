@@ -720,13 +720,14 @@ const styles = StyleSheet.create({
     padding:         spacing.md,
     gap:             spacing.xs,
   },
-  // Explanation — plain, neutral body block. No tint: it shouldn't compete
-  // with the answer block above or the key takeaway below.
+  // Explanation — featured treatment: the user should read this carefully.
+  // Bold brand-blue fill mirrors what Key Takeaway used to carry.
   explanationBox: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.brand,
     borderRadius:    radius.card,
     padding:         spacing.md,
     gap:             spacing.xs,
+    ...shadow.card,
   },
   // Correct-answer highlight, nested inside the (recessive) answerRefBox so
   // it still pops via colour even though its container is quiet.
@@ -749,14 +750,15 @@ const styles = StyleSheet.create({
   feedbackSectionLabel: {
     fontFamily:    font.semibold,
     fontSize:      fontSize.xs,
-    color:         colors.textMuted,
+    color:         colors.textOnBrand,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    opacity:       0.8,
   },
   explanationText: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
-    color:      colors.textBody,
+    color:      colors.textOnBrand,
   },
   correctAnswerText: {
     fontFamily: font.semibold,
@@ -776,28 +778,26 @@ const styles = StyleSheet.create({
   correct:    { color: colors.success },
   incorrect:  { color: colors.error },
   // ─── Key takeaway / coaching ─────────────────────────────────────────────────
-  // Strongest treatment on the screen — filled brand card, not a soft tint.
-  // This is the thing the user should carry out of the quiz.
+  // Recessive treatment — surface card, lets the Explanation block lead.
+  // This is still important, but quieter: a summary to glance at, not linger on.
   quizKeyTakeawayCard: {
-    backgroundColor: colors.brand,
+    backgroundColor: colors.surface,
     borderRadius:    radius.card,
     padding:         spacing.md,
     marginBottom:    spacing.md,
     gap:             spacing.xs,
-    ...shadow.card,
   },
   quizKeyTakeawayLabel: {
     fontFamily:    font.semibold,
     fontSize:      fontSize.xs,
-    color:         colors.textOnBrand,
+    color:         colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    opacity:       0.8,
   },
   quizKeyTakeawayText: {
     fontFamily: font.medium,
     fontSize:   fontSize.sm,
-    color:      colors.textOnBrand,
+    color:      colors.textBody,
   },
   coachingCard: {
     backgroundColor: colors.brandSoft,

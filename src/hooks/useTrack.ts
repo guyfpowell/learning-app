@@ -72,6 +72,15 @@ export function useSkipLevel() {
   });
 }
 
+/** Skips exactly the next lesson of either kind of path (076h). */
+export function useSkipLesson() {
+  const invalidate = usePathInvalidation();
+  return useMutation({
+    mutationFn: (ref: ActivePathRef) => trackService.skipLesson(ref),
+    onSuccess: invalidate,
+  });
+}
+
 /**
  * Full lesson tree for a path of either kind. Invalidated by lesson completion
  * so the tree reflects progress when the user returns from a lesson.

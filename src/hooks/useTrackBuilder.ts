@@ -39,6 +39,7 @@ export function useCreateTrackPlan() {
   return useMutation({
     mutationFn: (v: {
       name: string;
+      description?: string | null;
       planJson: { topics: TrackPlanTopic[] };
       inputJson: { turns: TrackBuilderTurn[]; maxClosureHops?: number | null };
       /** Which engine built it — 068 Chunk 4. */
@@ -56,6 +57,20 @@ export function useTrackPlans() {
   return useQuery({
     queryKey: ['track-plans'],
     queryFn: () => trackBuilderService.getPlans(),
+  });
+}
+
+/** Archive a custom plan via `PUT /track-plans/:id`. Invalidates the same
+ *  query keys as `useCreateTrackPlan` so Paths, Home and Tracks all refresh. */
+export function useUpdateTrackPlan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...patch }: { id: string; status: 'archived' }) =>
+      trackBuilderService.updateTrackPlan(id, patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['track-plans'] });
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+    },
   });
 }
 

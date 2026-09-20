@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { PathCard } from '@/components/ui/PathCard';
 import { PremiumModal } from '@/components/ui/PremiumModal';
-import { useSkills, usePaths, useEnroll, useSetActivePath, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
+import { useSkills, usePaths, useEnroll, useSetActivePath, useSkipLesson, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import { extractError } from '@/lib/errors';
 import type { SkillWithAccess } from '@learning/shared';
 
@@ -25,6 +25,7 @@ export default function TracksScreen() {
   const { data: paths, isLoading: pathsLoading, isError: pathsError, error: pathsErr } = usePaths();
   const enroll = useEnroll();
   const setActive = useSetActivePath();
+  const skipLesson = useSkipLesson();
   const skipTopic = useSkipTopic();
   const skipLevel = useSkipLevel();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
@@ -85,8 +86,10 @@ export default function TracksScreen() {
                 <PathCard
                   path={path}
                   onStartLesson={(id) => router.push(`/(tabs)/lesson/${id}` as never)}
+                  onSkipLesson={(p) => skipLesson.mutate({ kind: p.kind, id: p.id })}
                   onSkipTopic={(p) => skipTopic.mutate({ kind: p.kind, id: p.id })}
                   onSkipLevel={(p) => skipLevel.mutate({ kind: p.kind, id: p.id })}
+                  skipLessonPending={skipLesson.isPending}
                   skipTopicPending={skipTopic.isPending}
                   skipLevelPending={skipLevel.isPending}
                 />

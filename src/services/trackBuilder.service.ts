@@ -107,7 +107,8 @@ export interface BuiltPlan {
   /** What we understood, in their words. Shown between asking and answering. */
   cloud?: CloudTerm[];
   sessionId?: string | null;
-  name: string;
+  /** What this path is for — the first need. Null when the build had none. */
+  description: string | null;
   level: string;
   levelConfidence: number;
   intent: string;
@@ -146,6 +147,7 @@ export interface TrackPlanTopic {
 export interface TrackPlan {
   id: string;
   name: string;
+  description: string | null;
   status: 'active' | 'archived';
   planJson: { topics: TrackPlanTopic[] };
   createdAt: string;
@@ -202,6 +204,7 @@ export const trackBuilderService = {
 
   async createPlan(input: {
     name: string;
+    description?: string | null;
     planJson: { topics: TrackPlanTopic[] };
     inputJson: { turns: TrackBuilderTurn[]; maxClosureHops?: number | null };
     /**
@@ -217,6 +220,13 @@ export const trackBuilderService = {
 
   async getPlans(): Promise<TrackPlan[]> {
     const { data } = await api.get<TrackPlan[]>('/track-plans');
+    return data;
+  },
+
+  /** Archive (soft-delete) a plan. `PUT /track-plans/:id` — not PATCH; validated
+   *  by `updatePlanSchema` which already accepts `status`. */
+  async updateTrackPlan(id: string, patch: { status: 'archived' }): Promise<TrackPlan> {
+    const { data } = await api.put<TrackPlan>(`/track-plans/${id}`, patch);
     return data;
   },
 };

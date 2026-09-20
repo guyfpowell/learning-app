@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { Spinner } from '@/components/ui/Spinner';
 import { PremiumModal } from '@/components/ui/PremiumModal';
-import { useSkills } from '@/hooks/useTrack';
+import { useSkills, usePaths } from '@/hooks/useTrack';
+import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
+import { extractError } from '@/lib/errors';
 
 const STEPS = [
   { title: 'Tell Albert about you',  body: 'Your role, and what you want to get better at.' },
@@ -18,7 +21,10 @@ const STEPS = [
 export default function AlbertScreen() {
   const router = useRouter();
   const { data: skills } = useSkills();
+  const { data: paths, isLoading: pathsLoading } = usePaths();
+  const updatePlan = useUpdateTrackPlan();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   // Derived, not read from the auth record: `UserAuth` carries no premium flag,
   // and adding one would change a contract BOTH clients read.
@@ -30,6 +36,133 @@ export default function AlbertScreen() {
   const isPremium = skills?.some(
     (sk) => sk.premiumStatus === 'premium' && sk.userHasAccess
   ) ?? false;
+
+  // The branch keys off the *unfinished* custom path, not path count (076j).
+  // MAX_ACTIVE_CUSTOM_PLANS=1 guarantees at most one unfinished path; `find`
+  // is intentional — clients must not assume the limit number.
+  const customPaths = paths?.filter(p => p.kind === 'custom') ?? [];
+  const unfinished  = customPaths.find(p => p.percentComplete < 100) ?? null;
+  const hasAnyCustomPath = customPaths.length > 0;
+  const allComplete = hasAnyCustomPath && !unfinished;
+
+  function handleViewMyPath() {
+    router.push('/(tabs)/tracks');
+  }
+
+  function handleConfirmArchive() {
+    if (!unfinished) return;
+    setArchiveError(null);
+    updatePlan.mutate(
+      { id: unfinished.id, status: 'archived' },
+      {
+        onSuccess: () => { router.push('/build'); },
+        onError: (err) => {
+          setArchiveError(extractError(err));
+        },
+      },
+    );
+  }
+
+  function handleCreateNewPath() {
+    if (!isPremium) { setPremiumModalVisible(true); return; }
+    Alert.alert(
+      'Start a new path?',
+      'Your current path will be removed and your progress on it will no longer be reachable.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove and build', style: 'destructive', onPress: handleConfirmArchive },
+      ],
+      { cancelable: true },
+    );
+  }
+
+  function handleBuildAnother() {
+    if (!isPremium) { setPremiumModalVisible(true); return; }
+    router.push('/build');
+  }
+
+  // ── Card body — varies by path state ──────────────────────────────────────
+  const renderCardBody = () => {
+    // Never flash the no-paths state while the fetch is in flight
+    if (pathsLoading) {
+      return <Spinner />;
+    }
+
+    if (unfinished) {
+      // State 2: user has an unfinished custom path
+      return (
+        <>
+          <Text style={styles.buildTitle}>Your path is waiting</Text>
+          <Text style={styles.buildBody}>
+            You already have a path in progress. Pick up where you left off, or start
+            fresh — your current path will be removed if you do.
+          </Text>
+          {archiveError && (
+            <Text testID="albert-archive-error" style={styles.errorText}>
+              {archiveError}
+            </Text>
+          )}
+          <Button
+            testID="view-my-path"
+            label="View my path"
+            variant="primary"
+            onPress={handleViewMyPath}
+          />
+          <Button
+            testID="create-new-path"
+            label="Create a NEW path"
+            variant={isPremium ? 'outline' : 'outline'}
+            onPress={handleCreateNewPath}
+          />
+        </>
+      );
+    }
+
+    if (allComplete) {
+      // State 3: user has custom paths, all 100% complete — slot is free
+      return (
+        <>
+          <Text style={styles.buildTitle}>You've finished your path</Text>
+          <Text style={styles.buildBody}>
+            Great work — your custom path is complete. View it on your Tracks, or
+            build a new one.
+          </Text>
+          <Button
+            testID="view-my-path"
+            label="View my path"
+            variant="primary"
+            onPress={handleViewMyPath}
+          />
+          <Button
+            testID="build-another"
+            label={isPremium ? 'Build another' : 'Upgrade to build a path'}
+            variant={isPremium ? 'outline' : 'outline'}
+            onPress={handleBuildAnother}
+          />
+        </>
+      );
+    }
+
+    // State 1: no custom paths — original card
+    return (
+      <>
+        <Text style={styles.buildTitle}>Build my own path</Text>
+        <Text style={styles.buildBody}>
+          Tell me about your role and what you want to get better at, and I'll
+          build a path from the whole curriculum instead of a fixed track.
+        </Text>
+        <Button
+          testID={isPremium ? 'build-path-start' : 'build-path-upgrade'}
+          label={isPremium ? 'Start' : 'Upgrade to build a path'}
+          variant={isPremium ? 'primary' : 'outline'}
+          onPress={() => {
+            if (isPremium) router.push('/build');
+            else setPremiumModalVisible(true);
+          }}
+        />
+      </>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -69,20 +202,7 @@ export default function AlbertScreen() {
           <View style={styles.badgeRow}>
             <Badge label={isPremium ? 'Albert' : 'Premium'} variant={isPremium ? 'info' : 'warning'} />
           </View>
-          <Text style={styles.buildTitle}>Build my own path</Text>
-          <Text style={styles.buildBody}>
-            Tell me about your role and what you want to get better at, and I’ll
-            build a path from the whole curriculum instead of a fixed track.
-          </Text>
-          <Button
-            testID={isPremium ? 'build-path-start' : 'build-path-upgrade'}
-            label={isPremium ? 'Start' : 'Upgrade to build a path'}
-            variant={isPremium ? 'primary' : 'outline'}
-            onPress={() => {
-              if (isPremium) router.push('/build');
-              else setPremiumModalVisible(true);
-            }}
-          />
+          {renderCardBody()}
         </Card>
 
         <Text style={styles.more}>More from Albert is on the way.</Text>
@@ -184,6 +304,11 @@ const styles = StyleSheet.create({
     fontSize:   fontSize.sm,
     lineHeight: fontSize.sm * 1.5,
     color:      colors.textMuted,
+  },
+  errorText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.error,
   },
 
   more: {

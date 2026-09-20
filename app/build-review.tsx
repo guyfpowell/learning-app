@@ -10,7 +10,7 @@ import { useDraftStore } from '@/store/trackBuilder.store';
 import { useRefinePlan, useCreateTrackPlan } from '@/hooks/useTrackBuilder';
 import type { BuiltPlanTopic } from '@/services/trackBuilder.service';
 import { extractError } from '@/lib/errors';
-import { PLAN_FOLLOW_UP_ENABLED, reasonRuns } from '@learning/shared';
+import { PATH_NAME_MAX, PLAN_FOLLOW_UP_ENABLED, reasonRuns } from '@learning/shared';
 
 /**
  * Review the built path — ticket 049 Chunk 5, mobile parity with the web
@@ -59,7 +59,6 @@ export default function BuildReviewScreen() {
       if (!accepted.current) router.replace('/build');
       return;
     }
-    setName(draft.result.name);
   }, [draft, router]);
 
   if (!draft) return null;
@@ -69,7 +68,8 @@ export default function BuildReviewScreen() {
     setError(null);
     try {
       const created = await createPlan.mutateAsync({
-        name: name.trim() || 'My path',
+        name: name.trim(),
+        description: result.description ?? null,
         planJson: {
           topics: result.topics.map((t, i) => ({
             stableKey: t.stableKey,
@@ -125,7 +125,6 @@ export default function BuildReviewScreen() {
         case 'replace':
           if (r.rebuilt !== undefined) {
             updateResult(r.rebuilt);
-            setName(r.rebuilt.name);
             setLastChange(null);
             setNotice('Rebuilt your path around that instead.');
           }
@@ -219,8 +218,14 @@ export default function BuildReviewScreen() {
             style={styles.input}
             value={name}
             onChangeText={setName}
+            maxLength={PATH_NAME_MAX}
+            placeholder="Name your path"
             placeholderTextColor={colors.textMuted}
           />
+          <Text style={styles.helper}>You can rename this any time.</Text>
+          {result.description != null && (
+            <Text testID="path-description" style={styles.description}>{result.description}</Text>
+          )}
           <Text testID="plan-counts" style={styles.counts}>
             {result.topics.length} topic{result.topics.length === 1 ? '' : 's'}, chosen for
             what you described
@@ -305,7 +310,7 @@ export default function BuildReviewScreen() {
         <Button
           testID="accept-plan"
           label={createPlan.isPending ? 'Saving…' : 'Start this path'}
-          disabled={busy}
+          disabled={busy || name.trim().length === 0}
           onPress={() => void onAccept()}
         />
       </ScrollView>
@@ -320,6 +325,8 @@ const styles = StyleSheet.create({
   content:        { padding: spacing.lg, gap: spacing.md },
   settled:        { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textStrong },
   card:           { gap: spacing.sm },
+  helper:         { fontFamily: font.regular, fontSize: fontSize.xs, color: colors.textMuted },
+  description:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textStrong },
   label: {
     fontFamily: font.medium, fontSize: fontSize.xs,
     color: colors.textMuted, textTransform: 'uppercase',

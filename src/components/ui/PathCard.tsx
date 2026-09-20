@@ -34,8 +34,10 @@ function ProgressBar({ value }: { value: number }) {
 interface PathCardProps {
   path: UserPath;
   onStartLesson: (lessonId: string) => void;
+  onSkipLesson: (path: UserPath) => void;
   onSkipTopic: (path: UserPath) => void;
   onSkipLevel: (path: UserPath) => void;
+  skipLessonPending?: boolean;
   skipTopicPending?: boolean;
   skipLevelPending?: boolean;
 }
@@ -51,7 +53,8 @@ interface PathCardProps {
  * the unresolved-topics note, which only a plan can have.
  */
 export function PathCard({
-  path, onStartLesson, onSkipTopic, onSkipLevel, skipTopicPending, skipLevelPending,
+  path, onStartLesson, onSkipLesson, onSkipTopic, onSkipLevel,
+  skipLessonPending, skipTopicPending, skipLevelPending,
 }: PathCardProps) {
   const pct = flooredPct(path);
   const { nextLesson } = path;
@@ -60,8 +63,10 @@ export function PathCard({
 
   return (
     <>
-      {nextLesson && (
-        <Card testID={`next-lesson-card-${path.id}`} style={styles.nextLessonCard}>
+      {/* Progress card — renders first (076g card order: streak → path progress → next lesson). */}
+      <Card testID={`enrollment-card-${path.id}`} style={styles.enrollmentCard}>
+        {/* Badges — moved here from next-lesson card (076g §3). */}
+        {(path.isActive || path.kind === 'custom') && (
           <View style={styles.badgeRow}>
             {path.isActive && (
               <View testID={`active-track-label-${path.id}`}>
@@ -74,64 +79,21 @@ export function PathCard({
               </View>
             )}
           </View>
+        )}
 
-          <Text testID={`path-name-${path.id}`} style={styles.nextLessonTrackName}>{path.name}</Text>
-
-          <View style={styles.nextLessonMeta}>
-            {level && (
-              <Badge
-                label={levelLabel ?? level}
-                variant={difficultyVariant[level as keyof typeof difficultyVariant] ?? 'info'}
-              />
-            )}
-            {nextLesson.topicName && (
-              <Text style={styles.positionLabel}>
-                {nextLesson.topicName} · Lesson {nextLesson.lessonIndex} of {nextLesson.totalLessons}
-              </Text>
-            )}
-          </View>
-
-          <Text style={styles.nextLessonTitle}>{nextLesson.title}</Text>
-          {nextLesson.summary && <Text style={styles.nextLessonSummary}>{nextLesson.summary}</Text>}
-
-          <Button
-            testID={`next-lesson-btn-${path.id}`}
-            label="Start Lesson →"
-            style={styles.continueBtn}
-            onPress={() => onStartLesson(nextLesson.id)}
-          />
-
-          {path.canSkipTopic && (
-            <Button
-              testID={`skip-topic-btn-${path.id}`}
-              label="Skip Topic →"
-              variant="outline"
-              style={styles.skipBtn}
-              loading={skipTopicPending}
-              onPress={() => onSkipTopic(path)}
-            />
-          )}
-          {path.canSkipLevel && (
-            <Button
-              testID={`skip-level-btn-${path.id}`}
-              label="Skip Level →"
-              variant="outline"
-              style={styles.skipBtn}
-              loading={skipLevelPending}
-              onPress={() => onSkipLevel(path)}
-            />
-          )}
-        </Card>
-      )}
-
-      <Card testID={`enrollment-card-${path.id}`} style={styles.enrollmentCard}>
         <View style={styles.enrollmentHeader}>
-          <Text style={styles.enrollmentTitle}>{path.name}</Text>
+          {/* testID moved here from the next-lesson card (076g §3 — preserves ex-line 78 testID). */}
+          <Text testID={`path-name-${path.id}`} style={styles.enrollmentTitle} numberOfLines={1}>{path.name}</Text>
           <Text style={styles.pctText}>{pct}% complete</Text>
         </View>
+        {path.description != null && (
+          <Text testID={`path-description-${path.id}`} style={styles.pathDescription} numberOfLines={2}>
+            {path.description}
+          </Text>
+        )}
         <ProgressBar value={pct} />
 
-        {/* Only a level-ordered path has a level strip; a plan's is empty (C10). */}
+        {/* Only a level-ordered path has a level strip; a custom path's levels is [] (C10). */}
         {path.levels.length > 0 && <TrackMap levels={path.levels} />}
 
         <Text style={styles.motivationText}>{motivation(path, pct)}</Text>
@@ -157,6 +119,69 @@ export function PathCard({
           </Text>
         )}
       </Card>
+
+      {/* Next-lesson card — renders second. Path identity lives in the progress card above (076g §3). */}
+      {nextLesson && (
+        <Card testID={`next-lesson-card-${path.id}`} style={styles.nextLessonCard}>
+          <View style={styles.nextLessonMeta}>
+            {level && (
+              <Badge
+                label={levelLabel ?? level}
+                variant={difficultyVariant[level as keyof typeof difficultyVariant] ?? 'info'}
+              />
+            )}
+            {nextLesson.topicName && (
+              <Text style={styles.positionLabel}>
+                {nextLesson.topicName} · Lesson {nextLesson.lessonIndex} of {nextLesson.totalLessons}
+              </Text>
+            )}
+          </View>
+
+          <Text style={styles.nextLessonTitle}>{nextLesson.title}</Text>
+          {nextLesson.summary && <Text style={styles.nextLessonSummary}>{nextLesson.summary}</Text>}
+
+          <Button
+            testID={`next-lesson-btn-${path.id}`}
+            label={nextLesson.resumePhase ? 'Continue Lesson →' : 'Start Lesson →'}
+            style={styles.continueBtn}
+            onPress={() => onStartLesson(nextLesson.id)}
+          />
+
+          {/* Skip lesson — enabled by default (feature:skip-lesson on). */}
+          {path.canSkipLesson && (
+            <Button
+              testID={`skip-lesson-btn-${path.id}`}
+              label="Skip Lesson →"
+              variant="outline"
+              style={styles.skipBtn}
+              loading={skipLessonPending}
+              onPress={() => onSkipLesson(path)}
+            />
+          )}
+
+          {/* Skip topic / level — behind their own flags, disabled by default (076h). */}
+          {path.canSkipTopic && (
+            <Button
+              testID={`skip-topic-btn-${path.id}`}
+              label="Skip Topic →"
+              variant="outline"
+              style={styles.skipBtn}
+              loading={skipTopicPending}
+              onPress={() => onSkipTopic(path)}
+            />
+          )}
+          {path.canSkipLevel && (
+            <Button
+              testID={`skip-level-btn-${path.id}`}
+              label="Skip Level →"
+              variant="outline"
+              style={styles.skipBtn}
+              loading={skipLevelPending}
+              onPress={() => onSkipLevel(path)}
+            />
+          )}
+        </Card>
+      )}
     </>
   );
 }
@@ -198,6 +223,11 @@ const styles = StyleSheet.create({
     borderRadius:    3,
   },
   motivationText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.textMuted,
+  },
+  pathDescription: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
     color:      colors.textMuted,

@@ -2,12 +2,9 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { usePaths, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
+import { usePaths, useSkipLesson, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
-import type { UserPath } from '@learning/shared';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { PathCard } from '@/components/ui/PathCard';
 import { Ring } from '@/components/ui/Ring';
@@ -25,14 +22,17 @@ export default function LessonsScreen() {
   const { data: paths } = usePaths();
   const { data: progress } = useProgress();
   const router = useRouter();
+  const skipLesson = useSkipLesson();
   const skipTopic = useSkipTopic();
   const skipLevel = useSkipLevel();
 
-  // Split by state, never by kind (ADR-009 C16). The server already ordered paths
-  // active-first then by most recent progress, so no re-sorting here.
-  const inProgress: UserPath[] = paths?.filter(p => p.percentComplete < 100) ?? [];
-  const completed: UserPath[] = paths?.filter(p => p.percentComplete >= 100) ?? [];
+  // Active path is authoritative from the server (ADR-009 C2 + C11) — no client derivation.
+  const activePath = paths?.find(p => p.isActive);
   const hasNoContent = Array.isArray(paths) && paths.length === 0;
+  // User has paths but none active (e.g. completed their active path or archived it).
+  // Show the most recent path (paths[0] — server ordered by recency, C2) with a next-path CTA.
+  const noActivePath = Array.isArray(paths) && paths.length > 0 && !activePath;
+  const lastPath = noActivePath ? paths![0] : undefined;
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -72,35 +72,41 @@ export default function LessonsScreen() {
           </View>
         )}
 
-        {inProgress.length > 0 && (
-          <View style={styles.section}>
-            {/* "Tracks" would be wrong now: this is every path the user is on,
-                custom ones included, each through the same card. */}
-            <Text style={styles.sectionHeading}>Keep Going</Text>
-            {inProgress.map(path => (
-              <PathCard
-                key={`${path.kind}-${path.id}`}
-                path={path}
-                onStartLesson={id => router.push(`/(tabs)/lesson/${id}`)}
-                onSkipTopic={p => skipTopic.mutate({ kind: p.kind, id: p.id })}
-                onSkipLevel={p => skipLevel.mutate({ kind: p.kind, id: p.id })}
-                skipTopicPending={skipTopic.isPending}
-                skipLevelPending={skipLevel.isPending}
-              />
-            ))}
-          </View>
+        {/* Active path — the one path card Home shows (076g §1). */}
+        {activePath && (
+          <PathCard
+            path={activePath}
+            onStartLesson={id => router.push(`/(tabs)/lesson/${id}`)}
+            onSkipLesson={p => skipLesson.mutate({ kind: p.kind, id: p.id })}
+            onSkipTopic={p => skipTopic.mutate({ kind: p.kind, id: p.id })}
+            onSkipLevel={p => skipLevel.mutate({ kind: p.kind, id: p.id })}
+            skipLessonPending={skipLesson.isPending}
+            skipTopicPending={skipTopic.isPending}
+            skipLevelPending={skipLevel.isPending}
+          />
         )}
 
-        {completed.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionHeading}>Completed</Text>
-            {completed.map(path => (
-              <Card key={`${path.kind}-${path.id}`} testID={`completed-card-${path.id}`} style={styles.completedCard}>
-                <Text style={styles.enrollmentTitle}>{path.name}</Text>
-                <Badge label="Completed" variant="success" />
-              </Card>
-            ))}
-          </View>
+        {/* No active path but paths exist — show the last path + next-path CTA (076g §1).
+            NoTrackNotice is wrong here: the user has history, just no active path. */}
+        {noActivePath && lastPath && (
+          <>
+            <PathCard
+              path={lastPath}
+              onStartLesson={id => router.push(`/(tabs)/lesson/${id}`)}
+              onSkipLesson={p => skipLesson.mutate({ kind: p.kind, id: p.id })}
+              onSkipTopic={p => skipTopic.mutate({ kind: p.kind, id: p.id })}
+              onSkipLevel={p => skipLevel.mutate({ kind: p.kind, id: p.id })}
+              skipLessonPending={skipLesson.isPending}
+              skipTopicPending={skipTopic.isPending}
+              skipLevelPending={skipLevel.isPending}
+            />
+            <Button
+              testID="choose-next-path-btn"
+              label="Choose your next path →"
+              variant="outline"
+              onPress={() => router.push('/(tabs)/tracks')}
+            />
+          </>
         )}
 
       </ScrollView>

@@ -43,6 +43,12 @@ export const trackService = {
     return data;
   },
 
+  /** Skips exactly the next lesson of either kind of path (076h). */
+  async skipLesson({ kind, id }: ActivePathRef): Promise<UserPath> {
+    const { data } = await api.post<UserPath>(`/enrollments/${kind}/${id}/skip-lesson`);
+    return data;
+  },
+
   /** GET /enrollments/:kind/:id/contents — the full lesson tree for a path. */
   async getTrackContents(kind: UserPathKind, id: string): Promise<TrackContents> {
     const { data } = await api.get<TrackContents>(`/enrollments/${kind}/${id}/contents`);
