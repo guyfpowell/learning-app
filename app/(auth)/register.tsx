@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Logo } from '@/components/ui/Logo';
 import { Wordmark } from '@/components/ui/Wordmark';
@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useRegister } from '@/hooks/useAuth';
+import { authService } from '@/services/auth.service';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { extractError } from '@/lib/errors';
 
@@ -69,6 +70,17 @@ function validateConfirm(password: string, confirm: string): string | null {
   return null;
 }
 
+/** Normalise invite code: uppercase, strip non-alphanumeric except hyphens. */
+function normaliseInviteCode(raw: string): string {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/** Format for display: XXXX-XXXX (hyphen after 4 chars). */
+function formatInviteCode(canonical: string): string {
+  if (canonical.length <= 4) return canonical;
+  return `${canonical.slice(0, 4)}-${canonical.slice(4, 8)}`;
+}
+
 export default function RegisterScreen() {
   const router = useRouter();
   const register = useRegister();
@@ -77,13 +89,33 @@ export default function RegisterScreen() {
   const [email, setEmail]                   = useState('');
   const [password, setPassword]             = useState('');
   const [confirm, setConfirm]               = useState('');
+  const [inviteCode, setInviteCode]         = useState('');
   const [touched, setTouched]               = useState({ name: false, email: false, password: false, confirm: false });
   const [passwordFocused, setPasswordFocused] = useState(false);
+  // Ticket 073a: invite field hidden until mode says invite_only or server demands it.
+  const [showInviteField, setShowInviteField] = useState(false);
 
   const nameError     = touched.name     ? validateName(name)                       : null;
   const emailError    = touched.email    ? validateEmail(email)                     : null;
   const passwordError = touched.password ? validatePassword(password)               : null;
   const confirmError  = touched.confirm  ? validateConfirm(password, confirm)       : null;
+
+  // On mount, fetch registration mode. If invite_only → show field immediately.
+  // If the call fails for any reason → leave hidden (step 2 is the correctness guarantee).
+  useEffect(() => {
+    authService.getRegistrationMode()
+      .then(({ mode }) => {
+        if (mode === 'invite_only') setShowInviteField(true);
+      })
+      .catch(() => {
+        // Silent: INVITE_CODE_REQUIRED server error will reveal the field if needed.
+      });
+  }, []);
+
+  function handleInviteCodeChange(text: string) {
+    const canonical = normaliseInviteCode(text);
+    setInviteCode(formatInviteCode(canonical));
+  }
 
   function handleSubmit() {
     setTouched({ name: true, email: true, password: true, confirm: true });
@@ -93,7 +125,31 @@ export default function RegisterScreen() {
       validatePassword(password) ||
       validateConfirm(password, confirm)
     ) return;
-    register.mutate({ name: name.trim(), email: email.trim().toLowerCase(), password });
+    const canonical = normaliseInviteCode(inviteCode);
+    register.mutate({
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      password,
+      ...(canonical ? { inviteCode: canonical } : {}),
+    });
+  }
+
+  // Ticket 073a step 2: reveal invite field on INVITE_CODE_REQUIRED server error.
+  const serverErrorCode = register.error
+    ? (register.error as Error & { response?: { data?: { code?: string } } })?.response?.data?.code
+    : null;
+
+  if (serverErrorCode === 'INVITE_CODE_REQUIRED' && !showInviteField) {
+    setShowInviteField(true);
+  }
+
+  function inviteErrorMessage(): string | undefined {
+    if (!serverErrorCode) return undefined;
+    if (serverErrorCode === 'INVITE_CODE_REQUIRED') return 'An invite code is required.';
+    if (serverErrorCode === 'INVITE_CODE_INVALID') return 'This invite code is not valid.';
+    if (serverErrorCode === 'INVITE_CODE_EXHAUSTED') return 'This invite code has already been used.';
+    if (serverErrorCode === 'INVITE_CODE_EXPIRED') return 'This invite code has expired.';
+    return undefined;
   }
 
   return (
@@ -116,7 +172,7 @@ export default function RegisterScreen() {
               Join Ascent and start building your skills.
             </Text>
 
-            {register.isError && (
+            {register.isError && !inviteErrorMessage() && (
               <View style={styles.errorBanner}>
                 <Text style={styles.errorBannerText}>
                   {extractError(register.error)}
@@ -133,6 +189,22 @@ export default function RegisterScreen() {
             )}
 
             <View style={styles.fields}>
+              {/* Ticket 073a: invite code above email when visible */}
+              {showInviteField && (
+                <Input
+                  testID="register-invite-code"
+                  label="Invite code"
+                  value={inviteCode}
+                  onChangeText={handleInviteCodeChange}
+                  error={inviteErrorMessage()}
+                  placeholder="XXXX-XXXX"
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  maxLength={9}
+                  returnKeyType="next"
+                />
+              )}
+
               <Input
                 testID="register-name"
                 label="Name"
@@ -314,7 +386,6 @@ const hintStyles = StyleSheet.create({
     fontFamily: font.regular,
     fontSize: fontSize.sm,
     color: colors.textMuted,
-    flex: 1,
   },
   labelMet: {
     color: colors.success,

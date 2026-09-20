@@ -3,12 +3,18 @@ import { ActivityIndicator } from 'react-native';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import RegisterScreen from '../register';
 import { useRegister } from '@/hooks/useAuth';
+import { authService } from '@/services/auth.service';
+import { waitFor } from '@testing-library/react-native';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
 const mockBack = jest.fn();
 
 jest.mock('@/hooks/useAuth', () => ({ useRegister: jest.fn() }));
+
+jest.mock('@/services/auth.service', () => ({
+  authService: { getRegistrationMode: jest.fn() },
+}));
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack }),
@@ -46,6 +52,7 @@ describe('RegisterScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     setRegisterMock();
+    (authService.getRegistrationMode as jest.Mock).mockResolvedValue({ mode: 'open' });
   });
 
   it('renders name, email, password, confirm inputs and submit button', () => {
@@ -156,5 +163,80 @@ describe('RegisterScreen', () => {
     render(<RegisterScreen />);
     fireEvent.press(screen.getByText('Sign in'));
     expect(mockBack).toHaveBeenCalled();
+  });
+
+  // ─── Ticket 073a — invite code ─────────────────────────────────────────────
+
+  describe('invite code (073a)', () => {
+    const INVITE = 'XXXX-XXXX';
+
+    it('hides the field when mode is open', async () => {
+      render(<RegisterScreen />);
+      await waitFor(() => expect(authService.getRegistrationMode).toHaveBeenCalled());
+      expect(screen.queryByPlaceholderText(INVITE)).toBeNull();
+    });
+
+    it('shows the field when mode is invite_only', async () => {
+      (authService.getRegistrationMode as jest.Mock).mockResolvedValue({ mode: 'invite_only' });
+      render(<RegisterScreen />);
+      expect(await screen.findByPlaceholderText(INVITE)).toBeTruthy();
+    });
+
+    it('hides the field when the mode call fails', async () => {
+      (authService.getRegistrationMode as jest.Mock).mockRejectedValue(new Error('down'));
+      render(<RegisterScreen />);
+      await waitFor(() => expect(authService.getRegistrationMode).toHaveBeenCalled());
+      expect(screen.queryByPlaceholderText(INVITE)).toBeNull();
+    });
+
+    it('with the mode call failing, INVITE_CODE_REQUIRED from the server reveals the field and keeps typed values', async () => {
+      (authService.getRegistrationMode as jest.Mock).mockRejectedValue(new Error('down'));
+      const view = render(<RegisterScreen />);
+      fillValidForm();
+      setRegisterMock({ isError: true, error: { response: { data: { code: 'INVITE_CODE_REQUIRED' } } } });
+      view.rerender(<RegisterScreen />);
+      expect(await screen.findByPlaceholderText(INVITE)).toBeTruthy();
+      expect(screen.getByText('An invite code is required.')).toBeTruthy();
+      expect(screen.getByDisplayValue('Jane Doe')).toBeTruthy();
+      expect(screen.getByDisplayValue('jane@example.com')).toBeTruthy();
+    });
+
+    it.each([
+      ['INVITE_CODE_INVALID', 'This invite code is not valid.'],
+      ['INVITE_CODE_EXHAUSTED', 'This invite code has already been used.'],
+      ['INVITE_CODE_EXPIRED', 'This invite code has expired.'],
+    ])('%s shows its own copy', async (code, copy) => {
+      (authService.getRegistrationMode as jest.Mock).mockResolvedValue({ mode: 'invite_only' });
+      setRegisterMock({ isError: true, error: { response: { data: { code } } } });
+      render(<RegisterScreen />);
+      expect(await screen.findByText(copy)).toBeTruthy();
+    });
+
+    it('uppercases, groups as XXXX-XXXX, and sends the canonical form', async () => {
+      (authService.getRegistrationMode as jest.Mock).mockResolvedValue({ mode: 'invite_only' });
+      render(<RegisterScreen />);
+      const field = await screen.findByPlaceholderText(INVITE);
+      fireEvent.changeText(field, 'asct4k7m');
+      expect(screen.getByDisplayValue('ASCT-4K7M')).toBeTruthy();
+      fillValidForm();
+      fireEvent.press(screen.getByText('CREATE ACCOUNT'));
+      expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({ inviteCode: 'ASCT4K7M' }));
+    });
+
+    it('accepts a pasted code with a hyphen', async () => {
+      (authService.getRegistrationMode as jest.Mock).mockResolvedValue({ mode: 'invite_only' });
+      render(<RegisterScreen />);
+      const field = await screen.findByPlaceholderText(INVITE);
+      fireEvent.changeText(field, 'asct-4k7m');
+      expect(screen.getByDisplayValue('ASCT-4K7M')).toBeTruthy();
+    });
+
+    it('sends no inviteCode when the field is empty', async () => {
+      render(<RegisterScreen />);
+      await waitFor(() => expect(authService.getRegistrationMode).toHaveBeenCalled());
+      fillValidForm();
+      fireEvent.press(screen.getByText('CREATE ACCOUNT'));
+      expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('inviteCode');
+    });
   });
 });

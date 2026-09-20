@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import TracksScreen from '../tracks';
-import { useSkills, usePaths, useEnroll, useSetActivePath, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
+import { useSkills, usePaths, useEnroll, useSetActivePath, useSkipLesson, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import type { SkillWithAccess, UserPath } from '@learning/shared';
 
 const mockPush = jest.fn();
@@ -12,6 +12,7 @@ jest.mock('@/hooks/useTrack', () => ({
   usePaths:          jest.fn(),
   useEnroll:         jest.fn(),
   useSetActivePath:  jest.fn(),
+  useSkipLesson:     jest.fn(),
   useSkipTopic:      jest.fn(),
   useSkipLevel:      jest.fn(),
 }));
@@ -118,6 +119,7 @@ function setMocks({
   (usePaths           as jest.Mock).mockReturnValue({ data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr });
   (useEnroll         as jest.Mock).mockReturnValue(enroll);
   (useSetActivePath  as jest.Mock).mockReturnValue(setActiveTrack);
+  (useSkipLesson     as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
   (useSkipTopic      as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
   (useSkipLevel      as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
 }

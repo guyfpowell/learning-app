@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { AuthResponse, UserAuth } from '@learning/shared';
+import type { AuthResponse, UserAuth, RegistrationModeResponse, RegisterRequest } from '@learning/shared';
 import * as Sentry from '@sentry/react-native';
 
 export interface LoginInput {
@@ -7,11 +7,7 @@ export interface LoginInput {
   password: string;
 }
 
-export interface RegisterInput {
-  email: string;
-  password: string;
-  name: string;
-}
+export type RegisterInput = RegisterRequest;
 
 export interface CurrentUser {
   id: string;
@@ -39,6 +35,11 @@ export const authService = {
       Sentry.captureException(err, { contexts: { auth: { action: 'login', email: input.email } } });
       throw err;
     }
+  },
+
+  async getRegistrationMode(): Promise<RegistrationModeResponse> {
+    const { data } = await api.get<RegistrationModeResponse>('/auth/registration-mode');
+    return data;
   },
 
   async register(input: RegisterInput): Promise<{ user: UserAuth; token: string }> {

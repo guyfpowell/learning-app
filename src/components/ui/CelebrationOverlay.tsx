@@ -76,7 +76,7 @@ export function CelebrationOverlay({
         testID="celebration-card"
         style={[
           styles.card,
-          shadow.lg as object,
+          shadow.md as object,
           {
             opacity: anim,
             transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }],
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   description: {
     fontFamily: font.regular,
     fontSize: fontSize.md,
-    color: colors.text,
+    color: colors.textBody,
     textAlign: 'center',
     marginTop: spacing.xs,
   },

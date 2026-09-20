@@ -17,6 +17,15 @@ const mockApi = api as jest.Mocked<typeof api>;
 describe('authService', () => {
   beforeEach(() => jest.clearAllMocks());
 
+  describe('registration mode (073a)', () => {
+    it('getRegistrationMode calls GET /auth/registration-mode and returns the body', async () => {
+      mockApi.get.mockResolvedValueOnce({ data: { mode: 'invite_only' } });
+      const res = await authService.getRegistrationMode();
+      expect(mockApi.get).toHaveBeenCalledWith('/auth/registration-mode');
+      expect(res.mode).toBe('invite_only');
+    });
+  });
+
   describe('login', () => {
     it('calls POST /auth/login with credentials', async () => {
       mockApi.post.mockResolvedValueOnce({
