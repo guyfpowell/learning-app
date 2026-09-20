@@ -58,7 +58,6 @@ const mockActiveEnrollment = {
   kind: 'track' as const,
   id: 's1',
   name: 'Product Strategy',
-  description: null,
   skill: { id: 's1', name: 'Product Strategy', slug: 'product-strategy' },
   percentComplete: 62,
   levels: [],

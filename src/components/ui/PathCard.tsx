@@ -126,12 +126,9 @@ export function PathCard({
 
       <Card testID={`enrollment-card-${path.id}`} style={styles.enrollmentCard}>
         <View style={styles.enrollmentHeader}>
-          <Text style={styles.enrollmentTitle} numberOfLines={1}>{path.name}</Text>
+          <Text style={styles.enrollmentTitle}>{path.name}</Text>
           <Text style={styles.pctText}>{pct}% complete</Text>
         </View>
-        {path.description ? (
-          <Text style={styles.pathDescription} numberOfLines={2}>{path.description}</Text>
-        ) : null}
         <ProgressBar value={pct} />
 
         {/* Only a level-ordered path has a level strip; a plan's is empty (C10). */}
@@ -183,12 +180,6 @@ const styles = StyleSheet.create({
     fontSize:   fontSize.base,
     color:      colors.textStrong,
     flex:       1,
-    flexShrink: 1,
-  },
-  pathDescription: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
   },
   pctText: {
     fontFamily: font.medium,

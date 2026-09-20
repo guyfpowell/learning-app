@@ -59,7 +59,7 @@ export default function BuildReviewScreen() {
       if (!accepted.current) router.replace('/build');
       return;
     }
-    setName(draft.result.name ?? '');
+    setName(draft.result.name);
   }, [draft, router]);
 
   if (!draft) return null;
@@ -69,8 +69,7 @@ export default function BuildReviewScreen() {
     setError(null);
     try {
       const created = await createPlan.mutateAsync({
-        name: name.trim(),
-        description: result.description ?? null,
+        name: name.trim() || 'My path',
         planJson: {
           topics: result.topics.map((t, i) => ({
             stableKey: t.stableKey,
@@ -126,7 +125,7 @@ export default function BuildReviewScreen() {
         case 'replace':
           if (r.rebuilt !== undefined) {
             updateResult(r.rebuilt);
-            setName(r.rebuilt.name ?? '');
+            setName(r.rebuilt.name);
             setLastChange(null);
             setNotice('Rebuilt your path around that instead.');
           }
@@ -220,16 +219,8 @@ export default function BuildReviewScreen() {
             style={styles.input}
             value={name}
             onChangeText={setName}
-            placeholder="Name your path"
             placeholderTextColor={colors.textMuted}
-            maxLength={27}
           />
-          <Text style={styles.nameHint}>You can rename this any time.</Text>
-          {result.description ? (
-            <Text testID="path-description" style={styles.pathDescription}>
-              {result.description}
-            </Text>
-          ) : null}
           <Text testID="plan-counts" style={styles.counts}>
             {result.topics.length} topic{result.topics.length === 1 ? '' : 's'}, chosen for
             what you described
@@ -314,7 +305,7 @@ export default function BuildReviewScreen() {
         <Button
           testID="accept-plan"
           label={createPlan.isPending ? 'Saving…' : 'Start this path'}
-          disabled={busy || name.trim().length === 0}
+          disabled={busy}
           onPress={() => void onAccept()}
         />
       </ScrollView>
@@ -336,11 +327,6 @@ const styles = StyleSheet.create({
   input: {
     fontFamily: font.regular, fontSize: fontSize.md, color: colors.textStrong,
     padding: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: 8,
-  },
-  nameHint:  { fontFamily: font.regular, fontSize: fontSize.xs, color: colors.textMuted },
-  pathDescription: {
-    fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted,
-    fontStyle: 'italic',
   },
   counts:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
   topic:     { gap: spacing.xs, paddingVertical: spacing.xs },

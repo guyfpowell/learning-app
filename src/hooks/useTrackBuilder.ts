@@ -39,8 +39,6 @@ export function useCreateTrackPlan() {
   return useMutation({
     mutationFn: (v: {
       name: string;
-      /** What this path is for — the first need. 076f. */
-      description?: string | null;
       planJson: { topics: TrackPlanTopic[] };
       inputJson: { turns: TrackBuilderTurn[]; maxClosureHops?: number | null };
       /** Which engine built it — 068 Chunk 4. */

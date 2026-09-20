@@ -58,7 +58,6 @@ const mockPath: UserPath = {
   kind:             'track',
   id:               'skill-1',
   name:             'Product Strategy',
-  description:      null,
   enrolledAt:       '2026-01-01T00:00:00Z',
   completedAt:      null,
   skill:            {} as never,

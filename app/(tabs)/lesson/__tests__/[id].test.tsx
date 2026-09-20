@@ -47,7 +47,6 @@ const mockEnrollment = {
   kind: 'track' as const,
   id: 'skill-1',
   name: 'Product Management',
-  description: null,
   skill: { name: 'Product Management' },
   percentComplete: 40,
   levels: [],

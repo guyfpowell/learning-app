@@ -64,7 +64,6 @@ const mockEnrollment: UserPath = {
   kind:             'track',
   id:               'skill-1',
   name:             baseSkill.name,
-  description:      null,
   enrolledAt:       '2026-01-01T00:00:00Z',
   completedAt:      null,
   skill:            baseSkill,
