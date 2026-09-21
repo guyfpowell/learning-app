@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Switch, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker, { type DateTimePickerChangeEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import type { AchievementAxis, AchievementDefinition, AchievementKey, UserPath, UserAchievement } from '@learning/shared';
 import { ACHIEVEMENTS_BY_KEY } from '@learning/shared';
@@ -346,8 +346,7 @@ export default function ProfileScreen() {
                   value={timeToDate(preferredHour, preferredMinute)}
                   mode="time"
                   display="spinner"
-                  onChange={(_event: DateTimePickerEvent, date: Date | undefined) => {
-                    if (!date) return;
+                  onValueChange={(_event: DateTimePickerChangeEvent, date: Date) => {
                     setPreferredHour(date.getHours());
                     setPreferredMinute(date.getMinutes());
                   }}

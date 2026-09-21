@@ -144,7 +144,7 @@ function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryProvider>
-        <StatusBar style="dark" backgroundColor={colors.paper} />
+        <StatusBar style="dark" />
         <AuthGate />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />

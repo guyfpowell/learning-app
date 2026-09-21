@@ -1,12 +1,21 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useAuthStore } from '@/store/auth.store';
 import { queryClient } from '@/providers/QueryProvider';
 import * as Sentry from '@sentry/react-native';
 
-const BASE_URL: string =
-  process.env.EXPO_PUBLIC_API_URL ??
-  'http://localhost:3000/api';
+// Dev fallback: the API runs on the same machine as Metro, so take the host the
+// phone already used to reach Metro (`hostUri`, e.g. "192.168.1.130:8081"). It is
+// always current — no IP is ever written into a file. On the simulator hostUri is
+// localhost, so it behaves exactly as before. Production never uses this: it must
+// set EXPO_PUBLIC_API_URL (checked below).
+function devApiUrl(): string {
+  const host = Constants.expoConfig?.hostUri?.split(':')[0];
+  return `http://${host || 'localhost'}:3000/api`;
+}
+
+const BASE_URL: string = process.env.EXPO_PUBLIC_API_URL ?? devApiUrl();
 
 // Throw at module load in production if URL is explicitly localhost — surfaces
 // build configuration errors immediately rather than during user interactions.

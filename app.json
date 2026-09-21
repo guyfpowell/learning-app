@@ -6,12 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#4060C8"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.learning.app"
@@ -33,6 +27,14 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#4060C8"
+        }
+      ],
       [
         "@sentry/react-native/expo",
         {

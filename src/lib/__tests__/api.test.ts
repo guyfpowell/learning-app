@@ -1,5 +1,11 @@
+const mockExpoConfig: { hostUri?: string; extra: object } = { extra: {} };
 jest.mock('expo-constants', () => ({
-  default: { expoConfig: { extra: {} } },
+  __esModule: true,
+  default: {
+    get expoConfig() {
+      return mockExpoConfig;
+    },
+  },
 }));
 
 const mockClearAuth = jest.fn();
@@ -72,6 +78,18 @@ describe('api module', () => {
       jest.isolateModules(() => { api = require('@/lib/api').default; });
 
       expect(api.defaults.baseURL).toBe('http://localhost:3000/api');
+    });
+
+    it('in dev with no env var, targets the Metro host so a physical phone reaches the Mac', () => {
+      (global as any).__DEV__ = true;
+      delete process.env.EXPO_PUBLIC_API_URL;
+      mockExpoConfig.hostUri = '192.168.1.130:8081';
+
+      let api: any;
+      jest.isolateModules(() => { api = require('@/lib/api').default; });
+
+      expect(api.defaults.baseURL).toBe('http://192.168.1.130:3000/api');
+      delete mockExpoConfig.hostUri;
     });
 
     it('uses EXPO_PUBLIC_API_URL when set', () => {

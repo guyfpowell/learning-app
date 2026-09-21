@@ -46,6 +46,7 @@ export function QuizOpt({
     <Pressable
       testID={testID}
       onPress={isAnswered ? undefined : onPress}
+      disabled={isAnswered}
       style={({ pressed }) => [
         styles.opt,
         stateStyle(state),
