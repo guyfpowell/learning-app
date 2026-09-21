@@ -143,7 +143,7 @@ export default function TrackDetailScreen() {
         onClose={() => setPremiumModalVisible(false)}
         onUpgrade={() => {
           setPremiumModalVisible(false);
-          router.push('/(tabs)/profile' as never);
+          router.push('/(tabs)/paywall' as never);
         }}
       />
     </SafeAreaView>

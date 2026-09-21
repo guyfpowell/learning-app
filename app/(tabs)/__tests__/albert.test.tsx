@@ -130,11 +130,11 @@ describe('AlbertScreen', () => {
     expect(screen.getByTestId('premium-modal')).toBeTruthy();
   });
 
-  it('Upgrade now in the modal goes to Profile', () => {
+  it('Upgrade now in the modal navigates to the paywall (073b-5)', () => {
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('build-path-upgrade'));
     fireEvent.press(screen.getByTestId('upgrade-now-btn'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/profile');
+    expect(mockPush).toHaveBeenCalledWith('/(tabs)/paywall');
   });
 
   it('does not crash while skills are still loading', () => {

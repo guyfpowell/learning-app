@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useCurrentUser, useResendVerification } from '@/hooks/useEmailVerification';
+import { iapService } from '@/services/iap.service';
+import { useAuthStore } from '@/store/auth.store';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -19,6 +21,17 @@ function tabIcon(name: IoniconName, focusedName: IoniconName) {
 export default function TabsLayout() {
   // Register for push notifications once the authenticated tab shell mounts
   useNotifications();
+
+  // Configure RevenueCat once the user is authenticated (073b Chunk 5).
+  // configure() is called once with the API key; logIn() associates purchases
+  // with our user ID so we can link Apple transactions to the right account.
+  const userId = useAuthStore((s) => s.user?.id);
+  useEffect(() => {
+    const apiKey = process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY ?? '';
+    if (!apiKey || !userId) return;
+    iapService.configure(apiKey);
+    iapService.logIn(userId).catch(() => {/* non-fatal — purchases still work */});
+  }, [userId]);
 
   const queryClient = useQueryClient();
 
@@ -140,6 +153,9 @@ export default function TabsLayout() {
         {/* track/[kind]/[id] — detail screen for a path of either kind (076d).
             href: null prevents it from leaking into the tab bar. */}
         <Tabs.Screen name="track/[kind]/[id]" options={{ href: null }} />
+        {/* paywall — upgrade flow (073b Chunk 5).
+            href: null keeps it off the tab bar; onUpgrade hooks navigate here. */}
+        <Tabs.Screen name="paywall" options={{ href: null }} />
       </Tabs>
     </View>
   );

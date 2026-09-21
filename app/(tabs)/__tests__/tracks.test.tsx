@@ -246,12 +246,12 @@ describe('TracksScreen', () => {
       expect(mockPush).toHaveBeenCalledWith('/(tabs)/lessons');
     });
 
-    it('pressing Upgrade now in PremiumModal navigates to profile', () => {
+    it('pressing Upgrade now in PremiumModal navigates to the paywall (073b-5)', () => {
       setMocks({ skills: [premiumSkill] });
       render(<TracksScreen />);
       fireEvent.press(screen.getByTestId('upgrade-btn-skill-2'));
       fireEvent.press(screen.getByTestId('upgrade-now-btn'));
-      expect(mockPush).toHaveBeenCalledWith('/(tabs)/profile');
+      expect(mockPush).toHaveBeenCalledWith('/(tabs)/paywall');
     });
   });
 

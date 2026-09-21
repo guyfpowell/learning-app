@@ -38,6 +38,15 @@ jest.mock('@/hooks/useNotifications', () => ({
   useNotifications: jest.fn(),
 }));
 
+jest.mock('@/services/iap.service', () => ({
+  iapService: { configure: jest.fn(), logIn: jest.fn(() => Promise.resolve()) },
+}));
+
+jest.mock('@/store/auth.store', () => ({
+  useAuthStore: (sel: (s: { user: { id: string } | null }) => unknown) =>
+    sel({ user: { id: 'user-1' } }),
+}));
+
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 44, bottom: 0, left: 0, right: 0 }),
 }));
@@ -74,7 +83,7 @@ describe('(tabs) layout', () => {
     const names = React.Children.toArray(capturedTabsProps.children)
       .map((c: any) => c.props.name)
       // Filter out href:null routes that live inside (tabs)/ but are not tabs
-      .filter((n: string) => !['lesson/[id]', 'track/[kind]/[id]'].includes(n));
+      .filter((n: string) => !['lesson/[id]', 'track/[kind]/[id]', 'paywall'].includes(n));
     expect(names).toEqual(['lessons', 'progress', 'profile', 'tracks', 'team', 'albert']);
   });
 

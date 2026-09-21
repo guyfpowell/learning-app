@@ -248,11 +248,6 @@ export default function LessonDetailScreen() {
                   variant={difficultyVariant[lesson.difficulty as keyof typeof difficultyVariant] ?? 'info'}
                 />
                 <Text style={styles.duration}>{lesson.durationMinutes} minutes</Text>
-                {lesson.isTeaser && (
-                  <View testID="teaser-badge">
-                    <Badge label="Free preview" variant="info" />
-                  </View>
-                )}
               </View>
 
               {phase === 'collapsed' && lesson.summary && (
@@ -336,7 +331,7 @@ export default function LessonDetailScreen() {
         onClose={() => setPremiumModalVisible(false)}
         onUpgrade={() => {
           setPremiumModalVisible(false);
-          router.push('/(tabs)/profile');
+          router.push('/(tabs)/paywall');
         }}
       />
     </SafeAreaView>

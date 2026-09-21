@@ -104,14 +104,15 @@ describe('LessonDetailScreen', () => {
     expect(screen.getByText('10 minutes')).toBeTruthy();
   });
 
-  it('shows "Free preview" badge for teaser lessons', () => {
+  // 073b Chunk 2: isTeaser is deprecated and no longer read by any client.
+  it('never shows a "Free preview" badge, even when the legacy isTeaser column is true', () => {
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: false,
       data: { ...mockLesson, isTeaser: true },
       error: null,
     });
     render(<LessonDetailScreen />);
-    expect(screen.getByTestId('teaser-badge')).toBeTruthy();
+    expect(screen.queryByTestId('teaser-badge')).toBeNull();
   });
 
   it('3-phase lesson flow: collapsed → expanded → takeaway', () => {
@@ -244,7 +245,7 @@ describe('LessonDetailScreen', () => {
     render(<LessonDetailScreen />);
     fireEvent.press(screen.getByText('LEARN MORE'));
     fireEvent.press(screen.getByText('UPGRADE NOW'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/(tabs)/profile');
+    expect(mockRouter.push).toHaveBeenCalledWith('/(tabs)/paywall');
   });
 
   describe('Chunk 5 — levelLabel display', () => {
