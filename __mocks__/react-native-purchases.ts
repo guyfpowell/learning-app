@@ -49,6 +49,8 @@ const Purchases = {
     productIdentifier:   'com.ascentlearning.premium_monthly',
     transaction:         { transactionIdentifier: 'apple-txn-id-1' },
   })),
+  // Restores previous purchases (App Review requirement — Chunk 8).
+  restorePurchases: jest.fn(() => Promise.resolve({ customerInfo: {} })),
 };
 
 export default Purchases;

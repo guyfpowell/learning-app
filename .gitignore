@@ -33,3 +33,5 @@ expo-env.d.ts
 NOTES.md
 
 .env.local
+/ios/
+/android/

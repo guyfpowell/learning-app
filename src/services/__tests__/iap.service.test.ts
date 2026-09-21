@@ -138,6 +138,26 @@ describe('iapService when the native SDK is unavailable', () => {
     (Purchases.configure as jest.Mock).mockImplementationOnce(() => { throw new Error('native missing'); });
     expect(() => iapService.configure('key')).not.toThrow();
   });
+
+  it('restorePurchases rejects with a clear error', async () => {
+    const svc = loadWithMissingSdk();
+    await expect(svc.restorePurchases()).rejects.toThrow(/not available/i);
+  });
+});
+
+// ── restorePurchases ──────────────────────────────────────────────────────────
+
+describe('iapService.restorePurchases', () => {
+  it('delegates to Purchases.restorePurchases', async () => {
+    await iapService.restorePurchases();
+    expect(Purchases.restorePurchases).toHaveBeenCalled();
+  });
+
+  it('propagates errors from Purchases.restorePurchases', async () => {
+    const err = new Error('Restore failed');
+    (Purchases.restorePurchases as jest.Mock).mockRejectedValueOnce(err);
+    await expect(iapService.restorePurchases()).rejects.toThrow('Restore failed');
+  });
 });
 
 // ── purchasePackage ───────────────────────────────────────────────────────────

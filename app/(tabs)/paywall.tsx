@@ -12,7 +12,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, font, fontSize, radius, spacing, shadow } from '@/theme';
 import { Spinner } from '@/components/ui/Spinner';
-import { useOfferings, usePurchase } from '@/hooks/useIAP';
+import { useOfferings, usePurchase, useRestorePurchases } from '@/hooks/useIAP';
 import type { PurchasesPackage } from '@/hooks/useIAP';
 
 // ── Legal URLs ────────────────────────────────────────────────────────────────
@@ -73,6 +73,7 @@ export default function PaywallScreen() {
   const router = useRouter();
   const { data: offering, isLoading } = useOfferings();
   const purchase = usePurchase();
+  const restore  = useRestorePurchases();
 
   // Annual selected by default — best value for the user and for us.
   const [selected, setSelected] = useState<'annual' | 'monthly'>('annual');
@@ -189,6 +190,25 @@ export default function PaywallScreen() {
             Privacy Policy
           </Text>
         </View>
+
+        {/* Restore Purchases — required by App Review */}
+        <Pressable
+          testID="restore-purchases-btn"
+          onPress={() => restore.mutate()}
+          disabled={restore.isPending}
+          accessibilityState={{ disabled: restore.isPending }}
+          style={styles.restoreBtn}
+        >
+          <Text style={styles.restoreText}>
+            {restore.isPending ? 'Restoring…' : 'Restore Purchases'}
+          </Text>
+        </Pressable>
+
+        {restore.isError && (
+          <Text testID="restore-error" style={styles.errorText}>
+            Couldn't restore purchases. Please try again.
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -369,5 +389,14 @@ const styles = StyleSheet.create({
     fontFamily: font.regular,
     fontSize:   fontSize.xs,
     color:      colors.textSubtle,
+  },
+  restoreBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  restoreText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.xs,
+    color:      colors.textLink,
   },
 });

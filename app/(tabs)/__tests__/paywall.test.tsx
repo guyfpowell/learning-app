@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import PaywallScreen from '../paywall';
-import { useOfferings, usePurchase } from '@/hooks/useIAP';
+import { useOfferings, usePurchase, useRestorePurchases } from '@/hooks/useIAP';
 import { PACKAGE_TYPE } from 'react-native-purchases';
 import type { PurchasesPackage, IAPOffering } from '@/hooks/useIAP';
 
@@ -9,8 +9,9 @@ const mockBack = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));
 
 jest.mock('@/hooks/useIAP', () => ({
-  useOfferings: jest.fn(),
-  usePurchase:  jest.fn(),
+  useOfferings:        jest.fn(),
+  usePurchase:         jest.fn(),
+  useRestorePurchases: jest.fn(),
 }));
 
 jest.mock('expo-web-browser', () => ({
@@ -37,19 +38,22 @@ const mockAnnual = {
 const mockOffering: IAPOffering = { monthly: mockMonthly, annual: mockAnnual };
 
 const mockPurchase = { mutate: jest.fn(), isPending: false, isSuccess: false, isError: false, error: null, reset: jest.fn() };
+const mockRestore  = { mutate: jest.fn(), isPending: false, isSuccess: false, isError: false, error: null, reset: jest.fn() };
 
 function setMocks(overrides: {
   offering?: IAPOffering | null;
   isLoading?: boolean;
   purchase?: typeof mockPurchase;
+  restore?: typeof mockRestore;
 } = {}) {
-  const { offering = mockOffering, isLoading = false, purchase = mockPurchase } = overrides;
+  const { offering = mockOffering, isLoading = false, purchase = mockPurchase, restore = mockRestore } = overrides;
   (useOfferings as jest.Mock).mockReturnValue({
     data: offering ?? undefined,
     isLoading,
     isError: false,
   });
   (usePurchase as jest.Mock).mockReturnValue(purchase);
+  (useRestorePurchases as jest.Mock).mockReturnValue(restore);
 }
 
 beforeEach(() => {
@@ -188,5 +192,65 @@ describe('PaywallScreen — App Review requirements', () => {
     render(<PaywallScreen />);
     const disclosure = screen.getByTestId('auto-renew-disclosure');
     expect(disclosure.props.children).toMatch(/settings/i);
+  });
+
+  it('renders the Restore Purchases button', () => {
+    render(<PaywallScreen />);
+    expect(screen.getByTestId('restore-purchases-btn')).toBeTruthy();
+  });
+});
+
+// ── Restore Purchases ─────────────────────────────────────────────────────────
+
+// ── Expo Go / SDK unavailable (BUG-073b-2) ───────────────────────────────────
+// When react-native-purchases cannot load (Expo Go, OTA builds), useOfferings
+// resolves to { monthly: null, annual: null }.  The paywall must not crash and
+// must show a sensible placeholder so the screen is still usable.
+
+describe('PaywallScreen — Expo Go / SDK unavailable (BUG-073b-2)', () => {
+  it('renders without crashing when offerings are unavailable', () => {
+    setMocks({ offering: null });
+    expect(() => render(<PaywallScreen />)).not.toThrow();
+  });
+
+  it('shows "—" placeholder prices when offerings are null', () => {
+    setMocks({ offering: null });
+    render(<PaywallScreen />);
+    const prices = screen.getAllByText('—');
+    expect(prices.length).toBeGreaterThanOrEqual(2); // annual + monthly
+  });
+
+  it('pressing Subscribe does not crash when selectedPkg is null', () => {
+    setMocks({ offering: null });
+    render(<PaywallScreen />);
+    expect(() => fireEvent.press(screen.getByTestId('subscribe-btn'))).not.toThrow();
+    expect(mockPurchase.mutate).not.toHaveBeenCalled();
+  });
+});
+
+describe('PaywallScreen — Restore Purchases (073b-8)', () => {
+  it('pressing Restore Purchases calls useRestorePurchases.mutate', () => {
+    render(<PaywallScreen />);
+    fireEvent.press(screen.getByTestId('restore-purchases-btn'));
+    expect(mockRestore.mutate).toHaveBeenCalled();
+  });
+
+  it('shows "Restoring…" while restore is pending', () => {
+    setMocks({ restore: { ...mockRestore, isPending: true } });
+    render(<PaywallScreen />);
+    expect(screen.getByText(/Restoring…/i)).toBeTruthy();
+  });
+
+  it('shows restore error text on failure', () => {
+    setMocks({ restore: { ...mockRestore, isError: true } });
+    render(<PaywallScreen />);
+    expect(screen.getByTestId('restore-error')).toBeTruthy();
+  });
+
+  it('restore button is disabled while restore is pending', () => {
+    setMocks({ restore: { ...mockRestore, isPending: true } });
+    render(<PaywallScreen />);
+    const btn = screen.getByTestId('restore-purchases-btn');
+    expect(btn.props.accessibilityState?.disabled).toBe(true);
   });
 });

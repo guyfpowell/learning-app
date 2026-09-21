@@ -107,4 +107,20 @@ async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseResult> {
   };
 }
 
-export const iapService = { configure, logIn, getOfferings, purchasePackage };
+/**
+ * Restore previous purchases — required by App Review (Chunk 8, 073b).
+ *
+ * Calls `Purchases.restorePurchases()` which re-validates the user's Apple
+ * receipt with RevenueCat.  The caller should then call
+ * `subscriptionService.verifyPurchase({ originalTransactionId: null, productId: '' })`
+ * to re-fetch the resolved entitlement from our own server (C1).
+ *
+ * Throws when the native SDK is unavailable (same contract as `purchasePackage`).
+ */
+async function restorePurchases(): Promise<void> {
+  const Purchases = loadPurchases();
+  if (!Purchases) throw new Error('Purchases are not available in this build');
+  await Purchases.restorePurchases();
+}
+
+export const iapService = { configure, logIn, getOfferings, purchasePackage, restorePurchases };

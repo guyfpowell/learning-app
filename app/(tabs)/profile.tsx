@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Switch, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -399,6 +399,19 @@ export default function ProfileScreen() {
           <Text testID="settings-error" style={styles.errorMsg}>{extractError(saveError)}</Text>
         )}
 
+        {/* ── Subscription ──────────────────────────────────────────────────── */}
+        <Text style={styles.settingsLabel}>Subscription</Text>
+        <Card style={styles.settingsCard}>
+          <Pressable
+            testID="manage-subscription-btn"
+            onPress={() => Linking.openURL('itms-apps://apps.apple.com/account/subscriptions')}
+            style={styles.manageSubRow}
+          >
+            <Text style={styles.manageSubText}>Manage Subscription</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          </Pressable>
+        </Card>
+
         {/* ── Log out ───────────────────────────────────────────────────────── */}
         <Button
           label="Log Out"
@@ -701,6 +714,19 @@ const styles = StyleSheet.create({
     color:      colors.error,
     textAlign:  'center',
     marginTop:  spacing.sm,
+  },
+
+  // Subscription — 073b-8
+  manageSubRow: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    justifyContent:  'space-between',
+    paddingVertical: spacing.sm,
+  },
+  manageSubText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.base,
+    color:      colors.textStrong,
   },
 
   // Misc

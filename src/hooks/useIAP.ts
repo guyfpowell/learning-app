@@ -21,6 +21,38 @@ export function useOfferings() {
 }
 
 /**
+ * Mutation to restore previous Apple purchases — required by App Review
+ * (Chunk 8, 073b-8).
+ *
+ * Flow:
+ *   1. `iapService.restorePurchases` calls `Purchases.restorePurchases()` to
+ *      re-validate the Apple receipt with RevenueCat.
+ *   2. `subscriptionService.verifyPurchase` with a null originalTransactionId
+ *      skips any upsert on our server but re-fetches the resolved entitlement —
+ *      which picks up any subscription row the RevenueCat webhook already wrote.
+ *   3. Every entitlement-dependent query is invalidated.
+ *
+ * C1 (073b): entitlement resolved from our DB; RevenueCat never queried for it.
+ */
+export function useRestorePurchases() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      await iapService.restorePurchases();
+      // Pass null/empty so the server skips the upsert and just returns the
+      // current resolved entitlement — graceful behaviour already tested in Chunk 7.
+      return subscriptionService.verifyPurchase({ originalTransactionId: null, productId: '' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['track-contents'] });
+      queryClient.invalidateQueries({ queryKey: ['lesson'] });
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+    },
+  });
+}
+
+/**
  * Mutation to initiate an Apple payment sheet and synchronously verify
  * the purchase with our server — Chunk 7 (073b-7).
  *

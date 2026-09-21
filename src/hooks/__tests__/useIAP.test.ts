@@ -3,15 +3,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { iapService } from '@/services/iap.service';
 import { subscriptionService } from '@/services/subscription.service';
-import { useOfferings, usePurchase } from '../useIAP';
+import { useOfferings, usePurchase, useRestorePurchases } from '../useIAP';
 import type { PurchasesPackage, IAPOffering } from '../useIAP';
 import { PACKAGE_TYPE } from 'react-native-purchases';
 import type { EntitlementResult } from '@learning/shared';
 
 jest.mock('@/services/iap.service', () => ({
   iapService: {
-    getOfferings:    jest.fn(),
-    purchasePackage: jest.fn(),
+    getOfferings:     jest.fn(),
+    purchasePackage:  jest.fn(),
+    restorePurchases: jest.fn(),
   },
 }));
 
@@ -142,5 +143,63 @@ describe('usePurchase', () => {
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+// ── useRestorePurchases ───────────────────────────────────────────────────────
+
+const RESTORE_VERIFY_BODY = { originalTransactionId: null, productId: '' };
+
+describe('useRestorePurchases (073b-8)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('calls restorePurchases then verifyPurchase with null body', async () => {
+    (iapService.restorePurchases as jest.Mock).mockResolvedValue(undefined);
+    (subscriptionService.verifyPurchase as jest.Mock).mockResolvedValue(PREMIUM_ENTITLEMENT);
+    const { result } = renderHook(() => useRestorePurchases(), { wrapper });
+
+    await act(async () => {
+      result.current.mutate();
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(iapService.restorePurchases).toHaveBeenCalled();
+    expect(subscriptionService.verifyPurchase).toHaveBeenCalledWith(RESTORE_VERIFY_BODY);
+  });
+
+  it('invalidates track-contents, lesson, enrollments and user-profile on success', async () => {
+    (iapService.restorePurchases as jest.Mock).mockResolvedValue(undefined);
+    (subscriptionService.verifyPurchase as jest.Mock).mockResolvedValue(PREMIUM_ENTITLEMENT);
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+    const customWrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useRestorePurchases(), { wrapper: customWrapper });
+
+    await act(async () => {
+      result.current.mutate();
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['track-contents'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['lesson'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['enrollments'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['user-profile'] });
+  });
+
+  it('exposes error and does not call verifyPurchase when restorePurchases rejects', async () => {
+    (iapService.restorePurchases as jest.Mock).mockRejectedValue(new Error('Restore failed'));
+    const { result } = renderHook(() => useRestorePurchases(), { wrapper });
+
+    await act(async () => {
+      result.current.mutate();
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(subscriptionService.verifyPurchase).not.toHaveBeenCalled();
   });
 });

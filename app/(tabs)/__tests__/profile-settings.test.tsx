@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 import ProfileScreen from '../profile';
 import { useAuthStore } from '@/store/auth.store';
 import {
@@ -301,6 +302,29 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     const json = JSON.stringify(toJSON());
     expect(json.indexOf('SAVE SETTINGS')).toBeGreaterThan(-1);
     expect(json.indexOf('SAVE SETTINGS')).toBeLessThan(json.indexOf('LOG OUT'));
+  });
+
+  describe('Manage Subscription — 073b-8', () => {
+    let openURLSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    });
+
+    afterEach(() => {
+      openURLSpy.mockRestore();
+    });
+
+    it('renders the Manage Subscription button', () => {
+      render(<ProfileScreen />);
+      expect(screen.getByTestId('manage-subscription-btn')).toBeTruthy();
+    });
+
+    it('pressing Manage Subscription opens the iOS manage-subscriptions URL', () => {
+      render(<ProfileScreen />);
+      fireEvent.press(screen.getByTestId('manage-subscription-btn'));
+      expect(openURLSpy).toHaveBeenCalledWith('itms-apps://apps.apple.com/account/subscriptions');
+    });
   });
 
   describe('Ticket 072j — safe-area edges', () => {
