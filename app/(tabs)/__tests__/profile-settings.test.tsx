@@ -26,7 +26,11 @@ jest.mock('@/hooks/useProfile', () => ({
   useUpdateProfile: jest.fn(),
 }));
 jest.mock('@/hooks/usePushStatus', () => ({ usePushStatus: jest.fn() }));
-jest.mock('@/hooks/useAuth', () => ({ useLogout: jest.fn() }));
+jest.mock('@/hooks/useAuth', () => ({
+  useLogout: jest.fn(),
+  useDeleteAccount: jest.fn(() => ({ mutate: jest.fn(), isPending: false, isError: false, error: null, reset: jest.fn() })),
+  useDeleteAccountPreflight: jest.fn(() => ({ data: { teamOwnerships: [] }, isLoading: false })),
+}));
 jest.mock('@/hooks/useProgress', () => ({ useProgress: jest.fn() }));
 jest.mock('@/hooks/useTrack', () => ({ usePaths: jest.fn() }));
 jest.mock('@/hooks/useLesson', () => ({ useSavedLessons: jest.fn() }));

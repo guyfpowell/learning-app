@@ -16,19 +16,22 @@ import React from 'react';
 import {
   Pressable,
   PressableProps,
+  StyleProp,
   StyleSheet,
   Text,
   View,
+  ViewStyle,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 
 export type QuizOptState = 'idle' | 'selected' | 'correct' | 'incorrect';
 
-interface QuizOptProps extends Omit<PressableProps, 'children'> {
+interface QuizOptProps extends Omit<PressableProps, 'children' | 'style'> {
   optKey: string;   // A, B, C, D
   label: string;
   state?: QuizOptState;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function QuizOpt({
@@ -45,13 +48,13 @@ export function QuizOpt({
   return (
     <Pressable
       testID={testID}
-      onPress={isAnswered ? undefined : onPress}
+      onPress={onPress}
       disabled={isAnswered}
       style={({ pressed }) => [
         styles.opt,
         stateStyle(state),
         pressed && !isAnswered && styles.optPressed,
-        style as object,
+        style,
       ]}
       {...rest}
     >

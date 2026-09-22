@@ -9,12 +9,19 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useCurrentUser, useResendVerification } from '@/hooks/useEmailVerification';
 import { iapService } from '@/services/iap.service';
 import { useAuthStore } from '@/store/auth.store';
+import * as Sentry from '@sentry/react-native';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
+// Verification banner colours — not in the design system's amber scale (that's
+// #FFEECF/#EDB345/#BE7C1C); these are a distinct, deliberately lighter shade.
+const BANNER_BG = '#fffbeb';
+const BANNER_BORDER = '#fde68a';
+const BANNER_TEXT = '#92400e';
+
 function tabIcon(name: IoniconName, focusedName: IoniconName) {
   return ({ color, focused }: { color: ColorValue; focused: boolean }) => (
-    <Ionicons name={focused ? focusedName : name} size={24} color={color as string} />
+    <Ionicons name={focused ? focusedName : name} size={24} color={color} />
   );
 }
 
@@ -30,7 +37,10 @@ export default function TabsLayout() {
     const apiKey = process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY ?? '';
     if (!apiKey || !userId) return;
     iapService.configure(apiKey);
-    iapService.logIn(userId).catch(() => {/* non-fatal — purchases still work */});
+    iapService.logIn(userId).catch((err) => {
+      // non-fatal — purchases still work, but record it for diagnosis
+      Sentry.addBreadcrumb({ category: 'iap', message: 'logIn failed', level: 'warning', data: { err: String(err) } });
+    });
   }, [userId]);
 
   const queryClient = useQueryClient();
@@ -72,22 +82,22 @@ export default function TabsLayout() {
         testID="tab-top-inset"
         style={{
           paddingTop: insets.top,
-          backgroundColor: showBanner ? '#fffbeb' : colors.bg,
+          backgroundColor: showBanner ? BANNER_BG : colors.bg,
         }}
       />
       {showBanner && (
         <View
           testID="email-verification-banner"
           style={{
-            backgroundColor: '#fffbeb',
+            backgroundColor: BANNER_BG,
             borderBottomWidth: 1,
-            borderBottomColor: '#fde68a',
+            borderBottomColor: BANNER_BORDER,
             paddingTop: spacing.sm,
             paddingBottom: spacing.sm,
-            paddingHorizontal: 16,
+            paddingHorizontal: spacing.md,
           }}
         >
-          <Text style={{ fontSize: fontSize.xs, color: '#92400e' }}>
+          <Text style={{ fontSize: fontSize.xs, color: BANNER_TEXT }}>
             Please verify your email to keep your account active.{' '}
             {resendSent ? (
               <Text style={{ fontFamily: font.medium }}>Email sent!</Text>

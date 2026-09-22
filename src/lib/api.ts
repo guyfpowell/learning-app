@@ -82,7 +82,13 @@ async function tryRefresh(): Promise<string | null> {
     const { user } = useAuthStore.getState();
     if (user) useAuthStore.getState().setAuth(user, newToken);
     return newToken;
-  } catch {
+  } catch (err) {
+    Sentry.addBreadcrumb({
+      category: 'auth',
+      message: 'Token refresh failed',
+      level: 'warning',
+      data: { err: String(err) },
+    });
     return null;
   }
 }

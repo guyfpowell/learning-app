@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Switch, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker, { type DateTimePickerChangeEvent } from '@react-native-community/datetimepicker';
@@ -23,6 +23,8 @@ import {
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { usePushStatus } from '@/hooks/usePushStatus';
 import { extractError } from '@/lib/errors';
+import { openManageSubscriptions } from '@/lib/subscriptions';
+import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -123,6 +125,7 @@ export default function ProfileScreen() {
   const { data: achievements, isLoading: achievementsLoading } = useAchievements();
 
   const [selectedKey, setSelectedKey] = useState<AchievementKey | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   // ── Settings (folded in from the deleted Settings tab, 076b) ──────────────
   const { data: prefs, isLoading: prefsLoading } = useNotificationPreferences();
@@ -403,7 +406,7 @@ export default function ProfileScreen() {
         <Card style={styles.settingsCard}>
           <Pressable
             testID="manage-subscription-btn"
-            onPress={() => Linking.openURL('itms-apps://apps.apple.com/account/subscriptions')}
+            onPress={openManageSubscriptions}
             style={styles.manageSubRow}
           >
             <Text style={styles.manageSubText}>Manage Subscription</Text>
@@ -420,10 +423,23 @@ export default function ProfileScreen() {
           onPress={() => logout.mutate()}
         />
 
+        {/* ── Delete account ────────────────────────────────────────────────── */}
+        <Pressable
+          testID="delete-account-btn"
+          onPress={() => setDeleteModalOpen(true)}
+          style={styles.deleteAccountLink}
+        >
+          <Text style={styles.deleteAccountText}>Delete Account</Text>
+        </Pressable>
+
       </ScrollView>
 
       {selectedKey && selectedItem && (
         <AchievementDetailModal item={selectedItem} onClose={() => setSelectedKey(null)} />
+      )}
+
+      {deleteModalOpen && (
+        <DeleteAccountModal onClose={() => setDeleteModalOpen(false)} />
       )}
 
     </SafeAreaView>
@@ -737,4 +753,16 @@ const styles = StyleSheet.create({
     textAlign:  'center',
   },
   logoutBtn: { marginTop: spacing.md },
+
+  // Delete account link
+  deleteAccountLink: {
+    alignItems:    'center',
+    paddingVertical: spacing.md,
+    marginTop:     spacing.sm,
+  },
+  deleteAccountText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.error,
+  },
 });

@@ -18,7 +18,14 @@ import { Card } from '@/components/ui/Card';
 import { useRegister } from '@/hooks/useAuth';
 import { authService } from '@/services/auth.service';
 import { colors, font, fontSize, spacing } from '@/theme';
-import { extractError } from '@/lib/errors';
+import { extractError, errorCode } from '@/lib/errors';
+import * as Sentry from '@sentry/react-native';
+import {
+  ERROR_CODES,
+  INVITE_CODE_DISPLAY_LENGTH,
+  formatInviteCode,
+  normaliseInviteCode,
+} from '@learning/shared';
 
 const SYMBOL_RE = /[!@#$%^&*()[\]{}|;:,.<>?\-_=+/]/;
 
@@ -70,16 +77,13 @@ function validateConfirm(password: string, confirm: string): string | null {
   return null;
 }
 
-/** Normalise invite code: uppercase, strip non-alphanumeric except hyphens. */
-function normaliseInviteCode(raw: string): string {
-  return raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
-}
-
-/** Format for display: XXXX-XXXX (hyphen after 4 chars). */
-function formatInviteCode(canonical: string): string {
-  if (canonical.length <= 4) return canonical;
-  return `${canonical.slice(0, 4)}-${canonical.slice(4, 8)}`;
-}
+/** Copy for the four INVITE_CODE_* server errors (ticket 073a). */
+const INVITE_ERROR_COPY = new Map<string, string>([
+  [ERROR_CODES.INVITE_CODE_REQUIRED, 'An invite code is required.'],
+  [ERROR_CODES.INVITE_CODE_INVALID, 'This invite code is not valid.'],
+  [ERROR_CODES.INVITE_CODE_EXHAUSTED, 'This invite code has already been used.'],
+  [ERROR_CODES.INVITE_CODE_EXPIRED, 'This invite code has expired.'],
+]);
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -107,14 +111,19 @@ export default function RegisterScreen() {
       .then(({ mode }) => {
         if (mode === 'invite_only') setShowInviteField(true);
       })
-      .catch(() => {
-        // Silent: INVITE_CODE_REQUIRED server error will reveal the field if needed.
+      .catch((err) => {
+        // Field stays hidden; an INVITE_CODE_REQUIRED server error will reveal it if needed.
+        Sentry.addBreadcrumb({
+          category: 'auth',
+          message: 'registration-mode fetch failed',
+          level: 'warning',
+          data: { error: String(err) },
+        });
       });
   }, []);
 
   function handleInviteCodeChange(text: string) {
-    const canonical = normaliseInviteCode(text);
-    setInviteCode(formatInviteCode(canonical));
+    setInviteCode(formatInviteCode(text));
   }
 
   function handleSubmit() {
@@ -135,22 +144,13 @@ export default function RegisterScreen() {
   }
 
   // Ticket 073a step 2: reveal invite field on INVITE_CODE_REQUIRED server error.
-  const serverErrorCode = register.error
-    ? (register.error as Error & { response?: { data?: { code?: string } } })?.response?.data?.code
-    : null;
+  const serverErrorCode = register.error ? errorCode(register.error) : null;
 
-  if (serverErrorCode === 'INVITE_CODE_REQUIRED' && !showInviteField) {
+  if (serverErrorCode === ERROR_CODES.INVITE_CODE_REQUIRED && !showInviteField) {
     setShowInviteField(true);
   }
 
-  function inviteErrorMessage(): string | undefined {
-    if (!serverErrorCode) return undefined;
-    if (serverErrorCode === 'INVITE_CODE_REQUIRED') return 'An invite code is required.';
-    if (serverErrorCode === 'INVITE_CODE_INVALID') return 'This invite code is not valid.';
-    if (serverErrorCode === 'INVITE_CODE_EXHAUSTED') return 'This invite code has already been used.';
-    if (serverErrorCode === 'INVITE_CODE_EXPIRED') return 'This invite code has expired.';
-    return undefined;
-  }
+  const inviteError = serverErrorCode ? INVITE_ERROR_COPY.get(serverErrorCode) : undefined;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -172,7 +172,7 @@ export default function RegisterScreen() {
               Join Ascent and start building your skills.
             </Text>
 
-            {register.isError && !inviteErrorMessage() && (
+            {register.isError && !inviteError && (
               <View style={styles.errorBanner}>
                 <Text style={styles.errorBannerText}>
                   {extractError(register.error)}
@@ -196,11 +196,11 @@ export default function RegisterScreen() {
                   label="Invite code"
                   value={inviteCode}
                   onChangeText={handleInviteCodeChange}
-                  error={inviteErrorMessage()}
+                  error={inviteError}
                   placeholder="XXXX-XXXX"
                   autoCapitalize="characters"
                   autoCorrect={false}
-                  maxLength={9}
+                  maxLength={INVITE_CODE_DISPLAY_LENGTH}
                   returnKeyType="next"
                 />
               )}
