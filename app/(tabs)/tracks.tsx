@@ -11,13 +11,23 @@ import { PathCard } from '@/components/ui/PathCard';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { useSkills, usePaths, useEnroll, useSetActivePath, useSkipLesson, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import { extractError } from '@/lib/errors';
-import type { SkillWithAccess } from '@learning/shared';
 
-const categoryLabel: Record<SkillWithAccess['category'], string> = {
+// Display-only labels. `category` is free text (web admin can create others), so
+// callers must fall back to the raw value for anything not listed here.
+const categoryLabel: Record<string, string> = {
   'product-management': 'Product',
   'ai-engineering':     'AI Eng',
   'business':           'Business',
 };
+
+/** What a catalogue card offers: exactly one of these, decided by enrolment first, then access. */
+type SkillAction = 'active' | 'make-active' | 'upgrade' | 'enrol';
+
+function skillAction(isEnrolled: boolean, isActive: boolean, isLocked: boolean): SkillAction {
+  if (isEnrolled) return isActive ? 'active' : 'make-active';
+  if (isLocked) return 'upgrade';
+  return 'enrol';
+}
 
 export default function TracksScreen() {
   const router = useRouter();
@@ -79,13 +89,13 @@ export default function TracksScreen() {
               <Pressable
                 key={`${path.kind}-${path.id}`}
                 testID={`custom-path-tap-${path.id}`}
-                onPress={() => router.push(`/(tabs)/track/${path.kind}/${path.id}` as never)}
+                onPress={() => router.push(`/(tabs)/track/${path.kind}/${path.id}`)}
                 accessibilityRole="button"
                 accessibilityLabel={`View ${path.name} details`}
               >
                 <PathCard
                   path={path}
-                  onStartLesson={(id) => router.push(`/(tabs)/lesson/${id}` as never)}
+                  onStartLesson={(id) => router.push(`/(tabs)/lesson/${id}`)}
                   onSkipLesson={(p) => skipLesson.mutate({ kind: p.kind, id: p.id })}
                   onSkipTopic={(p) => skipTopic.mutate({ kind: p.kind, id: p.id })}
                   onSkipLevel={(p) => skipLevel.mutate({ kind: p.kind, id: p.id })}
@@ -102,7 +112,7 @@ export default function TracksScreen() {
           <Pressable
             testID="albert-cta"
             accessibilityRole="link"
-            onPress={() => router.push('/(tabs)/albert' as never)}
+            onPress={() => router.push('/(tabs)/albert')}
             style={styles.albertCta}
           >
             <Text style={styles.albertCtaText}>
@@ -118,6 +128,7 @@ export default function TracksScreen() {
           const isActiveMark = activeSkillId === skill.id;
           const isLocked = !skill.userHasAccess;
           const totalHours = skill.skillPaths.reduce((sum, p) => sum + p.durationHours, 0);
+          const action = skillAction(isEnrolled, isActiveMark, isLocked);
 
           return (
             /* The whole card is tappable → navigates to track detail.
@@ -126,13 +137,13 @@ export default function TracksScreen() {
             <Pressable
               key={skill.id}
               testID={`skill-card-tap-${skill.id}`}
-              onPress={() => router.push(`/(tabs)/track/track/${skill.id}` as never)}
+              onPress={() => router.push(`/(tabs)/track/track/${skill.id}`)}
               accessibilityRole="button"
               accessibilityLabel={`View ${skill.name} track details`}
             >
               <Card testID={`skill-card-${skill.id}`} style={styles.card}>
                 <View style={styles.badgeRow}>
-                  <Badge label={categoryLabel[skill.category]} variant="info" />
+                  <Badge label={categoryLabel[skill.category] ?? skill.category} variant="info" />
                   {isEnrolled && (
                     <View testID={`enrolled-badge-${skill.id}`}>
                       <Badge label="Enrolled" variant="success" />
@@ -160,33 +171,34 @@ export default function TracksScreen() {
                   {totalHours} hrs
                 </Text>
 
-                {isEnrolled ? (
-                  isActiveMark ? (
-                    <Text testID={`active-text-${skill.id}`} style={styles.activeText}>
-                      Active track
+                {action === 'active' && (
+                  <Text testID={`active-text-${skill.id}`} style={styles.activeText}>
+                    Active track
+                  </Text>
+                )}
+                {action === 'make-active' && (
+                  <>
+                    <Text testID={`enrolled-text-${skill.id}`} style={styles.enrolledText}>
+                      Currently enrolled
                     </Text>
-                  ) : (
-                    <>
-                      <Text testID={`enrolled-text-${skill.id}`} style={styles.enrolledText}>
-                        Currently enrolled
-                      </Text>
-                      <Button
-                        testID={`make-active-btn-${skill.id}`}
-                        label="Make active"
-                        loading={setActive.isPending && setActive.variables?.id === skill.id}
-                        style={styles.makeActiveBtn}
-                        onPress={() => setActive.mutate({ kind: 'track', id: skill.id })}
-                      />
-                    </>
-                  )
-                ) : isLocked ? (
+                    <Button
+                      testID={`make-active-btn-${skill.id}`}
+                      label="Make active"
+                      loading={setActive.isPending && setActive.variables?.id === skill.id}
+                      style={styles.makeActiveBtn}
+                      onPress={() => setActive.mutate({ kind: 'track', id: skill.id })}
+                    />
+                  </>
+                )}
+                {action === 'upgrade' && (
                   <Button
                     testID={`upgrade-btn-${skill.id}`}
                     label="🔒 Upgrade"
                     style={styles.lockedBtn}
                     onPress={() => setPremiumModalVisible(true)}
                   />
-                ) : (
+                )}
+                {action === 'enrol' && (
                   <Button
                     testID={`enrol-btn-${skill.id}`}
                     label="Enrol"

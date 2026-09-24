@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { Lesson, LessonSummary } from '@learning/shared';
+import type { Lesson, LessonPhase, LessonSummary } from '@learning/shared';
 
 export const lessonService = {
   async getLesson(id: string): Promise<Lesson> {
@@ -21,7 +21,7 @@ export const lessonService = {
     return data;
   },
 
-  async updatePosition(lessonId: string, phase: 'collapsed' | 'expanded' | 'takeaway'): Promise<void> {
+  async updatePosition(lessonId: string, phase: LessonPhase): Promise<void> {
     await api.patch(`/lessons/${lessonId}/position`, { phase });
   },
 };

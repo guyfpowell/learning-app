@@ -13,15 +13,13 @@ import { QuizModal } from '@/components/QuizModal';
 import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
-import type { UserPath } from '@learning/shared';
+import type { LessonPhase, UserPath } from '@learning/shared';
 
 const difficultyVariant = {
   beginner:     'success',
   intermediate: 'warning',
   advanced:     'error',
 } as const;
-
-type LessonPhase = 'collapsed' | 'expanded' | 'takeaway';
 
 function isPremiumError(error: unknown): boolean {
   return (
@@ -114,7 +112,7 @@ export default function LessonDetailScreen() {
 
   // Server-persisted read position: non-null when the user has opened but not
   // completed this lesson. undefined = paths query still loading.
-  const resumePhase: 'collapsed' | 'expanded' | 'takeaway' | null | undefined = paths
+  const resumePhase: LessonPhase | null | undefined = paths
     ? (() => {
         for (const p of paths) {
           if (p.nextLesson?.id === id) return p.nextLesson.resumePhase ?? null;

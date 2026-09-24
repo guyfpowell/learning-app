@@ -176,6 +176,13 @@ describe('TracksScreen', () => {
     expect(screen.getByText('PRODUCT')).toBeTruthy();
   });
 
+  it('falls back to the raw category for a value with no label (BUG-080e-1)', () => {
+    // Web admin can create categories such as 'design' / 'data-science'.
+    setMocks({ skills: [{ ...baseSkill, category: 'data-science' }] });
+    render(<TracksScreen />);
+    expect(screen.getByText('DATA-SCIENCE')).toBeTruthy();
+  });
+
   it('shows Enrol button for accessible, non-enrolled skill', () => {
     render(<TracksScreen />);
     expect(screen.getByTestId('enrol-btn-skill-1')).toBeTruthy();
