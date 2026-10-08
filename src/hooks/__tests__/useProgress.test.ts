@@ -20,7 +20,8 @@ const mockStats = {
   totalLessonsCompleted: 5,
   currentStreak: 3,
   averageScore: 82,
-  lastLessonDate: new Date('2026-04-13'),
+  lastLessonDate: new Date('2026-04-13').toISOString(),
+  completedLessons: [],
 };
 
 function makeWrapper() {

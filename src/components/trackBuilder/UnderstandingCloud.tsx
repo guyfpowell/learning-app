@@ -21,7 +21,7 @@
  */
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, font, fontSize, spacing } from '@/theme';
-import type { CloudTerm } from '@/services/trackBuilder.service';
+import type { CloudTerm } from '@learning/shared';
 
 /** Size follows how much they have said about it, never how much it matched. */
 const sizeOf = (weight: number) => fontSize.sm + weight * 8;

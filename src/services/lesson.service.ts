@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { Lesson, LessonPhase, LessonSummary } from '@learning/shared';
+import type { Lesson, LessonPhase, LessonSummary, SaveLessonResponse, SaveLessonPositionRequest } from '@learning/shared';
 
 export const lessonService = {
   async getLesson(id: string): Promise<Lesson> {
@@ -8,7 +8,7 @@ export const lessonService = {
   },
 
   async saveLesson(lessonId: string): Promise<{ saved: true }> {
-    const { data } = await api.post<{ saved: true }>(`/lessons/${lessonId}/save`);
+    const { data } = await api.post<SaveLessonResponse>(`/lessons/${lessonId}/save`);
     return data;
   },
 
@@ -22,6 +22,7 @@ export const lessonService = {
   },
 
   async updatePosition(lessonId: string, phase: LessonPhase): Promise<void> {
-    await api.patch(`/lessons/${lessonId}/position`, { phase });
+    const body: SaveLessonPositionRequest = { phase };
+    await api.patch(`/lessons/${lessonId}/position`, body);
   },
 };

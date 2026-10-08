@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { RegisterPushTokenRequest } from '@learning/shared';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useAuthStore } from '@/store/auth.store';
@@ -166,7 +167,8 @@ export async function registerPushToken(
   platform: 'expo' | 'web',
   deviceId?: string
 ): Promise<void> {
-  await api.post('/notifications/push-token', { token, platform, deviceId });
+  const body: RegisterPushTokenRequest = { token, platform, deviceId };
+  await api.post('/notifications/push-token', body);
 }
 
 export default api;

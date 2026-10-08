@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BuiltPlan } from '@/services/trackBuilder.service';
+import type { BuiltPlan } from '@learning/shared';
 
 /**
  * The in-progress path, between the build screen and the review screen.

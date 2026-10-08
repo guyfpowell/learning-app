@@ -3,6 +3,7 @@ import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { isAxiosError } from 'axios';
+import type { ApiErrorResponse, PremiumRequiredDetails } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -64,8 +65,10 @@ function PremiumModal({
   onUpgrade: () => void;
 }) {
   const isLimit = isTeaserLimitError(error);
-  const teasersUsed: number = isAxiosError(error) ? (error.response?.data?.teasersUsed ?? 0) : 0;
-  const teasersRemaining = 3 - teasersUsed;
+  const details: Partial<PremiumRequiredDetails> | undefined =
+    isAxiosError<ApiErrorResponse<Partial<PremiumRequiredDetails>>>(error) ? error.response?.data?.details : undefined;
+  const teasersUsed = details?.teasersUsed ?? 0;
+  const teasersRemaining = details?.teasersRemaining ?? 3 - teasersUsed;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>

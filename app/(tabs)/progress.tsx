@@ -159,7 +159,7 @@ export default function ProgressScreen() {
               <Card style={styles.dateCard}>
                 <Text style={styles.dateLabel}>
                   Last lesson:{' '}
-                  {new Date(data.lastLessonDate as unknown as string).toLocaleDateString('en-GB', {
+                  {new Date(data.lastLessonDate).toLocaleDateString('en-GB', {
                     day: 'numeric',
                     month: 'short',
                     year: 'numeric',

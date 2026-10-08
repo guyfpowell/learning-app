@@ -1,10 +1,5 @@
 import api from '@/lib/api';
-import type { NotificationPreference } from '@learning/shared';
-
-export type UpdatePreferencesInput = Pick<
-  NotificationPreference,
-  'enableDailyReminder' | 'enableStreak' | 'enableLessonAvailable'
->;
+import type { NotificationPreference, UpdateNotificationPreferencesRequest } from '@learning/shared';
 
 export const notificationService = {
   async getPreferences(): Promise<NotificationPreference> {
@@ -12,7 +7,7 @@ export const notificationService = {
     return data;
   },
 
-  async updatePreferences(prefs: UpdatePreferencesInput): Promise<NotificationPreference> {
+  async updatePreferences(prefs: UpdateNotificationPreferencesRequest): Promise<NotificationPreference> {
     const { data } = await api.patch<NotificationPreference>('/notifications/preferences', prefs);
     return data;
   },

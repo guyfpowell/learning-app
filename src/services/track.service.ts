@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { ActivePathRef, SkillWithAccess, TrackContents, UserPath, UserPathKind } from '@learning/shared';
+import type { EnrollTrackRequest, ActivePathRef, SkillWithAccess, TrackContents, UserPath, UserPathKind } from '@learning/shared';
 
 export const trackService = {
   async getSkills(): Promise<SkillWithAccess[]> {
@@ -19,7 +19,8 @@ export const trackService = {
   },
 
   async enroll(skillId: string): Promise<void> {
-    await api.post('/enrollments', { skillId });
+    const body: EnrollTrackRequest = { skillId };
+    await api.post('/enrollments', body);
   },
 
   /** Makes a path of either kind the active one. */

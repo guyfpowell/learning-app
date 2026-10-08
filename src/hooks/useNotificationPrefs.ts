@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { notificationService, type UpdatePreferencesInput } from '@/services/notification.service';
+import type { UpdateNotificationPreferencesRequest } from '@learning/shared';
+import { notificationService } from '@/services/notification.service';
 
 export function useNotificationPreferences() {
   return useQuery({
@@ -11,7 +12,7 @@ export function useNotificationPreferences() {
 export function useUpdateNotificationPreferences() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (prefs: UpdatePreferencesInput) => notificationService.updatePreferences(prefs),
+    mutationFn: (prefs: UpdateNotificationPreferencesRequest) => notificationService.updatePreferences(prefs),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications', 'preferences'] }),
   });
 }

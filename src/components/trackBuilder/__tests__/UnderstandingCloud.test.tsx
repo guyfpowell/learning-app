@@ -7,7 +7,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { UnderstandingCloud } from '../UnderstandingCloud';
-import type { CloudTerm } from '@/services/trackBuilder.service';
+import type { CloudTerm } from '@learning/shared';
 
 const term = (over: Partial<CloudTerm> & { text: string }): CloudTerm => ({
   kind: 'request', weight: 1, struck: false, request: 'c1', ...over,

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { trackBuilderService } from '@/services/trackBuilder.service';
 import type {
   BuiltPlanTopic, TrackPlanTopic, TrackBuilderTurn, RequestChunk,
-} from '@/services/trackBuilder.service';
+} from '@learning/shared';
 
 /**
  * Track builder hooks — ticket 049 Chunk 5.

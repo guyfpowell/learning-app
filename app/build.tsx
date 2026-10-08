@@ -6,7 +6,7 @@ import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useBuildPlan } from '@/hooks/useTrackBuilder';
-import type { BuiltPlan, CloudTerm } from '@/services/trackBuilder.service';
+import type { BuiltPlan, CloudTerm } from '@learning/shared';
 import { UnderstandingCloud } from '@/components/trackBuilder/UnderstandingCloud';
 import { useDraftStore } from '@/store/trackBuilder.store';
 import { extractError, errorCode } from '@/lib/errors';

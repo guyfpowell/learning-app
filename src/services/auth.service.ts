@@ -1,21 +1,10 @@
 import api from '@/lib/api';
-import type { AuthResponse, UserAuth, RegistrationModeResponse, RegisterRequest } from '@learning/shared';
+import type { AuthResponse, UserAuth, RegistrationModeResponse, RegisterRequest, SessionUser, AuthRequest } from '@learning/shared';
 import * as Sentry from '@sentry/react-native';
 
-export interface LoginInput {
-  email: string;
-  password: string;
-}
+export type LoginInput = AuthRequest;
 
 export type RegisterInput = RegisterRequest;
-
-export interface CurrentUser {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  emailVerified: boolean;
-}
 
 export const authService = {
   async login(input: LoginInput): Promise<{ user: UserAuth; token: string }> {
@@ -71,8 +60,8 @@ export const authService = {
     }
   },
 
-  async getMe(): Promise<CurrentUser> {
-    const { data } = await api.get<CurrentUser>('/auth/me');
+  async getMe(): Promise<SessionUser> {
+    const { data } = await api.get<SessionUser>('/auth/me');
     return data;
   },
 

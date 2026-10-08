@@ -8,9 +8,8 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useDraftStore } from '@/store/trackBuilder.store';
 import { useRefinePlan, useCreateTrackPlan } from '@/hooks/useTrackBuilder';
-import type { BuiltPlanTopic } from '@/services/trackBuilder.service';
 import { extractError } from '@/lib/errors';
-import { PATH_NAME_MAX, PLAN_FOLLOW_UP_ENABLED, reasonRuns } from '@learning/shared';
+import { PATH_NAME_MAX, PLAN_FOLLOW_UP_ENABLED, reasonRuns, type BuiltPlanTopic } from '@learning/shared';
 
 /**
  * Review the built path — ticket 049 Chunk 5, mobile parity with the web

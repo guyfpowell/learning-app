@@ -78,8 +78,8 @@ const mockPrefs: NotificationPreference = {
   reminderTime: 'morning',
   enableStreak: true,
   enableLessonAvailable: true,
-  createdAt: new Date(),
-  updatedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
 };
 
 const mockMutate = jest.fn();

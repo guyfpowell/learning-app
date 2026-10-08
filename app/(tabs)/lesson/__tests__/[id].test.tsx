@@ -173,7 +173,7 @@ describe('LessonDetailScreen', () => {
       isAxiosError: true,
       response: {
         status: 403,
-        data: { code: 'LESSON_005', message: 'Teaser limit', teasersUsed: 3 },
+        data: { code: 'LESSON_005', error: 'Teaser limit', details: { teasersUsed: 2, teasersRemaining: 1 } },
       },
       message: 'Request failed with status code 403',
     };
@@ -182,6 +182,24 @@ describe('LessonDetailScreen', () => {
     });
     render(<LessonDetailScreen />);
     expect(screen.getByTestId('premium-error-card')).toBeTruthy();
+  });
+
+  it('shows the teaser counts the API sends in details (080i)', () => {
+    const err = {
+      isAxiosError: true,
+      response: {
+        status: 403,
+        data: { code: 'LESSON_005', error: 'Teaser limit', details: { teasersUsed: 2, teasersRemaining: 1 } },
+      },
+      message: 'Request failed with status code 403',
+    };
+    (useLesson as jest.Mock).mockReturnValue({
+      isLoading: false, isError: true, data: undefined, error: err,
+    });
+    render(<LessonDetailScreen />);
+    fireEvent.press(screen.getByText('LEARN MORE'));
+    expect(screen.getByText(/You've used 2 of 3/)).toBeTruthy();
+    expect(screen.getByText(/1 free preview remaining/)).toBeTruthy();
   });
 
   it('shows "Lesson not found" for 404', () => {

@@ -136,7 +136,7 @@ describe('TrackDetailScreen', () => {
   const nextLessonBase = {
     id: 'lesson-1', skillPathId: 'sp-1', title: 'Test', content: 'x',
     durationMinutes: 5, difficulty: 'beginner' as const, lessonNumber: 1, isTeaser: false,
-    createdAt: new Date(), updatedAt: new Date(),
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   };
 
   it('shows Start lesson when nextLesson.resumePhase is null', () => {

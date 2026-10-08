@@ -62,8 +62,8 @@ const mockLesson = {
   durationMinutes: 5,
   difficulty: 'beginner' as const,
   quizzes: [mockQuiz1, mockQuiz2],
-  createdAt: new Date(),
-  updatedAt: new Date(),
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
 };
 
 const mockLessonNoQuiz = { ...mockLesson, quizzes: [] };

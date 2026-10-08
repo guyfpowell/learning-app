@@ -1,12 +1,7 @@
 import api, { BACKGROUND_REQUEST } from '@/lib/api';
-import type { UserAuth, UserProfile, Seniority, DeleteAccountPreflight, DeleteAccountRequest } from '@learning/shared';
+import type { UserAuth, UserProfile, Seniority, DeleteAccountPreflight, DeleteAccountRequest, UpdateProfileRequest, UpdateSeniorityRequest, UpdateTracksRequest } from '@learning/shared';
 
-export interface UpdateProfileInput {
-  preferredTime?: string;
-  timezone?: string;
-  learningStyle?: string;
-  onboardingCompleted?: boolean;
-}
+export type UpdateProfileInput = UpdateProfileRequest;
 
 export const userService = {
   async getMe(): Promise<UserAuth> {
@@ -20,11 +15,13 @@ export const userService = {
   },
 
   async updateSeniority(seniority: Seniority): Promise<void> {
-    await api.patch('/users/me/seniority', { seniority });
+    const body: UpdateSeniorityRequest = { seniority };
+    await api.patch('/users/me/seniority', body);
   },
 
   async updateTracks(trackIds: string[]): Promise<void> {
-    await api.put('/users/me/tracks', { trackIds });
+    const body: UpdateTracksRequest = { trackIds };
+    await api.put('/users/me/tracks', body);
   },
 
   async updateProfile(input: UpdateProfileInput): Promise<void> {
