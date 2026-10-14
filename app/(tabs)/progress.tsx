@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import type { UserPath } from '@learning/shared';
+import { PATHS_LOAD_ERROR, xpProgressOf, type UserPath } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
@@ -68,8 +68,9 @@ function ExpandablePathCard({ path, onFindNext }: { path: UserPath; onFindNext: 
 export default function ProgressScreen() {
   const router = useRouter();
   const { data, isLoading, isError } = useProgress();
-  const { data: paths } = usePaths();
+  const { data: paths, isError: pathsFailed } = usePaths();
   const { data: xpData } = useXp();
+  const xpProgress = xpData ? xpProgressOf(xpData) : null;
 
   // Split by state, never by kind (ADR-009 C16) — a custom path belongs in Progress
   // exactly as a track does. The user-wide stats above already counted its lessons,
@@ -87,6 +88,10 @@ export default function ProgressScreen() {
 
         {isError && (
           <Text style={styles.error}>Unable to load progress. Please try again.</Text>
+        )}
+
+        {pathsFailed && (
+          <Text testID="paths-load-error" style={styles.error}>{PATHS_LOAD_ERROR}</Text>
         )}
 
         {!isLoading && !isError && data === null && (
@@ -116,42 +121,27 @@ export default function ProgressScreen() {
               </Card>
             </View>
 
-            {xpData && (
+            {xpProgress && xpData && (
               <Card testID="xp-card" style={styles.xpCard}>
                 <View style={styles.xpHeader}>
                   <Text testID="xp-total" style={styles.xpTotal}>{xpData.totalXp.toLocaleString()} XP</Text>
-                  {xpData.tier ? (
-                    <Text testID="xp-tier-label" style={styles.xpTierLabel}>{xpData.tier.label}</Text>
-                  ) : xpData.nextMilestone ? (
+                  {xpProgress.kind === 'tier' && (
+                    <Text testID="xp-tier-label" style={styles.xpTierLabel}>{xpProgress.label}</Text>
+                  )}
+                  {xpProgress.kind === 'milestone' && (
                     <Text testID="xp-next-label" style={styles.xpNextLabel}>
-                      {xpData.nextMilestone.name} in {xpData.nextMilestone.xpRemaining.toLocaleString()} XP
+                      {xpProgress.name} in {xpProgress.xpRemaining.toLocaleString()} XP
                     </Text>
-                  ) : null}
+                  )}
                 </View>
-                {xpData.tier ? (
-                  <>
-                    <Text testID="xp-level-hint" style={styles.xpNextLabel}>
-                      {(xpData.tier.ceiling - xpData.totalXp).toLocaleString()} XP to next level
-                    </Text>
-                    <Progress
-                      testID="xp-progress-bar"
-                      value={Math.round(
-                        ((xpData.totalXp - xpData.tier.floor) /
-                          (xpData.tier.ceiling - xpData.tier.floor)) *
-                          100,
-                      )}
-                      tone="xp"
-                    />
-                  </>
-                ) : xpData.nextMilestone ? (
-                  <Progress
-                    testID="xp-progress-bar"
-                    value={Math.round(
-                      (xpData.totalXp / xpData.nextMilestone.xpRequired) * 100,
-                    )}
-                    tone="xp"
-                  />
-                ) : null}
+                {xpProgress.kind === 'tier' && (
+                  <Text testID="xp-level-hint" style={styles.xpNextLabel}>
+                    {xpProgress.xpToNext.toLocaleString()} XP to next level
+                  </Text>
+                )}
+                {xpProgress.kind !== 'done' && (
+                  <Progress testID="xp-progress-bar" value={xpProgress.percent} tone="xp" />
+                )}
               </Card>
             )}
 

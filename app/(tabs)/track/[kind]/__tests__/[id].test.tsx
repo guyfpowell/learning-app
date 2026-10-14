@@ -67,7 +67,6 @@ const mockPath: UserPath = {
   percentComplete:  30,
   nextLesson:       null,
   levels:           [],
-  upgradeRequired:  false,
   isActive:         true,
   canSkipLesson:    false,
   canSkipTopic:     false,

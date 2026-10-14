@@ -8,6 +8,7 @@ import { useProgress } from '@/hooks/useProgress';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { PathCard } from '@/components/ui/PathCard';
 import { Ring } from '@/components/ui/Ring';
+import { PATHS_LOAD_ERROR } from '@learning/shared';
 
 function streakCopy(streak: number): string {
   if (streak === 0) return 'Complete a lesson today to start your streak';
@@ -19,7 +20,7 @@ function streakCopy(streak: number): string {
 
 
 export default function LessonsScreen() {
-  const { data: paths } = usePaths();
+  const { data: paths, isError: pathsFailed } = usePaths();
   const { data: progress } = useProgress();
   const router = useRouter();
   const skipLesson = useSkipLesson();
@@ -42,6 +43,9 @@ export default function LessonsScreen() {
             streak hero and the stats row, so a brand-new user met a wall of zeros
             before reaching the one action available to them. */}
         {hasNoContent && <NoTrackNotice />}
+        {pathsFailed && (
+          <Text testID="paths-load-error" style={styles.loadError}>{PATHS_LOAD_ERROR}</Text>
+        )}
 
         {progress && !hasNoContent && progress.currentStreak > 3 && (
           <View testID="streak-banner" style={styles.streakBanner}>
@@ -116,6 +120,13 @@ export default function LessonsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
+  loadError: {
+    fontFamily: font.regular,
+    fontSize: fontSize.base,
+    color: colors.error,
+    textAlign: 'center',
+    marginTop: spacing.lg,
+  },
   content:   { padding: spacing.md, flexGrow: 1 },
 
   // ── Streak hero (069 A9) ─────────────────────────────────────────────────

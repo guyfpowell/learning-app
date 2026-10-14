@@ -116,7 +116,7 @@ api.interceptors.response.use(
     // left in place: a response shape that varied by endpoint is what forced every
     // caller to normalise before it could read its own data.
     if (response.data && typeof response.data === 'object' && 'success' in response.data && 'data' in response.data) {
-      response.data = (response.data as Record<string, unknown>).data;
+      response.data = response.data.data;
     }
     return response;
   },

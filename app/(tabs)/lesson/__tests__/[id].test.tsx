@@ -1,9 +1,11 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import LessonDetailScreen from '../[id]';
 import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { usePaths } from '@/hooks/useTrack';
+import { lessonService } from '@/services/lesson.service';
+import * as Sentry from '@sentry/react-native';
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(),
@@ -16,6 +18,10 @@ jest.mock('@/components/QuizModal', () => ({
 }));
 jest.mock('@/components/ui/BookmarkButton', () => ({
   BookmarkButton: () => null,
+}));
+// The screen writes the read position on mount; without this mock it went out over the real API client.
+jest.mock('@/services/lesson.service', () => ({
+  lessonService: { updatePosition: jest.fn().mockResolvedValue(undefined) },
 }));
 
 const mockRouter = { push: jest.fn(), replace: jest.fn() };
@@ -64,6 +70,16 @@ beforeEach(() => {
 });
 
 describe('LessonDetailScreen', () => {
+  // Refactor C6: the write's failure used to be swallowed by an empty catch.
+  it('leaves a breadcrumb when the position save fails, without telling the user', async () => {
+    (lessonService.updatePosition as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+    (useLesson as jest.Mock).mockReturnValue({ data: mockLesson, isLoading: false, error: null });
+    render(<LessonDetailScreen />);
+    await waitFor(() => expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
+      category: 'lesson', message: 'Position save failed', data: expect.objectContaining({ lessonId: 'lesson-1' }),
+    })));
+  });
+
   it('shows loading indicator while fetching', () => {
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: true, isError: false, data: undefined, error: null,
@@ -198,8 +214,10 @@ describe('LessonDetailScreen', () => {
     });
     render(<LessonDetailScreen />);
     fireEvent.press(screen.getByText('LEARN MORE'));
-    expect(screen.getByText(/You've used 2 of 3/)).toBeTruthy();
+    expect(screen.getByText(/You've used 2 of 3 free previews\. Upgrade to continue learning\./)).toBeTruthy();
     expect(screen.getByText(/1 free preview remaining/)).toBeTruthy();
+    // 080i BUG-2: the budget is lifetime, never monthly
+    expect(screen.queryByText(/this month/)).toBeNull();
   });
 
   it('shows "Lesson not found" for 404', () => {

@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { quizService } from '@/services/quiz.service';
-import type { QuizSubmitBody } from '@learning/shared';
+import type { SubmitQuizRequest } from '@learning/shared';
 
-type SubmitQuizInput = QuizSubmitBody & { lessonId: string };
+type SubmitQuizInput = SubmitQuizRequest & { lessonId: string };
 
 export function useSubmitQuiz() {
   const queryClient = useQueryClient();

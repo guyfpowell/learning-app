@@ -107,13 +107,7 @@ export function PathCard({
           </Text>
         )}
 
-        {path.upgradeRequired && (
-          <Text testID={`upgrade-required-${path.id}`} style={styles.noNextLesson}>
-            Upgrade to keep going on this path.
-          </Text>
-        )}
-
-        {!nextLesson && !path.upgradeRequired && (
+        {!nextLesson && (
           <Text testID={`no-next-lesson-${path.id}`} style={styles.noNextLesson}>
             No lessons available yet.
           </Text>

@@ -74,7 +74,6 @@ const mockEnrollment: UserPath = {
   percentComplete:  30,
   nextLesson:       null,
   levels:           [],
-  upgradeRequired:  false,
   isActive:         false,
   canSkipLesson:    false,
   canSkipTopic:     false,

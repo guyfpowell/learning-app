@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Progress } from '@/components/ui/Progress';
 import { TrackMap } from '@/components/ui/TrackMap';
-import type { UserPath } from '@learning/shared';
+import { formatPathDuration, type UserPath } from '@learning/shared';
 
 function flooredPct(path: UserPath): number {
   return path.completedLessons > 0 ? Math.max(1, Math.round(path.percentComplete)) : 0;
@@ -19,12 +19,6 @@ function motivation(path: UserPath, pct: number): string {
 /** Prefer the capstone score; fall back to the path average; null if neither. */
 function completedScore(path: UserPath): number | null {
   return path.capstoneScore ?? path.averageScore ?? null;
-}
-
-function formatDuration(enrolledAt: string, completedAt: string): string {
-  const days = Math.max(1, Math.round((+new Date(completedAt) - +new Date(enrolledAt)) / 86400000));
-  if (days >= 14) return `${Math.round(days / 7)} weeks`;
-  return `${days} day${days > 1 ? 's' : ''}`;
 }
 
 interface PathProgressProps {
@@ -87,7 +81,7 @@ export function PathProgress({ path, onFindNext }: PathProgressProps) {
         )}
         {dates?.completedAt && dates.enrolledAt && (
           <Text style={styles.completedMetaText}>
-            {' '}· {formatDuration(dates.enrolledAt, dates.completedAt)}
+            {' '}· {formatPathDuration(dates.enrolledAt, dates.completedAt)}
           </Text>
         )}
         <Text style={styles.completedMetaText}>

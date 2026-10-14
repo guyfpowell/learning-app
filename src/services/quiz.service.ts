@@ -1,17 +1,18 @@
 import api from '@/lib/api';
-import type { QuizResult } from '@learning/shared';
+import type { QuizResult, SubmitQuizRequest } from '@learning/shared';
 
 export const quizService = {
   async submitQuiz(
     lessonId: string,
-    answers: Record<string, string>,
-    options?: { isRetake?: boolean; skipRetake?: boolean }
+    answers: SubmitQuizRequest['answers'],
+    options?: Omit<SubmitQuizRequest, 'answers'>
   ): Promise<QuizResult> {
-    const { data } = await api.post<QuizResult>(`/lessons/${lessonId}/quiz`, {
+    const body: SubmitQuizRequest = {
       answers,
       isRetake: options?.isRetake ?? false,
       skipRetake: options?.skipRetake ?? false,
-    });
+    };
+    const { data } = await api.post<QuizResult>(`/lessons/${lessonId}/quiz`, body);
     return data;
   },
 };

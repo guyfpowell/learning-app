@@ -3,6 +3,7 @@ import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { isAxiosError } from 'axios';
+import * as Sentry from '@sentry/react-native';
 import type { ApiErrorResponse, PremiumRequiredDetails } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
@@ -15,6 +16,7 @@ import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
 import type { LessonPhase, UserPath } from '@learning/shared';
+import { PREMIUM_LESSON_BUDGET } from '@learning/shared';
 
 const difficultyVariant = {
   beginner:     'success',
@@ -68,7 +70,7 @@ function PremiumModal({
   const details: Partial<PremiumRequiredDetails> | undefined =
     isAxiosError<ApiErrorResponse<Partial<PremiumRequiredDetails>>>(error) ? error.response?.data?.details : undefined;
   const teasersUsed = details?.teasersUsed ?? 0;
-  const teasersRemaining = details?.teasersRemaining ?? 3 - teasersUsed;
+  const teasersRemaining = details?.teasersRemaining ?? PREMIUM_LESSON_BUDGET - teasersUsed;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -80,12 +82,12 @@ function PremiumModal({
           </Text>
           <Text style={styles.modalBody}>
             {isLimit
-              ? `You've used ${teasersUsed} of 3 free previews this month. Upgrade to continue learning.`
+              ? `You've used ${teasersUsed} of ${PREMIUM_LESSON_BUDGET} free previews. Upgrade to continue learning.`
               : 'This is premium content. Upgrade to unlock unlimited access to all lessons.'}
           </Text>
           {isLimit && (
             <Text style={styles.teasersRemaining}>
-              {teasersRemaining} free preview{teasersRemaining === 1 ? '' : 's'} remaining this month
+              {teasersRemaining} free preview{teasersRemaining === 1 ? '' : 's'} remaining
             </Text>
           )}
           <Button label="Upgrade now" onPress={onUpgrade} />
@@ -124,9 +126,11 @@ export default function LessonDetailScreen() {
       })()
     : undefined;
 
-  // Fire-and-forget position write; failures are silent (spec constraint 6)
+  // Fire-and-forget position write: a failure is silent to the user (spec constraint 6), never to us.
   function updatePosition(lessonId: string, p: LessonPhase) {
-    lessonService.updatePosition(lessonId, p).catch(() => {});
+    lessonService.updatePosition(lessonId, p).catch((err) => {
+      Sentry.addBreadcrumb({ category: 'lesson', message: 'Position save failed', level: 'warning', data: { lessonId, phase: p, err: String(err) } });
+    });
   }
 
   useEffect(() => {

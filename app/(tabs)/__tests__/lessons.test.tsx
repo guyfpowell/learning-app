@@ -1,4 +1,5 @@
 import React from 'react';
+import { PATHS_LOAD_ERROR } from '@learning/shared';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import LessonsScreen from '../lessons';
 import { usePaths, useSkipLesson, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
@@ -70,7 +71,6 @@ const mockEnrollment = {
   levels: [],
   enrolledAt: new Date().toISOString(),
   completedAt: null,
-  upgradeRequired: false,
   isActive: false,
   canSkipLesson: false,
   canSkipTopic: false,
@@ -140,7 +140,6 @@ const mockCustomPlan = {
   canSkipLevel: false,
   averageScore: null,
   capstoneScore: null,
-  upgradeRequired: false,
 };
 
 describe('LessonsScreen', () => {
@@ -159,6 +158,14 @@ describe('LessonsScreen', () => {
 
   it('renders without errors', () => {
     expect(() => render(<LessonsScreen />)).not.toThrow();
+  });
+
+  // Parity with web refactor R5: a failed paths load says so instead of leaving Home blank.
+  it('says the paths failed to load, and shows no empty-state notice', () => {
+    (usePaths as jest.Mock).mockReturnValue({ data: undefined, isError: true });
+    const { getByTestId, queryByTestId } = render(<LessonsScreen />);
+    expect(getByTestId('paths-load-error')).toHaveTextContent(PATHS_LOAD_ERROR);
+    expect(queryByTestId('no-track-notice')).toBeNull();
   });
 
   describe('streak hero (069 A9)', () => {

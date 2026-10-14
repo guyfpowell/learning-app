@@ -1,4 +1,5 @@
 import React from 'react';
+import { PATHS_LOAD_ERROR } from '@learning/shared';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import ProgressScreen from '../progress';
 import { useProgress } from '@/hooks/useProgress';
@@ -92,6 +93,14 @@ describe('ProgressScreen', () => {
   it('renders without errors', () => {
     setMock();
     expect(() => render(<ProgressScreen />)).not.toThrow();
+  });
+
+  // Parity with web refactor R5.
+  it('says the paths failed to load', () => {
+    setMock();
+    (usePaths as jest.Mock).mockReturnValue({ data: undefined, isError: true });
+    const { getByTestId } = render(<ProgressScreen />);
+    expect(getByTestId('paths-load-error')).toHaveTextContent(PATHS_LOAD_ERROR);
   });
 
   it('shows "My Progress" heading', () => {
