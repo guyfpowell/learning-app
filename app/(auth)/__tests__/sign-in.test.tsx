@@ -134,12 +134,20 @@ describe('SignInScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(auth)/register');
   });
 
-  it('shows password minimum-length error when password is fewer than 8 chars', () => {
+  it('submits a short password: strength rules apply at registration, not sign-in (080j)', () => {
     render(<SignInScreen />);
     fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'user@example.com');
     fireEvent.changeText(screen.getByPlaceholderText('••••••••'), 'short');
     fireEvent.press(screen.getByText('SIGN IN'));
-    expect(screen.getByText('Password must be at least 8 characters')).toBeTruthy();
-    expect(mockMutate).not.toHaveBeenCalled();
+    expect(mockMutate).toHaveBeenCalledWith({ email: 'user@example.com', password: 'short' });
+  });
+
+  it('accepts an email with surrounding whitespace and sends it trimmed (080j R1)', () => {
+    render(<SignInScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), ' user@example.com ');
+    fireEvent.changeText(screen.getByPlaceholderText('••••••••'), 'secret123');
+    fireEvent.press(screen.getByText('SIGN IN'));
+    expect(screen.queryByText('Enter a valid email address')).toBeNull();
+    expect(mockMutate).toHaveBeenCalledWith({ email: 'user@example.com', password: 'secret123' });
   });
 });

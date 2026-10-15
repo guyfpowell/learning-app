@@ -2,15 +2,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
+import { Badge, LEVEL_BADGE_VARIANT } from '@/components/ui/Badge';
 import { TrackMap } from '@/components/ui/TrackMap';
 import type { UserPath } from '@learning/shared';
-
-const difficultyVariant = {
-  beginner:     'success',
-  intermediate: 'warning',
-  advanced:     'error',
-} as const;
 
 export function flooredPct(path: Pick<UserPath, 'completedLessons' | 'percentComplete'>): number {
   return path.completedLessons > 0 ? Math.max(1, Math.round(path.percentComplete)) : 0;
@@ -121,7 +115,7 @@ export function PathCard({
             {level && (
               <Badge
                 label={levelLabel ?? level}
-                variant={difficultyVariant[level as keyof typeof difficultyVariant] ?? 'info'}
+                variant={LEVEL_BADGE_VARIANT[level]}
               />
             )}
             {nextLesson.topicName && (

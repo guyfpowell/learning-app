@@ -23,24 +23,19 @@ import * as Sentry from '@sentry/react-native';
 import {
   ERROR_CODES,
   INVITE_CODE_DISPLAY_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_RULES,
   formatInviteCode,
+  isValidEmail,
+  normaliseEmail,
   normaliseInviteCode,
+  unmetPasswordRules,
 } from '@learning/shared';
-
-const SYMBOL_RE = /[!@#$%^&*()[\]{}|;:,.<>?\-_=+/]/;
-
-const PASSWORD_CRITERIA = [
-  { label: 'At least 10 characters', test: (pw: string) => pw.length >= 10 },
-  { label: 'At least 1 uppercase letter', test: (pw: string) => /[A-Z]/.test(pw) },
-  { label: 'At least 1 lowercase letter', test: (pw: string) => /[a-z]/.test(pw) },
-  { label: 'At least 1 number', test: (pw: string) => /[0-9]/.test(pw) },
-  { label: 'At least 1 symbol (! @ # $ % ^ & * …)', test: (pw: string) => SYMBOL_RE.test(pw) },
-];
 
 function PasswordHint({ password }: { password: string }) {
   return (
     <View style={hintStyles.container}>
-      {PASSWORD_CRITERIA.map(({ label, test }) => {
+      {PASSWORD_RULES.map(({ label, test }) => {
         const met = test(password);
         return (
           <View key={label} style={hintStyles.row}>
@@ -60,13 +55,13 @@ function validateName(name: string): string | null {
 
 function validateEmail(email: string): string | null {
   if (!email.trim()) return 'Email is required';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Enter a valid email address';
+  if (!isValidEmail(email)) return 'Enter a valid email address';
   return null;
 }
 
 function validatePassword(password: string): string | null {
   if (!password) return 'Password is required';
-  const unmet = PASSWORD_CRITERIA.filter(c => !c.test(password)).map(c => c.label);
+  const unmet = unmetPasswordRules(password);
   if (unmet.length > 0) return `Password must include: ${unmet.join(', ')}`;
   return null;
 }
@@ -137,7 +132,7 @@ export default function RegisterScreen() {
     const canonical = normaliseInviteCode(inviteCode);
     register.mutate({
       name: name.trim(),
-      email: email.trim().toLowerCase(),
+      email: normaliseEmail(email),
       password,
       ...(canonical ? { inviteCode: canonical } : {}),
     });
@@ -240,7 +235,7 @@ export default function RegisterScreen() {
                   onFocus={() => setPasswordFocused(true)}
                   onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                   error={passwordError ?? undefined}
-                  placeholder="Min 10 characters"
+                  placeholder={`Min ${PASSWORD_MIN_LENGTH} characters`}
                   secureTextEntry
                   autoComplete="new-password"
                   returnKeyType="next"

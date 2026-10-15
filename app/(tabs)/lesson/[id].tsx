@@ -8,7 +8,7 @@ import type { ApiErrorResponse, PremiumRequiredDetails } from '@learning/shared'
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
+import { Badge, LEVEL_BADGE_VARIANT } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { QuizModal } from '@/components/QuizModal';
@@ -17,12 +17,6 @@ import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
 import type { LessonPhase, UserPath } from '@learning/shared';
 import { PREMIUM_LESSON_BUDGET } from '@learning/shared';
-
-const difficultyVariant = {
-  beginner:     'success',
-  intermediate: 'warning',
-  advanced:     'error',
-} as const;
 
 function isPremiumError(error: unknown): boolean {
   return (
@@ -222,11 +216,7 @@ export default function LessonDetailScreen() {
                   {lesson.skillPath?.level && (
                     <Badge
                       label={lesson.skillPath.levelLabel ?? lesson.skillPath.level}
-                      variant={
-                        difficultyVariant[
-                          lesson.skillPath.level as keyof typeof difficultyVariant
-                        ] ?? 'info'
-                      }
+                      variant={LEVEL_BADGE_VARIANT[lesson.skillPath.level]}
                     />
                   )}
                   {lesson.topicName && (
@@ -250,7 +240,7 @@ export default function LessonDetailScreen() {
               <View style={styles.meta}>
                 <Badge
                   label={lesson.skillPath?.levelLabel ?? lesson.difficulty}
-                  variant={difficultyVariant[lesson.difficulty as keyof typeof difficultyVariant] ?? 'info'}
+                  variant={LEVEL_BADGE_VARIANT[lesson.difficulty]}
                 />
                 <Text style={styles.duration}>{lesson.durationMinutes} minutes</Text>
               </View>

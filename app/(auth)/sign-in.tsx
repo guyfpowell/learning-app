@@ -18,18 +18,19 @@ import { Card } from '@/components/ui/Card';
 import { useLogin } from '@/hooks/useAuth';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { extractError } from '@/lib/errors';
+import { isValidEmail, normaliseEmail } from '@learning/shared';
 
 export { extractError };
 
 function validateEmail(email: string): string | null {
   if (!email.trim()) return 'Email is required';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Enter a valid email address';
+  if (!isValidEmail(email)) return 'Enter a valid email address';
   return null;
 }
 
 function validatePassword(password: string): string | null {
+  // Sign-in only needs a password: the strength rules apply when one is set, as on the server (080j).
   if (!password) return 'Password is required';
-  if (password.length < 8) return 'Password must be at least 8 characters';
   return null;
 }
 
@@ -47,7 +48,7 @@ export default function SignInScreen() {
   function handleSubmit() {
     setTouched({ email: true, password: true });
     if (validateEmail(email) || validatePassword(password)) return;
-    login.mutate({ email: email.trim().toLowerCase(), password });
+    login.mutate({ email: normaliseEmail(email), password });
   }
 
   return (

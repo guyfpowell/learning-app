@@ -82,6 +82,15 @@ describe('RegisterScreen', () => {
     expect(screen.getByText('Password must include: At least 10 characters')).toBeTruthy();
   });
 
+  it('names the disallowed-character rule the server enforces (080j R2)', () => {
+    render(<RegisterScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText('Your full name'), 'Jane');
+    fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'jane@example.com');
+    fireEvent.changeText(screen.getByPlaceholderText('Min 10 characters'), 'Abcdefgh1! x');
+    fireEvent.press(screen.getByText('CREATE ACCOUNT'));
+    expect(screen.getByText('Password must include: No spaces, backticks, quotes or backslashes')).toBeTruthy();
+  });
+
   it('shows password mismatch error', () => {
     render(<RegisterScreen />);
     fireEvent.changeText(screen.getByPlaceholderText('Your full name'), 'Jane');
