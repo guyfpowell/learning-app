@@ -11,6 +11,7 @@ import { PathCard } from '@/components/ui/PathCard';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { useSkills, usePaths, useEnroll, useSetActivePath, useSkipLesson, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
 import { extractError } from '@/lib/errors';
+import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 
 // Display-only labels. `category` is free text (web admin can create others), so
 // callers must fall back to the raw value for anything not listed here.
@@ -215,7 +216,7 @@ export default function TracksScreen() {
       <PremiumModal
         visible={premiumModalVisible}
         onClose={() => setPremiumModalVisible(false)}
-        onUpgrade={() => { setPremiumModalVisible(false); router.push('/(tabs)/paywall'); }}
+        onUpgrade={() => { setPremiumModalVisible(false); router.push(PAYWALL_ROUTE); }}
       />
 
     </SafeAreaView>

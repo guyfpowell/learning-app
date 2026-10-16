@@ -10,6 +10,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
+let mockUser: { data?: unknown; isLoading: boolean };
 const mockCreate = jest.fn();
 let mockCanGoBack = false;
 
@@ -35,7 +37,7 @@ const mockDraft = {
  */
 jest.mock('expo-router', () => ({
   useRouter: () => ({
-    push: jest.fn(),
+    push: mockPush,
     replace: mockReplace,
     back: mockBack,
     canGoBack: () => mockCanGoBack,
@@ -59,12 +61,26 @@ jest.mock('@/store/trackBuilder.store', () => ({
   }),
 }));
 
+jest.mock('@/hooks/useEmailVerification', () => ({
+  useCurrentUser: () => mockUser,
+}));
+
 jest.mock('@/hooks/useTrackBuilder', () => ({
   useRefinePlan: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useCreateTrackPlan: () => ({ mutateAsync: mockCreate, isPending: false }),
 }));
 
 import BuildReviewScreen from '../build-review';
+import { ERROR_CODES } from '@learning/shared';
+
+function setUser(state: 'premium' | 'unspent' | 'spent') {
+  mockUser = {
+    isLoading: false,
+    data: { isPremium: state === 'premium', albertAllowance: { used: state === 'unspent' ? 0 : 1, total: 1 } },
+  };
+}
+
+beforeEach(() => setUser('unspent'));
 
 /** 076f-unfuck — the user names the path; nothing arrives to prefill it. */
 describe('the path name is always typed by the user', () => {
@@ -119,5 +135,76 @@ describe('getting out (069 Chunk A6 — native header back)', () => {
     fireEvent.press(screen.getByTestId('review-back'));
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)/tracks');
     expect(mockBack).not.toHaveBeenCalled();
+  });
+});
+
+/** 079a — building and reviewing are free; the save spends the allowance. */
+describe('the allowance at save (079a)', () => {
+  const apiError = (code: string, message = 'server words') =>
+    Object.assign(new Error(message), { response: { data: { code, message } } });
+
+  beforeEach(() => {
+    mockCreate.mockReset().mockResolvedValue({ id: 'plan-1' });
+    mockPush.mockReset();
+    mockReplace.mockReset();
+  });
+
+  it('lets a free user with the allowance unspent save', () => {
+    setUser('unspent');
+    render(<BuildReviewScreen />);
+    expect(screen.getByTestId('accept-plan')).toBeTruthy();
+    expect(screen.queryByTestId('allowance-used')).toBeNull();
+  });
+
+  it('lets a premium user save', () => {
+    setUser('premium');
+    render(<BuildReviewScreen />);
+    expect(screen.getByTestId('accept-plan')).toBeTruthy();
+    expect(screen.queryByTestId('upgrade-to-save')).toBeNull();
+  });
+
+  it('replaces Save with the upgrade prompt for a free user who has spent it, review still visible', () => {
+    setUser('spent');
+    render(<BuildReviewScreen />);
+    expect(screen.queryByTestId('accept-plan')).toBeNull();
+    expect(screen.getByTestId('allowance-used')).toBeTruthy();
+    expect(screen.getByText('Strategy basics')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('upgrade-to-save'));
+    expect(mockPush).toHaveBeenCalledWith('/(tabs)/paywall');
+  });
+
+  it('leaves Save open when the user fetch fails (the server gates anyway)', () => {
+    mockUser = { data: undefined, isLoading: false };
+    render(<BuildReviewScreen />);
+    expect(screen.getByTestId('accept-plan')).toBeTruthy();
+  });
+
+  it('switches to the upgrade prompt when the server says the allowance is used', async () => {
+    mockCreate.mockRejectedValue(apiError(ERROR_CODES.ALBERT_ALLOWANCE_USED));
+    render(<BuildReviewScreen />);
+    fireEvent.changeText(screen.getByTestId('path-name'), 'AI basics');
+    fireEvent.press(screen.getByTestId('accept-plan'));
+    await waitFor(() => expect(screen.getByTestId('upgrade-to-save')).toBeTruthy());
+    expect(screen.queryByTestId('accept-plan')).toBeNull();
+    expect(screen.queryByTestId('review-error')).toBeNull();
+  });
+
+  it('says a path is already on the go for PLAN_LIMIT, and keeps Save', async () => {
+    mockCreate.mockRejectedValue(apiError(ERROR_CODES.PLAN_LIMIT));
+    render(<BuildReviewScreen />);
+    fireEvent.changeText(screen.getByTestId('path-name'), 'AI basics');
+    fireEvent.press(screen.getByTestId('accept-plan'));
+    await waitFor(() => expect(screen.getByTestId('review-error')).toBeTruthy());
+    expect(screen.getByTestId('review-error').props.children).toMatch(/already have a path on the go/i);
+    expect(screen.queryByTestId('upgrade-to-save')).toBeNull();
+    expect(screen.getByTestId('accept-plan')).toBeTruthy();
+  });
+
+  it('keeps the server message for any other failure', async () => {
+    mockCreate.mockRejectedValue(apiError('SOMETHING_ELSE', 'Boom'));
+    render(<BuildReviewScreen />);
+    fireEvent.changeText(screen.getByTestId('path-name'), 'AI basics');
+    fireEvent.press(screen.getByTestId('accept-plan'));
+    await waitFor(() => expect(screen.getByTestId('review-error').props.children).toBe('Boom'));
   });
 });

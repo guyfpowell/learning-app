@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useCurrentUser, useResendVerification } from '@/hooks/useEmailVerification';
+import { CURRENT_USER_QUERY_KEY } from '@/lib/queryKeys';
 import { iapService } from '@/services/iap.service';
 import { useAuthStore } from '@/store/auth.store';
 import * as Sentry from '@sentry/react-native';
@@ -50,7 +51,7 @@ export default function TabsLayout() {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+        queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
       }
     });
     return () => subscription.remove();
@@ -62,7 +63,7 @@ export default function TabsLayout() {
   // NOT do this: the layout itself stays mounted/focused across tab switches,
   // only its child screens' focus changes, so the listener must live on `Tabs`.
   const invalidateCurrentUser = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+    queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
   }, [queryClient]);
 
   // Safe-area insets — used to push the email verification banner below the

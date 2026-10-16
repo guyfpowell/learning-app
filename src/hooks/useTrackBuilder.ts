@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { trackBuilderService } from '@/services/trackBuilder.service';
+import { CURRENT_USER_QUERY_KEY } from '@/lib/queryKeys';
 import type {
   BuiltPlanTopic, TrackPlanTopic, TrackBuilderTurn, RequestChunk,
 } from '@learning/shared';
@@ -50,6 +51,11 @@ export function useCreateTrackPlan() {
       queryClient.invalidateQueries({ queryKey: ['track-plans'] });
       queryClient.invalidateQueries({ queryKey: ['enrollments'] });
     },
+    // A save spends the free Albert allowance, and a refused one (ALBERT_ALLOWANCE_USED)
+    // means the cached count was stale: either way /me's `albertAllowance` has moved (079a).
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+    },
   });
 }
 
@@ -60,8 +66,9 @@ export function useTrackPlans() {
   });
 }
 
-/** Archive a custom plan via `PUT /track-plans/:id`. Invalidates the same
- *  query keys as `useCreateTrackPlan` so Paths, Home and Tracks all refresh. */
+/** Archive a custom plan via `PUT /track-plans/:id`. Invalidates the same plan
+ *  and enrollment keys as `useCreateTrackPlan` so Paths, Home and Tracks all refresh.
+ *  Not /me: archiving does not give back the Albert allowance (079a). */
 export function useUpdateTrackPlan() {
   const queryClient = useQueryClient();
   return useMutation({

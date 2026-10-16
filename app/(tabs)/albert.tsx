@@ -8,10 +8,17 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { PremiumModal } from '@/components/ui/PremiumModal';
-import { useSkills, usePaths } from '@/hooks/useTrack';
+import { usePaths } from '@/hooks/useTrack';
+import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
 import { extractError } from '@/lib/errors';
-import { isProgressComplete } from '@learning/shared';
+import { PAYWALL_ROUTE } from '@/lib/subscriptions';
+import {
+  ERROR_CODES,
+  ERROR_MESSAGES,
+  isAlbertLocked,
+  isProgressComplete,
+} from '@learning/shared';
 
 const STEPS = [
   { title: 'Tell Albert about you',  body: 'Your role, and what you want to get better at.' },
@@ -19,24 +26,30 @@ const STEPS = [
   { title: 'Learn your path',        body: 'Your path sits alongside your tracks, with the same progress.' },
 ];
 
+/** The free user's allowance is spent — said plainly, next to the locked action (079a). */
+function AllowanceUsed() {
+  return (
+    <Text testID="allowance-used" style={styles.buildBody}>
+      {ERROR_MESSAGES[ERROR_CODES.ALBERT_ALLOWANCE_USED]}
+    </Text>
+  );
+}
+
 export default function AlbertScreen() {
   const router = useRouter();
-  const { data: skills } = useSkills();
+  const { data: user, isLoading: userLoading } = useCurrentUser();
   const { data: paths, isLoading: pathsLoading } = usePaths();
   const updatePlan = useUpdateTrackPlan();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
 
-  // Derived, not read from the auth record: `UserAuth` carries no premium flag,
-  // and adding one would change a contract BOTH clients read.
-  //
-  // `skill.userHasAccess` alone is NOT the signal — free users have access to
-  // free tracks, so it reads as premium for everyone. Access to a skill that is
-  // actually premium is the thing only a subscriber has. Premium gates BUILDING
-  // a path; track access itself never is.
-  const isPremium = skills?.some(
-    (sk) => sk.premiumStatus === 'premium' && sk.userHasAccess
-  ) ?? false;
+  // Locked = a free user who has spent their one saved path (079a). Building is
+  // free; the allowance is spent at save, so an unspent free user is NOT locked.
+  // A failed fetch counts as locked: the server gates the save regardless. The
+  // used-your-free-path copy needs the loaded user, so it keys off `allowanceSpent`.
+  // Track access is never gated here — only Albert's AI generation.
+  const allowanceSpent = !!user && isAlbertLocked(user);
+  const locked = !user || allowanceSpent;
 
   // The branch keys off the *unfinished* custom path, not path count (076j).
   // MAX_ACTIVE_CUSTOM_PLANS=1 guarantees at most one unfinished path; `find`
@@ -65,7 +78,7 @@ export default function AlbertScreen() {
   }
 
   function handleCreateNewPath() {
-    if (!isPremium) { setPremiumModalVisible(true); return; }
+    if (locked) { setPremiumModalVisible(true); return; }
     Alert.alert(
       'Start a new path?',
       'Your current path will be removed and your progress on it will no longer be reachable.',
@@ -78,14 +91,14 @@ export default function AlbertScreen() {
   }
 
   function handleBuild() {
-    if (!isPremium) { setPremiumModalVisible(true); return; }
+    if (locked) { setPremiumModalVisible(true); return; }
     router.push('/build');
   }
 
   // ── Card body — varies by path state ──────────────────────────────────────
   const renderCardBody = () => {
     // Never flash the no-paths state while the fetch is in flight
-    if (pathsLoading) {
+    if (pathsLoading || userLoading) {
       return <Spinner />;
     }
 
@@ -98,6 +111,7 @@ export default function AlbertScreen() {
             You already have a path in progress. Pick up where you left off, or start
             fresh — your current path will be removed if you do.
           </Text>
+          {allowanceSpent && <AllowanceUsed />}
           {archiveError && (
             <Text testID="albert-archive-error" style={styles.errorText}>
               {archiveError}
@@ -128,6 +142,7 @@ export default function AlbertScreen() {
             Great work — your custom path is complete. View it on your Tracks, or
             build a new one.
           </Text>
+          {allowanceSpent && <AllowanceUsed />}
           <Button
             testID="view-my-path"
             label="View my path"
@@ -136,7 +151,7 @@ export default function AlbertScreen() {
           />
           <Button
             testID="build-another"
-            label={isPremium ? 'Build another' : 'Upgrade to build a path'}
+            label={locked ? 'Upgrade to build a path' : 'Build another'}
             variant="outline"
             onPress={handleBuild}
           />
@@ -152,10 +167,11 @@ export default function AlbertScreen() {
           Tell me about your role and what you want to get better at, and I'll
           build a path from the whole curriculum instead of a fixed track.
         </Text>
+        {allowanceSpent && <AllowanceUsed />}
         <Button
-          testID={isPremium ? 'build-path-start' : 'build-path-upgrade'}
-          label={isPremium ? 'Start' : 'Upgrade to build a path'}
-          variant={isPremium ? 'primary' : 'outline'}
+          testID={locked ? 'build-path-upgrade' : 'build-path-start'}
+          label={locked ? 'Upgrade to build a path' : 'Start'}
+          variant={locked ? 'outline' : 'primary'}
           onPress={handleBuild}
         />
       </>
@@ -198,7 +214,7 @@ export default function AlbertScreen() {
         {/* ── Build a path (moved from Tracks) ───────────────────────────── */}
         <Card testID="build-path-card" style={styles.buildCard}>
           <View style={styles.badgeRow}>
-            <Badge label={isPremium ? 'Albert' : 'Premium'} variant={isPremium ? 'info' : 'warning'} />
+            <Badge label={locked ? 'Premium' : 'Albert'} variant={locked ? 'warning' : 'info'} />
           </View>
           {renderCardBody()}
         </Card>
@@ -209,7 +225,7 @@ export default function AlbertScreen() {
       <PremiumModal
         visible={premiumModalVisible}
         onClose={() => setPremiumModalVisible(false)}
-        onUpgrade={() => { setPremiumModalVisible(false); router.push('/(tabs)/paywall'); }}
+        onUpgrade={() => { setPremiumModalVisible(false); router.push(PAYWALL_ROUTE); }}
       />
     </SafeAreaView>
   );

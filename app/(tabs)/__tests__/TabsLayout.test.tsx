@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
 import { AppState } from 'react-native';
+import { CURRENT_USER_QUERY_KEY } from '@/lib/queryKeys';
 
 let capturedTabsProps: any = null;
 
@@ -184,7 +185,7 @@ describe('(tabs) layout', () => {
       render(<TabsLayout />);
       expect(capturedAppStateHandler).not.toBeNull();
       act(() => capturedAppStateHandler!('active'));
-      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['auth', 'me'] });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: CURRENT_USER_QUERY_KEY });
     });
 
     it('does not invalidate when app enters background', () => {
@@ -210,7 +211,7 @@ describe('(tabs) layout', () => {
       const onFocus = capturedTabsProps?.screenListeners?.focus;
       expect(typeof onFocus).toBe('function');
       act(() => onFocus());
-      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['auth', 'me'] });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: CURRENT_USER_QUERY_KEY });
     });
 
     it('invalidates currentUser again on a second tab focus (e.g. Profile -> Progress)', () => {

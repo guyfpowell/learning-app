@@ -15,6 +15,7 @@ import { QuizModal } from '@/components/QuizModal';
 import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
+import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import type { LessonPhase, UserPath } from '@learning/shared';
 import { PREMIUM_LESSON_BUDGET } from '@learning/shared';
 
@@ -326,7 +327,7 @@ export default function LessonDetailScreen() {
         onClose={() => setPremiumModalVisible(false)}
         onUpgrade={() => {
           setPremiumModalVisible(false);
-          router.push('/(tabs)/paywall');
+          router.push(PAYWALL_ROUTE);
         }}
       />
     </SafeAreaView>

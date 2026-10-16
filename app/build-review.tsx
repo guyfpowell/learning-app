@@ -8,8 +8,18 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useDraftStore } from '@/store/trackBuilder.store';
 import { useRefinePlan, useCreateTrackPlan } from '@/hooks/useTrackBuilder';
-import { extractError } from '@/lib/errors';
-import { PATH_NAME_MAX, PLAN_FOLLOW_UP_ENABLED, reasonRuns, type BuiltPlanTopic } from '@learning/shared';
+import { useCurrentUser } from '@/hooks/useEmailVerification';
+import { errorCode, extractError } from '@/lib/errors';
+import { PAYWALL_ROUTE } from '@/lib/subscriptions';
+import {
+  ERROR_CODES,
+  ERROR_MESSAGES,
+  PATH_NAME_MAX,
+  PLAN_FOLLOW_UP_ENABLED,
+  isAlbertLocked,
+  reasonRuns,
+  type BuiltPlanTopic,
+} from '@learning/shared';
 
 /**
  * Review the built path — ticket 049 Chunk 5, mobile parity with the web
@@ -44,6 +54,13 @@ export default function BuildReviewScreen() {
 
   const refine = useRefinePlan();
   const createPlan = useCreateTrackPlan();
+  const { data: user } = useCurrentUser();
+  // The server said the allowance is spent, whatever the session user said (079a).
+  const [serverLocked, setServerLocked] = useState(false);
+  // Building and reviewing are free; only the save is locked, and only for a free
+  // user who has spent their one path. A failed user fetch leaves the save open —
+  // the server gates it anyway.
+  const locked = serverLocked || (!!user && isAlbertLocked(user));
   // Prevents the !draft guard from bouncing back to /build after onAccept clears the draft.
   const accepted = useRef(false);
 
@@ -90,11 +107,14 @@ export default function BuildReviewScreen() {
       clearDraft();
       router.replace(`/(tabs)/lessons?plan=${created.id}`);
     } catch (err) {
-      setError(extractError(err));
+      const code = errorCode(err);
+      if (code === ERROR_CODES.ALBERT_ALLOWANCE_USED) setServerLocked(true);
+      else if (code === ERROR_CODES.PLAN_LIMIT) setError(ERROR_MESSAGES[ERROR_CODES.PLAN_LIMIT]);
+      else setError(extractError(err));
     }
   };
 
-  /** Re-request rather than filter: dropping hops changes what survives the cap. */
+  /** Send a follow-up. The server decides what it means; this screen renders the action it returns. */
   const onFollowUp = async () => {
     if (followUp.trim().length === 0) return;
     setError(null);
@@ -306,12 +326,25 @@ export default function BuildReviewScreen() {
           <Text testID="review-error" style={styles.error}>{error}</Text>
         )}
 
-        <Button
-          testID="accept-plan"
-          label={createPlan.isPending ? 'Saving…' : 'Start this path'}
-          disabled={busy || name.trim().length === 0}
-          onPress={() => void onAccept()}
-        />
+        {locked ? (
+          <>
+            <Text testID="allowance-used" style={styles.settled}>
+              {ERROR_MESSAGES[ERROR_CODES.ALBERT_ALLOWANCE_USED]}
+            </Text>
+            <Button
+              testID="upgrade-to-save"
+              label="Upgrade to save this path"
+              onPress={() => router.push(PAYWALL_ROUTE)}
+            />
+          </>
+        ) : (
+          <Button
+            testID="accept-plan"
+            label={createPlan.isPending ? 'Saving…' : 'Start this path'}
+            disabled={busy || name.trim().length === 0}
+            onPress={() => void onAccept()}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );

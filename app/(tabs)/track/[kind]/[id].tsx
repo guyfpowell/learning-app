@@ -17,6 +17,7 @@ import { PremiumModal } from '@/components/ui/PremiumModal';
 import { TrackContentsTree } from '@/components/learning/TrackContentsTree';
 import { useTrackContents, usePaths, useEnroll } from '@/hooks/useTrack';
 import { extractError } from '@/lib/errors';
+import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import type { TrackContentsLesson, UserPathKind } from '@learning/shared';
 
 export default function TrackDetailScreen() {
@@ -143,7 +144,7 @@ export default function TrackDetailScreen() {
         onClose={() => setPremiumModalVisible(false)}
         onUpgrade={() => {
           setPremiumModalVisible(false);
-          router.push('/(tabs)/paywall' as never);
+          router.push(PAYWALL_ROUTE);
         }}
       />
     </SafeAreaView>

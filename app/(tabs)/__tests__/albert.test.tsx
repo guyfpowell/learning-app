@@ -2,16 +2,20 @@ import React from 'react';
 import { Alert, type AlertButton } from 'react-native';
 import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import AlbertScreen from '../albert';
-import { useSkills, usePaths } from '@/hooks/useTrack';
+import { usePaths } from '@/hooks/useTrack';
+import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
-import type { SkillWithAccess, UserPath } from '@learning/shared';
+import type { SessionUser, UserPath } from '@learning/shared';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 
 jest.mock('@/hooks/useTrack', () => ({
-  useSkills: jest.fn(),
   usePaths: jest.fn(),
+}));
+
+jest.mock('@/hooks/useEmailVerification', () => ({
+  useCurrentUser: jest.fn(),
 }));
 
 jest.mock('@/hooks/useTrackBuilder', () => ({
@@ -27,20 +31,6 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
-
-const freeSkill = {
-  id: 'skill-1',
-  premiumStatus: 'free',
-  userHasAccess: true,
-} as unknown as SkillWithAccess;
-
-const premiumLocked = {
-  id: 'skill-2',
-  premiumStatus: 'premium',
-  userHasAccess: false,
-} as unknown as SkillWithAccess;
-
-const premiumOpen = { ...premiumLocked, userHasAccess: true } as SkillWithAccess;
 
 const unfinishedPath = {
   id: 'plan-1',
@@ -68,8 +58,15 @@ const trackPath = {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function setSkills(skills: SkillWithAccess[] | undefined, isLoading = false) {
-  (useSkills as jest.Mock).mockReturnValue({ data: skills, isLoading });
+type UserState = 'premium' | 'unspent' | 'spent';
+
+/** premium: subscriber · unspent: free, no path saved yet · spent: free, the one path is saved (079a). */
+function setUser(state: UserState) {
+  const user = {
+    isPremium: state === 'premium',
+    albertAllowance: { used: state === 'unspent' ? 0 : 1, total: 1 },
+  } as SessionUser;
+  (useCurrentUser as jest.Mock).mockReturnValue({ data: user, isLoading: false });
 }
 
 function setPaths(paths: UserPath[] | undefined, isLoading = false) {
@@ -102,7 +99,7 @@ describe('AlbertScreen', () => {
     jest.clearAllMocks();
     alertSpy = jest.spyOn(Alert, 'alert');
     capturedEdges = undefined;
-    setSkills([freeSkill, premiumLocked]);
+    setUser('spent');
     setPaths([]);
     setUpdatePlan();
   });
@@ -115,28 +112,28 @@ describe('AlbertScreen', () => {
     expect(screen.getByTestId('albert-intro')).toBeTruthy();
   });
 
-  it('offers Start to a user with access to a premium track (no paths)', () => {
-    setSkills([freeSkill, premiumOpen]);
+  it('offers Start to a premium user (no paths)', () => {
+    setUser('premium');
     render(<AlbertScreen />);
     expect(screen.getByTestId('build-path-start')).toBeTruthy();
     expect(screen.queryByTestId('build-path-upgrade')).toBeNull();
   });
 
   it('routes a premium user to the builder when no paths exist', () => {
-    setSkills([freeSkill, premiumOpen]);
+    setUser('premium');
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('build-path-start'));
     expect(mockPush).toHaveBeenCalledWith('/build');
   });
 
-  it('offers an upgrade to a free user instead of hiding the card', () => {
+  it('offers an upgrade to a free user who has spent the allowance, instead of hiding the card', () => {
     render(<AlbertScreen />);
     expect(screen.getByTestId('build-path-card')).toBeTruthy();
     expect(screen.getByTestId('build-path-upgrade')).toBeTruthy();
     expect(screen.queryByTestId('build-path-start')).toBeNull();
   });
 
-  it('never routes a free user into the builder; opens the upgrade modal', () => {
+  it('never routes a spent free user into the builder; opens the upgrade modal', () => {
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('build-path-upgrade'));
     expect(mockPush).not.toHaveBeenCalledWith('/build');
@@ -150,14 +147,74 @@ describe('AlbertScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/(tabs)/paywall');
   });
 
-  it('does not crash while skills are still loading', () => {
-    setSkills(undefined, true);
+  it('does not crash while the user is still loading, and shows no buttons', () => {
+    (useCurrentUser as jest.Mock).mockReturnValue({ data: undefined, isLoading: true });
     expect(() => render(<AlbertScreen />)).not.toThrow();
+    expect(screen.queryByTestId('build-path-start')).toBeNull();
+    expect(screen.queryByTestId('build-path-upgrade')).toBeNull();
+  });
+
+  it('treats a failed user fetch as locked (the server gates the save anyway)', () => {
+    (useCurrentUser as jest.Mock).mockReturnValue({ data: undefined, isLoading: false });
+    render(<AlbertScreen />);
+    expect(screen.getByTestId('build-path-upgrade')).toBeTruthy();
   });
 
   it('uses edges=[left,right,bottom] so the tab layout owns the top inset', () => {
     render(<AlbertScreen />);
     expect(capturedEdges).toEqual(['left', 'right', 'bottom']);
+  });
+
+  // ── Allowance (079a) ────────────────────────────────────────────────────
+
+  it('offers Start to a free user who has not saved a path yet (building is free)', () => {
+    setUser('unspent');
+    render(<AlbertScreen />);
+    expect(screen.getByTestId('build-path-start')).toBeTruthy();
+    expect(screen.queryByTestId('build-path-upgrade')).toBeNull();
+  });
+
+  it('routes a free user with the allowance unspent to the builder', () => {
+    setUser('unspent');
+    render(<AlbertScreen />);
+    fireEvent.press(screen.getByTestId('build-path-start'));
+    expect(mockPush).toHaveBeenCalledWith('/build');
+    expect(screen.queryByTestId('premium-modal')).toBeNull();
+  });
+
+  it('shows the used-your-free-path copy to a free user who has spent it, and keeps the card visible', () => {
+    setUser('spent');
+    render(<AlbertScreen />);
+    expect(screen.getByTestId('build-path-card')).toBeTruthy();
+    expect(screen.getByTestId('allowance-used')).toBeTruthy();
+    expect(screen.getByText('PREMIUM')).toBeTruthy();
+  });
+
+  it('shows no used-your-free-path copy to a premium user or an unspent free user', () => {
+    setUser('premium');
+    const { rerender } = render(<AlbertScreen />);
+    expect(screen.queryByTestId('allowance-used')).toBeNull();
+    setUser('unspent');
+    rerender(<AlbertScreen />);
+    expect(screen.queryByTestId('allowance-used')).toBeNull();
+  });
+
+  it('shows the used copy beside a spent free user\'s saved path, with Create a NEW path locked', () => {
+    setUser('spent');
+    setPaths([unfinishedPath]);
+    render(<AlbertScreen />);
+    expect(screen.getByTestId('view-my-path')).toBeTruthy();
+    expect(screen.getByTestId('allowance-used')).toBeTruthy();
+  });
+
+  it('shows the used copy in the all-complete state for a spent free user', () => {
+    setUser('spent');
+    setPaths([finishedPath]);
+    render(<AlbertScreen />);
+    expect(screen.getByTestId('allowance-used')).toBeTruthy();
+    expect(screen.getByTestId('build-another')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('build-another'));
+    expect(screen.getByTestId('premium-modal')).toBeTruthy();
   });
 
   // ── Track-only paths: treated as no custom paths ─────────────────────────
@@ -173,7 +230,7 @@ describe('AlbertScreen', () => {
   // ── Loading state ────────────────────────────────────────────────────────
 
   it('shows a spinner while paths are loading (no Start button visible)', () => {
-    setSkills([freeSkill, premiumOpen]);
+    setUser('premium');
     setPaths(undefined, true);
     render(<AlbertScreen />);
     expect(screen.queryByTestId('build-path-start')).toBeNull();
@@ -193,7 +250,7 @@ describe('AlbertScreen', () => {
   });
 
   it('View my path routes to Tracks for a premium user', () => {
-    setSkills([freeSkill, premiumOpen]);
+    setUser('premium');
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('view-my-path'));
@@ -201,7 +258,7 @@ describe('AlbertScreen', () => {
   });
 
   it('View my path routes to Tracks for a non-premium user', () => {
-    setSkills([freeSkill, premiumLocked]); // non-premium
+    setUser('spent');
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('view-my-path'));
@@ -209,7 +266,7 @@ describe('AlbertScreen', () => {
   });
 
   it('Create a NEW path opens a confirmation Alert for a premium user', () => {
-    setSkills([freeSkill, premiumOpen]);
+    setUser('premium');
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('create-new-path'));
@@ -217,8 +274,8 @@ describe('AlbertScreen', () => {
     expect(alertSpy.mock.calls[0][1]).toMatch(/removed/i);
   });
 
-  it('Create a NEW path opens the upgrade modal for a free user (no Alert)', () => {
-    setSkills([freeSkill, premiumLocked]);
+  it('Create a NEW path opens the upgrade modal for a spent free user (no Alert)', () => {
+    setUser('spent');
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('create-new-path'));
@@ -227,7 +284,7 @@ describe('AlbertScreen', () => {
   });
 
   it('confirming the Alert archives the plan and navigates to /build', () => {
-    setSkills([freeSkill, premiumOpen]);
+    setUser('premium');
     setPaths([unfinishedPath]);
     mockMutate.mockImplementationOnce((_: unknown, cb: { onSuccess?: () => void }) => {
       cb?.onSuccess?.();
@@ -245,7 +302,7 @@ describe('AlbertScreen', () => {
   });
 
   it('cancelling the Alert mutates nothing and navigates nowhere', () => {
-    setSkills([freeSkill, premiumOpen]);
+    setUser('premium');
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('create-new-path'));
@@ -257,7 +314,7 @@ describe('AlbertScreen', () => {
   });
 
   it('a failed archive stays on Albert and shows an error', () => {
-    setSkills([freeSkill, premiumOpen]);
+    setUser('premium');
     setPaths([unfinishedPath]);
     mockMutate.mockImplementationOnce((_: unknown, cb: { onError?: (err: Error) => void }) => {
       cb?.onError?.(new Error('Something went wrong'));
@@ -291,7 +348,7 @@ describe('AlbertScreen', () => {
   });
 
   it('Build another routes straight to the builder for a premium user (no confirmation)', () => {
-    setSkills([freeSkill, premiumOpen]);
+    setUser('premium');
     setPaths([finishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('build-another'));
@@ -300,8 +357,8 @@ describe('AlbertScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/build');
   });
 
-  it('Build another opens the upgrade modal for a free user', () => {
-    setSkills([freeSkill, premiumLocked]);
+  it('Build another opens the upgrade modal for a spent free user', () => {
+    setUser('spent');
     setPaths([finishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('build-another'));
