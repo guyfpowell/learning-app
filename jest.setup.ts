@@ -21,6 +21,17 @@ if (typeof global.atob === 'undefined') {
   global.atob = (b64: string) => Buffer.from(b64, 'base64').toString('binary');
 }
 
+// ─── fetch stub ──────────────────────────────────────────────────────────────
+// Expo's winter runtime defines `fetch` as a lazy getter that requires the native
+// ExpoFetchModule. Jest's environment teardown enumerates globals, trips the getter
+// after tests finish, and logs "Cannot log after tests are done". Pinning a plain
+// value means the getter never runs; every test mocks its services, so none rely on it.
+Object.defineProperty(globalThis, 'fetch', {
+  value: jest.fn(() => Promise.reject(new Error('fetch is not available in unit tests'))),
+  writable: true,
+  configurable: true,
+});
+
 // ─── Silence known noisy warnings in test output ──────────────────────────────
 const originalWarn = console.warn.bind(console);
 beforeAll(() => {
@@ -39,5 +50,4 @@ beforeAll(() => {
 
 afterAll(() => {
   console.warn = originalWarn;
-  jest.clearAllTimers();
 });

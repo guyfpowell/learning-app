@@ -11,6 +11,7 @@ import { PremiumModal } from '@/components/ui/PremiumModal';
 import { useSkills, usePaths } from '@/hooks/useTrack';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
 import { extractError } from '@/lib/errors';
+import { isProgressComplete } from '@learning/shared';
 
 const STEPS = [
   { title: 'Tell Albert about you',  body: 'Your role, and what you want to get better at.' },
@@ -41,7 +42,7 @@ export default function AlbertScreen() {
   // MAX_ACTIVE_CUSTOM_PLANS=1 guarantees at most one unfinished path; `find`
   // is intentional — clients must not assume the limit number.
   const customPaths = paths?.filter(p => p.kind === 'custom') ?? [];
-  const unfinished  = customPaths.find(p => p.percentComplete < 100) ?? null;
+  const unfinished  = customPaths.find(p => !isProgressComplete(p)) ?? null;
   const hasAnyCustomPath = customPaths.length > 0;
   const allComplete = hasAnyCustomPath && !unfinished;
 
@@ -76,7 +77,7 @@ export default function AlbertScreen() {
     );
   }
 
-  function handleBuildAnother() {
+  function handleBuild() {
     if (!isPremium) { setPremiumModalVisible(true); return; }
     router.push('/build');
   }
@@ -111,7 +112,7 @@ export default function AlbertScreen() {
           <Button
             testID="create-new-path"
             label="Create a NEW path"
-            variant={isPremium ? 'outline' : 'outline'}
+            variant="outline"
             onPress={handleCreateNewPath}
           />
         </>
@@ -136,8 +137,8 @@ export default function AlbertScreen() {
           <Button
             testID="build-another"
             label={isPremium ? 'Build another' : 'Upgrade to build a path'}
-            variant={isPremium ? 'outline' : 'outline'}
-            onPress={handleBuildAnother}
+            variant="outline"
+            onPress={handleBuild}
           />
         </>
       );
@@ -155,10 +156,7 @@ export default function AlbertScreen() {
           testID={isPremium ? 'build-path-start' : 'build-path-upgrade'}
           label={isPremium ? 'Start' : 'Upgrade to build a path'}
           variant={isPremium ? 'primary' : 'outline'}
-          onPress={() => {
-            if (isPremium) router.push('/build');
-            else setPremiumModalVisible(true);
-          }}
+          onPress={handleBuild}
         />
       </>
     );

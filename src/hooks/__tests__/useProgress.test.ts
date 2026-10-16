@@ -1,6 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
+import { queryWrapper } from '@/test-utils/queryClient';
 import { useProgress } from '../useProgress';
 import { progressService } from '@/services/progress.service';
 
@@ -24,39 +23,31 @@ const mockStats = {
   completedLessons: [],
 };
 
-function makeWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(QueryClientProvider, { client: queryClient }, children);
-}
-
 describe('useProgress', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('returns progress stats on success', async () => {
     mockProgressService.getProgress.mockResolvedValueOnce(mockStats);
-    const { result } = renderHook(() => useProgress(), { wrapper: makeWrapper() });
+    const { result } = renderHook(() => useProgress(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(mockStats);
   });
 
   it('is in loading state initially', async () => {
     mockProgressService.getProgress.mockResolvedValueOnce(mockStats);
-    const { result } = renderHook(() => useProgress(), { wrapper: makeWrapper() });
+    const { result } = renderHook(() => useProgress(), { wrapper: queryWrapper() });
     expect(result.current.isLoading).toBe(true);
   });
 
   it('returns error state on failure', async () => {
     mockProgressService.getProgress.mockRejectedValueOnce(new Error('API error'));
-    const { result } = renderHook(() => useProgress(), { wrapper: makeWrapper() });
+    const { result } = renderHook(() => useProgress(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.isError).toBe(true));
   });
 
   it('calls progressService.getProgress once', async () => {
     mockProgressService.getProgress.mockResolvedValueOnce(mockStats);
-    const { result } = renderHook(() => useProgress(), { wrapper: makeWrapper() });
+    const { result } = renderHook(() => useProgress(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockProgressService.getProgress).toHaveBeenCalledTimes(1);
   });

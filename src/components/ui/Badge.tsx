@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ViewProps } from 'react-native';
 import type { SkillLevel } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 
-export type BadgeVariant = 'success' | 'warning' | 'error' | 'info';
+export type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'expert';
 
 interface BadgeProps {
   label: string;
@@ -11,12 +11,12 @@ interface BadgeProps {
   testID?: string;
 }
 
-/** The badge a level (or a lesson's difficulty) shows. Expert has no colour of its own yet (080r). */
+/** The badge a level (or a lesson's difficulty) shows. */
 export const LEVEL_BADGE_VARIANT: Record<SkillLevel, BadgeVariant> = {
   beginner:     'success',
   intermediate: 'warning',
   advanced:     'error',
-  expert:       'info',
+  expert:       'expert',
 };
 
 const variantStyles: Record<BadgeVariant, { bg: string; text: string }> = {
@@ -24,6 +24,7 @@ const variantStyles: Record<BadgeVariant, { bg: string; text: string }> = {
   warning: { bg: colors.warningSoft, text: '#BE7C1C' },  // amber700
   error:   { bg: colors.errorSoft,   text: colors.error },
   info:    { bg: colors.brandSoft,   text: colors.brand },
+  expert:  { bg: colors.expertSoft,  text: colors.expert },
 };
 
 export function Badge({ label, variant, testID }: BadgeProps) {

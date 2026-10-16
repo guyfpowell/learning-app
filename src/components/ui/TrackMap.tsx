@@ -12,7 +12,7 @@
  *   locked — completedLessons === 0
  */
 import { View, Text, StyleSheet } from 'react-native';
-import type { TrackLevelProgress } from '@learning/shared';
+import { isProgressComplete, type TrackLevelProgress } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { SkillNode } from '@/components/ui/SkillNode';
 
@@ -21,7 +21,7 @@ function capitalize(s: string): string {
 }
 
 function levelState(lvl: TrackLevelProgress): 'done' | 'active' | 'locked' {
-  if (lvl.percentComplete >= 100) return 'done';
+  if (isProgressComplete(lvl)) return 'done';
   if (lvl.completedLessons > 0) return 'active';
   return 'locked';
 }
@@ -30,7 +30,7 @@ export function TrackMap({ levels }: { levels: TrackLevelProgress[] }) {
   if (levels.length === 0) return null;
 
   const activeLevel = levels.find(
-    lvl => lvl.completedLessons > 0 && lvl.percentComplete < 100,
+    lvl => lvl.completedLessons > 0 && !isProgressComplete(lvl),
   );
   const activeLevelLabel = activeLevel
     ? (activeLevel.levelLabel ?? capitalize(activeLevel.level))

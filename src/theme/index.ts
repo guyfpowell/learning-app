@@ -58,6 +58,8 @@ const semantic = {
   danger100:  '#FFE3DF',  // oklch(0.940 0.035 25)
   danger500:  '#D83938',  // oklch(0.585 0.196 26)
   danger700:  '#AC2724',  // oklch(0.490 0.170 27)
+  violet100:  '#EDE5FB',  // expert level tag background
+  violet700:  '#6A3DC0',  // expert level tag text
 } as const;
 
 export const colors = {
@@ -103,6 +105,8 @@ export const colors = {
   warningSoft: semantic.amber100,
   error:       semantic.danger500,
   errorSoft:   semantic.danger100,
+  expert:      semantic.violet700,
+  expertSoft:  semantic.violet100,
 
   // Pure white / utility
   white: '#FFFFFF',

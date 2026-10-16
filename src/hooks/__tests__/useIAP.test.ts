@@ -1,6 +1,5 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
+import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { iapService } from '@/services/iap.service';
 import { subscriptionService } from '@/services/subscription.service';
 import { useOfferings, usePurchase, useRestorePurchases } from '../useIAP';
@@ -36,17 +35,12 @@ const mockAnnual = {
   product: { identifier: 'com.learning.app.premium.annual', priceString: '£79.99' },
 } as unknown as PurchasesPackage;
 
-function wrapper({ children }: { children: React.ReactNode }) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return React.createElement(QueryClientProvider, { client }, children);
-}
-
 describe('useOfferings', () => {
   it('returns monthly and annual packages on success', async () => {
     const offering: IAPOffering = { monthly: mockMonthly, annual: mockAnnual };
     (iapService.getOfferings as jest.Mock).mockResolvedValue(offering);
 
-    const { result } = renderHook(() => useOfferings(), { wrapper });
+    const { result } = renderHook(() => useOfferings(), { wrapper: queryWrapper() });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect((result.current.data?.monthly?.product as { priceString: string }).priceString).toBe('£9.99');
@@ -55,13 +49,13 @@ describe('useOfferings', () => {
 
   it('exposes isLoading while the query is in flight', () => {
     (iapService.getOfferings as jest.Mock).mockReturnValue(new Promise(() => {}));
-    const { result } = renderHook(() => useOfferings(), { wrapper });
+    const { result } = renderHook(() => useOfferings(), { wrapper: queryWrapper() });
     expect(result.current.isLoading).toBe(true);
   });
 
   it('surfaces errors when getOfferings rejects', async () => {
     (iapService.getOfferings as jest.Mock).mockRejectedValue(new Error('network'));
-    const { result } = renderHook(() => useOfferings(), { wrapper });
+    const { result } = renderHook(() => useOfferings(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.isError).toBe(true));
   });
 });
@@ -87,7 +81,7 @@ describe('usePurchase', () => {
   it('calls iapService.purchasePackage then subscriptionService.verifyPurchase', async () => {
     (iapService.purchasePackage as jest.Mock).mockResolvedValue(PURCHASE_RESULT);
     (subscriptionService.verifyPurchase as jest.Mock).mockResolvedValue(PREMIUM_ENTITLEMENT);
-    const { result } = renderHook(() => usePurchase(), { wrapper });
+    const { result } = renderHook(() => usePurchase(), { wrapper: queryWrapper() });
 
     await act(async () => {
       result.current.mutate(mockMonthly);
@@ -102,12 +96,10 @@ describe('usePurchase', () => {
     (iapService.purchasePackage as jest.Mock).mockResolvedValue(PURCHASE_RESULT);
     (subscriptionService.verifyPurchase as jest.Mock).mockResolvedValue(PREMIUM_ENTITLEMENT);
 
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const queryClient = createTestQueryClient();
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
-    const customWrapper = ({ children }: { children: React.ReactNode }) =>
-      React.createElement(QueryClientProvider, { client: queryClient }, children);
 
-    const { result } = renderHook(() => usePurchase(), { wrapper: customWrapper });
+    const { result } = renderHook(() => usePurchase(), { wrapper: queryWrapper(queryClient) });
 
     await act(async () => {
       result.current.mutate(mockMonthly);
@@ -123,7 +115,7 @@ describe('usePurchase', () => {
 
   it('exposes error when purchasePackage rejects', async () => {
     (iapService.purchasePackage as jest.Mock).mockRejectedValue(new Error('User cancelled'));
-    const { result } = renderHook(() => usePurchase(), { wrapper });
+    const { result } = renderHook(() => usePurchase(), { wrapper: queryWrapper() });
 
     await act(async () => {
       result.current.mutate(mockMonthly);
@@ -136,7 +128,7 @@ describe('usePurchase', () => {
   it('exposes error when verifyPurchase rejects', async () => {
     (iapService.purchasePackage as jest.Mock).mockResolvedValue(PURCHASE_RESULT);
     (subscriptionService.verifyPurchase as jest.Mock).mockRejectedValue(new Error('Server error'));
-    const { result } = renderHook(() => usePurchase(), { wrapper });
+    const { result } = renderHook(() => usePurchase(), { wrapper: queryWrapper() });
 
     await act(async () => {
       result.current.mutate(mockMonthly);
@@ -158,7 +150,7 @@ describe('useRestorePurchases (073b-8)', () => {
   it('calls restorePurchases then verifyPurchase with null body', async () => {
     (iapService.restorePurchases as jest.Mock).mockResolvedValue(undefined);
     (subscriptionService.verifyPurchase as jest.Mock).mockResolvedValue(PREMIUM_ENTITLEMENT);
-    const { result } = renderHook(() => useRestorePurchases(), { wrapper });
+    const { result } = renderHook(() => useRestorePurchases(), { wrapper: queryWrapper() });
 
     await act(async () => {
       result.current.mutate();
@@ -173,12 +165,10 @@ describe('useRestorePurchases (073b-8)', () => {
     (iapService.restorePurchases as jest.Mock).mockResolvedValue(undefined);
     (subscriptionService.verifyPurchase as jest.Mock).mockResolvedValue(PREMIUM_ENTITLEMENT);
 
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const queryClient = createTestQueryClient();
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
-    const customWrapper = ({ children }: { children: React.ReactNode }) =>
-      React.createElement(QueryClientProvider, { client: queryClient }, children);
 
-    const { result } = renderHook(() => useRestorePurchases(), { wrapper: customWrapper });
+    const { result } = renderHook(() => useRestorePurchases(), { wrapper: queryWrapper(queryClient) });
 
     await act(async () => {
       result.current.mutate();
@@ -193,7 +183,7 @@ describe('useRestorePurchases (073b-8)', () => {
 
   it('exposes error and does not call verifyPurchase when restorePurchases rejects', async () => {
     (iapService.restorePurchases as jest.Mock).mockRejectedValue(new Error('Restore failed'));
-    const { result } = renderHook(() => useRestorePurchases(), { wrapper });
+    const { result } = renderHook(() => useRestorePurchases(), { wrapper: queryWrapper() });
 
     await act(async () => {
       result.current.mutate();

@@ -6,7 +6,7 @@ import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useBuildPlan } from '@/hooks/useTrackBuilder';
-import type { BuiltPlan, CloudTerm } from '@learning/shared';
+import { ERROR_CODES, type BuiltPlan, type CloudTerm } from '@learning/shared';
 import { UnderstandingCloud } from '@/components/trackBuilder/UnderstandingCloud';
 import { useDraftStore } from '@/store/trackBuilder.store';
 import { extractError, errorCode } from '@/lib/errors';
@@ -78,7 +78,7 @@ export default function BuildScreen() {
       setCloud(result.cloud ?? []);
       goToReview(result);
     } catch (err) {
-      if (errorCode(err) === 'TRACK_STATEMENT_TOO_THIN') setNotice(extractError(err));
+      if (errorCode(err) === ERROR_CODES.TRACK_STATEMENT_TOO_THIN) setNotice(extractError(err));
       else setError(extractError(err));
     }
   };

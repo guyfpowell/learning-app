@@ -1,8 +1,8 @@
 import { renderHook, waitFor, act } from '@testing-library/react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
+import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { useSubmitQuiz } from '../useQuiz';
 import { quizService } from '@/services/quiz.service';
+import type { Lesson, QuizResult } from '@learning/shared';
 
 jest.mock('@/services/quiz.service', () => ({
   quizService: { submitQuiz: jest.fn() },
@@ -16,26 +16,30 @@ jest.mock('expo-secure-store', () => ({
 
 const mockQuizService = quizService as jest.Mocked<typeof quizService>;
 
-const mockResult = {
+// The hook never reads `lesson`, so a partial one is enough.
+const mockResult: QuizResult = {
   score: 100,
+  correct: true,
   feedbacks: [],
-  lesson: { id: 'lesson-1', title: 'Test' },
+  lesson: { id: 'lesson-1', title: 'Test' } as Lesson,
+  coaching: null,
+  streak: 0,
+  milestone: null,
+  nextLessonId: null,
+  retakeAvailable: false,
+  trackAverage: null,
+  previousAverage: null,
+  lessonFinalized: false,
+  xpAwarded: null,
+  achievementsUnlocked: null,
 };
-
-function makeWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(QueryClientProvider, { client: queryClient }, children);
-}
 
 describe('useSubmitQuiz', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('calls quizService.submitQuiz with lessonId and answers', async () => {
-    mockQuizService.submitQuiz.mockResolvedValueOnce(mockResult as any);
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: makeWrapper() });
+    mockQuizService.submitQuiz.mockResolvedValueOnce(mockResult);
+    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' } }); });
 
@@ -48,8 +52,8 @@ describe('useSubmitQuiz', () => {
   });
 
   it('passes isRetake and skipRetake through to the service', async () => {
-    mockQuizService.submitQuiz.mockResolvedValueOnce(mockResult as any);
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: makeWrapper() });
+    mockQuizService.submitQuiz.mockResolvedValueOnce(mockResult);
+    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' }, isRetake: true }); });
 
@@ -62,8 +66,8 @@ describe('useSubmitQuiz', () => {
   });
 
   it('exposes result data on success', async () => {
-    mockQuizService.submitQuiz.mockResolvedValueOnce(mockResult as any);
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: makeWrapper() });
+    mockQuizService.submitQuiz.mockResolvedValueOnce(mockResult);
+    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: {} }); });
 
@@ -73,7 +77,7 @@ describe('useSubmitQuiz', () => {
 
   it('exposes error state on failure', async () => {
     mockQuizService.submitQuiz.mockRejectedValueOnce(new Error('Fail'));
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: makeWrapper() });
+    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: {} }); });
 
@@ -81,15 +85,11 @@ describe('useSubmitQuiz', () => {
   });
 
   it('invalidates enrollments, progress, and lesson caches when lessonFinalized is true', async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const queryClient = createTestQueryClient();
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
-    const wrapper = ({ children }: { children: React.ReactNode }) =>
-      React.createElement(QueryClientProvider, { client: queryClient }, children);
 
-    mockQuizService.submitQuiz.mockResolvedValueOnce({ ...mockResult, lessonFinalized: true } as any);
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper });
+    mockQuizService.submitQuiz.mockResolvedValueOnce({ ...mockResult, lessonFinalized: true });
+    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper(queryClient) });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' } }); });
 
@@ -100,15 +100,11 @@ describe('useSubmitQuiz', () => {
   });
 
   it('does NOT invalidate caches when lessonFinalized is false', async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
+    const queryClient = createTestQueryClient();
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
-    const wrapper = ({ children }: { children: React.ReactNode }) =>
-      React.createElement(QueryClientProvider, { client: queryClient }, children);
 
-    mockQuizService.submitQuiz.mockResolvedValueOnce({ ...mockResult, lessonFinalized: false } as any);
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper });
+    mockQuizService.submitQuiz.mockResolvedValueOnce({ ...mockResult, lessonFinalized: false });
+    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper(queryClient) });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' } }); });
 

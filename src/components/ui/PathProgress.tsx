@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Progress } from '@/components/ui/Progress';
 import { TrackMap } from '@/components/ui/TrackMap';
-import { formatPathDuration, type UserPath } from '@learning/shared';
+import { formatPathDuration, isProgressComplete, type UserPath } from '@learning/shared';
 
 function flooredPct(path: UserPath): number {
   return path.completedLessons > 0 ? Math.max(1, Math.round(path.percentComplete)) : 0;
@@ -37,7 +37,7 @@ interface PathProgressProps {
  * the enrolment dates, which exist solely on a track.
  */
 export function PathProgress({ path, onFindNext }: PathProgressProps) {
-  const isComplete = path.percentComplete >= 100;
+  const isComplete = isProgressComplete(path);
 
   if (!isComplete) {
     const pct = flooredPct(path);

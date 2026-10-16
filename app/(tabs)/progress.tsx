@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { PATHS_LOAD_ERROR, xpProgressOf, type UserPath } from '@learning/shared';
+import { PATHS_LOAD_ERROR, isProgressComplete, xpProgressOf, type UserPath } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
@@ -75,8 +75,8 @@ export default function ProgressScreen() {
   // Split by state, never by kind (ADR-009 C16) — a custom path belongs in Progress
   // exactly as a track does. The user-wide stats above already counted its lessons,
   // because they are computed over UserProgress rows.
-  const inProgress: UserPath[] = paths?.filter(p => p.percentComplete < 100) ?? [];
-  const completed: UserPath[] = paths?.filter(p => p.percentComplete >= 100) ?? [];
+  const inProgress: UserPath[] = paths?.filter(p => !isProgressComplete(p)) ?? [];
+  const completed: UserPath[] = paths?.filter(isProgressComplete) ?? [];
   const hasNoPaths = Array.isArray(paths) && paths.length === 0;
 
   return (

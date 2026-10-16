@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import DateTimePicker, { type DateTimePickerChangeEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import type { AchievementAxis, AchievementDefinition, AchievementKey, UserPath, UserAchievement } from '@learning/shared';
-import { ACHIEVEMENTS_BY_KEY } from '@learning/shared';
+import { ACHIEVEMENTS_BY_KEY, isProgressComplete } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing, shadow } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -169,7 +169,7 @@ export default function ProfileScreen() {
   const isSaveError = updatePrefs.isError || updateProfile.isError;
   const saveError = updatePrefs.error ?? updateProfile.error;
 
-  const activePaths = pathsData?.filter(p => p.percentComplete < 100) ?? [];
+  const activePaths = pathsData?.filter(p => !isProgressComplete(p)) ?? [];
   const savedLessons = savedData ?? [];
   const totalUnlocked = achievements?.totalUnlocked ?? 0;
 

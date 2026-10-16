@@ -15,5 +15,4 @@ module.exports = {
   ],
   // `/archived/` holds retired code kept for reading only — 068 Chunk 6.
   testPathIgnorePatterns: ['/node_modules/', '/.expo/', '/archived/'],
-  forceExit: true,
 };

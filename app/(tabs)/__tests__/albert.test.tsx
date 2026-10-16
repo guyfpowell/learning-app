@@ -1,6 +1,6 @@
 import React from 'react';
-import { Alert } from 'react-native';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert, type AlertButton } from 'react-native';
+import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import AlbertScreen from '../albert';
 import { useSkills, usePaths } from '@/hooks/useTrack';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
@@ -83,11 +83,24 @@ function setUpdatePlan(overrides: Partial<typeof mockUpdatePlan> = {}) {
   (useUpdateTrackPlan as jest.Mock).mockReturnValue({ ...mockUpdatePlan, ...overrides });
 }
 
+let alertSpy: jest.SpiedFunction<typeof Alert.alert>;
+
+/**
+ * Presses the first Alert's button with `style`, inside `act` so the state it sets is flushed.
+ * Throws if the button is missing; a button with no `onPress` just dismisses, so pressing it does nothing.
+ */
+function pressAlertButton(style: AlertButton['style']) {
+  const button = alertSpy.mock.calls[0]?.[2]?.find(b => b.style === style);
+  if (!button) throw new Error(`The Alert has no ${style} button`);
+  act(() => { button.onPress?.(); });
+}
+
 // ── Suite ────────────────────────────────────────────────────────────────────
 
 describe('AlbertScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    alertSpy = jest.spyOn(Alert, 'alert');
     capturedEdges = undefined;
     setSkills([freeSkill, premiumLocked]);
     setPaths([]);
@@ -179,7 +192,8 @@ describe('AlbertScreen', () => {
     expect(screen.queryByTestId('build-another')).toBeNull();
   });
 
-  it('View my path routes to Tracks regardless of premium status', () => {
+  it('View my path routes to Tracks for a premium user', () => {
+    setSkills([freeSkill, premiumOpen]);
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('view-my-path'));
@@ -195,7 +209,6 @@ describe('AlbertScreen', () => {
   });
 
   it('Create a NEW path opens a confirmation Alert for a premium user', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
     setSkills([freeSkill, premiumOpen]);
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
@@ -205,7 +218,6 @@ describe('AlbertScreen', () => {
   });
 
   it('Create a NEW path opens the upgrade modal for a free user (no Alert)', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
     setSkills([freeSkill, premiumLocked]);
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
@@ -214,50 +226,37 @@ describe('AlbertScreen', () => {
     expect(screen.getByTestId('premium-modal')).toBeTruthy();
   });
 
-  it('confirming the Alert archives the plan and navigates to /build', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
+  it('confirming the Alert archives the plan and navigates to /build', () => {
     setSkills([freeSkill, premiumOpen]);
     setPaths([unfinishedPath]);
-    // Mock mutate to call onSuccess immediately
     mockMutate.mockImplementationOnce((_: unknown, cb: { onSuccess?: () => void }) => {
       cb?.onSuccess?.();
     });
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('create-new-path'));
 
-    // Simulate pressing the destructive button in the Alert
-    const alertCall = alertSpy.mock.calls[0];
-    const buttons = alertCall[2] as { text: string; onPress?: () => void; style?: string }[];
-    const confirmButton = buttons.find(b => b.style === 'destructive');
-    confirmButton?.onPress?.();
+    pressAlertButton('destructive');
 
-    await waitFor(() => {
-      expect(mockMutate).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'plan-1', status: 'archived' }),
-        expect.any(Object),
-      );
-      expect(mockPush).toHaveBeenCalledWith('/build');
-    });
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'plan-1', status: 'archived' }),
+      expect.any(Object),
+    );
+    expect(mockPush).toHaveBeenCalledWith('/build');
   });
 
   it('cancelling the Alert mutates nothing and navigates nowhere', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
     setSkills([freeSkill, premiumOpen]);
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('create-new-path'));
 
-    const alertCall = alertSpy.mock.calls[0];
-    const buttons = alertCall[2] as { text: string; onPress?: () => void; style?: string }[];
-    const cancelButton = buttons.find(b => b.style === 'cancel');
-    cancelButton?.onPress?.();
+    pressAlertButton('cancel');
 
     expect(mockMutate).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it('a failed archive stays on Albert and shows an error', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
+  it('a failed archive stays on Albert and shows an error', () => {
     setSkills([freeSkill, premiumOpen]);
     setPaths([unfinishedPath]);
     mockMutate.mockImplementationOnce((_: unknown, cb: { onError?: (err: Error) => void }) => {
@@ -266,16 +265,11 @@ describe('AlbertScreen', () => {
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('create-new-path'));
 
-    const alertCall = alertSpy.mock.calls[0];
-    const buttons = alertCall[2] as { text: string; onPress?: () => void; style?: string }[];
-    const confirmButton = buttons.find(b => b.style === 'destructive');
-    confirmButton?.onPress?.();
+    pressAlertButton('destructive');
 
-    await waitFor(() => {
-      expect(mockMutate).toHaveBeenCalled();
-      expect(mockPush).not.toHaveBeenCalledWith('/build');
-      expect(screen.getByTestId('albert-archive-error')).toBeTruthy();
-    });
+    expect(mockMutate).toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalledWith('/build');
+    expect(screen.getByTestId('albert-archive-error')).toBeTruthy();
   });
 
   // ── All custom paths complete ─────────────────────────────────────────────
@@ -297,7 +291,6 @@ describe('AlbertScreen', () => {
   });
 
   it('Build another routes straight to the builder for a premium user (no confirmation)', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
     setSkills([freeSkill, premiumOpen]);
     setPaths([finishedPath]);
     render(<AlbertScreen />);

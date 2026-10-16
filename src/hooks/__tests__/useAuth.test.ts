@@ -1,6 +1,5 @@
 import { renderHook, waitFor, act } from '@testing-library/react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
+import { queryWrapper } from '@/test-utils/queryClient';
 import { useLogin, useLogout, useRegister } from '../useAuth';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/store/auth.store';
@@ -36,14 +35,6 @@ const mockAuthService = authService as jest.Mocked<typeof authService>;
 
 const mockUser = { id: 'u1', email: 'user@example.com', name: 'Test User' };
 
-function makeWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(QueryClientProvider, { client: queryClient }, children);
-}
-
 describe('useLogin', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -53,7 +44,7 @@ describe('useLogin', () => {
   it('calls authService.login with credentials', async () => {
     mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'tok' });
 
-    const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
+    const { result } = renderHook(() => useLogin(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate({ email: 'user@example.com', password: 'pass' }); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -63,7 +54,7 @@ describe('useLogin', () => {
   it('stores auth in the store on success', async () => {
     mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'access-token' });
 
-    const { result } = renderHook(() => useLogin(), { wrapper: makeWrapper() });
+    const { result } = renderHook(() => useLogin(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate({ email: 'user@example.com', password: 'pass' }); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -78,7 +69,7 @@ describe('useRegister', () => {
   it('calls authService.register with email, password and name', async () => {
     mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok' });
 
-    const { result } = renderHook(() => useRegister(), { wrapper: makeWrapper() });
+    const { result } = renderHook(() => useRegister(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate({ email: 'new@example.com', password: 'pass', name: 'New User' }); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -92,7 +83,7 @@ describe('useRegister', () => {
   it('stores auth in the store on success', async () => {
     mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok-reg' });
 
-    const { result } = renderHook(() => useRegister(), { wrapper: makeWrapper() });
+    const { result } = renderHook(() => useRegister(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate({ email: 'new@example.com', password: 'pass', name: 'New User' }); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -107,7 +98,7 @@ describe('useLogout', () => {
     useAuthStore.getState().setAuth(mockUser, 'access');
     mockAuthService.logout.mockResolvedValueOnce(undefined);
 
-    const { result } = renderHook(() => useLogout(), { wrapper: makeWrapper() });
+    const { result } = renderHook(() => useLogout(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate(); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
@@ -119,7 +110,7 @@ describe('useLogout', () => {
     useAuthStore.getState().setAuth(mockUser, 'access');
     mockAuthService.logout.mockRejectedValueOnce(new Error('Server error'));
 
-    const { result } = renderHook(() => useLogout(), { wrapper: makeWrapper() });
+    const { result } = renderHook(() => useLogout(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate(); });
 
     await waitFor(() => expect(result.current.isError || result.current.isSuccess).toBe(true));
