@@ -6,7 +6,7 @@ import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useBuildPlan } from '@/hooks/useTrackBuilder';
-import { ERROR_CODES, type BuiltPlan, type CloudTerm } from '@learning/shared';
+import { ERROR_CODES, TRACK_STATEMENT_MAX, TRACK_STATEMENT_MIN, type BuiltPlan, type CloudTerm } from '@learning/shared';
 import { UnderstandingCloud } from '@/components/trackBuilder/UnderstandingCloud';
 import { useDraftStore } from '@/store/trackBuilder.store';
 import { extractError, errorCode } from '@/lib/errors';
@@ -26,16 +26,6 @@ import { extractError, errorCode } from '@/lib/errors';
 const PLACEHOLDER =
   'Tell me about yourself — your role, your level, and the kind of company you work for.\n\n' +
   'What do you want to get out of this?';
-
-const MIN_CHARS = 10;
-/**
- * A statement is a paragraph — 068 Chunk 3, and the server rejects more.
- *
- * Capped in the box rather than validated on submit: being told your words are
- * too long *after* writing them is the worst version of this, and the longest
- * real statement anyone has written is 338 characters.
- */
-const MAX_CHARS = 1000;
 
 export default function BuildScreen() {
   const router = useRouter();
@@ -83,7 +73,7 @@ export default function BuildScreen() {
     }
   };
 
-  const tooShort = text.trim().length < MIN_CHARS;
+  const tooShort = text.trim().length < TRACK_STATEMENT_MIN;
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -123,7 +113,9 @@ export default function BuildScreen() {
             style={styles.input}
             value={text}
             onChangeText={setText}
-            maxLength={MAX_CHARS}
+            // Capped in the box, not validated on submit: being told your words are too long
+            // after writing them is the worst version of this. The server rejects more.
+            maxLength={TRACK_STATEMENT_MAX}
             placeholder={PLACEHOLDER}
             placeholderTextColor={colors.textMuted}
             multiline

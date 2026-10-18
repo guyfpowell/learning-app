@@ -1,13 +1,18 @@
 import { renderHook, waitFor, act } from '@testing-library/react-native';
-import { queryWrapper } from '@/test-utils/queryClient';
-import { useSaveLesson, useUnsaveLesson, useSavedLessons } from '../useLesson';
+import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
+import { useSaveLesson, useUnsaveLesson, useSavedLessons, useStartRetake, useSetLessonRating } from '../useLesson';
+import { lessonQueryKey } from '@/lib/queryKeys';
 import { lessonService } from '@/services/lesson.service';
+import type { Lesson } from '@learning/shared';
 
 jest.mock('@/services/lesson.service', () => ({
   lessonService: {
     saveLesson: jest.fn(),
     unsaveLesson: jest.fn(),
     getSavedLessons: jest.fn(),
+    startRetake: jest.fn(),
+    getLesson: jest.fn(),
+    setRating: jest.fn(),
   },
 }));
 
@@ -69,5 +74,57 @@ describe('useSavedLessons (ticket 017 chunk 3)', () => {
     const { result } = renderHook(() => useSavedLessons(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(summaries);
+  });
+});
+
+describe('useStartRetake (079e)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('marks the cached lesson as a retake with nothing answered, then refetches it', async () => {
+    const client = createTestQueryClient();
+    client.setQueryData(lessonQueryKey('lesson-1'), { ...mockLesson, quizCompleted: true, resolvedQuizIds: ['q1'] });
+    mockLessonService.startRetake.mockResolvedValueOnce({ pass: 2 });
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    const { result } = renderHook(() => useStartRetake(), { wrapper: queryWrapper(client) });
+
+    act(() => { result.current.mutate('lesson-1'); });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(client.getQueryData(lessonQueryKey('lesson-1'))).toMatchObject({ lessonRetakeInProgress: true, resolvedQuizIds: [] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: lessonQueryKey('lesson-1') });
+  });
+
+  it('a failed start leaves the cached lesson as it was', async () => {
+    const client = createTestQueryClient();
+    const cached = { ...mockLesson, quizCompleted: true, resolvedQuizIds: ['q1'] };
+    client.setQueryData(lessonQueryKey('lesson-1'), cached);
+    mockLessonService.startRetake.mockRejectedValueOnce(new Error('409'));
+    const { result } = renderHook(() => useStartRetake(), { wrapper: queryWrapper(client) });
+
+    act(() => { result.current.mutate('lesson-1'); });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(client.getQueryData(lessonQueryKey('lesson-1'))).toEqual(cached);
+  });
+});
+
+describe('useSetLessonRating', () => {
+  it('PUTs the rating and writes it into the cached lesson', async () => {
+    mockLessonService.setRating.mockResolvedValue(undefined);
+    const client = createTestQueryClient();
+    client.setQueryData(lessonQueryKey('lesson-1'), { ...mockLesson, rating: null });
+    const { result } = renderHook(() => useSetLessonRating(), { wrapper: queryWrapper(client) });
+    act(() => { result.current.mutate({ lessonId: 'lesson-1', rating: 'down' }); });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockLessonService.setRating).toHaveBeenCalledWith('lesson-1', 'down');
+    expect(client.getQueryData<Lesson>(lessonQueryKey('lesson-1'))?.rating).toBe('down');
+  });
+
+  it('sends null to clear', async () => {
+    mockLessonService.setRating.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useSetLessonRating(), { wrapper: queryWrapper(createTestQueryClient()) });
+    act(() => { result.current.mutate({ lessonId: 'lesson-1', rating: null }); });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockLessonService.setRating).toHaveBeenCalledWith('lesson-1', null);
   });
 });

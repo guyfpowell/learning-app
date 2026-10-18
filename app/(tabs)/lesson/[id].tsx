@@ -11,15 +11,15 @@ import { Button } from '@/components/ui/Button';
 import { Badge, LEVEL_BADGE_VARIANT } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizModal } from '@/components/QuizModal';
 import { useLesson, useSaveLesson, useUnsaveLesson, useStartRetake } from '@/hooks/useLesson';
 import { useLessonClock } from '@/hooks/useLessonClock';
-import { isRetakeInProgress } from '@/lib/lessonFlow';
 import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import type { LessonPhase, UserPath } from '@learning/shared';
-import { PREMIUM_LESSON_BUDGET } from '@learning/shared';
+import { PREMIUM_LESSON_BUDGET, RETAKE_START_ERROR, lessonOpeningPhase } from '@learning/shared';
 
 function isPremiumError(error: unknown): boolean {
   return (
@@ -110,22 +110,11 @@ export default function LessonDetailScreen() {
   const unsaveLesson = useUnsaveLesson();
   const startRetake = useStartRetake();
   const clock = useLessonClock();
-  const [retakeStarted, setRetakeStarted] = useState(false);
-  const [retakeError, setRetakeError] = useState(false);
+  const [retakeFailed, setRetakeFailed] = useState(false);
 
   // Guards against re-initialising phase after the user has manually transitioned
   const phaseInitialized = useRef<string | null>(null);
 
-  // Server-persisted read position: non-null when the user has opened but not
-  // completed this lesson. undefined = paths query still loading.
-  const resumePhase: LessonPhase | null | undefined = paths
-    ? (() => {
-        for (const p of paths) {
-          if (p.nextLesson?.id === id) return p.nextLesson.resumePhase ?? null;
-        }
-        return null;
-      })()
-    : undefined;
 
   // Fire-and-forget position write: a failure is silent to the user (spec constraint 6), never to us.
   function updatePosition(lessonId: string, p: LessonPhase) {
@@ -138,16 +127,14 @@ export default function LessonDetailScreen() {
     setIsSaved(!!lesson?.isSaved);
   }, [lesson?.id, lesson?.isSaved]);
 
+  // Where the reader opens, the same rule as web. Waits for paths: they carry the saved position.
   useEffect(() => {
-    if (!lesson || phaseInitialized.current === lesson.id) return;
-    if (resumePhase === undefined) return; // wait for paths to load
-    const initial: LessonPhase = lesson.quizCompleted
-      ? 'takeaway'
-      : (resumePhase ?? 'collapsed');
+    if (!lesson || !paths || phaseInitialized.current === lesson.id) return;
+    const initial = lessonOpeningPhase(lesson, paths);
     setPhase(initial);
     phaseInitialized.current = lesson.id;
     updatePosition(lesson.id, initial);
-  }, [lesson?.id, lesson?.quizCompleted, resumePhase]);
+  }, [lesson?.id, lesson?.quizCompleted, paths]);
 
   // The progress bar belongs to the track this lesson sits in. A custom path can
   // contain the same lesson, but the lesson's own skill is what it is a part of.
@@ -173,20 +160,22 @@ export default function LessonDetailScreen() {
     }
   }
 
-  const retakeInProgress = lesson ? isRetakeInProgress(lesson, retakeStarted) : false;
+  const retakeInProgress = !!lesson?.lessonRetakeInProgress;
 
   // A new pass: POST /retake, restart the clock, and read the lesson again from the top.
   function handleRetake() {
     if (!lesson) return;
-    setRetakeError(false);
+    setRetakeFailed(false);
     startRetake.mutate(lesson.id, {
       onSuccess: () => {
         clock.reset();
-        setRetakeStarted(true);
         setPhase('collapsed');
         updatePosition(lesson.id, 'collapsed');
       },
-      onError: () => setRetakeError(true),
+      onError: (err) => {
+        Sentry.addBreadcrumb({ category: 'lesson', message: 'Retake start failed', level: 'warning', data: { lessonId: lesson.id, err: String(err) } });
+        setRetakeFailed(true);
+      },
     });
   }
 
@@ -258,7 +247,10 @@ export default function LessonDetailScreen() {
             <Card testID="lesson-card" style={styles.card}>
               <View style={styles.titleRow}>
                 <Text testID="lesson-title" style={styles.title}>{lesson.title}</Text>
-                <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
+                <View style={styles.titleActions}>
+                  {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} />}
+                  <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
+                </View>
               </View>
 
               <View style={styles.meta}>
@@ -342,8 +334,8 @@ export default function LessonDetailScreen() {
                 />
               )}
 
-              {retakeError && (
-                <Text testID="retake-error" style={styles.error}>Couldn't start the retake. Please try again.</Text>
+              {retakeFailed && (
+                <Text testID="retake-error" style={styles.error}>{RETAKE_START_ERROR}</Text>
               )}
             </Card>
           </>
@@ -357,7 +349,6 @@ export default function LessonDetailScreen() {
           lesson={lesson}
           onClose={() => setQuizVisible(false)}
           completionTime={clock.seconds}
-          retakeInProgress={retakeInProgress}
         />
       )}
 
@@ -420,6 +411,10 @@ const styles = StyleSheet.create({
     alignItems:     'flex-start',
     justifyContent: 'space-between',
     gap:            spacing.sm,
+  },
+  titleActions: {
+    flexDirection: 'row',
+    alignItems:    'center',
   },
   title: {
     fontFamily: font.bold,

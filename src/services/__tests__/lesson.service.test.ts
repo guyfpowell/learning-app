@@ -2,7 +2,7 @@ import { lessonService } from '../lesson.service';
 
 jest.mock('@/lib/api', () => ({
   __esModule: true,
-  default: { get: jest.fn(), post: jest.fn(), delete: jest.fn(), patch: jest.fn() },
+  default: { get: jest.fn(), post: jest.fn(), delete: jest.fn(), patch: jest.fn(), put: jest.fn() },
 }));
 
 import api from '@/lib/api';
@@ -58,6 +58,14 @@ describe('lessonService', () => {
       const result = await lessonService.getSavedLessons();
       expect(mockApi.get).toHaveBeenCalledWith('/lessons/saved');
       expect(result).toEqual(summaries);
+    });
+  });
+
+  describe('setRating (079f)', () => {
+    it.each([['up'], ['down'], [null]] as const)('PUTs { rating: %s } to /lessons/:id/rating', async (rating) => {
+      mockApi.put.mockResolvedValueOnce({ data: undefined });
+      await lessonService.setRating('lesson-1', rating);
+      expect(mockApi.put).toHaveBeenCalledWith('/lessons/lesson-1/rating', { rating });
     });
   });
 });

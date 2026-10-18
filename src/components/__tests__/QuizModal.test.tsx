@@ -16,6 +16,11 @@ jest.mock('@/hooks/useTrack', () => ({
   useRefreshPaths: jest.fn(),
 }));
 jest.mock('expo-router', () => ({ useRouter: jest.fn() }));
+jest.mock('@/components/ui/LessonRatingControl', () => {
+  const { Text } = require('react-native');
+  return { LessonRatingControl: ({ lessonId, rating }: { lessonId: string; rating: string | null }) =>
+    <Text testID="rating-stub">{`${lessonId}:${rating}`}</Text> };
+});
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: jest.fn(() => ({ top: 44, bottom: 34, left: 0, right: 0 })),
 }));
@@ -421,6 +426,18 @@ describe('QuizModal', () => {
       expect(screen.queryByText('NEXT QUESTION')).toBeNull();
     });
 
+    it('079f: finalized result shows the thumbs with the stored verdict from the result lesson', () => {
+      setQuizMock({ data: { ...mockResult, lesson: { ...mockLesson, rating: 'up' } } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByTestId('rating-stub').props.children).toBe('lesson-1:up');
+    });
+
+    it('079f: no thumbs while the lesson is not finalized', () => {
+      setQuizMock({ data: wrongPendingResult });
+      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      expect(screen.queryByTestId('rating-stub')).toBeNull();
+    });
+
     it('resume: starts on Q2 when resolvedQuizIds contains Q1 id', () => {
       const lessonWithResolved = { ...mockLesson, resolvedQuizIds: ['q-1'] };
       render(<QuizModal visible={true} lesson={lessonWithResolved} onClose={onClose} />);
@@ -476,8 +493,8 @@ describe('QuizModal', () => {
     });
 
     it('accepts answers on a completed lesson while a retake is in progress', () => {
-      const completedLesson = { ...singleQuizLesson, quizCompleted: true, resolvedQuizIds: [] };
-      render(<QuizModal visible={true} lesson={completedLesson} onClose={onClose} retakeInProgress />);
+      const completedLesson = { ...singleQuizLesson, quizCompleted: true, lessonRetakeInProgress: true, resolvedQuizIds: [] };
+      render(<QuizModal visible={true} lesson={completedLesson} onClose={onClose} />);
       expect(screen.queryByText('Already Completed')).toBeNull();
       fireEvent.press(screen.getByText('Option A'));
       fireEvent.press(screen.getByText('SUBMIT'));
@@ -491,6 +508,12 @@ describe('QuizModal', () => {
       render(<QuizModal visible={true} lesson={completedLesson} onClose={onClose} />);
       expect(screen.getByText('Already Completed')).toBeTruthy();
       expect(screen.queryByText('What is product-market fit?')).toBeNull();
+    });
+
+    it('079f: "Already Completed" shows the thumbs with the stored verdict', () => {
+      const completedLesson = { ...singleQuizLesson, quizCompleted: true, rating: 'down' as const };
+      render(<QuizModal visible={true} lesson={completedLesson} onClose={onClose} />);
+      expect(screen.getByTestId('rating-stub').props.children).toBe('lesson-1:down');
     });
 
     it('shows "Already Completed" on open when every quiz id is already in resolvedQuizIds', () => {

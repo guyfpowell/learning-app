@@ -16,6 +16,7 @@ import {
   ERROR_MESSAGES,
   PATH_NAME_MAX,
   PLAN_FOLLOW_UP_ENABLED,
+  TRACK_STATEMENT_MAX,
   isAlbertLocked,
   reasonRuns,
   type BuiltPlanTopic,
@@ -301,6 +302,7 @@ export default function BuildReviewScreen() {
               style={styles.followUp}
               value={followUp}
               onChangeText={setFollowUp}
+              maxLength={TRACK_STATEMENT_MAX}
               placeholder="e.g. I don't want the management stuff"
               placeholderTextColor={colors.textMuted}
               multiline

@@ -1,13 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { AchievementKey, Lesson, QuizFeedback } from '@learning/shared';
@@ -20,21 +12,22 @@ import { TopicFeedback } from '@/components/ui/TopicFeedback';
 import { errorCode, extractError } from '@/lib/errors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { BookmarkButton } from '@/components/ui/BookmarkButton';
+import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizOpt } from '@/components/ui/QuizOpt';
 import type { QuizOptState } from '@/components/ui/QuizOpt';
-import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
-import { FlameIcon } from '@/components/ui/Streak';
+import { colors, font, fontSize, spacing } from '@/theme';
 import { CelebrationOverlay, XpChipOverlay } from '@/components/ui/CelebrationOverlay';
+import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
+import { QuizResultFrame, quizFrameStyles } from '@/components/quiz/QuizResultFrame';
+import { CoachingCard, KeyTakeawayCard, MilestoneCard, StreakRow, TrackAverageBadge, XpAward } from '@/components/quiz/QuizResultParts';
 
 interface QuizModalProps {
   visible: boolean;
+  /** Its `lessonRetakeInProgress` keeps a completed lesson mid-retake out of "Already Completed" (079e). */
   lesson: Lesson;
   onClose: () => void;
   /** Foreground seconds on the lesson flow so far (079e); sent with every submission. */
   completionTime?: () => number;
-  /** A retake is in progress: a completed lesson must not show "Already Completed" (079e). */
-  retakeInProgress?: boolean;
 }
 
 function ProgressBar({ value }: { value: number }) {
@@ -46,100 +39,11 @@ function ProgressBar({ value }: { value: number }) {
   );
 }
 
-function TrackAverageBadge({
-  average,
-  previous,
-  retakeUsed,
-}: {
-  average: number | null;
-  previous: number | null;
-  retakeUsed: boolean;
-}) {
-  let arrow: '↑' | '↓' | '=' | null = null;
-  if (previous !== null) {
-    arrow = retakeUsed ? '=' : average !== null && average >= previous ? '↑' : '↓';
-  }
-
-  return (
-    <View accessibilityLabel={`Track average ${average !== null ? average + ' percent' : 'unavailable'}`}>
-      <View style={styles.trackAverageValueRow}>
-        <Text style={styles.scorePercent}>{average !== null ? `${average}%` : '—'}</Text>
-        {arrow && (
-          <Text
-            style={[
-              styles.trackAverageBadge,
-              arrow === '↑' ? styles.trackAverageUp : arrow === '↓' ? styles.trackAverageDown : styles.trackAverageFlat,
-            ]}
-          >
-            {arrow}
-          </Text>
-        )}
-      </View>
-      <Text style={styles.scoreFraction}>Track Average</Text>
-    </View>
-  );
-}
-
-/**
- * QuizFeedbackCard — ticket 069 A4, reordered + restyled ticket 072f.
- *
- * Single component used by both the mid-capstone per-question view and the
- * terminal results view so both always share the same block order.
- *
- * Reading order goes context → reason → (key takeaway, rendered once, after
- * all cards): question/answer first (recessive — reference, not the point),
- * then Explanation (plain, neutral). For a wrong answer, the correct answer
- * is a highlighted chip inside the question/answer block, directly beside
- * the wrong pick it corrects, instead of a standalone block.
- *
- * Correct:   Question + your answer (recessive) → Explanation
- * Incorrect: Question + your answer + correct-answer chip (recessive block) → Explanation
- */
-function QuizFeedbackCard({ fb }: { fb: QuizFeedback }) {
-  if (fb.isCorrect) {
-    return (
-      <View testID={`feedback-card-${fb.quizId}`} style={styles.feedbackWrapper}>
-        {/* 1. Question + confirmed correct answer — reference, recessive */}
-        <View style={styles.answerRefBox}>
-          <Text style={styles.feedbackQuestion}>{fb.question}</Text>
-          <Text style={[styles.feedbackAnswerText, styles.correct]}>✓ Your answer: {fb.userAnswer}</Text>
-        </View>
-        {/* 2. Explanation — plain, neutral */}
-        <View style={styles.explanationBox}>
-          <Text style={styles.feedbackSectionLabel}>Explanation</Text>
-          <Text style={styles.explanationText}>{fb.explanation}</Text>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View testID={`feedback-card-${fb.quizId}`} style={styles.feedbackWrapper}>
-      {/* 1. Question + wrong answer + correct-answer chip — reference, recessive */}
-      <View style={styles.answerRefBox}>
-        <Text style={styles.feedbackQuestion}>{fb.question}</Text>
-        <Text style={[styles.feedbackAnswerText, styles.incorrect]}>✗ Your answer: {fb.userAnswer}</Text>
-        {fb.correctAnswer != null && (
-          <View style={styles.correctAnswerChip}>
-            <Text style={styles.correctAnswerChipLabel}>Correct answer</Text>
-            <Text style={styles.correctAnswerText}>{fb.correctAnswer}</Text>
-          </View>
-        )}
-      </View>
-      {/* 2. Explanation — plain, neutral */}
-      <View style={styles.explanationBox}>
-        <Text style={styles.feedbackSectionLabel}>Explanation</Text>
-        <Text style={styles.explanationText}>{fb.explanation}</Text>
-      </View>
-    </View>
-  );
-}
-
 type CelebrationItem =
   | { type: 'achievement'; id: string; name: string; description: string }
   | { type: 'xp'; id: string; amount: number };
 
-export function QuizModal({ visible, lesson, onClose, completionTime, retakeInProgress = false }: QuizModalProps) {
+export function QuizModal({ visible, lesson, onClose, completionTime }: QuizModalProps) {
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | undefined>(undefined);
   const [wrongAnswer, setWrongAnswer] = useState<string | undefined>(undefined);
@@ -167,7 +71,7 @@ export function QuizModal({ visible, lesson, onClose, completionTime, retakeInPr
       const resolved = new Set<string>(lesson.resolvedQuizIds ?? []);
       setResolvedIds(resolved);
       const allResolved = quizzes.length > 0 && quizzes.every(q => resolved.has(q.id));
-      setAlreadyCompleted(quizzes.length > 0 && ((!!lesson.quizCompleted && !retakeInProgress) || allResolved));
+      setAlreadyCompleted(quizzes.length > 0 && ((!!lesson.quizCompleted && !lesson.lessonRetakeInProgress) || allResolved));
       const startIdx = quizzes.findIndex(q => !resolved.has(q.id));
       setCurrentQuizIndex(startIdx === -1 ? 0 : startIdx);
       setSelectedAnswer(undefined);
@@ -308,27 +212,16 @@ export function QuizModal({ visible, lesson, onClose, completionTime, retakeInPr
     }
   }
 
-  // Inset-aware header padding — shared across all five modal blocks
-  const headerStyle = [styles.header, { paddingTop: insets.top + spacing.sm }];
+  const frame = { visible, onClose, saved: isSaved, onToggleSave: handleToggleSave };
 
-  // ─── Wrong first attempt — retake offer ───────────────────────────────────────
+  // ─── Wrong first attempt — retry offer ("Try again") ─────────────────────────
   if (submit.data && !submit.data.correct && submit.data.retakeAvailable) {
     return (
-      <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-        <View style={styles.container}>
-          <View style={headerStyle}>
-            <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
-            <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
-              <Text style={styles.closeText}>✕</Text>
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={styles.content}>
-            <Text style={styles.resultHeading}>Incorrect</Text>
-            {lesson.keyTakeaway && <Text style={styles.keyTakeaway}>{lesson.keyTakeaway}</Text>}
-            <Button label="Try again" onPress={handleTryAgain} style={styles.actionBtn} />
-          </ScrollView>
-        </View>
-      </Modal>
+      <QuizResultFrame {...frame}>
+        <Text style={styles.resultHeading}>Incorrect</Text>
+        {lesson.keyTakeaway && <Text style={styles.keyTakeaway}>{lesson.keyTakeaway}</Text>}
+        <Button label="Try again" onPress={handleTryAgain} style={styles.actionBtn} />
+      </QuizResultFrame>
     );
   }
 
@@ -336,163 +229,88 @@ export function QuizModal({ visible, lesson, onClose, completionTime, retakeInPr
   if (submit.data && !submit.data.lessonFinalized) {
     const fb = submit.data.feedbacks.find((f: QuizFeedback) => f.quizId === current?.id) ?? submit.data.feedbacks[0];
     return (
-      <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-        <View style={styles.container}>
-          <View style={headerStyle}>
-            <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
-            <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
-              <Text style={styles.closeText}>✕</Text>
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={styles.content}>
-            <Text style={styles.resultHeading}>{fb?.isCorrect ? 'Correct!' : 'Incorrect'}</Text>
-            {fb && <QuizFeedbackCard fb={fb} />}
-            <Button
-              label="Next Question"
-              onPress={() => advanceToNextUnresolved(current?.id)}
-              style={styles.actionBtn}
-              accessibilityLabel="Next question"
-            />
-          </ScrollView>
-        </View>
-      </Modal>
+      <QuizResultFrame {...frame}>
+        <Text style={styles.resultHeading}>{fb?.isCorrect ? 'Correct!' : 'Incorrect'}</Text>
+        {fb && <QuizFeedbackCard fb={fb} />}
+        <Button
+          label="Next Question"
+          onPress={() => advanceToNextUnresolved(current?.id)}
+          style={styles.actionBtn}
+          accessibilityLabel="Next question"
+        />
+      </QuizResultFrame>
     );
   }
 
   // ─── Terminal / results view — lesson finalized ───────────────────────────────
   if (submit.data) {
-    const { feedbacks, coaching, streak, milestone, trackAverage, previousAverage, xpAwarded } = submit.data;
+    const { feedbacks, coaching, streak, milestone, trackAverage, previousAverage, xpAwarded, nextLessonId } = submit.data;
     const retakeUsed = wrongAnswer !== undefined;
     const topicEnd = topicFeedbackClosed ? null : submit.data.topicEnd;
+    const celebration = (
+      <>
+        {currentCelebration?.type === 'achievement' && (
+          <CelebrationOverlay
+            key={currentCelebration.id}
+            visible
+            title="Achievement Earned!"
+            name={currentCelebration.name}
+            description={currentCelebration.description}
+            onDismiss={advanceCelebration}
+          />
+        )}
+        {currentCelebration?.type === 'xp' && (
+          <XpChipOverlay key={currentCelebration.id} visible xp={currentCelebration.amount} onDismiss={advanceCelebration} />
+        )}
+      </>
+    );
     return (
-      <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-        <View style={styles.container}>
-          <View style={headerStyle}>
-            <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
-            <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
-              <Text style={styles.closeText}>✕</Text>
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={styles.content}>
-            <Text style={styles.resultHeading}>{submit.data.correct ? 'Correct!' : 'Incorrect'}</Text>
-
-            {/* Animated track average */}
-            <Animated.View style={{ transform: [{ scale: scoreAnim }] }}>
-              <TrackAverageBadge average={trackAverage} previous={previousAverage} retakeUsed={retakeUsed} />
-            </Animated.View>
-
-            {/* Streak counter */}
-            {streak > 0 && (
-              <View style={styles.streakRow}>
-                <FlameIcon size={18} />
-                <Text style={styles.streakText}>{streak}-day streak</Text>
-              </View>
-            )}
-
-            {/* XP award */}
-            {xpAwarded != null && xpAwarded > 0 && (
-              <View testID="xp-chip" style={styles.xpChip}>
-                <Text style={styles.xpChipText}>+{xpAwarded} XP</Text>
-              </View>
-            )}
-
-            {/* Milestone celebration */}
-            {milestone && (
-              <Animated.View
-                testID="milestone-card"
-                style={[styles.milestoneCard, { transform: [{ scale: milestoneAnim }], opacity: milestoneAnim }]}
-                accessibilityRole="alert"
-              >
-                <Text style={styles.milestoneText}>🎉 {milestone}!</Text>
-                <Text style={styles.milestoneSubtext}>
-                  {streak >= 30 ? "You're unstoppable." : "Keep going!"}
-                </Text>
-              </Animated.View>
-            )}
-
-            {/* Feedback cards — one per quiz question */}
-            {feedbacks.map((fb: QuizFeedback) => (
-              <QuizFeedbackCard key={fb.quizId} fb={fb} />
-            ))}
-
-            {coaching && (
-              <View style={styles.coachingCard}>
-                <Text style={styles.coachingLabel}>AI Coaching</Text>
-                <Text style={styles.coachingText}>{coaching}</Text>
-              </View>
-            )}
-
-            {/* Key takeaway — last, per item 6 */}
-            {lesson.keyTakeaway && (
-              <View testID="quiz-key-takeaway" style={styles.quizKeyTakeawayCard}>
-                <Text style={styles.quizKeyTakeawayLabel}>KEY TAKEAWAY</Text>
-                <Text style={styles.quizKeyTakeawayText}>{lesson.keyTakeaway}</Text>
-              </View>
-            )}
-
-            {/* End-of-topic feedback (079d). Closing hides it here only: the write already
-                happened, so Home will not show it again; one never written comes back on Home. */}
-            {topicEnd && (
-              <TopicFeedback
-                topicEnd={topicEnd}
-                onSubmit={body => topicFeedback.submit(topicEnd.planId, body)}
-                onClose={() => { setTopicFeedbackClosed(true); refreshPaths(); }}
-              />
-            )}
-
-            <Button
-              label={submit.data.nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
-              onPress={() => handleNavigateAfterQuiz(submit.data?.nextLessonId)}
-              style={styles.doneBtn}
-            />
-          </ScrollView>
-
-          {/* Celebration overlays — rendered on top of the terminal view */}
-          {currentCelebration?.type === 'achievement' && (
-            <CelebrationOverlay
-              key={currentCelebration.id}
-              visible
-              title="Achievement Earned!"
-              name={currentCelebration.name}
-              description={currentCelebration.description}
-              onDismiss={advanceCelebration}
-            />
-          )}
-          {currentCelebration?.type === 'xp' && (
-            <XpChipOverlay
-              key={currentCelebration.id}
-              visible
-              xp={currentCelebration.amount}
-              onDismiss={advanceCelebration}
-            />
-          )}
-        </View>
-      </Modal>
+      <QuizResultFrame {...frame} overlay={celebration}>
+        <Text style={styles.resultHeading}>{submit.data.correct ? 'Correct!' : 'Incorrect'}</Text>
+        <Animated.View style={{ transform: [{ scale: scoreAnim }] }}>
+          <TrackAverageBadge average={trackAverage} previous={previousAverage} retakeUsed={retakeUsed} />
+        </Animated.View>
+        {streak > 0 && <StreakRow streak={streak} />}
+        {xpAwarded != null && xpAwarded > 0 && <XpAward xp={xpAwarded} />}
+        {milestone && <MilestoneCard milestone={milestone} streak={streak} scale={milestoneAnim} />}
+        {/* Feedback cards — one per quiz question */}
+        {feedbacks.map((fb: QuizFeedback) => <QuizFeedbackCard key={fb.quizId} fb={fb} />)}
+        {coaching && <CoachingCard coaching={coaching} />}
+        {/* Key takeaway — last, per item 6 */}
+        {lesson.keyTakeaway && <KeyTakeawayCard takeaway={lesson.keyTakeaway} />}
+        {/* 079f: the result's lesson carries the stored verdict, so no refetch. */}
+        <LessonRatingControl lessonId={lesson.id} rating={submit.data.lesson.rating ?? null} />
+        {/* End-of-topic feedback (079d). Closing hides it here only: the write already
+            happened, so Home will not show it again; one never written comes back on Home. */}
+        {topicEnd && (
+          <TopicFeedback
+            topicEnd={topicEnd}
+            onSubmit={body => topicFeedback.submit(topicEnd.planId, body)}
+            onClose={() => { setTopicFeedbackClosed(true); refreshPaths(); }}
+          />
+        )}
+        <Button
+          label={nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
+          onPress={() => handleNavigateAfterQuiz(nextLessonId)}
+          style={styles.doneBtn}
+        />
+      </QuizResultFrame>
     );
   }
 
   // ─── Already completed — no unresolved question left, and no fresh result to show ──
   if (alreadyCompleted) {
     return (
-      <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-        <View style={styles.container}>
-          <View style={headerStyle}>
-            <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
-            <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
-              <Text style={styles.closeText}>✕</Text>
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={styles.content}>
-            <Text style={styles.resultHeading}>Already Completed</Text>
-            <Text style={styles.completedBody}>You've already finished this lesson's quiz.</Text>
-            <Button
-              label={lesson.nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
-              onPress={() => handleNavigateAfterQuiz(lesson.nextLessonId)}
-              style={styles.doneBtn}
-            />
-          </ScrollView>
-        </View>
-      </Modal>
+      <QuizResultFrame {...frame}>
+        <Text style={styles.resultHeading}>Already Completed</Text>
+        <Text style={styles.completedBody}>You've already finished this lesson's quiz.</Text>
+        {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} />}
+        <Button
+          label={lesson.nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
+          onPress={() => handleNavigateAfterQuiz(lesson.nextLessonId)}
+          style={styles.doneBtn}
+        />
+      </QuizResultFrame>
     );
   }
 
@@ -500,7 +318,8 @@ export function QuizModal({ visible, lesson, onClose, completionTime, retakeInPr
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
-        <View style={[headerStyle, styles.headerQuiz]}>
+        {/* The question view has no bookmark: the spacer keeps the close button right-aligned. */}
+        <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
           <View style={styles.spacer} />
           <Pressable onPress={onClose} style={styles.closeBtn}>
             <Text style={styles.closeText}>✕</Text>
@@ -576,28 +395,8 @@ export function QuizModal({ visible, lesson, onClose, completionTime, retakeInPr
 }
 
 const styles = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: colors.paper },
-  header: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    // paddingTop is applied inline via useSafeAreaInsets() — not hardcoded here
-    paddingBottom:     spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  headerQuiz: {
-    // quiz question view has no bookmark — left spacer maintains alignment
-  },
+  ...quizFrameStyles,
   spacer:    { width: 32 },
-  closeBtn:  { padding: spacing.xs },
-  closeText: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.md,
-    color:      colors.textMuted,
-  },
-  content:   { padding: spacing.md, flexGrow: 1 },
   progressWrap: { marginBottom: spacing.md },
   progressRow: {
     flexDirection:  'row',
@@ -656,7 +455,6 @@ const styles = StyleSheet.create({
     textAlign:    'center',
     marginBottom: spacing.xl,
   },
-  // ─── Results ────────────────────────────────────────────────────────────────
   resultHeading: {
     fontFamily:   font.semibold,
     fontSize:     fontSize.xl,
@@ -664,189 +462,6 @@ const styles = StyleSheet.create({
     textAlign:    'center',
     marginTop:    spacing.lg,
     marginBottom: spacing.md,
-  },
-  scorePercent: {
-    fontFamily:   font.semibold,
-    fontSize:     fontSize.xxl,
-    color:        colors.brand,
-    textAlign:    'center',
-  },
-  scoreFraction: {
-    fontFamily:   font.regular,
-    fontSize:     fontSize.base,
-    color:        colors.textMuted,
-    textAlign:    'center',
-    marginTop:    spacing.xs,
-    marginBottom: spacing.xl,
-  },
-  trackAverageValueRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    justifyContent: 'center',
-    gap:           spacing.xs,
-  },
-  trackAverageBadge: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.lg ?? fontSize.md,
-  },
-  trackAverageUp:   { color: colors.success },
-  trackAverageDown: { color: colors.error },
-  trackAverageFlat: { color: colors.success },
-  streakRow: {
-    flexDirection:  'row',
-    justifyContent: 'center',
-    marginBottom:   spacing.md,
-  },
-  streakText: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
-  },
-  xpChip: {
-    alignSelf:         'center',
-    backgroundColor:   colors.xpSoft,
-    borderRadius:      radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical:   spacing.xs,
-    marginBottom:      spacing.md,
-  },
-  xpChipText: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.sm,
-    color:      colors.xp,
-  },
-  milestoneCard: {
-    backgroundColor: colors.coral,
-    borderRadius:    radius.card,
-    padding:         spacing.md,
-    marginBottom:    spacing.lg,
-    alignItems:      'center',
-  },
-  milestoneText: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.lg ?? fontSize.md,
-    color:      '#ffffff',
-    textAlign:  'center',
-  },
-  milestoneSubtext: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      '#fff7ed',
-    marginTop:  spacing.xs,
-    textAlign:  'center',
-  },
-  // ─── QuizFeedbackCard ───────────────────────────────────────────────────────
-  feedbackWrapper: {
-    gap:          spacing.sm,
-    marginBottom: spacing.md,
-  },
-  // Question + your answer (+ correct answer if wrong) — the reference block.
-  // Recessive on purpose: it's context, not the point.
-  answerRefBox: {
-    backgroundColor: colors.surfaceSunken,
-    borderRadius:    radius.card,
-    padding:         spacing.md,
-    gap:             spacing.xs,
-  },
-  // Explanation — featured treatment: the user should read this carefully.
-  // Bold brand-blue fill mirrors what Key Takeaway used to carry.
-  explanationBox: {
-    backgroundColor: colors.brand,
-    borderRadius:    radius.card,
-    padding:         spacing.md,
-    gap:             spacing.xs,
-    ...shadow.card,
-  },
-  // Correct-answer highlight, nested inside the (recessive) answerRefBox so
-  // it still pops via colour even though its container is quiet.
-  correctAnswerChip: {
-    backgroundColor: colors.successSoft,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.success,
-    borderRadius:    radius.sm,
-    padding:         spacing.sm3,
-    marginTop:       spacing.xs,
-    gap:             2,
-  },
-  correctAnswerChipLabel: {
-    fontFamily:    font.semibold,
-    fontSize:      fontSize.xs,
-    color:         colors.success,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  feedbackSectionLabel: {
-    fontFamily:    font.semibold,
-    fontSize:      fontSize.xs,
-    color:         colors.textOnBrand,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    opacity:       0.8,
-  },
-  explanationText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textOnBrand,
-  },
-  correctAnswerText: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-    color:      colors.success,
-  },
-  feedbackQuestion: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-    marginBottom: spacing.xs,
-  },
-  feedbackAnswerText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-  },
-  correct:    { color: colors.success },
-  incorrect:  { color: colors.error },
-  // ─── Key takeaway / coaching ─────────────────────────────────────────────────
-  // Recessive treatment — surface card, lets the Explanation block lead.
-  // This is still important, but quieter: a summary to glance at, not linger on.
-  quizKeyTakeawayCard: {
-    backgroundColor: colors.surface,
-    borderRadius:    radius.card,
-    padding:         spacing.md,
-    marginBottom:    spacing.md,
-    gap:             spacing.xs,
-  },
-  quizKeyTakeawayLabel: {
-    fontFamily:    font.semibold,
-    fontSize:      fontSize.xs,
-    color:         colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  quizKeyTakeawayText: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.sm,
-    color:      colors.textBody,
-  },
-  coachingCard: {
-    backgroundColor: colors.brandSoft,
-    borderWidth:     1,
-    borderColor:     colors.brand + '40',
-    borderRadius:    radius.card,
-    padding:         spacing.md,
-    marginBottom:    spacing.md,
-    gap:             spacing.xs,
-  },
-  coachingLabel: {
-    fontFamily:   font.semibold,
-    fontSize:     fontSize.xs,
-    color:        colors.brand,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  coachingText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textBody,
   },
   doneBtn: { marginTop: spacing.lg },
 });
