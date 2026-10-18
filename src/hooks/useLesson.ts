@@ -1,11 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { lessonService } from '@/services/lesson.service';
+import { lessonQueryKey } from '@/lib/queryKeys';
 
 export function useLesson(id: string) {
   return useQuery({
-    queryKey: ['lesson', id],
+    queryKey: lessonQueryKey(id),
     queryFn: () => lessonService.getLesson(id),
     enabled: !!id,
+  });
+}
+
+export function useStartRetake() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (lessonId: string) => lessonService.startRetake(lessonId),
+    onSuccess: (_data, lessonId) => queryClient.invalidateQueries({ queryKey: lessonQueryKey(lessonId) }),
   });
 }
 

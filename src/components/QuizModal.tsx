@@ -11,10 +11,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { AchievementKey, Lesson, QuizFeedback } from '@learning/shared';
-import { ACHIEVEMENTS_BY_KEY } from '@learning/shared';
+import { ACHIEVEMENTS_BY_KEY, ERROR_CODES } from '@learning/shared';
+import * as Sentry from '@sentry/react-native';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
 import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
-import { extractError } from '@/lib/errors';
+import { useRefreshPaths, useTopicFeedback } from '@/hooks/useTrack';
+import { TopicFeedback } from '@/components/ui/TopicFeedback';
+import { errorCode, extractError } from '@/lib/errors';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
@@ -28,6 +31,10 @@ interface QuizModalProps {
   visible: boolean;
   lesson: Lesson;
   onClose: () => void;
+  /** Foreground seconds on the lesson flow so far (079e); sent with every submission. */
+  completionTime?: () => number;
+  /** A retake is in progress: a completed lesson must not show "Already Completed" (079e). */
+  retakeInProgress?: boolean;
 }
 
 function ProgressBar({ value }: { value: number }) {
@@ -132,7 +139,7 @@ type CelebrationItem =
   | { type: 'achievement'; id: string; name: string; description: string }
   | { type: 'xp'; id: string; amount: number };
 
-export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
+export function QuizModal({ visible, lesson, onClose, completionTime, retakeInProgress = false }: QuizModalProps) {
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | undefined>(undefined);
   const [wrongAnswer, setWrongAnswer] = useState<string | undefined>(undefined);
@@ -141,12 +148,15 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   const [isSaved, setIsSaved] = useState(false);
   const [celebrationQueue, setCelebrationQueue] = useState<CelebrationItem[]>([]);
   const [currentCelebration, setCurrentCelebration] = useState<CelebrationItem | null>(null);
+  const [topicFeedbackClosed, setTopicFeedbackClosed] = useState(false);
   const celebrationFired = useRef(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const submit = useSubmitQuiz();
   const saveLesson = useSaveLesson();
   const unsaveLesson = useUnsaveLesson();
+  const topicFeedback = useTopicFeedback();
+  const refreshPaths = useRefreshPaths();
   const quizzes = lesson.quizzes;
   const scoreAnim = useRef(new Animated.Value(0)).current;
   const milestoneAnim = useRef(new Animated.Value(0.8)).current;
@@ -157,7 +167,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
       const resolved = new Set<string>(lesson.resolvedQuizIds ?? []);
       setResolvedIds(resolved);
       const allResolved = quizzes.length > 0 && quizzes.every(q => resolved.has(q.id));
-      setAlreadyCompleted(quizzes.length > 0 && (!!lesson.quizCompleted || allResolved));
+      setAlreadyCompleted(quizzes.length > 0 && ((!!lesson.quizCompleted && !retakeInProgress) || allResolved));
       const startIdx = quizzes.findIndex(q => !resolved.has(q.id));
       setCurrentQuizIndex(startIdx === -1 ? 0 : startIdx);
       setSelectedAnswer(undefined);
@@ -168,6 +178,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
       milestoneAnim.setValue(0.8);
       setCelebrationQueue([]);
       setCurrentCelebration(null);
+      setTopicFeedbackClosed(false);
       celebrationFired.current = false;
     }
   }, [visible, lesson.id, lesson.isSaved]);
@@ -175,11 +186,16 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   function handleToggleSave() {
     const nextSaved = !isSaved;
     setIsSaved(nextSaved);
-    if (nextSaved) {
-      saveLesson.mutate(lesson.id, { onError: () => setIsSaved(!nextSaved) });
-    } else {
-      unsaveLesson.mutate(lesson.id, { onError: () => setIsSaved(!nextSaved) });
-    }
+    const onError = (err: unknown) => {
+      Sentry.addBreadcrumb({
+        category: 'lesson',
+        message: 'Save toggle failed; reverted',
+        level: 'warning',
+        data: { err: String(err), saved: nextSaved },
+      });
+      setIsSaved(!nextSaved);
+    };
+    (nextSaved ? saveLesson : unsaveLesson).mutate(lesson.id, { onError });
   }
 
   // Animate score and milestone card only at lesson finalization
@@ -256,13 +272,9 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     submit.reset();
   }
 
-  // 409 LESSON_003 means this question was already answered — advance instead of erroring
+  // An already-answered question advances instead of erroring; anything else shows `submit-error`.
   function handleQuizError(error: unknown) {
-    const axiosError = error as { response?: { status?: number; data?: { code?: string } } };
-    if (
-      axiosError?.response?.status === 409 &&
-      axiosError?.response?.data?.code === 'LESSON_003'
-    ) {
+    if (errorCode(error) === ERROR_CODES.LESSON_ALREADY_COMPLETED) {
       advanceToNextUnresolved(current?.id);
     }
   }
@@ -271,7 +283,12 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
     if (!current || !selectedAnswer) return;
     const answers: Record<string, string> = { [current.id]: selectedAnswer };
     submit.mutate(
-      { lessonId: lesson.id, answers, ...(wrongAnswer !== undefined ? { isRetake: true } : {}) },
+      {
+        lessonId: lesson.id,
+        answers,
+        ...(wrongAnswer !== undefined ? { isRetake: true } : {}),
+        ...(completionTime ? { completionTime: completionTime() } : {}),
+      },
       { onError: handleQuizError }
     );
   }
@@ -285,9 +302,9 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   function handleNavigateAfterQuiz(nextId: string | null | undefined) {
     onClose();
     if (nextId) {
-      router.replace(`/(tabs)/lesson/${nextId}` as never);
+      router.replace(`/(tabs)/lesson/${nextId}`);
     } else {
-      router.replace('/(tabs)/lessons' as never);
+      router.replace('/(tabs)/lessons');
     }
   }
 
@@ -346,6 +363,7 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
   if (submit.data) {
     const { feedbacks, coaching, streak, milestone, trackAverage, previousAverage, xpAwarded } = submit.data;
     const retakeUsed = wrongAnswer !== undefined;
+    const topicEnd = topicFeedbackClosed ? null : submit.data.topicEnd;
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <View style={styles.container}>
@@ -410,6 +428,16 @@ export function QuizModal({ visible, lesson, onClose }: QuizModalProps) {
                 <Text style={styles.quizKeyTakeawayLabel}>KEY TAKEAWAY</Text>
                 <Text style={styles.quizKeyTakeawayText}>{lesson.keyTakeaway}</Text>
               </View>
+            )}
+
+            {/* End-of-topic feedback (079d). Closing hides it here only: the write already
+                happened, so Home will not show it again; one never written comes back on Home. */}
+            {topicEnd && (
+              <TopicFeedback
+                topicEnd={topicEnd}
+                onSubmit={body => topicFeedback.submit(topicEnd.planId, body)}
+                onClose={() => { setTopicFeedbackClosed(true); refreshPaths(); }}
+              />
             )}
 
             <Button

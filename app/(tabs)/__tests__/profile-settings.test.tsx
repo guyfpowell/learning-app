@@ -78,6 +78,7 @@ const mockPrefs: NotificationPreference = {
   reminderTime: 'morning',
   enableStreak: true,
   enableLessonAvailable: true,
+  enableTopicFeedback: true,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -247,11 +248,22 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
       enableDailyReminder: false,
       enableStreak: true,
       enableLessonAvailable: true,
+      enableTopicFeedback: true,
     });
     expect(mockProfileMutate).toHaveBeenCalledWith({
       preferredTime: '08:00',
       timezone: 'UTC',
     });
+  });
+
+  it('the topic feedback toggle (079d) is saved with the other preferences', () => {
+    setQueryMock({ data: mockPrefs });
+    render(<ProfileScreen />);
+    expect(screen.getByText('Ask me how each topic went')).toBeTruthy();
+    expect(screen.getByTestId('toggle-topic-feedback').props.value).toBe(true);
+    fireEvent(screen.getByTestId('toggle-topic-feedback'), 'valueChange', false);
+    fireEvent.press(screen.getByText('SAVE SETTINGS'));
+    expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({ enableTopicFeedback: false }));
   });
 
   it('Save Settings sends updated time when picker is changed', () => {

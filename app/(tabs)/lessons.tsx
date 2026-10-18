@@ -3,7 +3,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Button } from '@/components/ui/Button';
-import { usePaths, useSkipLesson, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
+import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
+import { TopicFeedback } from '@/components/ui/TopicFeedback';
+import { extractError } from '@/lib/errors';
 import { useProgress } from '@/hooks/useProgress';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { PathCard } from '@/components/ui/PathCard';
@@ -23,17 +25,19 @@ export default function LessonsScreen() {
   const { data: paths, isError: pathsFailed } = usePaths();
   const { data: progress } = useProgress();
   const router = useRouter();
-  const skipLesson = useSkipLesson();
-  const skipTopic = useSkipTopic();
-  const skipLevel = useSkipLevel();
+  const skip = useSkip();
+  const topicFeedback = useTopicFeedback();
+  const refreshPaths = useRefreshPaths();
 
   // Active path is authoritative from the server (ADR-009 C2 + C11) — no client derivation.
   const activePath = paths?.find(p => p.isActive);
   const hasNoContent = Array.isArray(paths) && paths.length === 0;
   // User has paths but none active (e.g. completed their active path or archived it).
   // Show the most recent path (paths[0] — server ordered by recency, C2) with a next-path CTA.
-  const noActivePath = Array.isArray(paths) && paths.length > 0 && !activePath;
-  const lastPath = noActivePath ? paths![0] : undefined;
+  const lastPath = activePath ? undefined : paths?.[0];
+  const noActivePath = lastPath !== undefined;
+  // The server shows one screen per topic (079d): the first path carrying a topicEnd is the one.
+  const topicEnd = paths?.find(p => p.topicEnd)?.topicEnd ?? null;
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -76,17 +80,29 @@ export default function LessonsScreen() {
           </View>
         )}
 
+        {/* A failed skip says so (079c refactor R1: it used to stop the spinner and show nothing). */}
+        {skip.error && (
+          <Text testID="skip-error" style={styles.loadError}>{extractError(skip.error)}</Text>
+        )}
+
+        {/* End-of-topic feedback (079d). Closing refetches paths, so a written answer comes back
+            as topicEnd: null and the path card below never changes in response to it. */}
+        {topicEnd && (
+          <TopicFeedback
+            key={`${topicEnd.planId}:${topicEnd.stableKey}`}
+            topicEnd={topicEnd}
+            onSubmit={body => topicFeedback.submit(topicEnd.planId, body)}
+            onClose={() => { refreshPaths(); }}
+          />
+        )}
+
         {/* Active path — the one path card Home shows (076g §1). */}
         {activePath && (
           <PathCard
             path={activePath}
             onStartLesson={id => router.push(`/(tabs)/lesson/${id}`)}
-            onSkipLesson={p => skipLesson.mutate({ kind: p.kind, id: p.id })}
-            onSkipTopic={p => skipTopic.mutate({ kind: p.kind, id: p.id })}
-            onSkipLevel={p => skipLevel.mutate({ kind: p.kind, id: p.id })}
-            skipLessonPending={skipLesson.isPending}
-            skipTopicPending={skipTopic.isPending}
-            skipLevelPending={skipLevel.isPending}
+            onSkip={skip.skip}
+            skipPending={skip.pendingScope(activePath)}
           />
         )}
 
@@ -97,12 +113,8 @@ export default function LessonsScreen() {
             <PathCard
               path={lastPath}
               onStartLesson={id => router.push(`/(tabs)/lesson/${id}`)}
-              onSkipLesson={p => skipLesson.mutate({ kind: p.kind, id: p.id })}
-              onSkipTopic={p => skipTopic.mutate({ kind: p.kind, id: p.id })}
-              onSkipLevel={p => skipLevel.mutate({ kind: p.kind, id: p.id })}
-              skipLessonPending={skipLesson.isPending}
-              skipTopicPending={skipTopic.isPending}
-              skipLevelPending={skipLevel.isPending}
+              onSkip={skip.skip}
+              skipPending={skip.pendingScope(lastPath)}
             />
             <Button
               testID="choose-next-path-btn"

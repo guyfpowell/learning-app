@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { trackService } from '@/services/track.service';
-import type { ActivePathRef, UserPathKind } from '@learning/shared';
+import { trackService, type SkipCall } from '@/services/track.service';
+import type { ActivePathRef, SkipReason, SkipScope, TopicFeedbackRequest, UserPath, UserPathKind } from '@learning/shared';
+import { PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY } from '@/lib/queryKeys';
 
 export function useSkills() {
   return useQuery({
@@ -18,7 +19,7 @@ export function useSkills() {
  */
 export function usePaths() {
   return useQuery({
-    queryKey: ['enrollments'],
+    queryKey: PATHS_QUERY_KEY,
     queryFn: () => trackService.getPaths(),
   });
 }
@@ -27,7 +28,7 @@ export function usePaths() {
 function usePathInvalidation() {
   const queryClient = useQueryClient();
   return () => {
-    queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+    queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
     queryClient.invalidateQueries({ queryKey: ['skills'] });
   };
 }
@@ -56,29 +57,43 @@ export function useRemovePath() {
   });
 }
 
-export function useSkipTopic() {
+/**
+ * One skip mutation for every scope (lesson, topic, level). `pendingScope(path)` is the scope
+ * in flight on that path, so only the pressed button on the pressed card spins.
+ */
+export function useSkip() {
   const invalidate = usePathInvalidation();
-  return useMutation({
-    mutationFn: (ref: ActivePathRef) => trackService.skipTopic(ref),
+  const mutation = useMutation({
+    mutationFn: (call: SkipCall) => trackService.skip(call),
     onSuccess: invalidate,
   });
+  const inFlight = mutation.isPending ? mutation.variables : undefined;
+  return {
+    skip: (path: UserPath, scope: SkipScope, reason: SkipReason) =>
+      mutation.mutate({ kind: path.kind, id: path.id, scope, reason }),
+    pendingScope: (path: UserPath): SkipScope | null =>
+      inFlight?.kind === path.kind && inFlight.id === path.id ? inFlight.scope : null,
+    error: mutation.error,
+  };
 }
 
-export function useSkipLevel() {
-  const invalidate = usePathInvalidation();
-  return useMutation({
-    mutationFn: (ref: ActivePathRef) => trackService.skipLevel(ref),
-    onSuccess: invalidate,
+/**
+ * Writes the end-of-topic answer (079d). It deliberately does not refetch paths on success:
+ * the refetch clears `topicEnd`, which would unmount the screen before it shows its
+ * acknowledgement. The caller calls `refreshPaths` when the screen closes.
+ */
+export function useTopicFeedback() {
+  const mutation = useMutation({
+    mutationFn: ({ planId, body }: { planId: string; body: TopicFeedbackRequest }) =>
+      trackService.topicFeedback(planId, body),
   });
+  return { submit: (planId: string, body: TopicFeedbackRequest) => mutation.mutateAsync({ planId, body }) };
 }
 
-/** Skips exactly the next lesson of either kind of path (076h). */
-export function useSkipLesson() {
-  const invalidate = usePathInvalidation();
-  return useMutation({
-    mutationFn: (ref: ActivePathRef) => trackService.skipLesson(ref),
-    onSuccess: invalidate,
-  });
+/** Refetches the paths so a written `topicEnd` comes back null. */
+export function useRefreshPaths() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
 }
 
 /**
@@ -88,7 +103,7 @@ export function useSkipLesson() {
  */
 export function useTrackContents(kind: UserPathKind, id: string, options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: ['track-contents', kind, id],
+    queryKey: [...TRACK_CONTENTS_QUERY_KEY, kind, id],
     queryFn: () => trackService.getTrackContents(kind, id),
     enabled: (options?.enabled ?? true) && !!kind && !!id,
   });

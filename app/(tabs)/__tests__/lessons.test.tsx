@@ -1,8 +1,8 @@
 import React from 'react';
 import { PATHS_LOAD_ERROR } from '@learning/shared';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import LessonsScreen from '../lessons';
-import { usePaths, useSkipLesson, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
+import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
 
 jest.mock('@/components/ui/Ring', () => ({
@@ -17,15 +17,17 @@ jest.mock('@/components/ui/Ring', () => ({
 }));
 
 const mockPush = jest.fn();
-const mockSkipLessonMutate = jest.fn();
-const mockSkipTopicMutate = jest.fn();
-const mockSkipLevelMutate = jest.fn();
+const mockSkip = jest.fn();
+const mockTopicSubmit = jest.fn();
+const mockRefreshPaths = jest.fn();
+const setSkipMock = ({ pending = null as string | null, error = null as unknown } = {}) =>
+  (useSkip as jest.Mock).mockReturnValue({ skip: mockSkip, pendingScope: () => pending, error });
 
 jest.mock('@/hooks/useTrack', () => ({
   usePaths: jest.fn(),
-  useSkipLesson: jest.fn(),
-  useSkipTopic: jest.fn(),
-  useSkipLevel: jest.fn(),
+  useSkip: jest.fn(),
+  useTopicFeedback: jest.fn(),
+  useRefreshPaths: jest.fn(),
 }));
 
 jest.mock('@/hooks/useProgress', () => ({
@@ -151,9 +153,10 @@ describe('LessonsScreen', () => {
     setEnrollmentsMock(undefined);
     setCustomPlansMock(undefined);
     setProgressMock(undefined);
-    (useSkipLesson as jest.Mock).mockReturnValue({ mutate: mockSkipLessonMutate, isPending: false });
-    (useSkipTopic as jest.Mock).mockReturnValue({ mutate: mockSkipTopicMutate, isPending: false });
-    (useSkipLevel as jest.Mock).mockReturnValue({ mutate: mockSkipLevelMutate, isPending: false });
+    setSkipMock();
+    (useTopicFeedback as jest.Mock).mockReturnValue({ submit: mockTopicSubmit });
+    (useRefreshPaths as jest.Mock).mockReturnValue(mockRefreshPaths);
+    mockTopicSubmit.mockResolvedValue(undefined);
   });
 
   it('renders without errors', () => {
@@ -405,26 +408,62 @@ describe('LessonsScreen', () => {
       expect(screen.queryByTestId('skip-lesson-btn-skill-1')).toBeNull();
     });
 
-    it('calls skipLesson mutation with the path ref when Skip Lesson is pressed', () => {
+    it('pressing Skip Lesson opens the reason picker and skips nothing yet (079c)', () => {
       setEnrollmentsMock([{ ...mockEnrollment, canSkipLesson: true }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('skip-lesson-btn-skill-1'));
-      expect(mockSkipLessonMutate).toHaveBeenCalledWith({ kind: 'track', id: 'skill-1' });
+      expect(screen.getByTestId('skip-reason-picker')).toBeTruthy();
+      expect(mockSkip).not.toHaveBeenCalled();
+    });
+
+    it('picking a reason calls skipLesson with the path ref and that reason (079c)', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipLesson: true }]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('skip-lesson-btn-skill-1'));
+      fireEvent.press(screen.getByTestId('skip-reason-not_for_me'));
+      expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'track', id: 'skill-1' }), 'lesson', 'not_for_me');
+    });
+
+    it('cancelling the picker skips nothing (079c)', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipLesson: true }]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('skip-lesson-btn-skill-1'));
+      fireEvent.press(screen.getByTestId('skip-reason-cancel'));
+      expect(screen.queryByTestId('skip-reason-picker')).toBeNull();
+      expect(mockSkip).not.toHaveBeenCalled();
     });
 
     it('works for a custom path too', () => {
       setCustomPlansMock([{ ...mockCustomPlan, canSkipLesson: true }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('skip-lesson-btn-plan-1'));
-      expect(mockSkipLessonMutate).toHaveBeenCalledWith({ kind: 'custom', id: 'plan-1' });
+      fireEvent.press(screen.getByTestId('skip-reason-already_know'));
+      expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'custom', id: 'plan-1' }), 'lesson', 'already_know');
     });
 
-    it('disables Skip Lesson button while the mutation is pending', () => {
-      (useSkipLesson as jest.Mock).mockReturnValue({ mutate: mockSkipLessonMutate, isPending: true });
+    it('disables Skip Lesson button while a lesson skip is pending', () => {
+      setSkipMock({ pending: 'lesson' });
       setEnrollmentsMock([{ ...mockEnrollment, canSkipLesson: true }]);
       render(<LessonsScreen />);
       expect(screen.getByTestId('skip-lesson-btn-skill-1').props.accessibilityState?.disabled).toBe(true);
     });
+  });
+
+  // 079c refactor R1: a failed skip used to stop the spinner and say nothing.
+  it('shows the skip error when a skip fails', () => {
+    setSkipMock({ error: { response: { data: { message: 'Feature not available' } } } });
+    setEnrollmentsMock([{ ...mockEnrollment, canSkipLesson: true }]);
+    render(<LessonsScreen />);
+    expect(screen.getByTestId('skip-error')).toBeTruthy();
+    expect(screen.getByText('Feature not available')).toBeTruthy();
+  });
+
+  it('spins only the button of the skip in flight', () => {
+    setSkipMock({ pending: 'topic' });
+    setEnrollmentsMock([{ ...mockEnrollment, canSkipLesson: true, canSkipTopic: true }]);
+    render(<LessonsScreen />);
+    expect(screen.getByTestId('skip-topic-btn-skill-1').props.accessibilityState?.disabled).toBe(true);
+    expect(screen.getByTestId('skip-lesson-btn-skill-1').props.accessibilityState?.disabled).toBe(false);
   });
 
   describe('skip topic/level (ticket 057)', () => {
@@ -452,36 +491,41 @@ describe('LessonsScreen', () => {
       expect(screen.queryByTestId('skip-level-btn-skill-1')).toBeNull();
     });
 
-    it('calls skipTopic mutation with the path ref when Skip Topic is pressed', () => {
+    it('calls skip with the path, the topic scope and the picked reason', () => {
       setEnrollmentsMock([{ ...mockEnrollment, canSkipTopic: true }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('skip-topic-btn-skill-1'));
-      expect(mockSkipTopicMutate).toHaveBeenCalledWith({ kind: 'track', id: 'skill-1' });
+      expect(mockSkip).not.toHaveBeenCalled();
+      fireEvent.press(screen.getByTestId('skip-reason-not_now'));
+      expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'track', id: 'skill-1' }), 'topic', 'not_now');
     });
 
-    it('calls skipLevel mutation with the path ref when Skip Level is pressed', () => {
+    it('calls skip with the path, the level scope and the picked reason', () => {
       setEnrollmentsMock([{ ...mockEnrollment, canSkipLevel: true }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('skip-level-btn-skill-1'));
-      expect(mockSkipLevelMutate).toHaveBeenCalledWith({ kind: 'track', id: 'skill-1' });
+      expect(mockSkip).not.toHaveBeenCalled();
+      fireEvent.press(screen.getByTestId('skip-reason-already_know'));
+      expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'track', id: 'skill-1' }), 'level', 'already_know');
     });
 
     it('offers Skip Topic on a custom path too — the same affordance a track gets', () => {
       setCustomPlansMock([{ ...mockCustomPlan, canSkipTopic: true }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('skip-topic-btn-plan-1'));
-      expect(mockSkipTopicMutate).toHaveBeenCalledWith({ kind: 'custom', id: 'plan-1' });
+      fireEvent.press(screen.getByTestId('skip-reason-not_now'));
+      expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'custom', id: 'plan-1' }), 'topic', 'not_now');
     });
 
-    it('disables Skip Topic button while skip-topic mutation is pending', () => {
-      (useSkipTopic as jest.Mock).mockReturnValue({ mutate: mockSkipTopicMutate, isPending: true });
+    it('disables Skip Topic button while a topic skip is pending', () => {
+      setSkipMock({ pending: 'topic' });
       setEnrollmentsMock([{ ...mockEnrollment, canSkipTopic: true }]);
       render(<LessonsScreen />);
       expect(screen.getByTestId('skip-topic-btn-skill-1').props.accessibilityState?.disabled).toBe(true);
     });
 
-    it('disables Skip Level button while skip-level mutation is pending', () => {
-      (useSkipLevel as jest.Mock).mockReturnValue({ mutate: mockSkipLevelMutate, isPending: true });
+    it('disables Skip Level button while a level skip is pending', () => {
+      setSkipMock({ pending: 'level' });
       setEnrollmentsMock([{ ...mockEnrollment, canSkipLevel: true }]);
       render(<LessonsScreen />);
       expect(screen.getByTestId('skip-level-btn-skill-1').props.accessibilityState?.disabled).toBe(true);
@@ -717,6 +761,43 @@ describe('LessonsScreen', () => {
       // testID was on the small-uppercase label in next-lesson card; it now lives in enrollment-card.
       expect(screen.getByTestId('path-name-skill-1')).toBeTruthy();
       expect(screen.getByTestId('enrollment-card-skill-1')).toBeTruthy();
+    });
+  });
+  describe('end-of-topic feedback (079d)', () => {
+    const topicEnd = { planId: 'plan-1', stableKey: 'topic-a', title: 'Pricing basics' };
+
+    it('shows the screen above the path card when a path carries a topicEnd', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, isActive: true, topicEnd }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('topic-feedback')).toBeTruthy();
+      expect(screen.getByTestId('enrollment-card-skill-1')).toBeTruthy();
+    });
+
+    it('shows nothing when no path carries a topicEnd', () => {
+      setEnrollmentsMock([{ ...mockEnrollment, isActive: true, topicEnd: null }]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('topic-feedback')).toBeNull();
+    });
+
+    it('Not now writes a dismissal to that plan and refetches paths', async () => {
+      setEnrollmentsMock([{ ...mockEnrollment, isActive: true, topicEnd }]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('topic-feedback-submit'));
+      await waitFor(() =>
+        expect(mockTopicSubmit).toHaveBeenCalledWith('plan-1', { stableKey: 'topic-a', dismissed: true }),
+      );
+      await waitFor(() => expect(mockRefreshPaths).toHaveBeenCalledTimes(1));
+    });
+
+    it('an answer shows the acknowledgement first and refetches only on Close', async () => {
+      setEnrollmentsMock([{ ...mockEnrollment, isActive: true, topicEnd }]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('topic-feedback-level-lost_me'));
+      fireEvent.press(screen.getByTestId('topic-feedback-submit'));
+      const close = await screen.findByTestId('topic-feedback-close');
+      expect(mockRefreshPaths).not.toHaveBeenCalled();
+      fireEvent.press(close);
+      expect(mockRefreshPaths).toHaveBeenCalledTimes(1);
     });
   });
 });

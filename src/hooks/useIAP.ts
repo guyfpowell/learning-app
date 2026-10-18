@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { PurchasesPackage } from 'react-native-purchases';
 import { iapService } from '@/services/iap.service';
 import { subscriptionService } from '@/services/subscription.service';
+import { LESSONS_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY } from '@/lib/queryKeys';
 
 // Re-export the types the paywall screen and tests need so they only import from here.
 export type { PurchasesPackage } from 'react-native-purchases';
@@ -44,9 +45,9 @@ export function useRestorePurchases() {
       return subscriptionService.verifyPurchase({ originalTransactionId: null, productId: '' });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['track-contents'] });
-      queryClient.invalidateQueries({ queryKey: ['lesson'] });
-      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      queryClient.invalidateQueries({ queryKey: TRACK_CONTENTS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: LESSONS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
     },
   });
@@ -76,9 +77,9 @@ export function usePurchase() {
     onSuccess: () => {
       // Invalidate every cache that reflects locked/unlocked lesson state or
       // subscription status so they are refetched with the new entitlement.
-      queryClient.invalidateQueries({ queryKey: ['track-contents'] });
-      queryClient.invalidateQueries({ queryKey: ['lesson'] });
-      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      queryClient.invalidateQueries({ queryKey: TRACK_CONTENTS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: LESSONS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
     },
   });

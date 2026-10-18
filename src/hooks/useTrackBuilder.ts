@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { trackBuilderService } from '@/services/trackBuilder.service';
-import { CURRENT_USER_QUERY_KEY } from '@/lib/queryKeys';
+import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY } from '@/lib/queryKeys';
 import type {
   BuiltPlanTopic, TrackPlanTopic, TrackBuilderTurn, RequestChunk,
 } from '@learning/shared';
@@ -49,7 +49,7 @@ export function useCreateTrackPlan() {
     onSuccess: () => {
       // Custom plans take precedence on the home surface, so both caches move.
       queryClient.invalidateQueries({ queryKey: ['track-plans'] });
-      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
     },
     // A save spends the free Albert allowance, and a refused one (ALBERT_ALLOWANCE_USED)
     // means the cached count was stale: either way /me's `albertAllowance` has moved (079a).
@@ -76,7 +76,7 @@ export function useUpdateTrackPlan() {
       trackBuilderService.updateTrackPlan(id, patch),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['track-plans'] });
-      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
     },
   });
 }

@@ -75,7 +75,7 @@ function formatDate(iso: string): string {
 function AchievementDetailModal({ item, onClose }: { item: AchievementItem; onClose: () => void }) {
   const iconName = AXIS_ICON[item.axis] ?? 'star-outline';
   const earned = item.earned;
-  const def = ACHIEVEMENTS_BY_KEY[item.key as AchievementKey];
+  const def = ACHIEVEMENTS_BY_KEY[item.key];
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
@@ -139,12 +139,14 @@ export default function ProfileScreen() {
   const [preferredMinute, setPreferredMinute] = useState(0);
   const [enableStreak, setEnableStreak] = useState(true);
   const [enableLessonAvailable, setEnableLessonAvailable] = useState(true);
+  const [enableTopicFeedback, setEnableTopicFeedback] = useState(true);
 
   useEffect(() => {
     if (prefs) {
       setEnableDailyReminder(prefs.enableDailyReminder);
       setEnableStreak(prefs.enableStreak);
       setEnableLessonAvailable(prefs.enableLessonAvailable);
+      setEnableTopicFeedback(prefs.enableTopicFeedback);
     }
   }, [prefs]);
 
@@ -161,7 +163,7 @@ export default function ProfileScreen() {
     const mm = String(preferredMinute).padStart(2, '0');
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     updateProfile.mutate({ preferredTime: `${hh}:${mm}`, timezone });
-    updatePrefs.mutate({ enableDailyReminder, enableStreak, enableLessonAvailable });
+    updatePrefs.mutate({ enableDailyReminder, enableStreak, enableLessonAvailable, enableTopicFeedback });
   }
 
   const isSaving = updatePrefs.isPending || updateProfile.isPending;
@@ -235,7 +237,7 @@ export default function ProfileScreen() {
                 <Pressable
                   key={a.key}
                   testID={`achievement-${a.key}`}
-                  onPress={() => setSelectedKey(a.key as AchievementKey)}
+                  onPress={() => setSelectedKey(a.key)}
                   style={[styles.achievementCard, shadow.card, { opacity: earned ? 1 : 0.45 }]}
                 >
                   <View style={[styles.iconCircle, { backgroundColor: earned ? colors.xpSoft : colors.surfaceSunken }]}>
@@ -265,7 +267,7 @@ export default function ProfileScreen() {
               <Pressable
                 key={lesson.id}
                 testID={`saved-lesson-${lesson.id}`}
-                onPress={() => router.push(`/(tabs)/lesson/${lesson.id}` as never)}
+                onPress={() => router.push(`/(tabs)/lesson/${lesson.id}`)}
               >
                 <Card padding={spacing.md} style={styles.savedCard}>
                   <Text style={styles.savedTitle} numberOfLines={2}>{lesson.title}</Text>
@@ -383,6 +385,20 @@ export default function ProfileScreen() {
                   thumbColor={colors.surface}
                 />
               </View>
+
+              <View style={styles.divider} />
+
+              {/* End-of-topic feedback (079d) — independent of Albert's suggestions */}
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>Ask me how each topic went</Text>
+                <Switch
+                  testID="toggle-topic-feedback"
+                  value={enableTopicFeedback}
+                  onValueChange={setEnableTopicFeedback}
+                  trackColor={{ true: colors.brand }}
+                  thumbColor={colors.surface}
+                />
+              </View>
             </>
           )}
         </Card>
@@ -458,10 +474,9 @@ const styles = StyleSheet.create({
   // Header
   header: {
     alignItems:    'center',
-    textAlign:     'center' as never,
     marginBottom:  spacing.lg,
     paddingTop:    spacing.md,
-  } as never,
+  },
   avatarRing: {
     width:           74,
     height:          74,
@@ -533,8 +548,7 @@ const styles = StyleSheet.create({
     marginBottom:   spacing.lg,
   },
   achievementCard: {
-    width:           `${(100 - GRID_GAP * (GRID_COLS - 1) / GRID_COLS)}%` as never,
-    flexBasis:       `${100 / GRID_COLS - (GRID_GAP * (GRID_COLS - 1)) / GRID_COLS}%` as never,
+    flexBasis:       `${100 / GRID_COLS - (GRID_GAP * (GRID_COLS - 1)) / GRID_COLS}%`,
     flex:            1,
     backgroundColor: colors.surface,
     borderRadius:    radius.card,

@@ -5,6 +5,7 @@ import LessonDetailScreen from '../[id]';
 import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { usePaths } from '@/hooks/useTrack';
 import { lessonService } from '@/services/lesson.service';
+import { useStartRetake } from '@/hooks/useLesson';
 import * as Sentry from '@sentry/react-native';
 
 jest.mock('expo-router', () => ({
@@ -67,6 +68,7 @@ beforeEach(() => {
   (useSaveLesson as jest.Mock).mockReturnValue({ mutate: jest.fn() });
   (useUnsaveLesson as jest.Mock).mockReturnValue({ mutate: jest.fn() });
   (usePaths as jest.Mock).mockReturnValue({ data: [] });
+  (useStartRetake as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
 });
 
 describe('LessonDetailScreen', () => {
@@ -364,6 +366,52 @@ describe('LessonDetailScreen', () => {
       fireEvent.press(screen.getByTestId('continue-btn'));
       fireEvent.press(screen.getByTestId('key-takeaway-btn'));
       expect(screen.getByText('TEST MY KNOWLEDGE')).toBeTruthy();
+    });
+  });
+
+  describe('079e — Retake lesson', () => {
+    const completed = { ...mockLesson, quizCompleted: true, quizzes: [{ id: 'q1' }, { id: 'q2' }], resolvedQuizIds: ['q1', 'q2'] };
+    const mutate = jest.fn();
+
+    beforeEach(() => {
+      mutate.mockReset();
+      (useStartRetake as jest.Mock).mockReturnValue({ mutate, isPending: false });
+    });
+
+    it('is hidden on a lesson that is not completed', () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
+      render(<LessonDetailScreen />);
+      fireEvent.press(screen.getByTestId('continue-btn'));
+      fireEvent.press(screen.getByTestId('key-takeaway-btn'));
+      expect(screen.queryByTestId('lesson-retake-btn')).toBeNull();
+    });
+
+    it('shows on a completed lesson, starts a pass and returns to the start of the lesson', async () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: completed, error: null });
+      mutate.mockImplementation((_id, opts) => opts.onSuccess());
+      render(<LessonDetailScreen />);
+      await waitFor(() => expect(screen.getByTestId('lesson-retake-btn')).toBeTruthy());
+      fireEvent.press(screen.getByTestId('lesson-retake-btn'));
+      expect(mutate).toHaveBeenCalledWith('lesson-1', expect.anything());
+      expect(screen.getByTestId('continue-btn')).toBeTruthy();
+      expect(lessonService.updatePosition).toHaveBeenCalledWith('lesson-1', 'collapsed');
+    });
+
+    it('is hidden while a retake is in progress (current pass partly answered)', async () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: { ...completed, resolvedQuizIds: ['q1'] }, error: null });
+      render(<LessonDetailScreen />);
+      await waitFor(() => expect(screen.getByTestId('lesson-quiz-btn')).toBeTruthy());
+      expect(screen.queryByTestId('lesson-retake-btn')).toBeNull();
+    });
+
+    it('shows an error and stays put when the retake fails to start', async () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: completed, error: null });
+      mutate.mockImplementation((_id, opts) => opts.onError(new Error('x')));
+      render(<LessonDetailScreen />);
+      await waitFor(() => expect(screen.getByTestId('lesson-retake-btn')).toBeTruthy());
+      fireEvent.press(screen.getByTestId('lesson-retake-btn'));
+      expect(screen.getByTestId('retake-error')).toBeTruthy();
+      expect(screen.queryByTestId('continue-btn')).toBeNull();
     });
   });
 });

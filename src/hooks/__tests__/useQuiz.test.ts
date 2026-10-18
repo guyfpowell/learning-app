@@ -31,6 +31,7 @@ const mockResult: QuizResult = {
   previousAverage: null,
   lessonFinalized: false,
   xpAwarded: null,
+  topicEnd: null,
   achievementsUnlocked: null,
 };
 
@@ -62,6 +63,18 @@ describe('useSubmitQuiz', () => {
       'lesson-1',
       { 'q-1': 'A' },
       { isRetake: true, skipRetake: undefined }
+    );
+  });
+
+  it('passes completionTime through to the service (079e)', async () => {
+    mockQuizService.submitQuiz.mockResolvedValueOnce(mockResult);
+    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
+
+    act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' }, completionTime: 37 }); });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockQuizService.submitQuiz).toHaveBeenCalledWith(
+      'lesson-1', { 'q-1': 'A' }, expect.objectContaining({ completionTime: 37 })
     );
   });
 

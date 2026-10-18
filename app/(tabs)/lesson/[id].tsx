@@ -12,7 +12,9 @@ import { Badge, LEVEL_BADGE_VARIANT } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { QuizModal } from '@/components/QuizModal';
-import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
+import { useLesson, useSaveLesson, useUnsaveLesson, useStartRetake } from '@/hooks/useLesson';
+import { useLessonClock } from '@/hooks/useLessonClock';
+import { isRetakeInProgress } from '@/lib/lessonFlow';
 import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
@@ -106,6 +108,10 @@ export default function LessonDetailScreen() {
   const [phase, setPhase] = useState<LessonPhase>('collapsed');
   const saveLesson = useSaveLesson();
   const unsaveLesson = useUnsaveLesson();
+  const startRetake = useStartRetake();
+  const clock = useLessonClock();
+  const [retakeStarted, setRetakeStarted] = useState(false);
+  const [retakeError, setRetakeError] = useState(false);
 
   // Guards against re-initialising phase after the user has manually transitioned
   const phaseInitialized = useRef<string | null>(null);
@@ -165,6 +171,23 @@ export default function LessonDetailScreen() {
     } else {
       unsaveLesson.mutate(lesson.id, { onError: () => setIsSaved(!nextSaved) });
     }
+  }
+
+  const retakeInProgress = lesson ? isRetakeInProgress(lesson, retakeStarted) : false;
+
+  // A new pass: POST /retake, restart the clock, and read the lesson again from the top.
+  function handleRetake() {
+    if (!lesson) return;
+    setRetakeError(false);
+    startRetake.mutate(lesson.id, {
+      onSuccess: () => {
+        clock.reset();
+        setRetakeStarted(true);
+        setPhase('collapsed');
+        updatePosition(lesson.id, 'collapsed');
+      },
+      onError: () => setRetakeError(true),
+    });
   }
 
   const hasTrackHeader = !!(enrollment || lesson?.skillPath?.level || lesson?.topicName);
@@ -262,7 +285,7 @@ export default function LessonDetailScreen() {
 
               {phase === 'expanded' && <LessonBody raw={lesson.content} />}
 
-              {phase === 'takeaway' && (
+              {phase === 'takeaway' && !retakeInProgress && (
                 <View testID="lesson-completed-banner" style={styles.completedBanner}>
                   <Text style={styles.completedBannerText}>✓ Lesson completed!</Text>
                 </View>
@@ -307,6 +330,21 @@ export default function LessonDetailScreen() {
                   onPress={() => setQuizVisible(true)}
                 />
               )}
+
+              {phase === 'takeaway' && lesson.quizCompleted && !retakeInProgress && (
+                <Button
+                  testID="lesson-retake-btn"
+                  label="Retake lesson"
+                  variant="secondary"
+                  loading={startRetake.isPending}
+                  style={styles.quizBtn}
+                  onPress={handleRetake}
+                />
+              )}
+
+              {retakeError && (
+                <Text testID="retake-error" style={styles.error}>Couldn't start the retake. Please try again.</Text>
+              )}
             </Card>
           </>
         )}
@@ -318,6 +356,8 @@ export default function LessonDetailScreen() {
           visible={quizVisible}
           lesson={lesson}
           onClose={() => setQuizVisible(false)}
+          completionTime={clock.seconds}
+          retakeInProgress={retakeInProgress}
         />
       )}
 

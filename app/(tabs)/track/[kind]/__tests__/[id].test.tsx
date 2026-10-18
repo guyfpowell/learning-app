@@ -56,6 +56,7 @@ const mockContents: TrackContents = {
 
 const mockPath: UserPath = {
   kind:             'track',
+  topicEnd:         null,
   id:               'skill-1',
   name:             'Product Strategy',
   description:      null,

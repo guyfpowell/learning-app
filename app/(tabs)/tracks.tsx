@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { PathCard } from '@/components/ui/PathCard';
 import { PremiumModal } from '@/components/ui/PremiumModal';
-import { useSkills, usePaths, useEnroll, useSetActivePath, useSkipLesson, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
+import { useSkills, usePaths, useEnroll, useSetActivePath, useSkip } from '@/hooks/useTrack';
 import { extractError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 
@@ -36,9 +36,7 @@ export default function TracksScreen() {
   const { data: paths, isLoading: pathsLoading, isError: pathsError, error: pathsErr } = usePaths();
   const enroll = useEnroll();
   const setActive = useSetActivePath();
-  const skipLesson = useSkipLesson();
-  const skipTopic = useSkipTopic();
-  const skipLevel = useSkipLevel();
+  const skip = useSkip();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const isLoading = skillsLoading || pathsLoading;
   // This screen is the catalogue of predefined tracks, so it reads only the track
@@ -80,6 +78,12 @@ export default function TracksScreen() {
           </View>
         )}
 
+        {skip.error && (
+          <View testID="tracks-skip-error">
+            <Text style={styles.errorText}>{extractError(skip.error)}</Text>
+          </View>
+        )}
+
         {!isLoading && customPaths.length > 0 && (
           <View testID="your-paths-section" style={styles.section}>
             <Text style={styles.sectionHeading}>Your paths</Text>
@@ -97,12 +101,8 @@ export default function TracksScreen() {
                 <PathCard
                   path={path}
                   onStartLesson={(id) => router.push(`/(tabs)/lesson/${id}`)}
-                  onSkipLesson={(p) => skipLesson.mutate({ kind: p.kind, id: p.id })}
-                  onSkipTopic={(p) => skipTopic.mutate({ kind: p.kind, id: p.id })}
-                  onSkipLevel={(p) => skipLevel.mutate({ kind: p.kind, id: p.id })}
-                  skipLessonPending={skipLesson.isPending}
-                  skipTopicPending={skipTopic.isPending}
-                  skipLevelPending={skipLevel.isPending}
+                  onSkip={skip.skip}
+                  skipPending={skip.pendingScope(path)}
                 />
               </Pressable>
             ))}

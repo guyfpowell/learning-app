@@ -2,7 +2,7 @@ import { lessonService } from '../lesson.service';
 
 jest.mock('@/lib/api', () => ({
   __esModule: true,
-  default: { get: jest.fn(), post: jest.fn(), delete: jest.fn() },
+  default: { get: jest.fn(), post: jest.fn(), delete: jest.fn(), patch: jest.fn() },
 }));
 
 import api from '@/lib/api';
@@ -24,6 +24,15 @@ const mockLesson = {
 
 describe('lessonService', () => {
   beforeEach(() => jest.clearAllMocks());
+
+  describe('startRetake (079e)', () => {
+    it('calls POST /lessons/:id/retake and returns the pass', async () => {
+      mockApi.post.mockResolvedValueOnce({ data: { pass: 2 } });
+      const result = await lessonService.startRetake('lesson-1');
+      expect(mockApi.post).toHaveBeenCalledWith('/lessons/lesson-1/retake');
+      expect(result).toEqual({ pass: 2 });
+    });
+  });
 
   describe('saveLesson (ticket 017 chunk 3)', () => {
     it('calls POST /lessons/:id/save and returns the result', async () => {

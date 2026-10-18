@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import TracksScreen from '../tracks';
-import { useSkills, usePaths, useEnroll, useSetActivePath, useSkipLesson, useSkipTopic, useSkipLevel } from '@/hooks/useTrack';
+import { useSkills, usePaths, useEnroll, useSetActivePath, useSkip } from '@/hooks/useTrack';
 import type { SkillWithAccess, UserPath } from '@learning/shared';
 
 const mockPush = jest.fn();
@@ -12,9 +12,7 @@ jest.mock('@/hooks/useTrack', () => ({
   usePaths:          jest.fn(),
   useEnroll:         jest.fn(),
   useSetActivePath:  jest.fn(),
-  useSkipLesson:     jest.fn(),
-  useSkipTopic:      jest.fn(),
-  useSkipLevel:      jest.fn(),
+  useSkip:           jest.fn(),
 }));
 
 let capturedEdges: string[] | undefined;
@@ -63,6 +61,7 @@ const premiumSkill: SkillWithAccess = {
 
 const mockEnrollment: UserPath = {
   kind:             'track',
+  topicEnd:         null,
   id:               'skill-1',
   name:             baseSkill.name,
   description:      null,
@@ -113,14 +112,13 @@ function setMocks({
     isError: false,
     error: null as unknown,
   },
+  skipError = null as unknown,
 } = {}) {
   (useSkills         as jest.Mock).mockReturnValue({ data: skills,      isLoading: skillsLoading, isError: skillsError, error: skillsErr });
   (usePaths           as jest.Mock).mockReturnValue({ data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr });
   (useEnroll         as jest.Mock).mockReturnValue(enroll);
   (useSetActivePath  as jest.Mock).mockReturnValue(setActiveTrack);
-  (useSkipLesson     as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
-  (useSkipTopic      as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
-  (useSkipLevel      as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
+  (useSkip           as jest.Mock).mockReturnValue({ skip: jest.fn(), pendingScope: () => null, error: skipError });
 }
 
 describe('TracksScreen', () => {
@@ -305,6 +303,14 @@ describe('TracksScreen', () => {
       render(<TracksScreen />);
       expect(screen.getByTestId('tracks-set-active-error')).toBeTruthy();
       expect(screen.getByText('Not enrolled in that track')).toBeTruthy();
+    });
+
+    // 079c refactor R1: a failed skip used to stop the spinner and say nothing.
+    it('shows the skip error when a skip fails', () => {
+      setMocks({ skipError: { response: { data: { message: 'Feature not available' } } } });
+      render(<TracksScreen />);
+      expect(screen.getByTestId('tracks-skip-error')).toBeTruthy();
+      expect(screen.getByText('Feature not available')).toBeTruthy();
     });
   });
 

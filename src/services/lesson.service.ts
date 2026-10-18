@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { Lesson, LessonPhase, LessonSummary, SaveLessonResponse, SaveLessonPositionRequest } from '@learning/shared';
+import type { Lesson, LessonPhase, LessonSummary, SaveLessonResponse, SaveLessonPositionRequest, StartRetakeResponse } from '@learning/shared';
 
 export const lessonService = {
   async getLesson(id: string): Promise<Lesson> {
@@ -18,6 +18,11 @@ export const lessonService = {
 
   async getSavedLessons(): Promise<LessonSummary[]> {
     const { data } = await api.get<LessonSummary[]>('/lessons/saved');
+    return data;
+  },
+
+  async startRetake(lessonId: string): Promise<StartRetakeResponse> {
+    const { data } = await api.post<StartRetakeResponse>(`/lessons/${lessonId}/retake`);
     return data;
   },
 

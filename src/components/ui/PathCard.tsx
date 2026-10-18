@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, LEVEL_BADGE_VARIANT } from '@/components/ui/Badge';
 import { TrackMap } from '@/components/ui/TrackMap';
-import type { UserPath } from '@learning/shared';
+import { SkipReasonPicker } from '@/components/ui/SkipReasonPicker';
+import type { SkipReason, SkipScope, UserPath } from '@learning/shared';
 
 export function flooredPct(path: Pick<UserPath, 'completedLessons' | 'percentComplete'>): number {
   return path.completedLessons > 0 ? Math.max(1, Math.round(path.percentComplete)) : 0;
@@ -28,12 +30,10 @@ function ProgressBar({ value }: { value: number }) {
 interface PathCardProps {
   path: UserPath;
   onStartLesson: (lessonId: string) => void;
-  onSkipLesson: (path: UserPath) => void;
-  onSkipTopic: (path: UserPath) => void;
-  onSkipLevel: (path: UserPath) => void;
-  skipLessonPending?: boolean;
-  skipTopicPending?: boolean;
-  skipLevelPending?: boolean;
+  /** Called with the reason the person picked — picking is the confirming tap (079c). */
+  onSkip: (path: UserPath, scope: SkipScope, reason: SkipReason) => void;
+  /** The skip in flight on this path, if any: its button shows the spinner. */
+  skipPending?: SkipScope | null;
 }
 
 /**
@@ -47,9 +47,9 @@ interface PathCardProps {
  * the unresolved-topics note, which only a plan can have.
  */
 export function PathCard({
-  path, onStartLesson, onSkipLesson, onSkipTopic, onSkipLevel,
-  skipLessonPending, skipTopicPending, skipLevelPending,
+  path, onStartLesson, onSkip, skipPending,
 }: PathCardProps) {
+  const [choosing, setChoosing] = useState<SkipScope | null>(null);
   const pct = flooredPct(path);
   const { nextLesson } = path;
   const level = nextLesson?.skillPath?.level;
@@ -142,8 +142,8 @@ export function PathCard({
               label="Skip Lesson →"
               variant="outline"
               style={styles.skipBtn}
-              loading={skipLessonPending}
-              onPress={() => onSkipLesson(path)}
+              loading={skipPending === 'lesson'}
+              onPress={() => setChoosing('lesson')}
             />
           )}
 
@@ -154,8 +154,8 @@ export function PathCard({
               label="Skip Topic →"
               variant="outline"
               style={styles.skipBtn}
-              loading={skipTopicPending}
-              onPress={() => onSkipTopic(path)}
+              loading={skipPending === 'topic'}
+              onPress={() => setChoosing('topic')}
             />
           )}
           {path.canSkipLevel && (
@@ -164,8 +164,18 @@ export function PathCard({
               label="Skip Level →"
               variant="outline"
               style={styles.skipBtn}
-              loading={skipLevelPending}
-              onPress={() => onSkipLevel(path)}
+              loading={skipPending === 'level'}
+              onPress={() => setChoosing('level')}
+            />
+          )}
+
+          {choosing && (
+            <SkipReasonPicker
+              onPick={reason => {
+                setChoosing(null);
+                onSkip(path, choosing, reason);
+              }}
+              onCancel={() => setChoosing(null)}
             />
           )}
         </Card>

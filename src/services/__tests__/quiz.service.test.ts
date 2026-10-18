@@ -28,6 +28,14 @@ describe('quizService', () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe('submitQuiz', () => {
+    it('sends completionTime when given (079e)', async () => {
+      mockApi.post.mockResolvedValueOnce({ data: mockResult });
+      await quizService.submitQuiz('lesson-1', { 'q-1': 'A' }, { completionTime: 42 });
+      expect(mockApi.post).toHaveBeenCalledWith('/lessons/lesson-1/quiz', {
+        answers: { 'q-1': 'A' }, isRetake: false, skipRetake: false, completionTime: 42,
+      });
+    });
+
     it('calls POST /lessons/:id/quiz with answers', async () => {
       mockApi.post.mockResolvedValueOnce({ data: mockResult });
       const answers = { 'q-1': 'A' };

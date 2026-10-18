@@ -4,11 +4,16 @@ import { QuizModal } from '../QuizModal';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
 import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { useRouter } from 'expo-router';
+import { useRefreshPaths, useTopicFeedback } from '@/hooks/useTrack';
 
 jest.mock('@/hooks/useQuiz', () => ({ useSubmitQuiz: jest.fn() }));
 jest.mock('@/hooks/useLesson', () => ({
   useSaveLesson: jest.fn(),
   useUnsaveLesson: jest.fn(),
+}));
+jest.mock('@/hooks/useTrack', () => ({
+  useTopicFeedback: jest.fn(),
+  useRefreshPaths: jest.fn(),
 }));
 jest.mock('expo-router', () => ({ useRouter: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -19,6 +24,8 @@ const mockMutate = jest.fn();
 const mockSaveMutate = jest.fn();
 const mockUnsaveMutate = jest.fn();
 const mockReplace = jest.fn();
+const mockTopicSubmit = jest.fn();
+const mockRefreshPaths = jest.fn();
 
 function setQuizMock(overrides: Record<string, unknown> = {}) {
   (useSubmitQuiz as jest.Mock).mockReturnValue({
@@ -87,6 +94,7 @@ const wrongPendingResult = {
   trackAverage: null,
   previousAverage: null,
   xpAwarded: null,
+  topicEnd: null,
 };
 
 // Full finalized result
@@ -101,6 +109,7 @@ const mockResult = {
   trackAverage: 90,
   previousAverage: 80,
   xpAwarded: null,
+  topicEnd: null,
   feedbacks: [
     {
       quizId: 'q-1',
@@ -158,6 +167,9 @@ describe('QuizModal', () => {
     (useSaveLesson as jest.Mock).mockReturnValue({ mutate: mockSaveMutate });
     (useUnsaveLesson as jest.Mock).mockReturnValue({ mutate: mockUnsaveMutate });
     (useRouter as jest.Mock).mockReturnValue({ replace: mockReplace });
+    (useTopicFeedback as jest.Mock).mockReturnValue({ submit: mockTopicSubmit });
+    (useRefreshPaths as jest.Mock).mockReturnValue(mockRefreshPaths);
+    mockTopicSubmit.mockResolvedValue(undefined);
   });
 
   it('does not render content when visible=false', () => {
@@ -449,6 +461,27 @@ describe('QuizModal', () => {
         { lessonId: 'lesson-1', answers: { 'q-1': 'Option A' } },
         expect.anything()
       );
+    });
+  });
+
+  describe('retake (079e)', () => {
+    it('sends completionTime with every submission', () => {
+      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} completionTime={() => 73} />);
+      fireEvent.press(screen.getByText('Option A'));
+      fireEvent.press(screen.getByText('SUBMIT'));
+      expect(mockMutate).toHaveBeenCalledWith(
+        { lessonId: 'lesson-1', answers: { 'q-1': 'Option A' }, completionTime: 73 },
+        expect.anything()
+      );
+    });
+
+    it('accepts answers on a completed lesson while a retake is in progress', () => {
+      const completedLesson = { ...singleQuizLesson, quizCompleted: true, resolvedQuizIds: [] };
+      render(<QuizModal visible={true} lesson={completedLesson} onClose={onClose} retakeInProgress />);
+      expect(screen.queryByText('Already Completed')).toBeNull();
+      fireEvent.press(screen.getByText('Option A'));
+      fireEvent.press(screen.getByText('SUBMIT'));
+      expect(mockMutate).toHaveBeenCalled();
     });
   });
 
@@ -870,6 +903,44 @@ describe('QuizModal', () => {
       setQuizMock({ data: mockResult });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(screen.getByText('Correct!')).toBeTruthy();
+    });
+  });
+  describe('end-of-topic feedback (079d)', () => {
+    const topicEnd = { planId: 'plan-1', stableKey: 'topic-a', title: 'Pricing basics' };
+
+    it('shows the screen in the terminal view when the result carries a topicEnd', () => {
+      setQuizMock({ data: { ...mockResult, topicEnd } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByTestId('topic-feedback')).toBeTruthy();
+      expect(screen.getByText('Pricing basics')).toBeTruthy();
+    });
+
+    it('shows nothing when topicEnd is null', () => {
+      setQuizMock({ data: { ...mockResult, topicEnd: null } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.queryByTestId('topic-feedback')).toBeNull();
+    });
+
+    it('an answer writes to the plan, then Close hides the screen and refetches paths', async () => {
+      setQuizMock({ data: { ...mockResult, topicEnd } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      fireEvent.press(screen.getByTestId('topic-feedback-useful-useful'));
+      // The press awaits the write; inside act, everything it sets lands before the asserts.
+      await act(async () => fireEvent.press(screen.getByTestId('topic-feedback-submit')));
+      expect(mockTopicSubmit).toHaveBeenCalledWith('plan-1', { stableKey: 'topic-a', dismissed: false, useful: 'useful' });
+      expect(mockRefreshPaths).not.toHaveBeenCalled();
+      fireEvent.press(screen.getByTestId('topic-feedback-close'));
+      expect(mockRefreshPaths).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId('topic-feedback')).toBeNull();
+    });
+
+    it('Not now writes a dismissal', async () => {
+      setQuizMock({ data: { ...mockResult, topicEnd } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      await act(async () => fireEvent.press(screen.getByTestId('topic-feedback-submit')));
+      expect(mockTopicSubmit).toHaveBeenCalledWith('plan-1', { stableKey: 'topic-a', dismissed: true });
+      expect(screen.queryByTestId('topic-feedback')).toBeNull();
+      expect(mockRefreshPaths).toHaveBeenCalledTimes(1);
     });
   });
 });
