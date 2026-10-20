@@ -35,6 +35,8 @@ jest.mock('react-native-safe-area-context', () => ({
 const unfinishedPath = {
   id: 'plan-1',
   kind: 'custom',
+  hasProposal: false,
+  revisit: null,
   name: 'My AI Path',
   percentComplete: 40,
   isActive: true,
@@ -43,6 +45,8 @@ const unfinishedPath = {
 const finishedPath = {
   id: 'plan-2',
   kind: 'custom',
+  hasProposal: false,
+  revisit: null,
   name: 'Completed Path',
   percentComplete: 100,
   isActive: false,

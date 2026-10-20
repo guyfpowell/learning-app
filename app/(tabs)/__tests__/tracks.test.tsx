@@ -367,6 +367,8 @@ describe('TracksScreen', () => {
     const customPath = {
       ...trackFields,
       kind: 'custom',
+      hasProposal: false,
+      revisit: null,
       id: 'plan-1',
       name: 'My Discovery Path',
     } as unknown as UserPath;
@@ -447,6 +449,8 @@ describe('TracksScreen', () => {
       const customPath = {
         ...trackFields,
         kind: 'custom',
+        hasProposal: false,
+        revisit: null,
         id: 'plan-1',
         name: 'My Discovery Path',
         unresolvedTopics: 0,

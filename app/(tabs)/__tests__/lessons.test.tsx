@@ -128,6 +128,8 @@ function setProgressMock(data?: unknown) {
 
 const mockCustomPlan = {
   kind: 'custom' as const,
+  hasProposal: false,
+  revisit: null,
   id: 'plan-1',
   name: 'My Product Leadership Path',
   nextLesson: { id: 'lesson-next', title: 'Stakeholder Management Fundamentals' },

@@ -594,6 +594,8 @@ describe('ProgressScreen — 076e custom path progress bar', () => {
   it('shows a progress bar on custom path card (levels empty)', () => {
     const customPath = {
       kind: 'custom' as const,
+      hasProposal: false,
+      revisit: null,
       id: 'plan-1',
       name: 'My Custom Path',
       completedLessons: 3,
@@ -611,6 +613,8 @@ describe('ProgressScreen — 076e custom path progress bar', () => {
   it('does not show TrackMap for custom path (levels empty)', () => {
     const customPath = {
       kind: 'custom' as const,
+      hasProposal: false,
+      revisit: null,
       id: 'plan-1',
       name: 'My Custom Path',
       completedLessons: 3,
