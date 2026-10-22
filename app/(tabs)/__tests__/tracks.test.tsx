@@ -414,7 +414,11 @@ describe('TracksScreen', () => {
       setMocks({
         enrollments: [{
           ...customPath,
-          nextLesson: { id: 'l-9', title: 'T', summary: null, topicName: null, lessonIndex: 1, totalLessons: 1, skillPath: undefined } as never,
+          nextLesson: {
+            id: 'l-9', skillPathId: 'sp-1', lessonNumber: 1, title: 'T', content: 'C', durationMinutes: 3,
+            difficulty: 'beginner', isTeaser: false, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+            resumePhase: null,
+          },
         }],
       });
       render(<TracksScreen />);

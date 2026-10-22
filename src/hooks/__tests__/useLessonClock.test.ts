@@ -1,8 +1,8 @@
-import { AppState } from 'react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import { renderHook, act } from '@testing-library/react-native';
 import { useLessonClock } from '../useLessonClock';
 
-let handler: ((s: string) => void) | null = null;
+let handler: ((s: AppStateStatus) => void) | null = null;
 let now = 0;
 
 beforeEach(() => {
@@ -10,10 +10,10 @@ beforeEach(() => {
   now = 1_000_000;
   jest.spyOn(Date, 'now').mockImplementation(() => now);
   (AppState as { currentState: string }).currentState = 'active';
-  jest.spyOn(AppState, 'addEventListener').mockImplementation(((_: string, h: (s: string) => void) => {
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_, h) => {
     handler = h;
     return { remove: jest.fn() };
-  }) as never);
+  });
 });
 afterEach(() => jest.restoreAllMocks());
 

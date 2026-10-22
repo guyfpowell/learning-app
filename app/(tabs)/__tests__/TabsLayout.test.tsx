@@ -209,7 +209,6 @@ describe('(tabs) layout', () => {
       render(<TabsLayout />);
       mockInvalidateQueries.mockClear();
       const onFocus = capturedTabsProps?.screenListeners?.focus;
-      expect(typeof onFocus).toBe('function');
       act(() => onFocus());
       expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: CURRENT_USER_QUERY_KEY });
     });

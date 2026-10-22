@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Sentry from '@sentry/react-native';
 import { authService, type LoginInput, type RegisterInput } from '@/services/auth.service';
 import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/store/auth.store';
@@ -12,7 +13,14 @@ import { useAuthStore } from '@/store/auth.store';
 function syncTimezone() {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   if (!timezone) return;
-  void userService.syncTimezone(timezone).catch(() => {});
+  void userService.syncTimezone(timezone).catch((err) => {
+    Sentry.addBreadcrumb({
+      category: 'auth',
+      message: 'Timezone sync failed after registration',
+      level: 'warning',
+      data: { err: String(err) },
+    });
+  });
 }
 
 export function useLogin() {

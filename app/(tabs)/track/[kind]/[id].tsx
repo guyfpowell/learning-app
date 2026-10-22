@@ -49,7 +49,7 @@ export default function TrackDetailScreen() {
       setPremiumModalVisible(true);
       return;
     }
-    router.push(`/(tabs)/lesson/${lesson.id}` as never);
+    router.push(`/(tabs)/lesson/${lesson.id}`);
   }
 
   // ── Loading / error ──────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ export default function TrackDetailScreen() {
           <Button
             testID="track-detail-start-btn"
             label={lessonLabel}
-            onPress={() => router.push(`/(tabs)/lesson/${nextLesson.id}` as never)}
+            onPress={() => router.push(`/(tabs)/lesson/${nextLesson.id}`)}
             style={styles.actionBtn}
           />
         )}
@@ -123,7 +123,7 @@ export default function TrackDetailScreen() {
             loading={enroll.isPending}
             onPress={() =>
               enroll.mutate(id, {
-                onSuccess: () => router.push('/(tabs)/lessons' as never),
+                onSuccess: () => router.push('/(tabs)/lessons'),
               })
             }
             style={styles.actionBtn}

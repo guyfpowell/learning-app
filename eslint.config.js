@@ -41,7 +41,7 @@ export default [
       ],
       'no-empty': 'error',
       'no-nested-ternary': 'warn',
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'warn',
 
       'standards/jest-mock-shared': 'error',
@@ -54,11 +54,11 @@ export default [
       'standards/force-exit': 'error',
       'standards/json-parse-as': 'error',
 
-      'standards/catch-empty-callback': 'warn',
+      'standards/catch-empty-callback': 'error',
       'standards/as-unknown-as': 'warn',
-      'standards/as-never': 'warn',
-      'standards/expect-typeof': 'warn',
-      'standards/optional-onpress': 'warn'
+      'standards/as-never': 'error',
+      'standards/expect-typeof': 'error',
+      'standards/optional-onpress': 'error'
     }
   },
   {
@@ -79,7 +79,9 @@ export default [
     files: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
     rules: {
       '@typescript-eslint/no-unused-vars': 'off',
-      '@typescript-eslint/no-require-imports': 'off'
+      '@typescript-eslint/no-require-imports': 'off',
+      // Tests stay 'warn' until 082m1–m2 are done.
+      '@typescript-eslint/no-explicit-any': 'warn'
     }
   },
   {

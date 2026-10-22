@@ -95,12 +95,9 @@ async function getOfferings(): Promise<IAPOffering> {
  */
 async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseResult> {
   // The RevenueCat SDK validates the Apple receipt before returning.
-  // We cast to any because the TypeScript typings vary across SDK versions;
-  // the fields we read (transaction.transactionIdentifier, productIdentifier)
-  // are stable in react-native-purchases v8.x.
   const Purchases = loadPurchases();
   if (!Purchases) throw new Error('Purchases are not available in this build');
-  const raw = await Purchases.purchasePackage(pkg) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const raw = await Purchases.purchasePackage(pkg);
   return {
     originalTransactionId: raw?.transaction?.transactionIdentifier ?? null,
     productId:             raw?.productIdentifier ?? pkg.product.identifier,

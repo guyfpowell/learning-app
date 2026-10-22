@@ -93,7 +93,8 @@ let alertSpy: jest.SpiedFunction<typeof Alert.alert>;
 function pressAlertButton(style: AlertButton['style']) {
   const button = alertSpy.mock.calls[0]?.[2]?.find(b => b.style === style);
   if (!button) throw new Error(`The Alert has no ${style} button`);
-  act(() => { button.onPress?.(); });
+  const { onPress } = button;
+  if (onPress) act(() => { onPress(); });
 }
 
 // ── Suite ────────────────────────────────────────────────────────────────────

@@ -1,7 +1,9 @@
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { queryWrapper } from '@/test-utils/queryClient';
 import { useLogin, useLogout, useRegister } from '../useAuth';
+import * as Sentry from '@sentry/react-native';
 import { authService } from '@/services/auth.service';
+import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/store/auth.store';
 
 jest.mock('@/services/auth.service', () => ({
@@ -31,7 +33,12 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: jest.fn(), push: jest.fn(), back: jest.fn() }),
 }));
 
+jest.mock('@sentry/react-native', () => ({
+  addBreadcrumb: jest.fn(),
+}));
+
 const mockAuthService = authService as jest.Mocked<typeof authService>;
+const mockUserService = userService as jest.Mocked<typeof userService>;
 
 const mockUser = { id: 'u1', email: 'user@example.com', name: 'Test User' };
 
@@ -88,6 +95,23 @@ describe('useRegister', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(useAuthStore.getState().accessToken).toBe('tok-reg');
+  });
+
+  it('still signs the user in and logs a breadcrumb when the timezone sync fails', async () => {
+    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok-tz' });
+    mockUserService.syncTimezone.mockRejectedValueOnce(new Error('Network Error'));
+
+    const { result } = renderHook(() => useRegister(), { wrapper: queryWrapper() });
+    act(() => { result.current.mutate({ email: 'new@example.com', password: 'pass', name: 'New User' }); });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(Sentry.addBreadcrumb).toHaveBeenCalledWith({
+      category: 'auth',
+      message: 'Timezone sync failed after registration',
+      level: 'warning',
+      data: { err: 'Error: Network Error' },
+    }));
+    expect(useAuthStore.getState().accessToken).toBe('tok-tz');
   });
 });
 

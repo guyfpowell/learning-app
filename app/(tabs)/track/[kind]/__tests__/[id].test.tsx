@@ -62,7 +62,10 @@ const mockPath: UserPath = {
   description:      null,
   enrolledAt:       '2026-01-01T00:00:00Z',
   completedAt:      null,
-  skill:            {} as never,
+  skill:            {
+    id: 'skill-1', trackId: 1, name: 'Product Strategy', description: '', category: 'strategy', order: 1,
+    createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+  },
   totalLessons:     10,
   completedLessons: 3,
   percentComplete:  30,
