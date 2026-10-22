@@ -10,7 +10,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { colors, font, fontSize } from '@/theme';
+import { colors, font } from '@/theme';
 
 export type RingTone = 'brand' | 'coral' | 'success';
 

@@ -1,6 +1,6 @@
 import api from '@/lib/api';
 import type {
-  RequestChunk, BuildPlanRequest, RefinePlanRequest, CreateTrackPlanRequest, UpdateTrackPlanRequest, BuiltPlan, BuiltPlanTopic, RefinedPlan, TrackPlanTopic, TrackPlan, TrackBuilderTurn,
+  RequestChunk, BuildPlanRequest, RefinePlanRequest, CreateTrackPlanRequest, UpdateTrackPlanRequest, BuiltPlan, BuiltPlanTopic, RefinedPlan, TrackPlan,
 } from '@learning/shared';
 
 /**

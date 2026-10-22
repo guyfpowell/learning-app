@@ -9,24 +9,44 @@ jobs:
   ci:
     name: Lint, typecheck & test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: learning-app
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: learning-app
 
-      # @learning/shared is a file: dep at ../learning/packages/shared — check
-      # that repo out alongside so pnpm can resolve it.
-      # If guyfpowell/learning is private, add: token: ${{ secrets.LEARNING_REPO_PAT }}
+      # @learning/shared is a link: dependency at ../learning/packages/shared, and the lint config
+      # imports ../learning/eslint/standards.mjs. Both repos sit side by side inside the workspace.
+      # guyfpowell/learning is private: LEARNING_REPO_PAT is a fine-grained token on this repo's
+      # Actions secrets. When it expires the checkout fails on auth; replace it under the same name.
       - name: Checkout learning (shared package)
         uses: actions/checkout@v4
         with:
           repository: guyfpowell/learning
-          path: ../learning
+          path: learning
+          token: ${{ secrets.LEARNING_REPO_PAT }}
 
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: learning-app/package.json
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22'
           cache: pnpm
+          cache-dependency-path: |
+            learning/pnpm-lock.yaml
+            learning-app/pnpm-lock.yaml
+
+      - name: Install learning
+        run: pnpm install --frozen-lockfile
+        working-directory: learning
+
+      - name: Build @learning/shared
+        run: pnpm --filter @learning/shared build
+        working-directory: learning
 
       - run: pnpm install --frozen-lockfile
 

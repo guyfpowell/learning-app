@@ -14,9 +14,7 @@ jest.mock('@/hooks/useTrack', () => ({ usePaths: jest.fn(), useTrackContents: je
 jest.mock('@/hooks/useXp', () => ({ useXp: jest.fn() }));
 // Lightweight tree stub — tests only care that it is/isn't rendered and what props it got.
 jest.mock('@/components/learning/TrackContentsTree', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mockReact = require('react');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { View: MockView } = require('react-native');
   return {
     TrackContentsTree: ({ contents, initialExpanded }: { contents: { id: string }; initialExpanded?: { groupKey?: string; topicKey?: string } }) =>

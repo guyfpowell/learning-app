@@ -50,7 +50,7 @@ export function QuizModal({ visible, lesson, onClose, completionTime }: QuizModa
   const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set());
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const [celebrationQueue, setCelebrationQueue] = useState<CelebrationItem[]>([]);
+  const [, setCelebrationQueue] = useState<CelebrationItem[]>([]);
   const [currentCelebration, setCurrentCelebration] = useState<CelebrationItem | null>(null);
   const [topicFeedbackClosed, setTopicFeedbackClosed] = useState(false);
   const celebrationFired = useRef(false);

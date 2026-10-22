@@ -7,7 +7,7 @@
  */
 import React from 'react';
 import { StyleSheet, View, ViewProps } from 'react-native';
-import { colors, radius } from '@/theme';
+import { colors } from '@/theme';
 
 export type ProgressTone = 'brand' | 'coral' | 'success' | 'xp';
 

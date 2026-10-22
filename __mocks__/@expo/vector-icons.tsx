@@ -1,5 +1,3 @@
-import React from 'react';
-
 const IconComponent = () => null;
 
 export const AntDesign = IconComponent;

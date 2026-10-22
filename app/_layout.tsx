@@ -17,7 +17,6 @@ import type { ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ScrollView, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { colors } from '@/theme';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { useAuthStore } from '@/store/auth.store';
 import * as Sentry from '@sentry/react-native';

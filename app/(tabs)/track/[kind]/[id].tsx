@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { colors, font, fontSize, radius, spacing } from '@/theme';
+import { colors, font, fontSize, spacing } from '@/theme';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Progress } from '@/components/ui/Progress';
