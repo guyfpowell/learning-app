@@ -3,6 +3,7 @@ import { useNotifications } from '../useNotifications';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { registerPushToken } from '@/lib/api';
+import * as Sentry from '@sentry/react-native';
 
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
@@ -85,5 +86,27 @@ describe('useNotifications', () => {
         setTimeout(resolve, 50);
       })
     ).resolves.not.toThrow();
+  });
+
+  it('logs a breadcrumb when the token step fails', async () => {
+    mockGetToken.mockRejectedValue(new Error('Network error'));
+
+    renderHook(() => useNotifications());
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'push', message: 'Push token registration failed' }),
+    );
+  });
+
+  it('logs a breadcrumb instead of an unhandled rejection when the permission check rejects', async () => {
+    mockGetPermissions.mockRejectedValue(new Error('permissions unavailable'));
+
+    renderHook(() => useNotifications());
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'push', message: 'Push registration failed' }),
+    );
   });
 });

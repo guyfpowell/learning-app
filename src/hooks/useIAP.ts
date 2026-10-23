@@ -1,12 +1,31 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { PurchasesPackage } from 'react-native-purchases';
 import { iapService } from '@/services/iap.service';
 import { subscriptionService } from '@/services/subscription.service';
-import { LESSONS_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY } from '@/lib/queryKeys';
+import {
+  LESSONS_QUERY_KEY,
+  PATHS_QUERY_KEY,
+  TRACK_CONTENTS_QUERY_KEY,
+  USER_PROFILE_QUERY_KEY,
+} from '@/lib/queryKeys';
 
 // Re-export the types the paywall screen and tests need so they only import from here.
 export type { PurchasesPackage } from 'react-native-purchases';
 export type { IAPOffering } from '@/services/iap.service';
+
+/**
+ * Invalidates every cache that reflects locked/unlocked lesson state or
+ * subscription status so they are refetched with the new entitlement. Awaited,
+ * so a rejection fails the mutation and the paywall shows it.
+ */
+async function invalidateEntitlementQueries(queryClient: QueryClient): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: TRACK_CONTENTS_QUERY_KEY }),
+    queryClient.invalidateQueries({ queryKey: LESSONS_QUERY_KEY }),
+    queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY }),
+    queryClient.invalidateQueries({ queryKey: USER_PROFILE_QUERY_KEY }),
+  ]);
+}
 
 /**
  * Fetches the current RevenueCat offering (monthly + annual packages).
@@ -44,12 +63,7 @@ export function useRestorePurchases() {
       // current resolved entitlement — graceful behaviour already tested in Chunk 7.
       return subscriptionService.verifyPurchase({ originalTransactionId: null, productId: '' });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: TRACK_CONTENTS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: LESSONS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
-    },
+    onSuccess: () => invalidateEntitlementQueries(queryClient),
   });
 }
 
@@ -74,13 +88,6 @@ export function usePurchase() {
       const purchaseResult = await iapService.purchasePackage(pkg);
       return subscriptionService.verifyPurchase(purchaseResult);
     },
-    onSuccess: () => {
-      // Invalidate every cache that reflects locked/unlocked lesson state or
-      // subscription status so they are refetched with the new entitlement.
-      queryClient.invalidateQueries({ queryKey: TRACK_CONTENTS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: LESSONS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
-    },
+    onSuccess: () => invalidateEntitlementQueries(queryClient),
   });
 }

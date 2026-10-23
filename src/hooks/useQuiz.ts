@@ -12,11 +12,11 @@ export function useSubmitQuiz() {
       quizService.submitQuiz(lessonId, answers, { isRetake, skipRetake, completionTime }),
     onSuccess: (data, variables) => {
       if (data.lessonFinalized) {
-        queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
-        queryClient.invalidateQueries({ queryKey: PROGRESS_QUERY_KEY });
-        queryClient.invalidateQueries({ queryKey: lessonQueryKey(variables.lessonId) });
+        void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
+        void queryClient.invalidateQueries({ queryKey: PROGRESS_QUERY_KEY });
+        void queryClient.invalidateQueries({ queryKey: lessonQueryKey(variables.lessonId) });
         // Refresh the tree on the track detail screen so progress marks update.
-        queryClient.invalidateQueries({ queryKey: TRACK_CONTENTS_QUERY_KEY });
+        void queryClient.invalidateQueries({ queryKey: TRACK_CONTENTS_QUERY_KEY });
       }
     },
   });

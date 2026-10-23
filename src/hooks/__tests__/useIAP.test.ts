@@ -136,6 +136,43 @@ describe('usePurchase', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
   });
+
+  it('stays pending until the invalidations settle', async () => {
+    (iapService.purchasePackage as jest.Mock).mockResolvedValue(PURCHASE_RESULT);
+    (subscriptionService.verifyPurchase as jest.Mock).mockResolvedValue(PREMIUM_ENTITLEMENT);
+
+    const queryClient = createTestQueryClient();
+    let settle: () => void = () => {};
+    jest.spyOn(queryClient, 'invalidateQueries').mockReturnValue(
+      new Promise<void>((resolve) => { settle = resolve; }),
+    );
+    const { result } = renderHook(() => usePurchase(), { wrapper: queryWrapper(queryClient) });
+
+    await act(async () => {
+      result.current.mutate(mockMonthly);
+    });
+    await waitFor(() => expect(subscriptionService.verifyPurchase).toHaveBeenCalled());
+    expect(result.current.isSuccess).toBe(false);
+
+    await act(async () => { settle(); });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+
+  it('exposes error when an invalidation rejects, so the paywall shows it', async () => {
+    (iapService.purchasePackage as jest.Mock).mockResolvedValue(PURCHASE_RESULT);
+    (subscriptionService.verifyPurchase as jest.Mock).mockResolvedValue(PREMIUM_ENTITLEMENT);
+
+    const queryClient = createTestQueryClient();
+    jest.spyOn(queryClient, 'invalidateQueries').mockRejectedValue(new Error('refetch failed'));
+    const { result } = renderHook(() => usePurchase(), { wrapper: queryWrapper(queryClient) });
+
+    await act(async () => {
+      result.current.mutate(mockMonthly);
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.message).toBe('refetch failed');
+  });
 });
 
 // ── useRestorePurchases ───────────────────────────────────────────────────────
@@ -191,5 +228,21 @@ describe('useRestorePurchases (073b-8)', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(subscriptionService.verifyPurchase).not.toHaveBeenCalled();
+  });
+
+  it('exposes error when an invalidation rejects, so the paywall shows it', async () => {
+    (iapService.restorePurchases as jest.Mock).mockResolvedValue(undefined);
+    (subscriptionService.verifyPurchase as jest.Mock).mockResolvedValue(PREMIUM_ENTITLEMENT);
+
+    const queryClient = createTestQueryClient();
+    jest.spyOn(queryClient, 'invalidateQueries').mockRejectedValue(new Error('refetch failed'));
+    const { result } = renderHook(() => useRestorePurchases(), { wrapper: queryWrapper(queryClient) });
+
+    await act(async () => {
+      result.current.mutate();
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.message).toBe('refetch failed');
   });
 });

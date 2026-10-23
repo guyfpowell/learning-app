@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 import { registerPushToken } from '@/lib/api';
 
 Notifications.setNotificationHandler({
@@ -26,7 +27,10 @@ export function useNotifications() {
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
-    registerForPushNotifications();
+    // Background registration has no screen to report to: log, and never block app load.
+    registerForPushNotifications().catch((err) => {
+      Sentry.addBreadcrumb({ category: 'push', message: 'Push registration failed', level: 'warning', data: { err: String(err) } });
+    });
 
     return () => {
       notificationListener.current?.remove();
@@ -66,7 +70,8 @@ export async function registerForPushNotifications(): Promise<void> {
     );
 
     await registerPushToken(tokenData.data, 'expo');
-  } catch {
+  } catch (err) {
     // Non-blocking — do not prevent app load
+    Sentry.addBreadcrumb({ category: 'push', message: 'Push token registration failed', level: 'warning', data: { err: String(err) } });
   }
 }

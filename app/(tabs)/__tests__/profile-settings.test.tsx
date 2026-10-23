@@ -87,8 +87,11 @@ const mockMutate = jest.fn();
 const mockProfileMutate = jest.fn();
 const mockRegister = jest.fn();
 
-function setPushStatusMock(permissionStatus: 'granted' | 'denied' | 'undetermined' = 'granted') {
-  (usePushStatus as jest.Mock).mockReturnValue({ permissionStatus, register: mockRegister });
+function setPushStatusMock(
+  permissionStatus: 'granted' | 'denied' | 'undetermined' = 'granted',
+  error: string | null = null,
+) {
+  (usePushStatus as jest.Mock).mockReturnValue({ permissionStatus, register: mockRegister, error });
 }
 
 function setQueryMock(overrides: Record<string, unknown> = {}) {
@@ -237,6 +240,13 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
       render(<ProfileScreen />);
       expect(screen.getByTestId('push-status-prompt')).toBeTruthy();
       expect(screen.getByText('ENABLE NOTIFICATIONS')).toBeTruthy();
+    });
+
+    it('shows the push error on screen', () => {
+      setPushStatusMock('undetermined', 'Could not enable notifications. Please try again.');
+      render(<ProfileScreen />);
+      expect(screen.getByText('Could not enable notifications. Please try again.')).toBeTruthy();
+      expect(screen.getByTestId('push-status-error')).toBeTruthy();
     });
   });
 

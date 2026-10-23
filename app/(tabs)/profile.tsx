@@ -132,7 +132,7 @@ export default function ProfileScreen() {
   const updatePrefs = useUpdateNotificationPreferences();
   const { data: profile } = useProfile();
   const updateProfile = useUpdateProfile();
-  const { permissionStatus, register } = usePushStatus();
+  const { permissionStatus, register, error: pushError } = usePushStatus();
 
   const [enableDailyReminder, setEnableDailyReminder] = useState(false);
   const [preferredHour, setPreferredHour] = useState(8);
@@ -323,6 +323,9 @@ export default function ProfileScreen() {
               <Button label="Enable notifications" onPress={register} />
             </View>
           )}
+          {pushError ? (
+            <Text testID="push-status-error" style={styles.errorMsg}>{pushError}</Text>
+          ) : null}
         </Card>
 
         <Text style={styles.settingsLabel}>Notifications</Text>

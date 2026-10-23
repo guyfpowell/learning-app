@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { userService } from '@/services/user.service';
+import { USER_PROFILE_QUERY_KEY } from '@/lib/queryKeys';
 
 export function useProfile() {
   return useQuery({
-    queryKey: ['user-profile'],
+    queryKey: USER_PROFILE_QUERY_KEY,
     queryFn: () => userService.getProfile(),
   });
 }

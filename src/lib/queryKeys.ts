@@ -19,6 +19,9 @@ export function lessonQueryKey(lessonId: string) {
   return [...LESSONS_QUERY_KEY, lessonId] as const;
 }
 
+/** The user's profile (`useProfile`). Invalidate it when a write changes entitlement. */
+export const USER_PROFILE_QUERY_KEY = ['user-profile'] as const;
+
 /** The user's progress summary (`GET /users/progress`). */
 export const PROGRESS_QUERY_KEY = ['progress'] as const;
 

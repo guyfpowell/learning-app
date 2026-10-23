@@ -48,13 +48,13 @@ export function useCreateTrackPlan() {
     }) => trackBuilderService.createPlan(v),
     onSuccess: () => {
       // Custom plans take precedence on the home surface, so both caches move.
-      queryClient.invalidateQueries({ queryKey: ['track-plans'] });
-      queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['track-plans'] });
+      void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
     },
     // A save spends the free Albert allowance, and a refused one (ALBERT_ALLOWANCE_USED)
     // means the cached count was stale: either way /me's `albertAllowance` has moved (079a).
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
     },
   });
 }
@@ -75,8 +75,8 @@ export function useUpdateTrackPlan() {
     mutationFn: ({ id, ...patch }: { id: string; status: 'archived' }) =>
       trackBuilderService.updateTrackPlan(id, patch),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['track-plans'] });
-      queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['track-plans'] });
+      void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
     },
   });
 }

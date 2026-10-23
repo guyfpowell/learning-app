@@ -28,8 +28,8 @@ export function usePaths() {
 function usePathInvalidation() {
   const queryClient = useQueryClient();
   return () => {
-    queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
-    queryClient.invalidateQueries({ queryKey: ['skills'] });
+    void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
+    void queryClient.invalidateQueries({ queryKey: ['skills'] });
   };
 }
 
