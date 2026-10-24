@@ -209,7 +209,7 @@ describe('(tabs) layout', () => {
       render(<TabsLayout />);
       mockInvalidateQueries.mockClear();
       const onFocus = capturedTabsProps?.screenListeners?.focus;
-      act(() => onFocus());
+      act(() => { onFocus(); });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: CURRENT_USER_QUERY_KEY });
     });
 
@@ -218,8 +218,8 @@ describe('(tabs) layout', () => {
       render(<TabsLayout />);
       mockInvalidateQueries.mockClear();
       const onFocus = capturedTabsProps.screenListeners.focus;
-      act(() => onFocus()); // e.g. focused Profile
-      act(() => onFocus()); // e.g. focused Progress
+      act(() => { onFocus(); }); // e.g. focused Profile
+      act(() => { onFocus(); }); // e.g. focused Progress
       expect(mockInvalidateQueries).toHaveBeenCalledTimes(2);
     });
 

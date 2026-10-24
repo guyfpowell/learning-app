@@ -90,10 +90,13 @@ export function useTopicFeedback() {
   return { submit: (planId: string, body: TopicFeedbackRequest) => mutation.mutateAsync({ planId, body }) };
 }
 
-/** Refetches the paths so a written `topicEnd` comes back null. */
+/**
+ * Refetches the paths so a written `topicEnd` comes back null. Fire-and-forget: a failed
+ * refetch lands in the query's own error state, which `usePaths` callers show.
+ */
 export function useRefreshPaths() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
+  return () => { void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY }); };
 }
 
 /**

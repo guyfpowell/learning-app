@@ -30,6 +30,7 @@ jest.mock('@sentry/react-native', () => ({
   init: jest.fn(),
   captureException: jest.fn(),
   captureMessage: jest.fn(),
+  addBreadcrumb: jest.fn(),
   wrap: jest.fn((c: any) => c),
 }));
 
@@ -41,8 +42,8 @@ jest.mock('@expo-google-fonts/poppins', () => ({
 }));
 
 jest.mock('expo-splash-screen', () => ({
-  preventAutoHideAsync: jest.fn(),
-  hideAsync: jest.fn(),
+  preventAutoHideAsync: jest.fn(() => Promise.resolve(true)),
+  hideAsync: jest.fn(() => Promise.resolve(true)),
 }));
 
 jest.mock('expo-status-bar', () => ({ StatusBar: () => null }));
@@ -160,5 +161,41 @@ describe('AuthGate', () => {
       rerender(<AuthGate />);
     });
     expect(mockReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+  });
+});
+
+describe('splash screen failures', () => {
+  const Sentry = require('@sentry/react-native');
+  const SplashScreen = require('expo-splash-screen');
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSegments = ['(tabs)', 'lessons'];
+    mockAuthState = { _hasHydrated: true, accessToken: 'tok' };
+  });
+
+  it('logs a breadcrumb when hiding the splash screen rejects', async () => {
+    SplashScreen.hideAsync.mockRejectedValueOnce(new Error('no native splash'));
+    const RootLayout = require('../_layout').default;
+    render(<RootLayout />);
+    await act(async () => {});
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith({
+      category: 'splash',
+      message: 'hideAsync failed',
+      level: 'warning',
+      data: { err: 'Error: no native splash' },
+    });
+  });
+
+  it('logs a breadcrumb when preventing auto-hide rejects', async () => {
+    SplashScreen.preventAutoHideAsync.mockRejectedValueOnce(new Error('already hidden'));
+    jest.isolateModules(() => { require('../_layout'); });
+    await act(async () => {});
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith({
+      category: 'splash',
+      message: 'preventAutoHideAsync failed',
+      level: 'warning',
+      data: { err: 'Error: already hidden' },
+    });
   });
 });

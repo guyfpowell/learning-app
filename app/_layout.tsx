@@ -50,7 +50,15 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
-SplashScreen.preventAutoHideAsync();
+// A splash call that rejects is non-fatal (the splash just stays or hides itself), so
+// record it for diagnosis instead of letting it go unhandled.
+function logSplashFailure(call: string) {
+  return (err: unknown) => {
+    Sentry.addBreadcrumb({ category: 'splash', message: `${call} failed`, level: 'warning', data: { err: String(err) } });
+  };
+}
+
+SplashScreen.preventAutoHideAsync().catch(logSplashFailure('preventAutoHideAsync'));
 
 /**
  * Single source of truth for auth-driven routing.
@@ -115,7 +123,7 @@ function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch(logSplashFailure('hideAsync'));
       Sentry.captureMessage('App loaded', 'info');
     }
   }, [fontsLoaded, fontError]);
