@@ -14,7 +14,7 @@ const term = (over: Partial<CloudTerm> & { text: string }): CloudTerm => ({
 });
 
 /** The flattened style react-native applies to a Text node. */
-const styleOf = (node: any) =>
+const styleOf = (node: ReturnType<typeof screen.getByText>) =>
   Object.assign({}, ...[node.props.style].flat(Infinity).filter(Boolean));
 
 describe('the understanding cloud', () => {

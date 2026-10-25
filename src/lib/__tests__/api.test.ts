@@ -1,3 +1,5 @@
+import { AxiosHeaders, type AxiosInstance, type AxiosResponse } from 'axios';
+
 const mockExpoConfig: { hostUri?: string; extra: object } = { extra: {} };
 jest.mock('expo-constants', () => ({
   __esModule: true,
@@ -47,63 +49,89 @@ jest.mock('@/providers/QueryProvider', () => ({
 }));
 
 describe('api module', () => {
-  const savedDev = (global as any).__DEV__;
+  const savedDev = __DEV__;
   const savedApiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   afterEach(() => {
-    (global as any).__DEV__ = savedDev;
+    setDev(savedDev);
     process.env.EXPO_PUBLIC_API_URL = savedApiUrl;
     jest.resetModules();
     jest.clearAllMocks();
   });
 
-  function getRequestInterceptorFulfilled(api: any) {
-    const handlers = (api.interceptors.request as any).handlers as Array<{ fulfilled: (c: any) => any } | null>;
-    return handlers.filter(Boolean).at(-1)!.fulfilled;
+  function fail(message: string): never {
+    throw new Error(message);
   }
 
-  function getResponseInterceptorRejected(api: any) {
-    const handlers = (api.interceptors.response as any).handlers as Array<{ rejected: (e: any) => any } | null>;
-    return handlers.filter(Boolean).at(-1)!.rejected;
+  function setDev(value: boolean) {
+    Object.assign(globalThis, { __DEV__: value });
+  }
+
+  function loadApi(): AxiosInstance {
+    let api: AxiosInstance | undefined;
+    jest.isolateModules(() => { api = require('@/lib/api').default; });
+    return api ?? fail('@/lib/api did not load');
+  }
+
+  // axios keeps its interceptors in a private `handlers` list; take the last one registered.
+  function lastInterceptorHandler(manager: unknown, key: 'fulfilled' | 'rejected'): (arg: unknown) => unknown {
+    if (typeof manager !== 'object' || manager === null || !('handlers' in manager) || !Array.isArray(manager.handlers)) {
+      return fail('axios interceptor manager has no handlers list');
+    }
+    const handlers: unknown[] = manager.handlers;
+    const last = handlers.filter(Boolean).at(-1);
+    if (typeof last !== 'object' || last === null || !(key in last)) return fail(`last interceptor has no ${key} handler`);
+    const handler = last[key as keyof typeof last];
+    if (typeof handler !== 'function') return fail(`last interceptor ${key} is not a function`);
+    return (arg) => Reflect.apply(handler, undefined, [arg]);
+  }
+
+  function getRequestInterceptorFulfilled(api: AxiosInstance) {
+    return lastInterceptorHandler(api.interceptors.request, 'fulfilled');
+  }
+
+  function getResponseInterceptorRejected(api: AxiosInstance) {
+    return lastInterceptorHandler(api.interceptors.response, 'rejected');
+  }
+
+  function axiosResponse<T>(data: T): AxiosResponse<T> {
+    return { data, status: 200, statusText: 'OK', headers: {}, config: { headers: new AxiosHeaders() } };
   }
 
   // ─── Module initialisation ──────────────────────────────────────────────────
 
   describe('module initialisation', () => {
     it('defaults to localhost:3000 in dev', () => {
-      (global as any).__DEV__ = true;
+      setDev(true);
       delete process.env.EXPO_PUBLIC_API_URL;
 
-      let api: any;
-      jest.isolateModules(() => { api = require('@/lib/api').default; });
+      const api = loadApi();
 
       expect(api.defaults.baseURL).toBe('http://localhost:3000/api');
     });
 
     it('in dev with no env var, targets the Metro host so a physical phone reaches the Mac', () => {
-      (global as any).__DEV__ = true;
+      setDev(true);
       delete process.env.EXPO_PUBLIC_API_URL;
       mockExpoConfig.hostUri = '192.168.1.130:8081';
 
-      let api: any;
-      jest.isolateModules(() => { api = require('@/lib/api').default; });
+      const api = loadApi();
 
       expect(api.defaults.baseURL).toBe('http://192.168.1.130:3000/api');
       delete mockExpoConfig.hostUri;
     });
 
     it('uses EXPO_PUBLIC_API_URL when set', () => {
-      (global as any).__DEV__ = true;
+      setDev(true);
       process.env.EXPO_PUBLIC_API_URL = 'https://custom.api.com/api';
 
-      let api: any;
-      jest.isolateModules(() => { api = require('@/lib/api').default; });
+      const api = loadApi();
 
       expect(api.defaults.baseURL).toBe('https://custom.api.com/api');
     });
 
     it('throws in production when URL is localhost', () => {
-      (global as any).__DEV__ = false;
+      setDev(false);
       delete process.env.EXPO_PUBLIC_API_URL;
 
       expect(() => {
@@ -116,11 +144,10 @@ describe('api module', () => {
 
   describe('request interceptor', () => {
     it('injects Bearer token from auth store', () => {
-      (global as any).__DEV__ = true;
+      setDev(true);
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
 
-      let api: any;
-      jest.isolateModules(() => { api = require('@/lib/api').default; });
+      const api = loadApi();
 
       const config = { headers: {} };
       const fulfilled = getRequestInterceptorFulfilled(api);
@@ -130,12 +157,11 @@ describe('api module', () => {
     });
 
     it('does not inject Authorization when no token', () => {
-      (global as any).__DEV__ = true;
+      setDev(true);
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
       mockGetState.mockReturnValueOnce({ accessToken: null, user: null, clearAuth: mockClearAuth, setAuth: mockSetAuth });
 
-      let api: any;
-      jest.isolateModules(() => { api = require('@/lib/api').default; });
+      const api = loadApi();
 
       const config = { headers: {} as Record<string, string> };
       const fulfilled = getRequestInterceptorFulfilled(api);
@@ -150,7 +176,7 @@ describe('api module', () => {
   describe('response interceptor — 401 handling', () => {
     // 069 A1 — syncTimezone() on register was signing brand-new users out.
     it('does NOT sign out when a background request 401s and refresh fails', async () => {
-      (global as any).__DEV__ = true;
+      setDev(true);
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
       mockGetState.mockReturnValue({
         accessToken: 'tok',
@@ -159,8 +185,7 @@ describe('api module', () => {
         setAuth: mockSetAuth,
       });
 
-      let api: any;
-      jest.isolateModules(() => { api = require('@/lib/api').default; });
+      const api = loadApi();
       jest.spyOn(api, 'post').mockRejectedValue(new Error('refresh failed'));
 
       const rejected = getResponseInterceptorRejected(api);
@@ -175,7 +200,7 @@ describe('api module', () => {
     });
 
     it('clears auth and redirects to sign-in on 401 from non-auth endpoint when refresh fails', async () => {
-      (global as any).__DEV__ = true;
+      setDev(true);
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
       mockGetState.mockReturnValue({
         accessToken: 'tok',
@@ -184,8 +209,7 @@ describe('api module', () => {
         setAuth: mockSetAuth,
       });
 
-      let api: any;
-      jest.isolateModules(() => { api = require('@/lib/api').default; });
+      const api = loadApi();
       jest.spyOn(api, 'post').mockRejectedValue(new Error('refresh failed'));
 
       const rejected = getResponseInterceptorRejected(api);
@@ -198,7 +222,7 @@ describe('api module', () => {
     });
 
     it('refreshes via the httpOnly cookie (no body) and retries the original request on 401', async () => {
-      (global as any).__DEV__ = true;
+      setDev(true);
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
       mockGetState.mockReturnValue({
         accessToken: 'expired-tok',
@@ -207,10 +231,9 @@ describe('api module', () => {
         setAuth: mockSetAuth,
       });
 
-      let api: any;
-      jest.isolateModules(() => { api = require('@/lib/api').default; });
-      jest.spyOn(api, 'post').mockResolvedValue({ data: { token: 'new-access-token' } });
-      jest.spyOn(api, 'request').mockResolvedValue({ data: 'ok' });
+      const api = loadApi();
+      jest.spyOn(api, 'post').mockResolvedValue(axiosResponse({ token: 'new-access-token' }));
+      jest.spyOn(api, 'request').mockResolvedValue(axiosResponse('ok'));
 
       const rejected = getResponseInterceptorRejected(api);
       const error = { response: { status: 401 }, config: { url: '/lessons/1', headers: {} as Record<string, string> }, code: 'ERR_BAD_REQUEST' };
@@ -225,11 +248,10 @@ describe('api module', () => {
     });
 
     it('passes 401 from /auth/ endpoint directly to caller (wrong credentials)', async () => {
-      (global as any).__DEV__ = true;
+      setDev(true);
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
 
-      let api: any;
-      jest.isolateModules(() => { api = require('@/lib/api').default; });
+      const api = loadApi();
 
       const rejected = getResponseInterceptorRejected(api);
       const error = { response: { status: 401 }, config: { url: '/auth/login' }, code: 'ERR_BAD_REQUEST' };
@@ -240,11 +262,10 @@ describe('api module', () => {
     });
 
     it('passes through network errors without triggering logout', async () => {
-      (global as any).__DEV__ = true;
+      setDev(true);
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
 
-      let api: any;
-      jest.isolateModules(() => { api = require('@/lib/api').default; });
+      const api = loadApi();
 
       const rejected = getResponseInterceptorRejected(api);
       const error = { code: 'ECONNABORTED' };

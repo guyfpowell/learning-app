@@ -6,6 +6,7 @@ import { usePaths } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
 import type { SessionUser, UserPath } from '@learning/shared';
+import { makeCustomPath, makeTrackPath } from '@/test-utils/paths';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -32,33 +33,11 @@ jest.mock('react-native-safe-area-context', () => ({
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
-const unfinishedPath = {
-  id: 'plan-1',
-  kind: 'custom',
-  hasProposal: false,
-  revisit: null,
-  name: 'My AI Path',
-  percentComplete: 40,
-  isActive: true,
-} as unknown as UserPath;
+const unfinishedPath = makeCustomPath({ id: 'plan-1', name: 'My AI Path', percentComplete: 40, isActive: true });
 
-const finishedPath = {
-  id: 'plan-2',
-  kind: 'custom',
-  hasProposal: false,
-  revisit: null,
-  name: 'Completed Path',
-  percentComplete: 100,
-  isActive: false,
-} as unknown as UserPath;
+const finishedPath = makeCustomPath({ id: 'plan-2', name: 'Completed Path', percentComplete: 100, isActive: false });
 
-const trackPath = {
-  id: 'skill-3',
-  kind: 'track',
-  name: 'Some Track',
-  percentComplete: 50,
-  isActive: false,
-} as unknown as UserPath;
+const trackPath = makeTrackPath({ id: 'skill-3', name: 'Some Track', percentComplete: 50, isActive: false });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -34,7 +34,7 @@ export function SkillNode({
   style,
   ...rest
 }: SkillNodeProps) {
-  const filled = state === 'done' ? 1 : state === 'active' ? Math.min(1, Math.max(0, progress)) : 0;
+  const filled = filledFraction(state, progress);
 
   return (
     <View testID={testID} style={[styles.node, style as object]} {...rest}>
@@ -61,6 +61,12 @@ export function SkillNode({
       </Text>
     </View>
   );
+}
+
+function filledFraction(s: SkillNodeState, progress: number) {
+  if (s === 'done') return 1;
+  if (s === 'active') return Math.min(1, Math.max(0, progress));
+  return 0;
 }
 
 function barTrackStyle(s: SkillNodeState) {

@@ -70,6 +70,34 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function PushPermissionStatus({
+  status,
+  onRegister,
+}: {
+  status: ReturnType<typeof usePushStatus>['permissionStatus'];
+  onRegister: () => void;
+}) {
+  if (status === 'granted') {
+    return (
+      <Text testID="push-status-enabled" style={styles.pushEnabledText}>
+        Push notifications are enabled
+      </Text>
+    );
+  }
+  if (status === 'denied') {
+    return (
+      <Text testID="push-status-blocked" style={styles.pushBlockedText}>
+        Notifications are blocked. Enable them in your device settings.
+      </Text>
+    );
+  }
+  return (
+    <View testID="push-status-prompt">
+      <Button label="Enable notifications" onPress={onRegister} />
+    </View>
+  );
+}
+
 // ── Achievement detail modal ──────────────────────────────────────────────────
 
 function AchievementDetailModal({ item, onClose }: { item: AchievementItem; onClose: () => void }) {
@@ -310,19 +338,7 @@ export default function ProfileScreen() {
 
         <Text style={styles.settingsLabel}>Push Notifications</Text>
         <Card style={styles.settingsCard}>
-          {permissionStatus === 'granted' ? (
-            <Text testID="push-status-enabled" style={styles.pushEnabledText}>
-              Push notifications are enabled
-            </Text>
-          ) : permissionStatus === 'denied' ? (
-            <Text testID="push-status-blocked" style={styles.pushBlockedText}>
-              Notifications are blocked. Enable them in your device settings.
-            </Text>
-          ) : (
-            <View testID="push-status-prompt">
-              <Button label="Enable notifications" onPress={register} />
-            </View>
-          )}
+          <PushPermissionStatus status={permissionStatus} onRegister={register} />
           {pushError ? (
             <Text testID="push-status-error" style={styles.errorMsg}>{pushError}</Text>
           ) : null}

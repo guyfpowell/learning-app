@@ -55,12 +55,12 @@ jest.mock('expo-secure-store', () => ({
 
 beforeAll(() => {
   jest.spyOn(Intl, 'DateTimeFormat').mockImplementation(() => ({
-    resolvedOptions: () => ({ timeZone: 'UTC' }),
+    resolvedOptions: () => ({ locale: 'en-GB', calendar: 'gregory', numberingSystem: 'latn', timeZone: 'UTC' }),
     format: jest.fn(),
     formatToParts: jest.fn(),
     formatRange: jest.fn(),
     formatRangeToParts: jest.fn(),
-  }) as unknown as Intl.DateTimeFormat);
+  }));
 });
 
 afterAll(() => {
@@ -137,7 +137,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
   beforeEach(() => {
     jest.clearAllMocks();
     capturedEdges = undefined;
-    (useAuthStore as unknown as jest.Mock).mockReturnValue(mockUser);
+    jest.mocked(useAuthStore).mockReturnValue(mockUser);
     setQueryMock();
     setMutationMock();
     setProfileQueryMock();

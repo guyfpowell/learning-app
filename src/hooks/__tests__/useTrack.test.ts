@@ -1,17 +1,18 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { makeCustomPath, makeTrackPath } from '@/test-utils/paths';
 import type { UserPath } from '@learning/shared';
 import { queryWrapper } from '@/test-utils/queryClient';
 import { useSkip, useTopicFeedback } from '../useTrack';
 import { trackService } from '@/services/track.service';
 
 jest.mock('@/services/track.service', () => ({
-  trackService: { skip: jest.fn() },
+  trackService: { skip: jest.fn(), topicFeedback: jest.fn() },
 }));
 
 const mockTrackService = trackService as jest.Mocked<typeof trackService>;
 
-const track = { kind: 'track', id: 's1' } as UserPath;
-const plan = { kind: 'custom', id: 'p1' } as UserPath;
+const track = makeTrackPath({ id: 's1' });
+const plan = makeCustomPath({ id: 'p1' });
 
 describe('useSkip (079c)', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -55,7 +56,7 @@ describe('useSkip (079c)', () => {
 
 describe('useTopicFeedback (079d)', () => {
   it('submit writes the answer to the plan', async () => {
-    (trackService as unknown as { topicFeedback: jest.Mock }).topicFeedback = jest.fn().mockResolvedValue(undefined);
+    mockTrackService.topicFeedback.mockResolvedValue(undefined);
     const { result } = renderHook(() => useTopicFeedback(), { wrapper: queryWrapper() });
     await act(async () => {
       await result.current.submit('p1', { stableKey: 'topic-a', dismissed: true });

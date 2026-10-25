@@ -3,7 +3,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import PaywallScreen from '../paywall';
 import { useOfferings, usePurchase, useRestorePurchases } from '@/hooks/useIAP';
 import { PACKAGE_TYPE } from 'react-native-purchases';
-import type { PurchasesPackage, IAPOffering } from '@/hooks/useIAP';
+import type { IAPOffering } from '@/hooks/useIAP';
+import { makePackage } from '@/test-utils/purchases';
 
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));
@@ -22,18 +23,8 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-// Minimal fixtures — cast to avoid reproducing every required field
-const mockMonthly = {
-  packageType:        PACKAGE_TYPE.MONTHLY,
-  offeringIdentifier: 'default',
-  product: { identifier: 'com.learning.app.premium.monthly', priceString: '£9.99' },
-} as unknown as PurchasesPackage;
-
-const mockAnnual = {
-  packageType:        PACKAGE_TYPE.ANNUAL,
-  offeringIdentifier: 'default',
-  product: { identifier: 'com.learning.app.premium.annual', priceString: '£79.99' },
-} as unknown as PurchasesPackage;
+const mockMonthly = makePackage(PACKAGE_TYPE.MONTHLY, { identifier: 'com.learning.app.premium.monthly', priceString: '£9.99' });
+const mockAnnual  = makePackage(PACKAGE_TYPE.ANNUAL,  { identifier: 'com.learning.app.premium.annual',  priceString: '£79.99' });
 
 const mockOffering: IAPOffering = { monthly: mockMonthly, annual: mockAnnual };
 

@@ -62,7 +62,7 @@ function setDefaults({
   preflightData?: { teamOwnerships: { teamId: string; teamName: string; newOwnerName: string | null }[] };
   preflightIsLoading?: boolean;
 } = {}) {
-  (useAuthStore as unknown as jest.Mock).mockReturnValue(mockUser);
+  jest.mocked(useAuthStore).mockReturnValue(mockUser);
   (useLogout as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
   (useDeleteAccount as jest.Mock).mockReturnValue({
     mutate: deleteAccountMutate,

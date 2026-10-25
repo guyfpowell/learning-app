@@ -1,5 +1,6 @@
 import { AppState, type AppStateStatus } from 'react-native';
 import { renderHook, act } from '@testing-library/react-native';
+import { must } from '@/test-utils/must';
 import { useLessonClock } from '../useLessonClock';
 
 let handler: ((s: AppStateStatus) => void) | null = null;
@@ -27,9 +28,9 @@ describe('useLessonClock', () => {
   it('does not count backgrounded time', () => {
     const { result } = renderHook(() => useLessonClock());
     now += 5_000;
-    act(() => handler!('background'));
+    act(() => must(handler, 'AppState change handler')('background'));
     now += 60_000;
-    act(() => handler!('active'));
+    act(() => must(handler, 'AppState change handler')('active'));
     now += 3_000;
     expect(result.current.seconds()).toBe(8);
   });
@@ -45,7 +46,7 @@ describe('useLessonClock', () => {
   it('reset while backgrounded stays at zero until foregrounded', () => {
     const { result } = renderHook(() => useLessonClock());
     now += 4_000;
-    act(() => handler!('background'));
+    act(() => must(handler, 'AppState change handler')('background'));
     act(() => result.current.reset());
     now += 30_000;
     expect(result.current.seconds()).toBe(0);

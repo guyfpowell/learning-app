@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react-native';
 import TracksScreen from '../tracks';
 import { useSkills, usePaths, useEnroll, useSetActivePath, useSkip } from '@/hooks/useTrack';
 import type { SkillWithAccess, UserPath } from '@learning/shared';
+import { makeCustomPath } from '@/test-utils/paths';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -363,15 +364,13 @@ describe('TracksScreen', () => {
   });
 
   describe('Albert CTA + custom paths (076b)', () => {
-    const { skill: _skill, ...trackFields } = mockEnrollment;
-    const customPath = {
-      ...trackFields,
-      kind: 'custom',
-      hasProposal: false,
-      revisit: null,
+    const customPath = makeCustomPath({
       id: 'plan-1',
       name: 'My Discovery Path',
-    } as unknown as UserPath;
+      totalLessons: mockEnrollment.totalLessons,
+      completedLessons: mockEnrollment.completedLessons,
+      percentComplete: mockEnrollment.percentComplete,
+    });
 
     it('no longer renders the build-path card (moved to the Albert tab)', () => {
       render(<TracksScreen />);
@@ -449,16 +448,13 @@ describe('TracksScreen', () => {
     });
 
     it('tapping a custom path card navigates to track detail', () => {
-      const { skill: _skill, ...trackFields } = mockEnrollment;
-      const customPath = {
-        ...trackFields,
-        kind: 'custom',
-        hasProposal: false,
-        revisit: null,
+      const customPath = makeCustomPath({
         id: 'plan-1',
         name: 'My Discovery Path',
-        unresolvedTopics: 0,
-      } as unknown as UserPath;
+        totalLessons: mockEnrollment.totalLessons,
+        completedLessons: mockEnrollment.completedLessons,
+        percentComplete: mockEnrollment.percentComplete,
+      });
       setMocks({ enrollments: [customPath] });
       render(<TracksScreen />);
       fireEvent.press(screen.getByTestId('custom-path-tap-plan-1'));

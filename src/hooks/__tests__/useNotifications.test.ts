@@ -1,7 +1,6 @@
 import { renderHook } from '@testing-library/react-native';
 import { useNotifications } from '../useNotifications';
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { registerPushToken } from '@/lib/api';
 import * as Sentry from '@sentry/react-native';
 
@@ -40,7 +39,6 @@ describe('useNotifications', () => {
     mockGetPermissions.mockResolvedValue({ status: 'granted' });
     mockRequestPermissions.mockResolvedValue({ status: 'granted' });
     mockGetToken.mockResolvedValue({ data: 'ExponentPushToken[test-token]' });
-    (Device as unknown as Record<string, unknown>).isDevice = true;
   });
 
   it('mounts without throwing', () => {

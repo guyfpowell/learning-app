@@ -12,6 +12,21 @@ export enum PACKAGE_TYPE {
   UNKNOWN  = 'UNKNOWN',
 }
 
+export enum PRODUCT_CATEGORY {
+  NON_SUBSCRIPTION = 'NON_SUBSCRIPTION',
+  SUBSCRIPTION     = 'SUBSCRIPTION',
+  UNKNOWN          = 'UNKNOWN',
+}
+
+export enum PRODUCT_TYPE {
+  CONSUMABLE                  = 'CONSUMABLE',
+  NON_CONSUMABLE              = 'NON_CONSUMABLE',
+  NON_RENEWABLE_SUBSCRIPTION  = 'NON_RENEWABLE_SUBSCRIPTION',
+  AUTO_RENEWABLE_SUBSCRIPTION = 'AUTO_RENEWABLE_SUBSCRIPTION',
+  PREPAID_SUBSCRIPTION        = 'PREPAID_SUBSCRIPTION',
+  UNKNOWN                     = 'UNKNOWN',
+}
+
 export interface PurchasesStoreProduct {
   /** Matches the real RevenueCat SDK field name (not 'productIdentifier'). */
   identifier:        string;

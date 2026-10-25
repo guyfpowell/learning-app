@@ -12,7 +12,7 @@ let mockAuthState = {
 
 jest.mock('expo-router', () => ({
   Stack: Object.assign(
-    ({ children }: any) => children ?? null,
+    ({ children }: { children?: React.ReactNode }) => children ?? null,
     { Screen: () => null }
   ),
   useSegments: () => mockSegments,
@@ -21,7 +21,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@/store/auth.store', () => ({
-  useAuthStore: jest.fn((selector?: any) =>
+  useAuthStore: jest.fn((selector?: (s: typeof mockAuthState) => unknown) =>
     selector ? selector(mockAuthState) : mockAuthState
   ),
 }));
@@ -31,7 +31,7 @@ jest.mock('@sentry/react-native', () => ({
   captureException: jest.fn(),
   captureMessage: jest.fn(),
   addBreadcrumb: jest.fn(),
-  wrap: jest.fn((c: any) => c),
+  wrap: jest.fn((c: unknown) => c),
 }));
 
 jest.mock('@expo-google-fonts/poppins', () => ({
@@ -49,11 +49,11 @@ jest.mock('expo-splash-screen', () => ({
 jest.mock('expo-status-bar', () => ({ StatusBar: () => null }));
 
 jest.mock('react-native-gesture-handler', () => ({
-  GestureHandlerRootView: ({ children }: any) => children,
+  GestureHandlerRootView: ({ children }: { children?: React.ReactNode }) => children,
 }));
 
 jest.mock('@/providers/QueryProvider', () => ({
-  QueryProvider: ({ children }: any) => children,
+  QueryProvider: ({ children }: { children?: React.ReactNode }) => children,
 }));
 
 jest.mock('@/theme', () => ({

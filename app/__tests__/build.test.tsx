@@ -32,7 +32,7 @@ jest.mock('expo-router', () => ({
     canGoBack: () => mockCanGoBack,
   }),
   Stack: {
-    Screen: ({ options }: any) => {
+    Screen: ({ options }: { options?: { headerLeft?: React.ComponentType } }) => {
       if (options?.headerLeft) {
         const HeaderLeft = options.headerLeft;
         return <HeaderLeft />;
@@ -51,7 +51,8 @@ jest.mock('@/hooks/useTrackBuilder', () => ({
   useBuildPlan: () => ({ mutateAsync: mockBuild, isPending: mockPending }),
 }));
 jest.mock('@/store/trackBuilder.store', () => ({
-  useDraftStore: (selector: any) => selector({ setDraft: mockSetDraft }),
+  useDraftStore: (selector: (s: { setDraft: jest.Mock }) => unknown) =>
+    selector({ setDraft: mockSetDraft }),
 }));
 
 import BuildScreen from '../build';

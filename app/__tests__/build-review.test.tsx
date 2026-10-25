@@ -43,7 +43,7 @@ jest.mock('expo-router', () => ({
     canGoBack: () => mockCanGoBack,
   }),
   Stack: {
-    Screen: ({ options }: any) => {
+    Screen: ({ options }: { options?: { headerLeft?: React.ComponentType } }) => {
       if (options?.headerLeft) {
         const HeaderLeft = options.headerLeft;
         return <HeaderLeft />;

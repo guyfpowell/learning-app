@@ -96,7 +96,7 @@ const mockAchievementsResponse = {
 // ── Setup helpers ─────────────────────────────────────────────────────────────
 
 function setDefaults() {
-  (useAuthStore as unknown as jest.Mock).mockReturnValue(mockUser);
+  jest.mocked(useAuthStore).mockReturnValue(mockUser);
   (useLogout as jest.Mock).mockReturnValue({ mutate: mockMutate, isPending: false });
   (useProgress as jest.Mock).mockReturnValue({ data: mockProgress, isLoading: false, isError: false });
   (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });

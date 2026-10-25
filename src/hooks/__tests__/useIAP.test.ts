@@ -3,7 +3,8 @@ import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { iapService } from '@/services/iap.service';
 import { subscriptionService } from '@/services/subscription.service';
 import { useOfferings, usePurchase, useRestorePurchases } from '../useIAP';
-import type { PurchasesPackage, IAPOffering } from '../useIAP';
+import type { IAPOffering } from '../useIAP';
+import { makePackage } from '@/test-utils/purchases';
 import { PACKAGE_TYPE } from 'react-native-purchases';
 import type { EntitlementResult } from '@learning/shared';
 
@@ -21,19 +22,8 @@ jest.mock('@/services/subscription.service', () => ({
   },
 }));
 
-// Cast to avoid reproducing every required field; the hook only cares about
-// the shape passed through, not the field names.
-const mockMonthly = {
-  packageType:        PACKAGE_TYPE.MONTHLY,
-  offeringIdentifier: 'default',
-  product: { identifier: 'com.learning.app.premium.monthly', priceString: '£9.99' },
-} as unknown as PurchasesPackage;
-
-const mockAnnual = {
-  packageType:        PACKAGE_TYPE.ANNUAL,
-  offeringIdentifier: 'default',
-  product: { identifier: 'com.learning.app.premium.annual', priceString: '£79.99' },
-} as unknown as PurchasesPackage;
+const mockMonthly = makePackage(PACKAGE_TYPE.MONTHLY, { identifier: 'com.learning.app.premium.monthly', priceString: '£9.99' });
+const mockAnnual  = makePackage(PACKAGE_TYPE.ANNUAL,  { identifier: 'com.learning.app.premium.annual',  priceString: '£79.99' });
 
 describe('useOfferings', () => {
   it('returns monthly and annual packages on success', async () => {

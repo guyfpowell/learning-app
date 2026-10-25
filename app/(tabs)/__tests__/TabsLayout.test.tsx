@@ -1,13 +1,19 @@
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
-import { AppState } from 'react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import { CURRENT_USER_QUERY_KEY } from '@/lib/queryKeys';
+import { must } from '@/test-utils/must';
 
-let capturedTabsProps: any = null;
+interface CapturedTabsProps {
+  children?: React.ReactNode;
+  screenListeners?: { focus?: () => void };
+}
+
+let capturedTabsProps: CapturedTabsProps | null = null;
 
 jest.mock('expo-router', () => ({
   Tabs: Object.assign(
-    (props: any) => {
+    (props: CapturedTabsProps) => {
       capturedTabsProps = props;
       return props.children ?? null;
     },
@@ -66,6 +72,10 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ invalidateQueries: mockInvalidateQueries }),
 }));
 
+const tabFocusHandler = (): (() => void) =>
+  capturedTabsProps?.screenListeners?.focus
+  ?? (() => { throw new Error('Tabs was not given a screenListeners.focus handler'); })();
+
 describe('(tabs) layout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -81,8 +91,8 @@ describe('(tabs) layout', () => {
   it('declares tabs in order with Albert rightmost and no Settings tab (076b)', () => {
     const TabsLayout = require('../_layout').default;
     render(<TabsLayout />);
-    const names = React.Children.toArray(capturedTabsProps.children)
-      .map((c: any) => c.props.name)
+    const names = React.Children.toArray(capturedTabsProps?.children)
+      .flatMap((c) => (React.isValidElement<{ name: string }>(c) ? [c.props.name] : []))
       // Filter out href:null routes that live inside (tabs)/ but are not tabs
       .filter((n: string) => !['lesson/[id]', 'track/[kind]/[id]', 'paywall'].includes(n));
     expect(names).toEqual(['lessons', 'progress', 'profile', 'tracks', 'team', 'albert']);
@@ -163,16 +173,16 @@ describe('(tabs) layout', () => {
   });
 
   describe('Ticket 072a — banner clears after email verification', () => {
-    let addEventListenerSpy: jest.SpyInstance;
-    let capturedAppStateHandler: ((state: string) => void) | null;
+    let addEventListenerSpy: jest.SpiedFunction<typeof AppState.addEventListener>;
+    let capturedAppStateHandler: ((state: AppStateStatus) => void) | null;
 
     beforeEach(() => {
       capturedAppStateHandler = null;
       addEventListenerSpy = jest
         .spyOn(AppState, 'addEventListener')
-        .mockImplementation((event: any, handler: any) => {
+        .mockImplementation((event, handler) => {
           if (event === 'change') capturedAppStateHandler = handler;
-          return { remove: jest.fn() } as any;
+          return { remove: jest.fn() };
         });
     });
 
@@ -184,7 +194,7 @@ describe('(tabs) layout', () => {
       const TabsLayout = require('../_layout').default;
       render(<TabsLayout />);
       expect(capturedAppStateHandler).not.toBeNull();
-      act(() => capturedAppStateHandler!('active'));
+      act(() => must(capturedAppStateHandler, 'AppState change handler')('active'));
       expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: CURRENT_USER_QUERY_KEY });
     });
 
@@ -192,7 +202,7 @@ describe('(tabs) layout', () => {
       const TabsLayout = require('../_layout').default;
       render(<TabsLayout />);
       mockInvalidateQueries.mockClear();
-      act(() => capturedAppStateHandler!('background'));
+      act(() => must(capturedAppStateHandler, 'AppState change handler')('background'));
       expect(mockInvalidateQueries).not.toHaveBeenCalled();
     });
 
@@ -200,7 +210,7 @@ describe('(tabs) layout', () => {
       const TabsLayout = require('../_layout').default;
       render(<TabsLayout />);
       mockInvalidateQueries.mockClear();
-      act(() => capturedAppStateHandler!('inactive'));
+      act(() => must(capturedAppStateHandler, 'AppState change handler')('inactive'));
       expect(mockInvalidateQueries).not.toHaveBeenCalled();
     });
 
@@ -208,7 +218,7 @@ describe('(tabs) layout', () => {
       const TabsLayout = require('../_layout').default;
       render(<TabsLayout />);
       mockInvalidateQueries.mockClear();
-      const onFocus = capturedTabsProps?.screenListeners?.focus;
+      const onFocus = tabFocusHandler();
       act(() => { onFocus(); });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: CURRENT_USER_QUERY_KEY });
     });
@@ -217,7 +227,7 @@ describe('(tabs) layout', () => {
       const TabsLayout = require('../_layout').default;
       render(<TabsLayout />);
       mockInvalidateQueries.mockClear();
-      const onFocus = capturedTabsProps.screenListeners.focus;
+      const onFocus = tabFocusHandler();
       act(() => { onFocus(); }); // e.g. focused Profile
       act(() => { onFocus(); }); // e.g. focused Progress
       expect(mockInvalidateQueries).toHaveBeenCalledTimes(2);
@@ -225,7 +235,7 @@ describe('(tabs) layout', () => {
 
     it('removes the AppState subscription on unmount', () => {
       const mockRemove = jest.fn();
-      addEventListenerSpy.mockImplementation((event: any, handler: any) => {
+      addEventListenerSpy.mockImplementation((event, handler) => {
         if (event === 'change') capturedAppStateHandler = handler;
         return { remove: mockRemove };
       });

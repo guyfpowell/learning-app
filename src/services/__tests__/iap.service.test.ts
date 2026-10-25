@@ -1,49 +1,26 @@
 import Purchases from 'react-native-purchases';
-import type { PurchasesPackage, PurchasesOfferings } from 'react-native-purchases';
 import { PACKAGE_TYPE } from 'react-native-purchases';
+import { must } from '@/test-utils/must';
+import { makeOffering, makeOfferings, makePackage } from '@/test-utils/purchases';
 import { iapService } from '../iap.service';
 
-// Minimal mock fixtures — cast to avoid typing every required field on the
-// complex RevenueCat interfaces; the service only reads .monthly and .annual.
-const mockMonthly = {
-  packageType:        PACKAGE_TYPE.MONTHLY,
-  offeringIdentifier: 'default',
-  product: {
-    identifier:  'com.learning.app.premium.monthly',
-    title:       'Premium Monthly',
-    description: 'Unlimited access, billed monthly.',
-    price:       9.99,
-    priceString: '£9.99',
-  },
-} as unknown as PurchasesPackage;
+const mockMonthly = makePackage(PACKAGE_TYPE.MONTHLY, {
+  identifier:  'com.learning.app.premium.monthly',
+  title:       'Premium Monthly',
+  description: 'Unlimited access, billed monthly.',
+  price:       9.99,
+  priceString: '£9.99',
+});
 
-const mockAnnual = {
-  packageType:        PACKAGE_TYPE.ANNUAL,
-  offeringIdentifier: 'default',
-  product: {
-    identifier:  'com.learning.app.premium.annual',
-    title:       'Premium Annual',
-    description: 'Unlimited access, billed annually.',
-    price:       79.99,
-    priceString: '£79.99',
-  },
-} as unknown as PurchasesPackage;
+const mockAnnual = makePackage(PACKAGE_TYPE.ANNUAL, {
+  identifier:  'com.learning.app.premium.annual',
+  title:       'Premium Annual',
+  description: 'Unlimited access, billed annually.',
+  price:       79.99,
+  priceString: '£79.99',
+});
 
-const mockOfferings = {
-  current: {
-    identifier:        'default',
-    monthly:           mockMonthly,
-    annual:            mockAnnual,
-    serverDescription: '',
-    metadata:          {},
-    availablePackages: [mockMonthly, mockAnnual],
-    lifetime:          null,
-    sixMonth:          null,
-    threeMonth:        null,
-    twoMonth:          null,
-    weekly:            null,
-  },
-} as unknown as PurchasesOfferings;
+const mockOfferings = makeOfferings(makeOffering(mockMonthly, mockAnnual));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -105,7 +82,7 @@ describe('iapService when the native SDK is unavailable', () => {
       });
       svc = require('../iap.service').iapService;
     });
-    return svc!;
+    return must(svc, 'iapService loaded under the missing SDK');
   }
 
   // The SDK is required at call time, so the throwing mock must stay registered
@@ -199,12 +176,7 @@ describe('iapService.purchasePackage', () => {
       transaction: { transactionIdentifier: 'apple-txn-id-1' },
       // productIdentifier intentionally absent to exercise the fallback
     });
-    // Build a fixture that conforms to the real SDK type (identifier field)
-    const pkg = {
-      packageType:        PACKAGE_TYPE.MONTHLY,
-      offeringIdentifier: 'default',
-      product: { identifier: 'com.ascentlearning.fallback.monthly', title: '', description: '', price: 0, priceString: '' },
-    } as unknown as PurchasesPackage;
+    const pkg = makePackage(PACKAGE_TYPE.MONTHLY, { identifier: 'com.ascentlearning.fallback.monthly' });
     const result = await iapService.purchasePackage(pkg);
     expect(result.productId).toBe('com.ascentlearning.fallback.monthly');
   });
