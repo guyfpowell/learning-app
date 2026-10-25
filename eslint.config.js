@@ -17,6 +17,10 @@ export default [
   js.configs.recommended,
   ...ts.configs.recommended,
   {
+    // No comment can switch a rule off (standards §2). An exception is an override in this file.
+    linterOptions: { noInlineConfig: true }
+  },
+  {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parser: ts.parser,
@@ -43,6 +47,11 @@ export default [
       'no-nested-ternary': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
+      'no-warning-comments': ['error', { terms: ['eslint-disable', 'eslint-enable'], location: 'anywhere' }],
+      '@typescript-eslint/ban-ts-comment': [
+        'error',
+        { 'ts-ignore': true, 'ts-nocheck': true, 'ts-expect-error': true }
+      ],
 
       'standards/jest-mock-shared': 'error',
       'standards/expect-every-some': 'error',
@@ -94,7 +103,8 @@ export default [
     files: [
       'src/components/donor/TopUpSheet.tsx',
       'src/components/ui/Logo.tsx',
-      'src/providers/StripeWrapper.tsx'
+      'src/providers/StripeWrapper.tsx',
+      'src/services/iap.service.ts'
     ],
     rules: {
       '@typescript-eslint/no-require-imports': 'off'

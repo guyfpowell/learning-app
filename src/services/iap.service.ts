@@ -20,7 +20,6 @@ import type { PurchasesPackage } from 'react-native-purchases';
  */
 function loadPurchases(): typeof PurchasesType | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require('react-native-purchases').default as typeof PurchasesType;
   } catch {
     return null;
