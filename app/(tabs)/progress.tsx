@@ -14,6 +14,7 @@ import { PathProgress } from '@/components/ui/PathProgress';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { FlameIcon } from '@/components/ui/Streak';
 import { TrackContentsTree } from '@/components/learning/TrackContentsTree';
+import { TRACKS_ROUTE } from '@/lib/routes';
 
 // ── Expandable path card — wraps PathProgress + lazily-loaded tree ────────────
 
@@ -167,7 +168,7 @@ export default function ProgressScreen() {
               <ExpandablePathCard
                 key={`${path.kind}-${path.id}`}
                 path={path}
-                onFindNext={() => router.push('/(tabs)/tracks')}
+                onFindNext={() => router.push(TRACKS_ROUTE)}
               />
             ))}
           </View>
@@ -180,7 +181,7 @@ export default function ProgressScreen() {
               <ExpandablePathCard
                 key={`${path.kind}-${path.id}`}
                 path={path}
-                onFindNext={() => router.push('/(tabs)/tracks')}
+                onFindNext={() => router.push(TRACKS_ROUTE)}
               />
             ))}
           </View>

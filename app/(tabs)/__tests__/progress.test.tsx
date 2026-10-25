@@ -5,6 +5,7 @@ import ProgressScreen from '../progress';
 import { useProgress } from '@/hooks/useProgress';
 import { usePaths, useTrackContents } from '@/hooks/useTrack';
 import { useXp } from '@/hooks/useXp';
+import { TRACKS_ROUTE } from '@/lib/routes';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -245,7 +246,7 @@ describe('ProgressScreen — enrollment cards', () => {
     (usePaths as jest.Mock).mockReturnValue({ data: [mockCompletedEnrollment] });
     render(<ProgressScreen />);
     fireEvent.press(screen.getByTestId('completed-next-track-skill-2'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/tracks');
+    expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
   });
 
   it('shows both active and completed sections when both present', () => {

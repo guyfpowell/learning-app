@@ -10,6 +10,7 @@ import { ERROR_CODES, TRACK_STATEMENT_MAX, TRACK_STATEMENT_MIN, type BuiltPlan, 
 import { UnderstandingCloud } from '@/components/trackBuilder/UnderstandingCloud';
 import { useDraftStore } from '@/store/trackBuilder.store';
 import { extractError, errorCode } from '@/lib/errors';
+import { BUILD_REVIEW_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
 
 /**
  * Build my own path — statement in, review out.
@@ -51,12 +52,12 @@ export default function BuildScreen() {
   /** Back: pop the stack if there is somewhere to go, otherwise land on Tracks. */
   const handleBack = () => {
     if (router.canGoBack()) router.back();
-    else router.replace('/(tabs)/tracks');
+    else router.replace(TRACKS_ROUTE);
   };
 
   const goToReview = (result: BuiltPlan) => {
     setDraft({ statement: text, sessionId: sessionId.current, result });
-    router.push('/build-review');
+    router.push(BUILD_REVIEW_ROUTE);
   };
 
   const onBuild = async () => {

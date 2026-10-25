@@ -5,8 +5,9 @@ import AlbertScreen from '../albert';
 import { usePaths } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
-import type { SessionUser, UserPath } from '@learning/shared';
+import { ALBERT_STEPS, type SessionUser, type UserPath } from '@learning/shared';
 import { makeCustomPath, makeTrackPath } from '@/test-utils/paths';
+import { BUILD_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -22,6 +23,14 @@ jest.mock('@/hooks/useEmailVerification', () => ({
 jest.mock('@/hooks/useTrackBuilder', () => ({
   useUpdateTrackPlan: jest.fn(),
 }));
+
+// The section has its own suite; here it only has to be rendered once per path with a proposal.
+jest.mock('@/components/albert/PathProposalSection', () => {
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    PathProposalSection: ({ path }: { path: { id: string } }) => <View testID={`stub-proposal-${path.id}`} />,
+  };
+});
 
 let capturedEdges: string[] | undefined;
 jest.mock('react-native-safe-area-context', () => ({
@@ -53,7 +62,7 @@ function setUser(state: UserState) {
 }
 
 function setPaths(paths: UserPath[] | undefined, isLoading = false) {
-  (usePaths as jest.Mock).mockReturnValue({ data: paths, isLoading });
+  (usePaths as jest.Mock).mockReturnValue({ data: paths, isLoading, isError: false });
 }
 
 const mockMutate = jest.fn();
@@ -107,7 +116,7 @@ describe('AlbertScreen', () => {
     setUser('premium');
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('build-path-start'));
-    expect(mockPush).toHaveBeenCalledWith('/build');
+    expect(mockPush).toHaveBeenCalledWith(BUILD_ROUTE);
   });
 
   it('offers an upgrade to a free user who has spent the allowance, instead of hiding the card', () => {
@@ -120,7 +129,7 @@ describe('AlbertScreen', () => {
   it('never routes a spent free user into the builder; opens the upgrade modal', () => {
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('build-path-upgrade'));
-    expect(mockPush).not.toHaveBeenCalledWith('/build');
+    expect(mockPush).not.toHaveBeenCalledWith(BUILD_ROUTE);
     expect(screen.getByTestId('premium-modal')).toBeTruthy();
   });
 
@@ -144,6 +153,37 @@ describe('AlbertScreen', () => {
     expect(screen.getByTestId('build-path-upgrade')).toBeTruthy();
   });
 
+  it('lists the shared four Albert steps, ending with Tend the path (079g7)', () => {
+    render(<AlbertScreen />);
+    ALBERT_STEPS.forEach(step => {
+      expect(screen.getByText(step.title)).toBeTruthy();
+      expect(screen.getByText(step.body)).toBeTruthy();
+    });
+    expect(ALBERT_STEPS).toHaveLength(4);
+  });
+
+  it('renders a suggestion section for every custom path with a proposal, finished or not (079g7)', () => {
+    setUser('premium');
+    setPaths([
+      { ...unfinishedPath, hasProposal: true },
+      { ...finishedPath, hasProposal: true },
+      makeCustomPath({ id: 'plan-3', hasProposal: false }),
+      trackPath,
+    ]);
+    render(<AlbertScreen />);
+    expect(screen.getByTestId('stub-proposal-plan-1')).toBeTruthy();
+    expect(screen.getByTestId('stub-proposal-plan-2')).toBeTruthy();
+    expect(screen.queryByTestId('stub-proposal-plan-3')).toBeNull();
+    expect(screen.queryByTestId('stub-proposal-skill-3')).toBeNull();
+  });
+
+  it('shows no suggestion section for a user with only a curated track (079g7)', () => {
+    setPaths([trackPath]);
+    render(<AlbertScreen />);
+    expect(screen.queryByTestId(/^stub-proposal-/)).toBeNull();
+    expect(screen.getByTestId('build-path-card')).toBeTruthy();
+  });
+
   it('uses edges=[left,right,bottom] so the tab layout owns the top inset', () => {
     render(<AlbertScreen />);
     expect(capturedEdges).toEqual(['left', 'right', 'bottom']);
@@ -162,7 +202,7 @@ describe('AlbertScreen', () => {
     setUser('unspent');
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('build-path-start'));
-    expect(mockPush).toHaveBeenCalledWith('/build');
+    expect(mockPush).toHaveBeenCalledWith(BUILD_ROUTE);
     expect(screen.queryByTestId('premium-modal')).toBeNull();
   });
 
@@ -222,6 +262,14 @@ describe('AlbertScreen', () => {
     expect(screen.queryByTestId('view-my-path')).toBeNull();
   });
 
+  it('shows the paths load error, not the build-a-path offer, when the paths fail to load', () => {
+    setUser('premium');
+    (usePaths as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    render(<AlbertScreen />);
+    expect(screen.getByTestId('paths-load-error')).toBeTruthy();
+    expect(screen.queryByTestId('build-path-start')).toBeNull();
+  });
+
   // ── Unfinished path exists ───────────────────────────────────────────────
 
   it('shows View my path and Create a NEW path when an unfinished custom path exists', () => {
@@ -238,7 +286,7 @@ describe('AlbertScreen', () => {
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('view-my-path'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/tracks');
+    expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
   });
 
   it('View my path routes to Tracks for a non-premium user', () => {
@@ -246,7 +294,7 @@ describe('AlbertScreen', () => {
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('view-my-path'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/tracks');
+    expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
   });
 
   it('Create a NEW path opens a confirmation Alert for a premium user', () => {
@@ -282,7 +330,7 @@ describe('AlbertScreen', () => {
       expect.objectContaining({ id: 'plan-1', status: 'archived' }),
       expect.any(Object),
     );
-    expect(mockPush).toHaveBeenCalledWith('/build');
+    expect(mockPush).toHaveBeenCalledWith(BUILD_ROUTE);
   });
 
   it('cancelling the Alert mutates nothing and navigates nowhere', () => {
@@ -309,7 +357,7 @@ describe('AlbertScreen', () => {
     pressAlertButton('destructive');
 
     expect(mockMutate).toHaveBeenCalled();
-    expect(mockPush).not.toHaveBeenCalledWith('/build');
+    expect(mockPush).not.toHaveBeenCalledWith(BUILD_ROUTE);
     expect(screen.getByTestId('albert-archive-error')).toBeTruthy();
   });
 
@@ -328,7 +376,7 @@ describe('AlbertScreen', () => {
     setPaths([finishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('view-my-path'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/tracks');
+    expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
   });
 
   it('Build another routes straight to the builder for a premium user (no confirmation)', () => {
@@ -338,7 +386,7 @@ describe('AlbertScreen', () => {
     fireEvent.press(screen.getByTestId('build-another'));
     expect(alertSpy).not.toHaveBeenCalled();
     expect(mockMutate).not.toHaveBeenCalled();
-    expect(mockPush).toHaveBeenCalledWith('/build');
+    expect(mockPush).toHaveBeenCalledWith(BUILD_ROUTE);
   });
 
   it('Build another opens the upgrade modal for a spent free user', () => {

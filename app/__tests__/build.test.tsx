@@ -56,6 +56,7 @@ jest.mock('@/store/trackBuilder.store', () => ({
 }));
 
 import BuildScreen from '../build';
+import { TRACKS_ROUTE } from '@/lib/routes';
 
 const STATEMENT =
   'I am a senior product manager at a health tech, been here 4 years, '
@@ -152,7 +153,7 @@ describe('getting out', () => {
     mockCanGoBack = false;
     render(<BuildScreen />);
     fireEvent.press(screen.getByTestId('build-back'));
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/tracks');
+    expect(mockReplace).toHaveBeenCalledWith(TRACKS_ROUTE);
     expect(mockBack).not.toHaveBeenCalled();
   });
 

@@ -72,6 +72,7 @@ jest.mock('@/hooks/useTrackBuilder', () => ({
 
 import BuildReviewScreen from '../build-review';
 import { ERROR_CODES } from '@learning/shared';
+import { TRACKS_ROUTE } from '@/lib/routes';
 
 function setUser(state: 'premium' | 'unspent' | 'spent') {
   mockUser = {
@@ -133,7 +134,7 @@ describe('getting out (069 Chunk A6 — native header back)', () => {
     mockCanGoBack = false;
     render(<BuildReviewScreen />);
     fireEvent.press(screen.getByTestId('review-back'));
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/tracks');
+    expect(mockReplace).toHaveBeenCalledWith(TRACKS_ROUTE);
     expect(mockBack).not.toHaveBeenCalled();
   });
 });

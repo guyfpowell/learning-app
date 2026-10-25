@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import LessonsScreen from '../lessons';
 import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
+import { TRACKS_ROUTE } from '@/lib/routes';
 
 jest.mock('@/components/ui/Ring', () => ({
   Ring: (props: { value: number; label?: string }) => {
@@ -564,7 +565,7 @@ describe('LessonsScreen', () => {
       setEnrollmentsMock([]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('no-track-browse-btn'));
-      expect(mockPush).toHaveBeenCalledWith('/(tabs)/tracks');
+      expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
     });
 
     // A brand-new user used to meet a 0-day streak, 0 lessons and 0% average
@@ -748,7 +749,7 @@ describe('LessonsScreen', () => {
       setEnrollmentsMock([{ ...mockEnrollment, isActive: false }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('choose-next-path-btn'));
-      expect(mockPush).toHaveBeenCalledWith('/(tabs)/tracks');
+      expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
     });
 
     it('does not show choose-next-path CTA when a path is active', () => {

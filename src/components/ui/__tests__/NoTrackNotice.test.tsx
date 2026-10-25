@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { NoTrackNotice } from '../NoTrackNotice';
+import { TRACKS_ROUTE } from '@/lib/routes';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -19,7 +20,7 @@ describe('NoTrackNotice', () => {
   it('routes to tracks when the button is pressed', () => {
     const { getByTestId } = render(<NoTrackNotice />);
     fireEvent.press(getByTestId('no-track-browse-btn'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/tracks');
+    expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
   });
 
   it('accepts an override body so each screen can say why it needs a track', () => {

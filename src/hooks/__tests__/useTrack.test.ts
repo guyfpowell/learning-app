@@ -2,17 +2,27 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { makeCustomPath, makeTrackPath } from '@/test-utils/paths';
 import type { UserPath } from '@learning/shared';
 import { queryWrapper } from '@/test-utils/queryClient';
-import { useSkip, useTopicFeedback } from '../useTrack';
+import * as Sentry from '@sentry/react-native';
+import { usePaths, useSkip, useTopicFeedback } from '../useTrack';
 import { trackService } from '@/services/track.service';
 
 jest.mock('@/services/track.service', () => ({
-  trackService: { skip: jest.fn(), topicFeedback: jest.fn() },
+  trackService: { getPaths: jest.fn(), skip: jest.fn(), topicFeedback: jest.fn() },
 }));
 
 const mockTrackService = trackService as jest.Mocked<typeof trackService>;
 
 const track = makeTrackPath({ id: 's1' });
 const plan = makeCustomPath({ id: 'p1' });
+
+describe('usePaths', () => {
+  it('logs a failed load and leaves it in the error state', async () => {
+    mockTrackService.getPaths.mockRejectedValue(new Error('boom'));
+    const { result } = renderHook(() => usePaths(), { wrapper: queryWrapper() });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ message: 'Paths load failed' }));
+  });
+});
 
 describe('useSkip (079c)', () => {
   beforeEach(() => jest.clearAllMocks());

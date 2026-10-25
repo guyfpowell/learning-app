@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { TRACKS_ROUTE } from '@/lib/routes';
 
 /**
  * The one no-track state — ticket 069 items 1+2.
@@ -30,7 +31,7 @@ export function NoTrackNotice({
         testID="no-track-browse-btn"
         label="Browse tracks"
         style={styles.btn}
-        onPress={() => router.push('/(tabs)/tracks')}
+        onPress={() => router.push(TRACKS_ROUTE)}
       />
     </Card>
   );

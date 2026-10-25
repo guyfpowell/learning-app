@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type DimensionValue } from 'react-native';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge, LEVEL_BADGE_VARIANT } from '@/components/ui/Badge';
 import { TrackMap } from '@/components/ui/TrackMap';
 import { SkipReasonPicker } from '@/components/ui/SkipReasonPicker';
-import type { SkipReason, SkipScope, UserPath } from '@learning/shared';
+import { revisitingLabel, type SkipReason, type SkipScope, type UserPath } from '@learning/shared';
 
 export function flooredPct(path: Pick<UserPath, 'completedLessons' | 'percentComplete'>): number {
   return path.completedLessons > 0 ? Math.max(1, Math.round(path.percentComplete)) : 0;
@@ -18,11 +18,26 @@ function motivation(path: UserPath, pct: number): string {
   return `You're ${pct}% through ${path.name} — keep going!`;
 }
 
+function ctaLabel(isRevisit: boolean, resumePhase: boolean): string {
+  if (isRevisit) return 'Revisit Lesson →';
+  return resumePhase ? 'Continue Lesson →' : 'Start Lesson →';
+}
+
+/**
+ * The skip buttons, in the order they show. Lesson skips are on by default (feature:skip-lesson);
+ * topic and level skips are behind their own flags, off by default (076h).
+ */
+const SKIP_BUTTONS: { scope: SkipScope; label: string; offered: (path: UserPath) => boolean }[] = [
+  { scope: 'lesson', label: 'Skip Lesson →', offered: p => p.canSkipLesson },
+  { scope: 'topic',  label: 'Skip Topic →',  offered: p => p.canSkipTopic },
+  { scope: 'level',  label: 'Skip Level →',  offered: p => p.canSkipLevel },
+];
+
 function ProgressBar({ value }: { value: number }) {
-  const clamped = Math.min(100, Math.max(0, value));
+  const width: DimensionValue = `${Math.min(100, Math.max(0, value))}%`;
   return (
     <View style={styles.progressTrack}>
-      <View style={[styles.progressFill, { width: `${clamped}%` as `${number}%` }]} />
+      <View style={[styles.progressFill, { width }]} />
     </View>
   );
 }
@@ -51,7 +66,10 @@ export function PathCard({
 }: PathCardProps) {
   const [choosing, setChoosing] = useState<SkipScope | null>(null);
   const pct = flooredPct(path);
-  const { nextLesson } = path;
+  // The server decides a revisit; the client never derives one. While it is set the continue target is
+  // its own lesson, and the skip controls (which act on the forward position) are not offered.
+  const revisit = path.kind === 'custom' ? path.revisit : null;
+  const nextLesson = revisit ? revisit.nextLesson : path.nextLesson;
   const level = nextLesson?.skillPath?.level;
   const levelLabel = nextLesson?.skillPath?.levelLabel;
 
@@ -125,58 +143,46 @@ export function PathCard({
             )}
           </View>
 
+          {revisit && (
+            <Text testID={`revisit-label-${path.id}`} style={styles.revisitLabel}>
+              {revisitingLabel(revisit.topicTitle)}
+            </Text>
+          )}
           <Text style={styles.nextLessonTitle}>{nextLesson.title}</Text>
           {nextLesson.summary && <Text style={styles.nextLessonSummary}>{nextLesson.summary}</Text>}
 
           <Button
             testID={`next-lesson-btn-${path.id}`}
-            label={nextLesson.resumePhase ? 'Continue Lesson →' : 'Start Lesson →'}
+            label={ctaLabel(Boolean(revisit), Boolean(nextLesson.resumePhase))}
             style={styles.continueBtn}
             onPress={() => onStartLesson(nextLesson.id)}
           />
 
-          {/* Skip lesson — enabled by default (feature:skip-lesson on). */}
-          {path.canSkipLesson && (
-            <Button
-              testID={`skip-lesson-btn-${path.id}`}
-              label="Skip Lesson →"
-              variant="outline"
-              style={styles.skipBtn}
-              loading={skipPending === 'lesson'}
-              onPress={() => setChoosing('lesson')}
-            />
-          )}
+          {/* Skips act on the forward position, so none is offered on a revisit, an open picker included. */}
+          {!revisit && (
+            <>
+              {SKIP_BUTTONS.filter(b => b.offered(path)).map(b => (
+                <Button
+                  key={b.scope}
+                  testID={`skip-${b.scope}-btn-${path.id}`}
+                  label={b.label}
+                  variant="outline"
+                  style={styles.skipBtn}
+                  loading={skipPending === b.scope}
+                  onPress={() => setChoosing(b.scope)}
+                />
+              ))}
 
-          {/* Skip topic / level — behind their own flags, disabled by default (076h). */}
-          {path.canSkipTopic && (
-            <Button
-              testID={`skip-topic-btn-${path.id}`}
-              label="Skip Topic →"
-              variant="outline"
-              style={styles.skipBtn}
-              loading={skipPending === 'topic'}
-              onPress={() => setChoosing('topic')}
-            />
-          )}
-          {path.canSkipLevel && (
-            <Button
-              testID={`skip-level-btn-${path.id}`}
-              label="Skip Level →"
-              variant="outline"
-              style={styles.skipBtn}
-              loading={skipPending === 'level'}
-              onPress={() => setChoosing('level')}
-            />
-          )}
-
-          {choosing && (
-            <SkipReasonPicker
-              onPick={reason => {
-                setChoosing(null);
-                onSkip(path, choosing, reason);
-              }}
-              onCancel={() => setChoosing(null)}
-            />
+              {choosing && (
+                <SkipReasonPicker
+                  onPick={reason => {
+                    setChoosing(null);
+                    onSkip(path, choosing, reason);
+                  }}
+                  onCancel={() => setChoosing(null)}
+                />
+              )}
+            </>
           )}
         </Card>
       )}
@@ -240,18 +246,18 @@ const styles = StyleSheet.create({
   nextLessonCard: {
     gap: spacing.sm,
   },
-  nextLessonTrackName: {
-    fontFamily:    font.medium,
-    fontSize:      fontSize.xs,
-    color:         colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
   nextLessonSummary: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
     color:      colors.textMuted,
     fontStyle:  'italic',
+  },
+  revisitLabel: {
+    fontFamily:    font.medium,
+    fontSize:      fontSize.xs,
+    color:         colors.coral,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   nextLessonTitle: {
     fontFamily: font.medium,

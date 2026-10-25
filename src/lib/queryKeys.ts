@@ -11,6 +11,11 @@ export const CURRENT_USER_QUERY_KEY = ['auth', 'me'] as const;
  */
 export const PATHS_QUERY_KEY = ['enrollments'] as const;
 
+/** One custom path's pending proposal (`GET /track-plans/:id/proposal`). */
+export function proposalQueryKey(planId: string) {
+  return ['proposal', planId] as const;
+}
+
 /** Every cached lesson (`GET /lessons/:id`); invalidate it when access or completion changes for all of them. */
 export const LESSONS_QUERY_KEY = ['lesson'] as const;
 

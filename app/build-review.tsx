@@ -21,6 +21,7 @@ import {
   reasonRuns,
   type BuiltPlanTopic,
 } from '@learning/shared';
+import { BUILD_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
 
 /**
  * Review the built path — ticket 049 Chunk 5, mobile parity with the web
@@ -68,12 +69,12 @@ export default function BuildReviewScreen() {
   /** Back: pop the stack (lands on /build) if there is somewhere to go, else Tracks. */
   const handleBack = () => {
     if (router.canGoBack()) router.back();
-    else router.replace('/(tabs)/tracks');
+    else router.replace(TRACKS_ROUTE);
   };
 
   useEffect(() => {
     if (!draft) {
-      if (!accepted.current) router.replace('/build');
+      if (!accepted.current) router.replace(BUILD_ROUTE);
       return;
     }
   }, [draft, router]);
@@ -154,7 +155,7 @@ export default function BuildReviewScreen() {
           return;
         case 'restart':
           clearDraft();
-          router.replace('/build');
+          router.replace(BUILD_ROUTE);
           return;
         case 'reject':
           setNotice(`Dropped that path. Tell me what you're after and I'll build another.`);

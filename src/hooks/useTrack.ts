@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Sentry from '@sentry/react-native';
 import { trackService, type SkipCall } from '@/services/track.service';
 import type { ActivePathRef, SkipReason, SkipScope, TopicFeedbackRequest, UserPath, UserPathKind } from '@learning/shared';
 import { PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY } from '@/lib/queryKeys';
@@ -20,8 +21,18 @@ export function useSkills() {
 export function usePaths() {
   return useQuery({
     queryKey: PATHS_QUERY_KEY,
-    queryFn: () => trackService.getPaths(),
+    queryFn: loadPaths,
   });
+}
+
+/** The paths fetch, logged on failure; callers show `PATHS_LOAD_ERROR` from the query's error state. */
+async function loadPaths(): Promise<UserPath[]> {
+  try {
+    return await trackService.getPaths();
+  } catch (err) {
+    Sentry.addBreadcrumb({ category: 'paths', message: 'Paths load failed', level: 'warning', data: { err: String(err) } });
+    throw err;
+  }
 }
 
 /** Invalidate everything a path change can affect. */

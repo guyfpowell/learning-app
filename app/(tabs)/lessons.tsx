@@ -11,6 +11,7 @@ import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { PathCard } from '@/components/ui/PathCard';
 import { Ring } from '@/components/ui/Ring';
 import { PATHS_LOAD_ERROR } from '@learning/shared';
+import { TRACKS_ROUTE } from '@/lib/routes';
 
 function streakCopy(streak: number): string {
   if (streak === 0) return 'Complete a lesson today to start your streak';
@@ -120,7 +121,7 @@ export default function LessonsScreen() {
               testID="choose-next-path-btn"
               label="Choose your next path →"
               variant="outline"
-              onPress={() => router.push('/(tabs)/tracks')}
+              onPress={() => router.push(TRACKS_ROUTE)}
             />
           </>
         )}
