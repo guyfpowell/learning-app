@@ -41,6 +41,22 @@ describe('useNotifications', () => {
     mockGetToken.mockResolvedValue({ data: 'ExponentPushToken[test-token]' });
   });
 
+  it('sets every foreground handler field explicitly', async () => {
+    jest.isolateModules(() => {
+      require('../useNotifications');
+    });
+    const { setNotificationHandler } = jest.requireMock('expo-notifications');
+    const { handleNotification } = setNotificationHandler.mock.calls[0][0];
+
+    expect(await handleNotification()).toEqual({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    });
+  });
+
   it('mounts without throwing', () => {
     expect(() => {
       renderHook(() => useNotifications());

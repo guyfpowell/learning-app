@@ -22,7 +22,7 @@ const BANNER_TEXT = '#92400e';
 
 function tabIcon(name: IoniconName, focusedName: IoniconName) {
   return ({ color, focused }: { color: ColorValue; focused: boolean }) => (
-    <Ionicons name={focused ? focusedName : name} size={24} color={color} />
+    <Ionicons name={focused ? focusedName : name} size={24} color={typeof color === 'string' ? color : undefined} />
   );
 }
 

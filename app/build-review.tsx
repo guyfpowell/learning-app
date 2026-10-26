@@ -127,6 +127,9 @@ export default function BuildReviewScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
+          // SDK 58 on iOS 26+ defaults Stack headers to transparent (Liquid Glass), which would
+          // lay the header over this screen's content.
+          headerTransparent: false,
           title: 'Review your path',
           headerStyle: { backgroundColor: colors.paper },
           headerTitleStyle: { fontFamily: font.semibold, fontSize: fontSize.md, color: colors.textStrong },

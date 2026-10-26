@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { createForegroundClock, type ForegroundClock } from '@learning/shared';
 
-const isActive = (state: AppStateStatus) => state === 'active';
+const isActive = (state: typeof AppState.currentState | AppStateStatus) => state === 'active';
 
 /**
  * Foreground seconds on the lesson flow (079e), counted by the shared clock web uses too, fed by
