@@ -59,6 +59,7 @@ export function makeCustomPath(overrides: Partial<CustomPath> = {}): CustomPath 
     unresolvedTopics: 0,
     hasProposal:      false,
     revisit:          null,
+    isFinished:       false,
     ...overrides,
   };
 }

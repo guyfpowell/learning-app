@@ -17,13 +17,9 @@ import type {
 export const trackBuilderService = {
   /** The server records the turn; the client only carries the session id back. */
   async buildPlan(
-    statement: string, maxClosureHops?: number | null, sessionId?: string | null,
+    statement: string, sessionId?: string | null,
   ): Promise<BuiltPlan> {
-    const body: BuildPlanRequest = {
-      statement,
-      maxClosureHops: maxClosureHops ?? null,
-      sessionId: sessionId ?? null,
-    };
+    const body: BuildPlanRequest = { statement, sessionId: sessionId ?? null };
     const { data } = await api.post<BuiltPlan>('/track-builder/plan', body);
     return data;
   },

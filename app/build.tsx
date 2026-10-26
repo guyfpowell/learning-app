@@ -6,7 +6,9 @@ import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useBuildPlan } from '@/hooks/useTrackBuilder';
-import { ERROR_CODES, TRACK_STATEMENT_MAX, TRACK_STATEMENT_MIN, type BuiltPlan, type CloudTerm } from '@learning/shared';
+import {
+  ERROR_CODES, TRACK_STATEMENT_MAX, isTrackStatementTooShort, type BuiltPlan, type CloudTerm,
+} from '@learning/shared';
 import { UnderstandingCloud } from '@/components/trackBuilder/UnderstandingCloud';
 import { useDraftStore } from '@/store/trackBuilder.store';
 import { extractError, errorCode } from '@/lib/errors';
@@ -74,7 +76,7 @@ export default function BuildScreen() {
     }
   };
 
-  const tooShort = text.trim().length < TRACK_STATEMENT_MIN;
+  const tooShort = isTrackStatementTooShort(text);
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>

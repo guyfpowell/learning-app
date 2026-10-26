@@ -11,9 +11,17 @@ export const CURRENT_USER_QUERY_KEY = ['auth', 'me'] as const;
  */
 export const PATHS_QUERY_KEY = ['enrollments'] as const;
 
+/** The user's saved Albert plans (`GET /track-plans`). Invalidate it when a plan is created or archived. */
+export const TRACK_PLANS_QUERY_KEY = ['track-plans'] as const;
+
 /** One custom path's pending proposal (`GET /track-plans/:id/proposal`). */
 export function proposalQueryKey(planId: string) {
   return ['proposal', planId] as const;
+}
+
+/** One custom path's latest situation change and its outcome (`GET /track-plans/:id/situation-changes/latest`). */
+export function situationChangeQueryKey(planId: string) {
+  return ['situation-change', planId] as const;
 }
 
 /** Every cached lesson (`GET /lessons/:id`); invalidate it when access or completion changes for all of them. */
@@ -26,6 +34,9 @@ export function lessonQueryKey(lessonId: string) {
 
 /** The user's profile (`useProfile`). Invalidate it when a write changes entitlement. */
 export const USER_PROFILE_QUERY_KEY = ['user-profile'] as const;
+
+/** The user's notification preferences (`GET /notifications/preferences`). */
+export const NOTIFICATION_PREFERENCES_QUERY_KEY = ['notifications', 'preferences'] as const;
 
 /** The user's progress summary (`GET /users/progress`). */
 export const PROGRESS_QUERY_KEY = ['progress'] as const;

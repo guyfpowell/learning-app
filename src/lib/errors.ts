@@ -1,20 +1,26 @@
+type BodyField = 'code' | 'message' | 'error';
+
+/** The body of a failed request's response, when the error carries one. */
+function responseData(err: unknown): unknown {
+  if (typeof err !== 'object' || err === null || !('response' in err)) return undefined;
+  const { response } = err;
+  if (typeof response !== 'object' || response === null || !('data' in response)) return undefined;
+  return response.data;
+}
+
+/** A string field of `value`, or null when it is missing or not a string. */
+function stringField(value: unknown, key: BodyField): string | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const field: unknown = Reflect.get(value, key);
+  return typeof field === 'string' ? field : null;
+}
+
 export function extractError(err: unknown): string {
-  const typed = err as { code?: string; response?: { data?: { error?: string; message?: string } } };
-
-  if (typed?.code === 'ECONNABORTED') {
-    return 'Request timed out. Please try again.';
-  }
-  if (typed?.code === 'ERR_NETWORK') {
-    return 'Network error. Please check your connection.';
-  }
-  if (typed?.response?.data?.message) {
-    return typed.response.data.message;
-  }
-  if (typed?.response?.data?.error) {
-    return typed.response.data.error;
-  }
-
-  return 'Something went wrong. Please try again.';
+  const transportCode = stringField(err, 'code');
+  if (transportCode === 'ECONNABORTED') return 'Request timed out. Please try again.';
+  if (transportCode === 'ERR_NETWORK') return 'Network error. Please check your connection.';
+  const data = responseData(err);
+  return stringField(data, 'message') || stringField(data, 'error') || 'Something went wrong. Please try again.';
 }
 
 /**
@@ -25,7 +31,5 @@ export function extractError(err: unknown): string {
  * error style. The person asking for a track did nothing broken.
  */
 export function errorCode(err: unknown): string | null {
-  const typed = err as { response?: { data?: { code?: unknown } } };
-  const code = typed?.response?.data?.code;
-  return typeof code === 'string' ? code : null;
+  return stringField(responseData(err), 'code');
 }

@@ -20,6 +20,7 @@ import { CelebrationOverlay, XpChipOverlay } from '@/components/ui/CelebrationOv
 import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
 import { QuizResultFrame, quizFrameStyles } from '@/components/quiz/QuizResultFrame';
 import { CoachingCard, KeyTakeawayCard, MilestoneCard, StreakRow, TrackAverageBadge, XpAward } from '@/components/quiz/QuizResultParts';
+import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
 
 interface QuizModalProps {
   visible: boolean;
@@ -206,9 +207,9 @@ export function QuizModal({ visible, lesson, onClose, completionTime }: QuizModa
   function handleNavigateAfterQuiz(nextId: string | null | undefined) {
     onClose();
     if (nextId) {
-      router.replace(`/(tabs)/lesson/${nextId}`);
+      router.replace(lessonRoute(nextId));
     } else {
-      router.replace('/(tabs)/lessons');
+      router.replace(HOME_ROUTE);
     }
   }
 

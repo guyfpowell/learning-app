@@ -20,6 +20,7 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { useAuthStore } from '@/store/auth.store';
 import * as Sentry from '@sentry/react-native';
+import { HOME_ROUTE } from '@/lib/routes';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -102,7 +103,7 @@ export function AuthGate() {
     // both type-safe and correct at runtime.
     const atRootIndex = pathname === '/';
     if (inAuthGroup || atRootIndex) {
-      router.replace('/(tabs)/lessons');
+      router.replace(HOME_ROUTE);
     }
   }, [_hasHydrated, accessToken, pathname, segments[0]]);
 
@@ -133,7 +134,7 @@ function RootLayout() {
     responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
       const screen = response.notification.request.content.data?.screen;
       if (screen === 'lessons' || !screen) {
-        router.replace('/(tabs)/lessons');
+        router.replace(HOME_ROUTE);
       } else if (screen === 'progress') {
         router.replace('/(tabs)/progress');
       }

@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import DateTimePicker, { type DateTimePickerChangeEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import type { AchievementAxis, AchievementDefinition, AchievementKey, UserPath, UserAchievement } from '@learning/shared';
-import { ACHIEVEMENTS_BY_KEY, isProgressComplete } from '@learning/shared';
+import type { ClockTime, NotificationToggleKey, NotificationToggles } from '@learning/shared';
+import {
+  ACHIEVEMENTS_BY_KEY, DEFAULT_REMINDER_TIME, formatPreferredTime, isProgressComplete, notificationTogglesOf,
+  parsePreferredTime,
+} from '@learning/shared';
 import { colors, font, fontSize, radius, spacing, shadow } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -25,6 +28,8 @@ import { usePushStatus } from '@/hooks/usePushStatus';
 import { extractError } from '@/lib/errors';
 import { openManageSubscriptions } from '@/lib/subscriptions';
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal';
+import { NotificationSettings } from '@/components/profile/NotificationSettings';
+import { lessonRoute } from '@/lib/routes';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,12 +64,6 @@ const AXIS_ICON: Record<AchievementAxis, keyof typeof Ionicons.glyphMap> = {
 type AchievementItem =
   | (UserAchievement & { earned: true })
   | (AchievementDefinition & { earned: false; unlockedAt: undefined });
-
-function timeToDate(hour: number, minute: number): Date {
-  const d = new Date();
-  d.setHours(hour, minute, 0, 0);
-  return d;
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -162,36 +161,27 @@ export default function ProfileScreen() {
   const updateProfile = useUpdateProfile();
   const { permissionStatus, register, error: pushError } = usePushStatus();
 
-  const [enableDailyReminder, setEnableDailyReminder] = useState(false);
-  const [preferredHour, setPreferredHour] = useState(8);
-  const [preferredMinute, setPreferredMinute] = useState(0);
-  const [enableStreak, setEnableStreak] = useState(true);
-  const [enableLessonAvailable, setEnableLessonAvailable] = useState(true);
-  const [enableTopicFeedback, setEnableTopicFeedback] = useState(true);
+  const [toggles, setToggles] = useState<NotificationToggles | null>(null);
+  const [reminder, setReminder] = useState<ClockTime>(DEFAULT_REMINDER_TIME);
 
   useEffect(() => {
-    if (prefs) {
-      setEnableDailyReminder(prefs.enableDailyReminder);
-      setEnableStreak(prefs.enableStreak);
-      setEnableLessonAvailable(prefs.enableLessonAvailable);
-      setEnableTopicFeedback(prefs.enableTopicFeedback);
-    }
+    if (prefs) setToggles(notificationTogglesOf(prefs));
   }, [prefs]);
 
   useEffect(() => {
-    if (profile?.preferredTime && /^\d{2}:\d{2}$/.test(profile.preferredTime)) {
-      const [h, m] = profile.preferredTime.split(':').map(Number);
-      setPreferredHour(h);
-      setPreferredMinute(m);
-    }
+    const saved = parsePreferredTime(profile?.preferredTime);
+    if (saved) setReminder(saved);
   }, [profile]);
 
+  function handleToggle(field: NotificationToggleKey, on: boolean) {
+    setToggles((current) => current && { ...current, [field]: on });
+  }
+
   function handleSaveSettings() {
-    const hh = String(preferredHour).padStart(2, '0');
-    const mm = String(preferredMinute).padStart(2, '0');
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    updateProfile.mutate({ preferredTime: `${hh}:${mm}`, timezone });
-    updatePrefs.mutate({ enableDailyReminder, enableStreak, enableLessonAvailable, enableTopicFeedback });
+    updateProfile.mutate({ preferredTime: formatPreferredTime(reminder), timezone });
+    // Never after a failed load: that would write defaults over what the person chose.
+    if (toggles) updatePrefs.mutate(toggles);
   }
 
   const isSaving = updatePrefs.isPending || updateProfile.isPending;
@@ -295,7 +285,7 @@ export default function ProfileScreen() {
               <Pressable
                 key={lesson.id}
                 testID={`saved-lesson-${lesson.id}`}
-                onPress={() => router.push(`/(tabs)/lesson/${lesson.id}`)}
+                onPress={() => router.push(lessonRoute(lesson.id))}
               >
                 <Card padding={spacing.md} style={styles.savedCard}>
                   <Text style={styles.savedTitle} numberOfLines={2}>{lesson.title}</Text>
@@ -346,80 +336,13 @@ export default function ProfileScreen() {
 
         <Text style={styles.settingsLabel}>Notifications</Text>
         <Card style={styles.settingsCard}>
-          {prefsLoading ? (
-            <View testID="prefs-loading" style={styles.loadingRow}>
-              <Spinner size="small" />
-            </View>
-          ) : (
-            <>
-              {/* Daily reminder */}
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>Daily reminder</Text>
-                <Switch
-                  testID="toggle-daily-reminder"
-                  value={enableDailyReminder}
-                  onValueChange={setEnableDailyReminder}
-                  trackColor={{ true: colors.brand }}
-                  thumbColor={colors.surface}
-                />
-              </View>
-
-              {enableDailyReminder && (
-                <DateTimePicker
-                  testID="reminder-time-picker"
-                  value={timeToDate(preferredHour, preferredMinute)}
-                  mode="time"
-                  display="spinner"
-                  onValueChange={(_event: DateTimePickerChangeEvent, date: Date) => {
-                    setPreferredHour(date.getHours());
-                    setPreferredMinute(date.getMinutes());
-                  }}
-                />
-              )}
-
-              <View style={styles.divider} />
-
-              {/* Streak milestones */}
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>Streak milestones</Text>
-                <Switch
-                  testID="toggle-streak"
-                  value={enableStreak}
-                  onValueChange={setEnableStreak}
-                  trackColor={{ true: colors.brand }}
-                  thumbColor={colors.surface}
-                />
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* New lesson available */}
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>New lesson available</Text>
-                <Switch
-                  testID="toggle-lesson-available"
-                  value={enableLessonAvailable}
-                  onValueChange={setEnableLessonAvailable}
-                  trackColor={{ true: colors.brand }}
-                  thumbColor={colors.surface}
-                />
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* End-of-topic feedback (079d) — independent of Albert's suggestions */}
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>Ask me how each topic went</Text>
-                <Switch
-                  testID="toggle-topic-feedback"
-                  value={enableTopicFeedback}
-                  onValueChange={setEnableTopicFeedback}
-                  trackColor={{ true: colors.brand }}
-                  thumbColor={colors.surface}
-                />
-              </View>
-            </>
-          )}
+          <NotificationSettings
+            toggles={toggles}
+            loading={prefsLoading}
+            onToggle={handleToggle}
+            reminder={reminder}
+            onReminderChange={setReminder}
+          />
         </Card>
 
         <Button
@@ -718,24 +641,6 @@ const styles = StyleSheet.create({
     marginTop:     spacing.sm,
   },
   settingsCard: { marginBottom: spacing.sm },
-  loadingRow: { alignItems: 'center', paddingVertical: spacing.md },
-  toggleRow: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.xs,
-  },
-  toggleLabel: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
-    flex:       1,
-  },
-  divider: {
-    height:          1,
-    backgroundColor: colors.borderSubtle,
-    marginVertical:  spacing.xs,
-  },
   pushEnabledText: {
     fontFamily:      font.medium,
     fontSize:        fontSize.base,

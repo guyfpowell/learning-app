@@ -1,8 +1,6 @@
 import api, { BACKGROUND_REQUEST } from '@/lib/api';
 import type { UserAuth, UserProfile, Seniority, DeleteAccountPreflight, DeleteAccountRequest, UpdateProfileRequest, UpdateSeniorityRequest, UpdateTracksRequest } from '@learning/shared';
 
-export type UpdateProfileInput = UpdateProfileRequest;
-
 export const userService = {
   async getMe(): Promise<UserAuth> {
     const { data } = await api.get<UserAuth>('/users/me');
@@ -24,7 +22,7 @@ export const userService = {
     await api.put('/users/me/tracks', body);
   },
 
-  async updateProfile(input: UpdateProfileInput): Promise<void> {
+  async updateProfile(input: UpdateProfileRequest): Promise<void> {
     await api.patch('/users/profile', input);
   },
 

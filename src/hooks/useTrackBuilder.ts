@@ -1,9 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { trackBuilderService } from '@/services/trackBuilder.service';
-import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY } from '@/lib/queryKeys';
-import type {
-  BuiltPlanTopic, TrackPlanTopic, TrackBuilderTurn, RequestChunk,
-} from '@learning/shared';
+import { errorCode } from '@/lib/errors';
+import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_PLANS_QUERY_KEY } from '@/lib/queryKeys';
+import { ERROR_CODES, type BuildPlanRequest, type CreateTrackPlanRequest, type RefinePlanRequest, type UpdateTrackPlanRequest } from '@learning/shared';
 
 /**
  * Track builder hooks — ticket 049 Chunk 5.
@@ -15,8 +14,7 @@ import type {
 
 export function useBuildPlan() {
   return useMutation({
-    mutationFn: (v: { statement: string; maxClosureHops?: number | null; sessionId?: string | null }) =>
-      trackBuilderService.buildPlan(v.statement, v.maxClosureHops, v.sessionId),
+    mutationFn: (v: BuildPlanRequest) => trackBuilderService.buildPlan(v.statement, v.sessionId),
   });
 }
 
@@ -26,29 +24,18 @@ export function useBuildPlan() {
 
 export function useRefinePlan() {
   return useMutation({
-    mutationFn: (v: {
-      statement: string;
-      plan: BuiltPlanTopic[];
-      sessionId?: string | null;
-      chunks?: RequestChunk[];
-    }) => trackBuilderService.refinePlan(v.statement, v.plan, v.sessionId, v.chunks),
+    mutationFn: (v: RefinePlanRequest) =>
+      trackBuilderService.refinePlan(v.statement, v.plan, v.sessionId, v.chunks),
   });
 }
 
 export function useCreateTrackPlan() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (v: {
-      name: string;
-      description?: string | null;
-      planJson: { topics: TrackPlanTopic[] };
-      inputJson: { turns: TrackBuilderTurn[]; maxClosureHops?: number | null };
-      /** Which engine built it — 068 Chunk 4. */
-      classifierEngine?: 'local' | 'claude' | 'local-fallback' | null;
-    }) => trackBuilderService.createPlan(v),
+    mutationFn: (v: CreateTrackPlanRequest) => trackBuilderService.createPlan(v),
     onSuccess: () => {
       // Custom plans take precedence on the home surface, so both caches move.
-      void queryClient.invalidateQueries({ queryKey: ['track-plans'] });
+      void queryClient.invalidateQueries({ queryKey: TRACK_PLANS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
     },
     // A save spends the free Albert allowance, and a refused one (ALBERT_ALLOWANCE_USED)
@@ -61,22 +48,26 @@ export function useCreateTrackPlan() {
 
 export function useTrackPlans() {
   return useQuery({
-    queryKey: ['track-plans'],
+    queryKey: TRACK_PLANS_QUERY_KEY,
     queryFn: () => trackBuilderService.getPlans(),
   });
 }
 
 /** Archive a custom plan via `PUT /track-plans/:id`. Invalidates the same plan
  *  and enrollment keys as `useCreateTrackPlan` so Paths, Home and Tracks all refresh.
- *  Not /me: archiving does not give back the Albert allowance (079a). */
+ *  Not /me on success: archiving does not give back the Albert allowance (079a). The trial-over 409
+ *  (079i3) means the cached session was stale, so /me is read again and never retried. */
 export function useUpdateTrackPlan() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...patch }: { id: string; status: 'archived' }) =>
+    mutationFn: ({ id, ...patch }: { id: string } & Required<Pick<UpdateTrackPlanRequest, 'status'>>) =>
       trackBuilderService.updateTrackPlan(id, patch),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['track-plans'] });
+      void queryClient.invalidateQueries({ queryKey: TRACK_PLANS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
+    },
+    onError: err => {
+      if (errorCode(err) === ERROR_CODES.FRESH_PATH_TRIAL_OVER) void queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });
     },
   });
 }

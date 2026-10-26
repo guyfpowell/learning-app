@@ -7,11 +7,12 @@ import { PremiumModal } from '@/components/ui/PremiumModal';
 import { usePaths } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
-import { extractError } from '@/lib/errors';
+import { errorCode, extractError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { PathProposalSection } from '@/components/albert/PathProposalSection';
+import { SituationChangeSection } from '@/components/albert/SituationChangeSection';
 import { BuildPathCard, type BuildCardState } from '@/components/albert/BuildPathCard';
-import { ALBERT_STEPS, isAlbertLocked, isProgressComplete, type UserPath } from '@learning/shared';
+import { ALBERT_PATH_ACTIONS_UNLOADED, ALBERT_STEPS, ERROR_CODES, albertPathActions, isAlbertLocked, type AlbertPathActions, type SessionUser, type UserPath } from '@learning/shared';
 import { BUILD_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
 
 /** Which build card to show; the loading state comes first so the no-paths card never flashes. */
@@ -24,6 +25,15 @@ function buildCardState(
   return customPaths.length > 0 ? 'complete' : 'none';
 }
 
+/** The server refused a remove because the trial is over: the session was stale, so nothing is offered. */
+const TRIAL_REFUSED_ACTIONS: AlbertPathActions = { canBuild: false, canRemove: false, trialOver: true };
+
+/** The Albert path actions on offer: the shared rule (079i1), unless the server has already said the trial is over. */
+function actionsOf(user: SessionUser | undefined, trialRefused: boolean): AlbertPathActions {
+  if (trialRefused) return TRIAL_REFUSED_ACTIONS;
+  return user ? albertPathActions(user) : ALBERT_PATH_ACTIONS_UNLOADED;
+}
+
 export default function AlbertScreen() {
   const router = useRouter();
   const { data: user, isLoading: userLoading } = useCurrentUser();
@@ -31,21 +41,23 @@ export default function AlbertScreen() {
   const updatePlan = useUpdateTrackPlan();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  // The trial-over 409 (079i3): the hook reads the session again; this closes the card meanwhile, and if that read fails.
+  const [trialRefused, setTrialRefused] = useState(false);
 
-  // Locked = a free user who has spent their one saved path (079a). Building is
-  // free; the allowance is spent at save, so an unspent free user is NOT locked.
-  // A failed fetch counts as locked: the server gates the save regardless. The
-  // used-your-free-path copy needs the loaded user, so it keys off `allowanceSpent`.
-  // Track access is never gated here — only Albert's AI generation.
+  // Building is free until a free user has spent their one saved path (079a); a failed fetch is
+  // offered only the upgrade, since the server gates the save regardless. The used-your-free-path
+  // copy needs the loaded user, so it keys off `allowanceSpent`. Track access is never gated here.
   const allowanceSpent = !!user && isAlbertLocked(user);
-  const locked = !user || allowanceSpent;
+  const actions = actionsOf(user, trialRefused);
 
   // MAX_ACTIVE_CUSTOM_PLANS=1 guarantees at most one unfinished path; `find`
   // is intentional — clients must not assume the limit number.
   const customPaths = paths?.filter(p => p.kind === 'custom') ?? [];
   // A suggestion is per path: a relaxed plan limit must not hide one (079g7).
   const proposalPaths = customPaths.filter(p => p.hasProposal);
-  const unfinished  = customPaths.find(p => !isProgressComplete(p)) ?? null;
+  const unfinished  = customPaths.find(p => !p.isFinished) ?? null;
+  // Telling Albert what changed only makes sense partway through a path; a finished one asks what's next on Home (079i3).
+  const situationPaths = customPaths.filter(p => !p.isFinished);
   const cardState = buildCardState({ loading: pathsLoading || userLoading, failed: pathsFailed, customPaths, unfinished });
 
   function handleViewMyPath() {
@@ -60,14 +72,17 @@ export default function AlbertScreen() {
       {
         onSuccess: () => { router.push(BUILD_ROUTE); },
         onError: (err) => {
-          setArchiveError(extractError(err));
+          // The trial is over: the card closes and says so once. Never retried.
+          if (errorCode(err) === ERROR_CODES.FRESH_PATH_TRIAL_OVER) setTrialRefused(true);
+          else setArchiveError(extractError(err));
         },
       },
     );
   }
 
+  // Removing is only to build again, so a closed build opens the upgrade instead.
   function handleCreateNewPath() {
-    if (locked) { setPremiumModalVisible(true); return; }
+    if (!actions.canBuild) { setPremiumModalVisible(true); return; }
     Alert.alert(
       'Start a new path?',
       'Your current path will be removed and your progress on it will no longer be reachable.',
@@ -80,7 +95,7 @@ export default function AlbertScreen() {
   }
 
   function handleBuild() {
-    if (locked) { setPremiumModalVisible(true); return; }
+    if (!actions.canBuild) { setPremiumModalVisible(true); return; }
     router.push(BUILD_ROUTE);
   }
 
@@ -123,13 +138,18 @@ export default function AlbertScreen() {
         {/* ── Build a path (moved from Tracks) ───────────────────────────── */}
         <BuildPathCard
           state={cardState}
-          locked={locked}
+          actions={actions}
           allowanceSpent={allowanceSpent}
           archiveError={archiveError}
           onViewMyPath={handleViewMyPath}
           onCreateNewPath={handleCreateNewPath}
           onBuild={handleBuild}
         />
+
+        {/* ── "My situation has changed": below the build card; one per unfinished custom path; locked for a free user (079h) ── */}
+        {user && situationPaths.map(p => (
+          <SituationChangeSection key={p.id} planId={p.id} locked={!user.isPremium} pathFinished={false} onUpgrade={() => setPremiumModalVisible(true)} />
+        ))}
 
         <Text style={styles.more}>More from Albert is on the way.</Text>
       </ScrollView>

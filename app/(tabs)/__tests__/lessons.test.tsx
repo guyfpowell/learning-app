@@ -4,6 +4,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react-nativ
 import LessonsScreen from '../lessons';
 import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
+import { useCurrentUser } from '@/hooks/useEmailVerification';
+import type { SessionUser } from '@learning/shared';
+import { makeCustomPath } from '@/test-utils/paths';
+import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { TRACKS_ROUTE } from '@/lib/routes';
 
 jest.mock('@/components/ui/Ring', () => ({
@@ -34,6 +38,20 @@ jest.mock('@/hooks/useTrack', () => ({
 jest.mock('@/hooks/useProgress', () => ({
   useProgress: jest.fn(),
 }));
+
+jest.mock('@/hooks/useEmailVerification', () => ({
+  useCurrentUser: jest.fn(),
+}));
+
+// Its own suite covers it; here Home only has to show it for the right path, with the right lock.
+jest.mock('@/components/albert/PathEndSection', () => {
+  const { Pressable } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    PathEndSection: ({ path, locked, onUpgrade }: { path: { id: string }; locked: boolean; onUpgrade: () => void }) => (
+      <Pressable testID={`stub-path-end-${path.id}-${locked ? 'locked' : 'open'}`} onPress={onUpgrade} />
+    ),
+  };
+});
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -127,6 +145,10 @@ function setProgressMock(data?: unknown) {
   (useProgress as jest.Mock).mockReturnValue({ data });
 }
 
+function setUser(isPremium: boolean) {
+  (useCurrentUser as jest.Mock).mockReturnValue({ data: { isPremium } as SessionUser });
+}
+
 const mockCustomPlan = {
   kind: 'custom' as const,
   hasProposal: false,
@@ -156,6 +178,7 @@ describe('LessonsScreen', () => {
     setEnrollmentsMock(undefined);
     setCustomPlansMock(undefined);
     setProgressMock(undefined);
+    setUser(true);
     setSkipMock();
     (useTopicFeedback as jest.Mock).mockReturnValue({ submit: mockTopicSubmit });
     (useRefreshPaths as jest.Mock).mockReturnValue(mockRefreshPaths);
@@ -801,6 +824,58 @@ describe('LessonsScreen', () => {
       expect(mockRefreshPaths).not.toHaveBeenCalled();
       fireEvent.press(close);
       expect(mockRefreshPaths).toHaveBeenCalledTimes(1);
+    });
+  });
+  describe('path end (079i3)', () => {
+    const topicEnd = { planId: 'plan-2', stableKey: 'topic-z', title: 'Last topic' };
+    const finished = makeCustomPath({ id: 'plan-2', name: 'Done Path', percentComplete: 100, isFinished: true, isActive: true });
+
+    it('shows the path-end state for a finished active custom path with no topicEnd', () => {
+      setCustomPlansMock([finished]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('stub-path-end-plan-2-open')).toBeTruthy();
+      expect(screen.queryByTestId('topic-feedback')).toBeNull();
+    });
+
+    it('shows the topic end first, and no path-end state while topicEnd is set', () => {
+      setCustomPlansMock([{ ...finished, topicEnd }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('topic-feedback')).toBeTruthy();
+      expect(screen.queryByTestId(/^stub-path-end-/)).toBeNull();
+    });
+
+    it('shows no path-end state for an unfinished custom path', () => {
+      setCustomPlansMock([makeCustomPath({ id: 'plan-3', percentComplete: 40, isFinished: false, isActive: true })]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId(/^stub-path-end-/)).toBeNull();
+    });
+
+    it('shows no path-end state when the active path is a curated track', () => {
+      setCustomPlansMock([{ ...finished, isActive: false }]);
+      setEnrollmentsMock([{ ...mockEnrollment, isActive: true }]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId(/^stub-path-end-/)).toBeNull();
+    });
+
+    it('shows the path-end state when the finished custom path is the most recent and none is active', () => {
+      setCustomPlansMock([{ ...finished, isActive: false }]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('stub-path-end-plan-2-open')).toBeTruthy();
+    });
+
+    it('locks it for a free user, whose upgrade goes to the paywall', () => {
+      setUser(false);
+      setCustomPlansMock([finished]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('stub-path-end-plan-2-locked'));
+      expect(mockPush).toHaveBeenCalledWith(PAYWALL_ROUTE);
+    });
+
+    it('shows nothing until the user has loaded', () => {
+      (useCurrentUser as jest.Mock).mockReturnValue({ data: undefined });
+      setCustomPlansMock([finished]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId(/^stub-path-end-/)).toBeNull();
     });
   });
 });

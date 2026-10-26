@@ -19,6 +19,7 @@ import { useTrackContents, usePaths, useEnroll } from '@/hooks/useTrack';
 import { extractError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import type { TrackContentsLesson, UserPathKind } from '@learning/shared';
+import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
 
 export default function TrackDetailScreen() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export default function TrackDetailScreen() {
       setPremiumModalVisible(true);
       return;
     }
-    router.push(`/(tabs)/lesson/${lesson.id}`);
+    router.push(lessonRoute(lesson.id));
   }
 
   // ── Loading / error ──────────────────────────────────────────────────────
@@ -111,7 +112,7 @@ export default function TrackDetailScreen() {
           <Button
             testID="track-detail-start-btn"
             label={lessonLabel}
-            onPress={() => router.push(`/(tabs)/lesson/${nextLesson.id}`)}
+            onPress={() => router.push(lessonRoute(nextLesson.id))}
             style={styles.actionBtn}
           />
         )}
@@ -123,7 +124,7 @@ export default function TrackDetailScreen() {
             loading={enroll.isPending}
             onPress={() =>
               enroll.mutate(id, {
-                onSuccess: () => router.push('/(tabs)/lessons'),
+                onSuccess: () => router.push(HOME_ROUTE),
               })
             }
             style={styles.actionBtn}

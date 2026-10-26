@@ -10,8 +10,16 @@ import { useProgress } from '@/hooks/useProgress';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { PathCard } from '@/components/ui/PathCard';
 import { Ring } from '@/components/ui/Ring';
+import { PathEndSection } from '@/components/albert/PathEndSection';
+import { useCurrentUser } from '@/hooks/useEmailVerification';
+import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { PATHS_LOAD_ERROR } from '@learning/shared';
-import { TRACKS_ROUTE } from '@/lib/routes';
+import { TRACKS_ROUTE, lessonRoute } from '@/lib/routes';
+
+/** The streak banner shows from this many days on. */
+const STREAK_BANNER_AFTER_DAYS = 3;
+/** The streak ring fills over this many days; there is no target, so it is only a scale. */
+const STREAK_RING_DAYS = 30;
 
 function streakCopy(streak: number): string {
   if (streak === 0) return 'Complete a lesson today to start your streak';
@@ -21,10 +29,10 @@ function streakCopy(streak: number): string {
   return `You're on fire — ${streak}-day streak!`;
 }
 
-
 export default function LessonsScreen() {
   const { data: paths, isError: pathsFailed } = usePaths();
   const { data: progress } = useProgress();
+  const { data: user } = useCurrentUser();
   const router = useRouter();
   const skip = useSkip();
   const topicFeedback = useTopicFeedback();
@@ -36,9 +44,12 @@ export default function LessonsScreen() {
   // User has paths but none active (e.g. completed their active path or archived it).
   // Show the most recent path (paths[0] — server ordered by recency, C2) with a next-path CTA.
   const lastPath = activePath ? undefined : paths?.[0];
-  const noActivePath = lastPath !== undefined;
   // The server shows one screen per topic (079d): the first path carrying a topicEnd is the one.
   const topicEnd = paths?.find(p => p.topicEnd)?.topicEnd ?? null;
+  // A finished Albert path asks what's next (079i3), after any topic end. `isFinished` is the server's
+  // word; the path shown is the active one, or the most recent when none is active.
+  const shownPath = activePath ?? lastPath;
+  const pathEnd = !topicEnd && shownPath?.kind === 'custom' && shownPath.isFinished ? shownPath : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -52,7 +63,7 @@ export default function LessonsScreen() {
           <Text testID="paths-load-error" style={styles.loadError}>{PATHS_LOAD_ERROR}</Text>
         )}
 
-        {progress && !hasNoContent && progress.currentStreak > 3 && (
+        {progress && !hasNoContent && progress.currentStreak > STREAK_BANNER_AFTER_DAYS && (
           <View testID="streak-banner" style={styles.streakBanner}>
             <Text style={styles.streakBannerText}>
               {'You\'re on a '}
@@ -65,11 +76,11 @@ export default function LessonsScreen() {
         {/* Streak hero — 069 A9.
             Ring re-tasks the kit's daily-goal ring to show the streak count.
             No target, no denominator, no "X of Y" — streak presence only.
-            Value normalised against 30 days so the ring fills gradually. */}
+            Value normalised against STREAK_RING_DAYS so the ring fills gradually. */}
         {progress && !hasNoContent && (
           <View testID="streak-hero" style={styles.streakHero}>
             <Ring
-              value={Math.min(100, (progress.currentStreak / 30) * 100)}
+              value={Math.min(100, (progress.currentStreak / STREAK_RING_DAYS) * 100)}
               size={84}
               stroke={9}
               label={String(progress.currentStreak)}
@@ -97,11 +108,15 @@ export default function LessonsScreen() {
           />
         )}
 
+        {pathEnd && user && (
+          <PathEndSection path={pathEnd} locked={!user.isPremium} onUpgrade={() => router.push(PAYWALL_ROUTE)} />
+        )}
+
         {/* Active path — the one path card Home shows (076g §1). */}
         {activePath && (
           <PathCard
             path={activePath}
-            onStartLesson={id => router.push(`/(tabs)/lesson/${id}`)}
+            onStartLesson={id => router.push(lessonRoute(id))}
             onSkip={skip.skip}
             skipPending={skip.pendingScope(activePath)}
           />
@@ -109,11 +124,11 @@ export default function LessonsScreen() {
 
         {/* No active path but paths exist — show the last path + next-path CTA (076g §1).
             NoTrackNotice is wrong here: the user has history, just no active path. */}
-        {noActivePath && lastPath && (
+        {lastPath && (
           <>
             <PathCard
               path={lastPath}
-              onStartLesson={id => router.push(`/(tabs)/lesson/${id}`)}
+              onStartLesson={id => router.push(lessonRoute(id))}
               onSkip={skip.skip}
               skipPending={skip.pendingScope(lastPath)}
             />
@@ -184,111 +199,5 @@ const styles = StyleSheet.create({
   },
   streakBannerBold: {
     fontFamily: font.semibold,
-  },
-
-  // ── Sections ─────────────────────────────────────────────────────────────
-  section: {
-    gap:          spacing.sm,
-    marginBottom: spacing.md,
-  },
-  sectionHeading: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
-  },
-
-  // ── Enrollment card ───────────────────────────────────────────────────────
-  enrollmentCard: {
-    gap: spacing.sm,
-  },
-  enrollmentHeader: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'flex-start',
-  },
-  enrollmentTitle: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
-    flex:       1,
-  },
-  pctText: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.sm,
-    color:      colors.brand,
-  },
-  progressTrack: {
-    height:          6,
-    backgroundColor: colors.borderSubtle,
-    borderRadius:    3,
-    overflow:        'hidden',
-  },
-  progressFill: {
-    height:          6,
-    backgroundColor: colors.brand,
-    borderRadius:    3,
-  },
-  motivationText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-  },
-  lessonsCount: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-  },
-
-  // ── Next lesson card ──────────────────────────────────────────────────────
-  nextLessonCard: {
-    gap: spacing.sm,
-  },
-  nextLessonTrackName: {
-    fontFamily:    font.medium,
-    fontSize:      fontSize.xs,
-    color:         colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  nextLessonSummary: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-    fontStyle:  'italic',
-  },
-  nextLessonTitle: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.sm,
-    color:      colors.textStrong,
-  },
-  nextLessonMeta: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           spacing.sm,
-    flexWrap:      'wrap',
-  },
-  positionLabel: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textMuted,
-  },
-  noNextLesson: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-    fontStyle:  'italic',
-  },
-  continueBtn: {
-    marginTop: spacing.xs,
-  },
-  skipBtn: {
-    marginTop: spacing.xs,
-  },
-
-  // ── Completed card ────────────────────────────────────────────────────────
-  completedCard: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'center',
   },
 });

@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
+import type { UpdateProfileRequest } from '@learning/shared';
 import { userService } from '@/services/user.service';
 import { USER_PROFILE_QUERY_KEY } from '@/lib/queryKeys';
 
@@ -11,7 +12,6 @@ export function useProfile() {
 
 export function useUpdateProfile() {
   return useMutation({
-    mutationFn: (input: { preferredTime: string; timezone: string }) =>
-      userService.updateProfile(input),
+    mutationFn: (input: UpdateProfileRequest) => userService.updateProfile(input),
   });
 }

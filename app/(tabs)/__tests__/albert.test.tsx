@@ -5,7 +5,7 @@ import AlbertScreen from '../albert';
 import { usePaths } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
-import { ALBERT_STEPS, type SessionUser, type UserPath } from '@learning/shared';
+import { ALBERT_STEPS, ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, type SessionUser, type UserPath } from '@learning/shared';
 import { makeCustomPath, makeTrackPath } from '@/test-utils/paths';
 import { BUILD_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
 
@@ -32,6 +32,16 @@ jest.mock('@/components/albert/PathProposalSection', () => {
   };
 });
 
+// Same for the situation-change entry: it exposes `locked` and the upgrade so the screen's wiring is testable.
+jest.mock('@/components/albert/SituationChangeSection', () => {
+  const { Pressable } = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    SituationChangeSection: ({ planId, locked, onUpgrade }: { planId: string; locked: boolean; onUpgrade: () => void }) => (
+      <Pressable testID={`stub-situation-${planId}-${locked ? 'locked' : 'open'}`} onPress={onUpgrade} />
+    ),
+  };
+});
+
 let capturedEdges: string[] | undefined;
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children, edges }: { children: React.ReactNode; edges?: string[] }) => {
@@ -44,7 +54,7 @@ jest.mock('react-native-safe-area-context', () => ({
 
 const unfinishedPath = makeCustomPath({ id: 'plan-1', name: 'My AI Path', percentComplete: 40, isActive: true });
 
-const finishedPath = makeCustomPath({ id: 'plan-2', name: 'Completed Path', percentComplete: 100, isActive: false });
+const finishedPath = makeCustomPath({ id: 'plan-2', name: 'Completed Path', percentComplete: 100, isFinished: true, isActive: false });
 
 const trackPath = makeTrackPath({ id: 'skill-3', name: 'Some Track', percentComplete: 50, isActive: false });
 
@@ -53,10 +63,11 @@ const trackPath = makeTrackPath({ id: 'skill-3', name: 'Some Track', percentComp
 type UserState = 'premium' | 'unspent' | 'spent';
 
 /** premium: subscriber · unspent: free, no path saved yet · spent: free, the one path is saved (079a). */
-function setUser(state: UserState) {
+function setUser(state: UserState, capstones = 0) {
   const user = {
     isPremium: state === 'premium',
     albertAllowance: { used: state === 'unspent' ? 0 : 1, total: 1 },
+    freshPathTrial: { capstones, total: 2 },
   } as SessionUser;
   (useCurrentUser as jest.Mock).mockReturnValue({ data: user, isLoading: false });
 }
@@ -182,6 +193,40 @@ describe('AlbertScreen', () => {
     render(<AlbertScreen />);
     expect(screen.queryByTestId(/^stub-proposal-/)).toBeNull();
     expect(screen.getByTestId('build-path-card')).toBeTruthy();
+  });
+
+  it('offers a premium user the situation-change entry on each unfinished custom path only (079h)', () => {
+    setUser('premium');
+    setPaths([unfinishedPath, finishedPath, trackPath]);
+    render(<AlbertScreen />);
+    expect(screen.getByTestId('stub-situation-plan-1-open')).toBeTruthy();
+    expect(screen.queryByTestId(/^stub-situation-plan-2/)).toBeNull();
+    expect(screen.queryByTestId(/^stub-situation-skill-3/)).toBeNull();
+  });
+
+  it('places the situation-change entry below the build-a-path card (079h)', () => {
+    setUser('premium');
+    setPaths([unfinishedPath]);
+    render(<AlbertScreen />);
+    const tree = JSON.stringify(screen.toJSON());
+    const build = tree.indexOf('view-my-path');
+    const situation = tree.indexOf('stub-situation-plan-1-open');
+    expect(build).toBeGreaterThan(-1);
+    expect(situation).toBeGreaterThan(build);
+  });
+
+  it('shows a free user the situation-change entry locked, and its upgrade opens the upgrade modal (079h)', () => {
+    setUser('spent');
+    setPaths([unfinishedPath]);
+    render(<AlbertScreen />);
+    fireEvent.press(screen.getByTestId('stub-situation-plan-1-locked'));
+    expect(screen.getByText(/upgrade now/i)).toBeTruthy();
+  });
+
+  it('shows no situation-change entry to a user with no custom path (079h)', () => {
+    setPaths([trackPath]);
+    render(<AlbertScreen />);
+    expect(screen.queryByTestId(/^stub-situation-/)).toBeNull();
   });
 
   it('uses edges=[left,right,bottom] so the tab layout owns the top inset', () => {
@@ -318,7 +363,7 @@ describe('AlbertScreen', () => {
   it('confirming the Alert archives the plan and navigates to /build', () => {
     setUser('premium');
     setPaths([unfinishedPath]);
-    mockMutate.mockImplementationOnce((_: unknown, cb: { onSuccess?: () => void }) => {
+    mockMutate.mockImplementation((_: unknown, cb: { onSuccess?: () => void }) => {
       cb?.onSuccess?.();
     });
     render(<AlbertScreen />);
@@ -348,7 +393,7 @@ describe('AlbertScreen', () => {
   it('a failed archive stays on Albert and shows an error', () => {
     setUser('premium');
     setPaths([unfinishedPath]);
-    mockMutate.mockImplementationOnce((_: unknown, cb: { onError?: (err: Error) => void }) => {
+    mockMutate.mockImplementation((_: unknown, cb: { onError?: (err: Error) => void }) => {
       cb?.onError?.(new Error('Something went wrong'));
     });
     render(<AlbertScreen />);
@@ -403,5 +448,78 @@ describe('AlbertScreen', () => {
     render(<AlbertScreen />);
     expect(screen.getByTestId('create-new-path')).toBeTruthy();
     expect(screen.queryByTestId('build-another')).toBeNull();
+  });
+  // ── The fresh-path trial (079i3) ─────────────────────────────────────────
+
+  describe('build and remove follow the shared trial rule', () => {
+    it('during the trial, offers Create a NEW path with the trial note beside it', () => {
+      setUser('premium', 1);
+      setPaths([unfinishedPath]);
+      render(<AlbertScreen />);
+      expect(screen.getByTestId('create-new-path')).toBeTruthy();
+      expect(screen.getByText(FRESH_PATH_TRIAL_NOTE)).toBeTruthy();
+    });
+
+    it('after the trial, offers neither Create a NEW path nor the note, and says the path is theirs to keep', () => {
+      setUser('premium', 2);
+      setPaths([unfinishedPath]);
+      render(<AlbertScreen />);
+      expect(screen.getByTestId('view-my-path')).toBeTruthy();
+      expect(screen.queryByTestId('create-new-path')).toBeNull();
+      expect(screen.queryByText(FRESH_PATH_TRIAL_NOTE)).toBeNull();
+      expect(screen.getByTestId('trial-over').props.children).toBe(ERROR_MESSAGES[ERROR_CODES.FRESH_PATH_TRIAL_OVER]);
+    });
+
+    it('during the trial, offers Build another on a finished path, with no trial note (nothing to remove)', () => {
+      setUser('premium', 1);
+      setPaths([finishedPath]);
+      render(<AlbertScreen />);
+      expect(screen.getByTestId('build-another')).toBeTruthy();
+      expect(screen.queryByTestId('trial-over')).toBeNull();
+    });
+
+    it('after the trial, offers no Build another, not even an upgrade, on a finished path', () => {
+      setUser('spent', 2);
+      setPaths([finishedPath]);
+      render(<AlbertScreen />);
+      expect(screen.queryByTestId('build-another')).toBeNull();
+      expect(screen.getByTestId('trial-over')).toBeTruthy();
+    });
+
+    it('after the trial, offers no Start or upgrade when there is no custom path', () => {
+      setUser('premium', 2);
+      setPaths([trackPath]);
+      render(<AlbertScreen />);
+      expect(screen.queryByTestId('build-path-start')).toBeNull();
+      expect(screen.queryByTestId('build-path-upgrade')).toBeNull();
+    });
+
+    it('on the trial-over 409 from the archive, closes the card, says so once, and never retries', () => {
+      // The session still says the trial is open: the screen closes on the server's word, not the refetch.
+      setUser('premium', 1);
+      setPaths([unfinishedPath]);
+      mockMutate.mockImplementation((_: unknown, cb: { onError?: (err: unknown) => void }) => {
+        cb.onError?.({ response: { data: { code: ERROR_CODES.FRESH_PATH_TRIAL_OVER, message: 'server words' } } });
+      });
+      render(<AlbertScreen />);
+      fireEvent.press(screen.getByTestId('create-new-path'));
+      pressAlertButton('destructive');
+      expect(screen.getAllByText(ERROR_MESSAGES[ERROR_CODES.FRESH_PATH_TRIAL_OVER])).toHaveLength(1);
+      expect(screen.getByTestId('trial-over')).toBeTruthy();
+      expect(screen.queryByTestId('albert-archive-error')).toBeNull();
+      expect(screen.queryByTestId('create-new-path')).toBeNull();
+      expect(mockMutate).toHaveBeenCalledTimes(1);
+      expect(mockPush).not.toHaveBeenCalledWith(BUILD_ROUTE);
+    });
+
+    it('after the trial, tells a spent free user nothing about upgrading: no allowance line, no Premium badge', () => {
+      setUser('spent', 2);
+      setPaths([unfinishedPath]);
+      render(<AlbertScreen />);
+      expect(screen.getByTestId('trial-over')).toBeTruthy();
+      expect(screen.queryByTestId('allowance-used')).toBeNull();
+      expect(screen.queryByText('Premium')).toBeNull();
+      expect(screen.getByText('Albert')).toBeTruthy();
+    });
   });
 });

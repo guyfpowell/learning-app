@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { FollowUpCard } from '@/components/trackBuilder/FollowUpCard';
+import { ReviewSaveArea } from '@/components/trackBuilder/ReviewSaveArea';
 import { useDraftStore } from '@/store/trackBuilder.store';
 import { useRefinePlan, useCreateTrackPlan } from '@/hooks/useTrackBuilder';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
@@ -16,12 +17,13 @@ import {
   ERROR_MESSAGES,
   PATH_NAME_MAX,
   PLAN_FOLLOW_UP_ENABLED,
-  TRACK_STATEMENT_MAX,
-  isAlbertLocked,
+  SAVE_LOCK,
   reasonRuns,
-  type BuiltPlanTopic,
+  saveLockOf,
+  toCreateTrackPlanRequest,
+  type SaveLock,
 } from '@learning/shared';
-import { BUILD_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
+import { BUILD_ROUTE, HOME_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
 
 /**
  * Review the built path — ticket 049 Chunk 5, mobile parity with the web
@@ -30,11 +32,6 @@ import { BUILD_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
  * Shows its working: which area chose each topic, and which were added as
  * groundwork. Measured in 060, dependency closure is 53% of the average plan,
  * so a user looking at something twice as long as their ask deserves to see why.
- *
- * Intent routing is NOT here — the server returns an `action` and this screen
- * renders it. The rule that matters, *a control intent must never rebuild the
- * plan*, is the kind that gets lost in a UI; it was lost once already in the
- * 060 harness, where a correctly-detected refinement destroyed the plan.
  */
 
 // The closure-depth control went on 2026-09-08 — 068 Chunk 7b. It chose how
@@ -42,27 +39,29 @@ import { BUILD_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
 // than inert: every tap called `rebuild`, a real API call and another five
 // seconds, and came back with the same topics.
 
+/** A refused save closes or locks the save area, whatever the session said. Null for any other failure. */
+function refusedSaveLock(code: string | null): SaveLock | null {
+  if (code === ERROR_CODES.FRESH_PATH_TRIAL_OVER) return SAVE_LOCK.trialOver;
+  if (code === ERROR_CODES.ALBERT_ALLOWANCE_USED) return SAVE_LOCK.allowanceUsed;
+  return null;
+}
+
 export default function BuildReviewScreen() {
   const router = useRouter();
   const { draft, updateResult, clearDraft } = useDraftStore();
 
   const [name, setName] = useState('');
-  const [followUp, setFollowUp] = useState('');
-  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [lastChange, setLastChange] = useState<
-    { removed: number; previous: BuiltPlanTopic[] } | null
-  >(null);
 
   const refine = useRefinePlan();
   const createPlan = useCreateTrackPlan();
   const { data: user } = useCurrentUser();
-  // The server said the allowance is spent, whatever the session user said (079a).
-  const [serverLocked, setServerLocked] = useState(false);
-  // Building and reviewing are free; only the save is locked, and only for a free
-  // user who has spent their one path. A failed user fetch leaves the save open —
-  // the server gates it anyway.
-  const locked = serverLocked || (!!user && isAlbertLocked(user));
+  // The server refused the save (079a, 079i3): that wins over the session. A trial-over 409 means the
+  // session was stale; the hook reads it again, and this closes the save meanwhile. Never retried.
+  const [serverLock, setServerLock] = useState<SaveLock | null>(null);
+  // Building and reviewing are free; only the save is locked. A failed user fetch
+  // leaves the save open — the server gates it anyway.
+  const saveLock = serverLock ?? (user ? saveLockOf(user) : SAVE_LOCK.open);
   // Prevents the !draft guard from bouncing back to /build after onAccept clears the draft.
   const accepted = useRef(false);
 
@@ -73,10 +72,8 @@ export default function BuildReviewScreen() {
   };
 
   useEffect(() => {
-    if (!draft) {
-      if (!accepted.current) router.replace(BUILD_ROUTE);
-      return;
-    }
+    if (draft || accepted.current) return;
+    router.replace(BUILD_ROUTE);
   }, [draft, router]);
 
   if (!draft) return null;
@@ -85,95 +82,22 @@ export default function BuildReviewScreen() {
   const onAccept = async () => {
     setError(null);
     try {
-      const created = await createPlan.mutateAsync({
-        name: name.trim(),
-        description: result.description ?? null,
-        planJson: {
-          topics: result.topics.map((t, i) => ({
-            stableKey: t.stableKey,
-            order: i,
-            reason: t.reason,
-            area: t.area ?? undefined,
-            hops: t.hops,
-          })),
-        },
-        inputJson: {
-          turns: [{ text: draft.statement, level: result.level }],
-        },
-        // Which engine built it — 068 Chunk 4. Carried from the build, not read
-        // from config at save time, which would lie the moment anyone flipped
-        // the toggle between building and accepting.
-        classifierEngine: result.engine ?? null,
-      });
+      const created = await createPlan.mutateAsync(toCreateTrackPlanRequest(name, draft));
       accepted.current = true;
       clearDraft();
-      router.replace(`/(tabs)/lessons?plan=${created.id}`);
+      router.replace(`${HOME_ROUTE}?plan=${created.id}`);
     } catch (err) {
       const code = errorCode(err);
-      if (code === ERROR_CODES.ALBERT_ALLOWANCE_USED) setServerLocked(true);
+      const refused = refusedSaveLock(code);
+      if (refused) setServerLock(refused);
       else if (code === ERROR_CODES.PLAN_LIMIT) setError(ERROR_MESSAGES[ERROR_CODES.PLAN_LIMIT]);
       else setError(extractError(err));
     }
   };
 
-  /** Send a follow-up. The server decides what it means; this screen renders the action it returns. */
-  const onFollowUp = async () => {
-    if (followUp.trim().length === 0) return;
-    setError(null);
-    setNotice(null);
-    try {
-      // The requests go with it: a removal is matched against the words the user
-      // used for each one, so without them "take out the job stuff" names
-      // nothing and comes back as a question instead of being acted on.
-      const r = await refine.mutateAsync({
-        statement: followUp, plan: result.topics, sessionId: draft.sessionId,
-        chunks: result.chunks,
-      });
-      const previous = result.topics;
-
-      switch (r.action) {
-        case 'refine':
-          if (r.refusedEmpty === true) {
-            setNotice('That would have removed everything, so nothing changed.');
-            break;
-          }
-          updateResult({ ...result, topics: r.plan });
-          setLastChange({ removed: r.removed.length, previous });
-          setNotice(r.removed.length === 0
-            ? `I couldn't find anything matching that in your path.`
-            : `Removed ${r.removed.length} topic${r.removed.length === 1 ? '' : 's'}.`);
-          break;
-        case 'replace':
-          if (r.rebuilt !== undefined) {
-            updateResult(r.rebuilt);
-            setLastChange(null);
-            setNotice('Rebuilt your path around that instead.');
-          }
-          break;
-        case 'accept':
-          await onAccept();
-          return;
-        case 'restart':
-          clearDraft();
-          router.replace(BUILD_ROUTE);
-          return;
-        case 'reject':
-          setNotice(`Dropped that path. Tell me what you're after and I'll build another.`);
-          break;
-        default:
-          setNotice(`I'm not sure what to change. Try naming the part you don't want.`);
-      }
-      setFollowUp('');
-    } catch (err) {
-      setError(extractError(err));
-    }
-  };
-
-  const undo = () => {
-    if (lastChange === null) return;
-    updateResult({ ...result, topics: lastChange.previous });
-    setLastChange(null);
-    setNotice('Put those back.');
+  const onRestart = () => {
+    clearDraft();
+    router.replace(BUILD_ROUTE);
   };
 
   /**
@@ -296,58 +220,29 @@ export default function BuildReviewScreen() {
             understand. Flip `PLAN_FOLLOW_UP_ENABLED` to bring it back. Kept in
             step with the web screen. */}
         {PLAN_FOLLOW_UP_ENABLED && (
-          <Card style={styles.card}>
-            <Text style={styles.label}>Change anything</Text>
-            <TextInput
-              testID="follow-up"
-              style={styles.followUp}
-              value={followUp}
-              onChangeText={setFollowUp}
-              maxLength={TRACK_STATEMENT_MAX}
-              placeholder="e.g. I don't want the management stuff"
-              placeholderTextColor={colors.textMuted}
-              multiline
-              editable={!busy}
-            />
-            <Button
-              testID="follow-up-submit"
-              label={refine.isPending ? 'Updating…' : 'Update my path'}
-              variant="outline"
-              disabled={busy || followUp.trim().length === 0}
-              onPress={() => void onFollowUp()}
-            />
-            {notice !== null && (
-              <Text testID="refine-notice" style={styles.notice}>{notice}</Text>
-            )}
-            {lastChange !== null && lastChange.removed > 0 && (
-              <Button testID="refine-undo" label="Undo" variant="outline" onPress={undo} />
-            )}
-          </Card>
+          <FollowUpCard
+            draft={draft}
+            refinePlan={refine.mutateAsync}
+            busy={busy}
+            refining={refine.isPending}
+            onPlanChange={updateResult}
+            onAccept={onAccept}
+            onRestart={onRestart}
+            onError={setError}
+          />
         )}
 
         {error !== null && (
           <Text testID="review-error" style={styles.error}>{error}</Text>
         )}
 
-        {locked ? (
-          <>
-            <Text testID="allowance-used" style={styles.settled}>
-              {ERROR_MESSAGES[ERROR_CODES.ALBERT_ALLOWANCE_USED]}
-            </Text>
-            <Button
-              testID="upgrade-to-save"
-              label="Upgrade to save this path"
-              onPress={() => router.push(PAYWALL_ROUTE)}
-            />
-          </>
-        ) : (
-          <Button
-            testID="accept-plan"
-            label={createPlan.isPending ? 'Saving…' : 'Start this path'}
-            disabled={busy || name.trim().length === 0}
-            onPress={() => void onAccept()}
-          />
-        )}
+        <ReviewSaveArea
+          saveLock={saveLock}
+          saving={createPlan.isPending}
+          disabled={busy || name.trim().length === 0}
+          onSave={() => void onAccept()}
+          onUpgrade={() => router.push(PAYWALL_ROUTE)}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -374,12 +269,6 @@ const styles = StyleSheet.create({
   topic:     { gap: spacing.xs, paddingVertical: spacing.xs },
   topicName: { fontFamily: font.medium, fontSize: fontSize.md, color: colors.textStrong },
   badges:    { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
-  followUp: {
-    minHeight: 64, fontFamily: font.regular, fontSize: fontSize.sm,
-    color: colors.textStrong, padding: spacing.sm, borderWidth: 1,
-    borderColor: colors.border, borderRadius: 8, textAlignVertical: 'top',
-  },
-  notice:     { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textStrong },
   run:        { marginBottom: spacing.md },
   runNeed:    { fontFamily: font.semibold, fontSize: fontSize.sm, color: colors.textStrong, marginBottom: spacing.xs },
   notCovered: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },

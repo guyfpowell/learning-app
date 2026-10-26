@@ -12,6 +12,7 @@ import { PremiumModal } from '@/components/ui/PremiumModal';
 import { useSkills, usePaths, useEnroll, useSetActivePath, useSkip } from '@/hooks/useTrack';
 import { extractError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
+import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
 
 // Display-only labels. `category` is free text (web admin can create others), so
 // callers must fall back to the raw value for anything not listed here.
@@ -100,7 +101,7 @@ export default function TracksScreen() {
               >
                 <PathCard
                   path={path}
-                  onStartLesson={(id) => router.push(`/(tabs)/lesson/${id}`)}
+                  onStartLesson={(id) => router.push(lessonRoute(id))}
                   onSkip={skip.skip}
                   skipPending={skip.pendingScope(path)}
                 />
@@ -204,7 +205,7 @@ export default function TracksScreen() {
                     testID={`enrol-btn-${skill.id}`}
                     label="Enrol"
                     loading={enroll.isPending && enroll.variables === skill.id}
-                    onPress={() => enroll.mutate(skill.id, { onSuccess: () => router.push('/(tabs)/lessons') })}
+                    onPress={() => enroll.mutate(skill.id, { onSuccess: () => router.push(HOME_ROUTE) })}
                   />
                 )}
               </Card>

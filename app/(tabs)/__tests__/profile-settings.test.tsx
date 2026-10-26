@@ -75,10 +75,10 @@ const mockPrefs: NotificationPreference = {
   id: 'np1',
   userId: 'u1',
   enableDailyReminder: false,
-  reminderTime: 'morning',
   enableStreak: true,
   enableLessonAvailable: true,
   enableTopicFeedback: true,
+  enableSuggestions: true,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -177,17 +177,17 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
 
   it('shows daily reminder label', () => {
     render(<ProfileScreen />);
-    expect(screen.getByText('Daily reminder')).toBeTruthy();
+    expect(screen.getByText('Daily lesson reminder')).toBeTruthy();
   });
 
   it('shows streak milestone label', () => {
     render(<ProfileScreen />);
-    expect(screen.getByText('Streak milestones')).toBeTruthy();
+    expect(screen.getByText('Streak milestone notifications')).toBeTruthy();
   });
 
   it('shows new lesson available label', () => {
     render(<ProfileScreen />);
-    expect(screen.getByText('New lesson available')).toBeTruthy();
+    expect(screen.getByText('New lesson available alerts')).toBeTruthy();
   });
 
   it('hides the time picker when daily reminder is off', () => {
@@ -206,7 +206,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: false } });
     render(<ProfileScreen />);
     expect(screen.queryByTestId('reminder-time-picker')).toBeNull();
-    fireEvent(screen.getByTestId('toggle-daily-reminder'), 'valueChange', true);
+    fireEvent(screen.getByTestId('toggle-enableDailyReminder'), 'valueChange', true);
     expect(screen.getByTestId('reminder-time-picker')).toBeTruthy();
   });
 
@@ -259,6 +259,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
       enableStreak: true,
       enableLessonAvailable: true,
       enableTopicFeedback: true,
+      enableSuggestions: true,
     });
     expect(mockProfileMutate).toHaveBeenCalledWith({
       preferredTime: '08:00',
@@ -270,10 +271,41 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     setQueryMock({ data: mockPrefs });
     render(<ProfileScreen />);
     expect(screen.getByText('Ask me how each topic went')).toBeTruthy();
-    expect(screen.getByTestId('toggle-topic-feedback').props.value).toBe(true);
-    fireEvent(screen.getByTestId('toggle-topic-feedback'), 'valueChange', false);
+    expect(screen.getByTestId('toggle-enableTopicFeedback').props.value).toBe(true);
+    fireEvent(screen.getByTestId('toggle-enableTopicFeedback'), 'valueChange', false);
     fireEvent.press(screen.getByText('SAVE SETTINGS'));
     expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({ enableTopicFeedback: false }));
+  });
+
+  // VoiceOver read "switch, on" with no name: a native Switch is not named by the Text beside it.
+  it.each([
+    ['enableDailyReminder', 'Daily lesson reminder'],
+    ['enableStreak', 'Streak milestone notifications'],
+    ['enableLessonAvailable', 'New lesson available alerts'],
+    ['enableTopicFeedback', 'Ask me how each topic went'],
+    ['enableSuggestions', "Albert's suggestions"],
+  ])('the %s switch is named by its label', (field, label) => {
+    render(<ProfileScreen />);
+    expect(screen.getByTestId(`toggle-${field}`).props.accessibilityLabel).toBe(label);
+  });
+
+  it('says the toggles did not load, and a save does not write defaults over them', () => {
+    setQueryMock({ data: undefined, isError: true });
+    render(<ProfileScreen />);
+    expect(screen.getByTestId('prefs-error')).toBeTruthy();
+    expect(screen.queryByTestId('toggle-enableSuggestions')).toBeNull();
+    fireEvent.press(screen.getByText('SAVE SETTINGS'));
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(mockProfileMutate).toHaveBeenCalled();
+  });
+
+  it("the Albert's suggestions toggle (079g8) is saved with the other preferences", () => {
+    setQueryMock({ data: mockPrefs });
+    render(<ProfileScreen />);
+    expect(screen.getByTestId('toggle-enableSuggestions').props.value).toBe(true);
+    fireEvent(screen.getByTestId('toggle-enableSuggestions'), 'valueChange', false);
+    fireEvent.press(screen.getByText('SAVE SETTINGS'));
+    expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({ enableSuggestions: false }));
   });
 
   it('Save Settings sends updated time when picker is changed', () => {
