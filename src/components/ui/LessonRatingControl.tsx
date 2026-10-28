@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Sentry from '@sentry/react-native';
 import { LESSON_RATINGS, LESSON_RATING_LABELS, nextLessonRating, type LessonRating } from '@learning/shared';
 import { useSetLessonRating } from '@/hooks/useLesson';
-import { colors, spacing } from '@/theme';
+import { colors } from '@/theme';
 
 interface LessonRatingControlProps {
   lessonId: string;
@@ -16,6 +16,12 @@ const ICON: Record<LessonRating, { on: 'thumbs-up' | 'thumbs-down'; off: 'thumbs
   up: { on: 'thumbs-up', off: 'thumbs-up-outline' },
   down: { on: 'thumbs-down', off: 'thumbs-down-outline' },
 };
+
+/** Unpicked is muted; a pick is filled in green (up) or red (down): a thumb is an opinion. */
+export function ratingColor(r: LessonRating, selected: boolean) {
+  if (!selected) return colors.textMuted;
+  return r === 'up' ? colors.success : colors.error;
+}
 
 /** Thumbs on a completed lesson. Tapping the selected thumb clears it; the other replaces it. */
 export function LessonRatingControl({ lessonId, rating }: LessonRatingControlProps) {
@@ -50,7 +56,7 @@ export function LessonRatingControl({ lessonId, rating }: LessonRatingControlPro
             accessibilityState={{ selected }}
             style={styles.button}
           >
-            <Ionicons name={selected ? ICON[r].on : ICON[r].off} size={22} color={selected ? colors.teal : colors.textMuted} />
+            <Ionicons name={selected ? ICON[r].on : ICON[r].off} size={22} color={ratingColor(r, selected)} />
           </Pressable>
         );
       })}
@@ -59,6 +65,6 @@ export function LessonRatingControl({ lessonId, rating }: LessonRatingControlPro
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  button: { padding: spacing.xs },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  button: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
 });

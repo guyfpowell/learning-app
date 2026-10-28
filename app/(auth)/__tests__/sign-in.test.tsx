@@ -1,8 +1,9 @@
 import React from 'react';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import SignInScreen, { extractError } from '../sign-in';
 import { useLogin } from '@/hooks/useAuth';
+import { colors } from '@/theme';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -149,5 +150,10 @@ describe('SignInScreen', () => {
     fireEvent.press(screen.getByText('SIGN IN'));
     expect(screen.queryByText('Enter a valid email address')).toBeNull();
     expect(mockMutate).toHaveBeenCalledWith({ email: 'user@example.com', password: 'secret123' });
+  });
+
+  it('the submit button is the coral variant (090)', () => {
+    render(<SignInScreen />);
+    expect(StyleSheet.flatten(screen.getByTestId('signin-submit').props.style).backgroundColor).toBe(colors.coral);
   });
 });

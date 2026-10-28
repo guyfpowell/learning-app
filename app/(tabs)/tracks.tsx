@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
+import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -51,7 +52,7 @@ export default function TracksScreen() {
   const activeSkillId = trackPaths.find((p) => p.isActive)?.id ?? null;
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>Tracks</Text>
 

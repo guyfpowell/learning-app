@@ -1,7 +1,8 @@
 import React from 'react';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import RegisterScreen from '../register';
+import { colors } from '@/theme';
 import { useRegister } from '@/hooks/useAuth';
 import { authService } from '@/services/auth.service';
 import { waitFor } from '@testing-library/react-native';
@@ -247,5 +248,10 @@ describe('RegisterScreen', () => {
       fireEvent.press(screen.getByText('CREATE ACCOUNT'));
       expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('inviteCode');
     });
+  });
+
+  it('the submit button is the coral variant (090)', () => {
+    render(<RegisterScreen />);
+    expect(StyleSheet.flatten(screen.getByTestId('register-submit').props.style).backgroundColor).toBe(colors.coral);
   });
 });

@@ -18,7 +18,8 @@ import type { QuizOptState } from '@/components/ui/QuizOpt';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { CelebrationOverlay, XpChipOverlay } from '@/components/ui/CelebrationOverlay';
 import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
-import { QuizResultFrame, quizFrameStyles } from '@/components/quiz/QuizResultFrame';
+import { QuizHeroCard } from '@/components/quiz/QuizHeroCard';
+import { QuizResultFrame, quizFrameStyles, frameContentStyle } from '@/components/quiz/QuizResultFrame';
 import { CoachingCard, KeyTakeawayCard, MilestoneCard, StreakRow, TrackAverageBadge, XpAward } from '@/components/quiz/QuizResultParts';
 import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
 
@@ -29,15 +30,6 @@ interface QuizModalProps {
   onClose: () => void;
   /** Foreground seconds on the lesson flow so far (079e); sent with every submission. */
   completionTime?: () => number;
-}
-
-function ProgressBar({ value }: { value: number }) {
-  const clamped = Math.min(100, Math.max(0, value));
-  return (
-    <View style={styles.progressTrack} testID="quiz-progress-bar">
-      <View style={[styles.progressFill, { width: `${clamped}%` as `${number}%` }]} />
-    </View>
-  );
 }
 
 type CelebrationItem =
@@ -285,7 +277,13 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
       </>
     );
     return (
-      <QuizResultFrame {...frame} onClose={handleLeaveLesson} overlay={celebration}>
+      <QuizResultFrame
+        {...frame}
+        onClose={handleLeaveLesson}
+        overlay={celebration}
+        /* 079f: the result's lesson carries the stored verdict, so no refetch. */
+        rating={<LessonRatingControl lessonId={lesson.id} rating={submit.data.lesson.rating ?? null} />}
+      >
         <Text style={styles.resultHeading}>{submit.data.correct ? 'Correct!' : 'Incorrect'}</Text>
         <Animated.View style={{ transform: [{ scale: scoreAnim }] }}>
           <TrackAverageBadge average={trackAverage} previous={previousAverage} retakeUsed={retakeUsed} />
@@ -298,8 +296,6 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
         {coaching && <CoachingCard coaching={coaching} />}
         {/* Key takeaway — last, per item 6 */}
         {lesson.keyTakeaway && <KeyTakeawayCard takeaway={lesson.keyTakeaway} />}
-        {/* 079f: the result's lesson carries the stored verdict, so no refetch. */}
-        <LessonRatingControl lessonId={lesson.id} rating={submit.data.lesson.rating ?? null} />
         {/* End-of-topic feedback (079d). Closing hides it here only: the write already
             happened, so Home will not show it again; one never written comes back on Home. */}
         {topicEnd && (
@@ -312,6 +308,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
         <Button
           label={nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
           onPress={() => handleNavigateAfterQuiz(nextLessonId)}
+          variant="coral"
           style={styles.doneBtn}
         />
       </QuizResultFrame>
@@ -321,13 +318,17 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   // ─── Already completed — no unresolved question left, and no fresh result to show ──
   if (alreadyCompleted) {
     return (
-      <QuizResultFrame {...frame} onClose={handleLeaveLesson}>
+      <QuizResultFrame
+        {...frame}
+        onClose={handleLeaveLesson}
+        rating={lesson.quizCompleted ? <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} /> : undefined}
+      >
         <Text style={styles.resultHeading}>Already Completed</Text>
         <Text style={styles.completedBody}>You've already finished this lesson's quiz.</Text>
-        {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} />}
         <Button
           label={lesson.nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
           onPress={() => handleNavigateAfterQuiz(lesson.nextLessonId)}
+          variant="coral"
           style={styles.doneBtn}
         />
       </QuizResultFrame>
@@ -345,26 +346,15 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView testID="quiz-question-content" contentContainerStyle={frameContentStyle(insets.bottom)}>
           {quizzes.length === 0 ? (
             <Text style={styles.empty}>No quiz available for this lesson.</Text>
           ) : (
             <>
-              {quizzes.length > 1 && (
-                <View style={styles.progressWrap}>
-                  <View style={styles.progressRow}>
-                    <Text style={styles.progress}>
-                      Question {currentQuizIndex + 1} of {quizzes.length}
-                    </Text>
-                    <Text style={styles.progress}>
-                      {Math.round(((currentQuizIndex + 1) / quizzes.length) * 100)}%
-                    </Text>
-                  </View>
-                  <ProgressBar value={((currentQuizIndex + 1) / quizzes.length) * 100} />
-                </View>
-              )}
-
-              <Text style={styles.question}>{current.question}</Text>
+              <QuizHeroCard
+                question={current.question}
+                progress={quizzes.length > 1 ? { index: currentQuizIndex, total: quizzes.length } : undefined}
+              />
 
               {current.type === 'multiple-choice' ? (
                 <View style={styles.options}>
@@ -403,6 +393,8 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
                 onPress={handleSubmit}
                 loading={submit.isPending}
                 disabled={!selectedAnswer}
+                variant="coral"
+                size="lg"
                 style={styles.actionBtn}
               />
             </>
@@ -415,35 +407,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
 const styles = StyleSheet.create({
   ...quizFrameStyles,
   spacer:    { width: 32 },
-  progressWrap: { marginBottom: spacing.md },
-  progressRow: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    marginBottom:   spacing.xs,
-  },
-  progress: {
-    fontFamily:   font.medium,
-    fontSize:     fontSize.sm,
-    color:        colors.textMuted,
-  },
-  progressTrack: {
-    height:          6,
-    backgroundColor: colors.borderSubtle,
-    borderRadius:    3,
-    overflow:        'hidden',
-  },
-  progressFill: {
-    height:          6,
-    backgroundColor: colors.brand,
-    borderRadius:    3,
-  },
-  question: {
-    fontFamily:   font.semibold,
-    fontSize:     fontSize.md,
-    color:        colors.textStrong,
-    marginBottom: spacing.lg,
-  },
-  options:   { gap: spacing.sm, marginBottom: spacing.lg },
+  options:  { gap: spacing.sm, marginBottom: spacing.lg },
   shortAnswerInput:   { marginBottom: spacing.lg },
   actionBtn:          { marginTop: spacing.sm },
   error: {

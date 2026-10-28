@@ -10,6 +10,7 @@ import {
   parsePreferredTime,
 } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing, shadow } from '@/theme';
+import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
@@ -201,7 +202,7 @@ export default function ProfileScreen() {
   const selectedItem = selectedKey ? (allAchievements.find(a => a.key === selectedKey) ?? null) : null;
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
         {/* ── Avatar + header ──────────────────────────────────────────────── */}

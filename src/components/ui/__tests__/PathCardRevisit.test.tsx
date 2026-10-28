@@ -1,8 +1,10 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { revisitingLabel, type PathNextLesson } from '@learning/shared';
 import { PathCard } from '../PathCard';
 import { makeCustomPath } from '@/test-utils/paths';
+import { colors, spacing } from '@/theme';
 
 function makeNextLesson(id: string, title: string, resumePhase: PathNextLesson['resumePhase'] = null): PathNextLesson {
   return {
@@ -79,5 +81,38 @@ describe('PathCard revisit (079g7)', () => {
       revisit: { topicKey: 'disc', topicTitle: 'Discovery', nextLesson: revisitLesson, isRetake: true },
     }));
     expect(screen.getByText(/^Revisit Lesson →$/i)).toBeTruthy();
+  });
+});
+
+describe('PathCard hero variant (090)', () => {
+  const path = makeCustomPath({ id: 'plan-1', nextLesson: forward, canSkipLesson: true });
+  const flat = (testID: string) => StyleSheet.flatten(screen.getByTestId(testID).props.style);
+
+  it('draws the next-lesson card in cobalt with a coral button', () => {
+    render(<PathCard variant="hero" path={path} onStartLesson={jest.fn()} onSkip={jest.fn()} />);
+    expect(flat('next-lesson-card-plan-1').backgroundColor).toBe(colors.brand);
+    expect(flat('next-lesson-btn-plan-1').backgroundColor).toBe(colors.coral);
+  });
+
+  it('keeps the skip button off the cobalt card', () => {
+    render(<PathCard variant="hero" path={path} onStartLesson={jest.fn()} onSkip={jest.fn()} />);
+    expect(screen.getByTestId('skip-lesson-btn-plan-1')).toBeTruthy();
+    expect(within(screen.getByTestId('next-lesson-card-plan-1')).queryByTestId('skip-lesson-btn-plan-1')).toBeNull();
+  });
+
+  it('gives the progress card a hairline border, the hero a gap above it, and Skip the ghost look', () => {
+    render(<PathCard variant="hero" path={path} onStartLesson={jest.fn()} onSkip={jest.fn()} />);
+    expect(flat('enrollment-card-plan-1')).toEqual(expect.objectContaining({ borderWidth: 1, borderColor: colors.borderSubtle }));
+    expect(flat('next-lesson-card-plan-1').marginTop).toBe(spacing.md);
+    expect(flat('skip-lesson-btn-plan-1').backgroundColor).toBe('transparent');
+    expect(flat('skip-lesson-btn-plan-1').borderWidth).toBeUndefined();
+  });
+
+  it('leaves the default variant on the paper card with the primary button', () => {
+    render(<PathCard path={path} onStartLesson={jest.fn()} onSkip={jest.fn()} />);
+    expect(flat('next-lesson-card-plan-1').backgroundColor).toBe(colors.surface);
+    expect(flat('next-lesson-btn-plan-1').backgroundColor).toBe(colors.brand);
+    expect(flat('enrollment-card-plan-1').borderWidth).toBeUndefined();
+    expect(flat('skip-lesson-btn-plan-1').borderColor).toBe(colors.brand);
   });
 });

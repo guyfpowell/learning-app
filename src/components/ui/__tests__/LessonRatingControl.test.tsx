@@ -1,6 +1,8 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { LessonRatingControl } from '../LessonRatingControl';
+import { colors } from '@/theme';
+import { LessonRatingControl, ratingColor } from '../LessonRatingControl';
 import { useSetLessonRating } from '@/hooks/useLesson';
 
 jest.mock('@/hooks/useLesson', () => ({ useSetLessonRating: jest.fn() }));
@@ -53,5 +55,18 @@ describe('LessonRatingControl', () => {
     const { getByLabelText } = setup(null, true);
     fireEvent.press(getByLabelText('Thumbs up'));
     expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('unpicked is muted, up is green, down is red', () => {
+    expect(ratingColor('up', false)).toBe(colors.textMuted);
+    expect(ratingColor('down', false)).toBe(colors.textMuted);
+    expect(ratingColor('up', true)).toBe(colors.success);
+    expect(ratingColor('down', true)).toBe(colors.error);
+  });
+
+  it('each thumb has a 44pt touch target', () => {
+    const { getByLabelText } = setup();
+    const style = StyleSheet.flatten(getByLabelText('Thumbs up').props.style);
+    expect(style).toMatchObject({ minWidth: 44, minHeight: 44 });
   });
 });

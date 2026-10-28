@@ -1,5 +1,8 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { must } from '@/test-utils/must';
+import { colors, radius, spacing } from '@/theme';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react-native';
 import { QuizModal } from '../QuizModal';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
 import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
@@ -209,6 +212,47 @@ describe('QuizModal', () => {
     expect(screen.queryByTestId('quiz-progress-bar')).toBeNull();
   });
 
+  it('091c: the question sits inside the cobalt hero card', () => {
+    render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+    const card = screen.getByTestId('quiz-hero-card');
+    expect(within(card).getByText('What is product-market fit?')).toBeTruthy();
+    expect(StyleSheet.flatten(card.props.style)).toMatchObject({ backgroundColor: colors.brand, borderRadius: radius.card, padding: spacing.lg });
+  });
+
+  it('091c: a capstone\'s "Question N of M", percentage and bar are inside the hero card', () => {
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    const card = screen.getByTestId('quiz-hero-card');
+    expect(within(card).getByText('Question 1 of 2')).toBeTruthy();
+    expect(within(card).getByText('50%')).toBeTruthy();
+    expect(within(card).getByTestId('quiz-progress-bar')).toBeTruthy();
+  });
+
+  it('091c: a short-answer question sits in the hero card above the input', () => {
+    const shortAnswer = { ...mockQuiz1, type: 'short-answer' as const, options: [] };
+    render(<QuizModal visible={true} lesson={{ ...singleQuizLesson, quizzes: [shortAnswer] }} onClose={onClose} />);
+    expect(within(screen.getByTestId('quiz-hero-card')).getByText('What is product-market fit?')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Your answer...')).toBeTruthy();
+  });
+
+  it('091c: Submit is the coral variant, and disabled keeps coral at reduced opacity', () => {
+    render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+    const disabled = StyleSheet.flatten(must(screen.getByText('SUBMIT').parent?.parent, 'button').props.style);
+    expect(disabled).toMatchObject({ backgroundColor: colors.coral });
+    expect(disabled.opacity).toBeLessThan(1);
+    fireEvent.press(screen.getByText('Option A'));
+    const enabled = StyleSheet.flatten(must(screen.getByText('SUBMIT').parent?.parent, 'button').props.style);
+    expect(enabled).toMatchObject({ backgroundColor: colors.coral });
+    expect(enabled.opacity).toBeUndefined();
+  });
+
+  it('091c: a picked option is announced as selected', () => {
+    render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+    expect(screen.getByTestId('quiz-opt-0').props.accessibilityState).toMatchObject({ selected: false });
+    fireEvent.press(screen.getByTestId('quiz-opt-0'));
+    expect(screen.getByTestId('quiz-opt-0').props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByTestId('quiz-opt-1').props.accessibilityState).toMatchObject({ selected: false });
+  });
+
   it('renders multiple-choice options', () => {
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
     expect(screen.getByText('Option A')).toBeTruthy();
@@ -334,6 +378,13 @@ describe('QuizModal', () => {
     expect(screen.queryByText('DONE')).toBeNull();
   });
 
+  it('091b: the result action is the coral variant', () => {
+    setQuizMock({ data: { ...mockResult, nextLessonId: 'lesson-2' } });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    const btn = must(screen.getByText('NEXT LESSON').parent?.parent, 'button');
+    expect(StyleSheet.flatten(btn.props.style)).toMatchObject({ backgroundColor: colors.coral });
+  });
+
   it('"Next Lesson" in terminal view calls onClose and navigates to that lesson', () => {
     setQuizMock({ data: { ...mockResult, nextLessonId: 'lesson-2' } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
@@ -439,6 +490,20 @@ describe('QuizModal', () => {
       setQuizMock({ data: { ...mockResult, lesson: { ...mockLesson, rating: 'up' } } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(screen.getByTestId('rating-stub').props.children).toBe('lesson-1:up');
+      expect(within(screen.getByTestId('quiz-frame-header')).getByTestId('rating-stub')).toBeTruthy();
+      expect(within(screen.getByTestId('quiz-frame-content')).queryByTestId('rating-stub')).toBeNull();
+    });
+
+    it('091b: the result and question bodies clear the bottom inset by spacing.md', () => {
+      const { useSafeAreaInsets } = require('react-native-safe-area-context');
+      (useSafeAreaInsets as jest.Mock).mockReturnValue({ top: 44, bottom: 34, left: 0, right: 0 });
+      setQuizMock({ data: mockResult });
+      const { unmount } = render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(StyleSheet.flatten(screen.getByTestId('quiz-frame-content').props.contentContainerStyle).paddingBottom).toBe(34 + spacing.md);
+      unmount();
+      setQuizMock({ data: undefined });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(StyleSheet.flatten(screen.getByTestId('quiz-question-content').props.contentContainerStyle).paddingBottom).toBe(34 + spacing.md);
     });
 
     it('079f: no thumbs while the lesson is not finalized', () => {
@@ -523,6 +588,7 @@ describe('QuizModal', () => {
       const completedLesson = { ...singleQuizLesson, quizCompleted: true, rating: 'down' as const };
       render(<QuizModal visible={true} lesson={completedLesson} onClose={onClose} />);
       expect(screen.getByTestId('rating-stub').props.children).toBe('lesson-1:down');
+      expect(within(screen.getByTestId('quiz-frame-header')).getByTestId('rating-stub')).toBeTruthy();
     });
 
     it('shows "Already Completed" on open when every quiz id is already in resolvedQuizIds', () => {

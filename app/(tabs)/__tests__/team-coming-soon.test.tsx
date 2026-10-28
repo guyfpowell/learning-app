@@ -71,8 +71,8 @@ describe('TeamScreen — coming soon state (feature disabled)', () => {
     expect(screen.queryByText(/try again/i)).toBeNull();
   });
 
-  it('uses edges=[left,right,bottom] so the tab layout owns the top inset (Ticket 072j)', () => {
+  it('uses edges=[left,right] so the tab layout owns the top inset and the tab bar the bottom one (090) (Ticket 072j)', () => {
     render(<TeamScreen />);
-    expect(capturedEdges).toEqual(['left', 'right', 'bottom']);
+    expect(capturedEdges).toEqual(['left', 'right']);
   });
 });

@@ -8,7 +8,8 @@ import type { ApiErrorResponse, PremiumRequiredDetails } from '@learning/shared'
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge, LEVEL_BADGE_VARIANT } from '@/components/ui/Badge';
+import { KeyTakeawayBlock } from '@/components/ui/KeyTakeawayBlock';
+import { LessonPathHeader } from '@/components/learning/LessonPathHeader';
 import { Spinner } from '@/components/ui/Spinner';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
@@ -180,8 +181,6 @@ export default function LessonDetailScreen() {
     });
   }
 
-  const hasTrackHeader = !!(enrollment || lesson?.skillPath?.level || lesson?.topicName);
-
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <Stack.Screen options={header} />
@@ -217,36 +216,14 @@ export default function LessonDetailScreen() {
 
         {lesson && (
           <>
-            {hasTrackHeader && (
-              <View testID="track-header" style={styles.trackHeader}>
-                {enrollment && (
-                  <View style={styles.trackTitleRow}>
-                    <Text style={styles.trackName}>{enrollment.name}</Text>
-                    {pct !== null && (
-                      <Text style={styles.trackPct}>{pct}% complete</Text>
-                    )}
-                  </View>
-                )}
-                <View style={styles.trackMeta}>
-                  {lesson.skillPath?.level && (
-                    <Badge
-                      label={lesson.skillPath.levelLabel ?? lesson.skillPath.level}
-                      variant={LEVEL_BADGE_VARIANT[lesson.skillPath.level]}
-                    />
-                  )}
-                  {lesson.topicName && (
-                    <View>
-                      <Text style={styles.topicName}>{lesson.topicName}</Text>
-                      {lesson.lessonIndex != null && lesson.totalLessons != null && (
-                        <Text style={styles.positionLabel}>
-                          {`Lesson ${lesson.lessonIndex} of ${lesson.totalLessons}`}
-                        </Text>
-                      )}
-                    </View>
-                  )}
-                </View>
-              </View>
-            )}
+            <LessonPathHeader
+              level={lesson.skillPath?.level}
+              levelLabel={lesson.skillPath?.levelLabel}
+              topicName={lesson.topicName}
+              lessonIndex={lesson.lessonIndex}
+              totalLessons={lesson.totalLessons}
+              path={enrollment && pct !== null ? { name: enrollment.name, percentComplete: pct } : undefined}
+            />
 
             <Card testID="lesson-card" style={styles.card}>
               <View style={styles.titleRow}>
@@ -280,16 +257,14 @@ export default function LessonDetailScreen() {
               )}
 
               {phase === 'takeaway' && lesson.keyTakeaway && (
-                <View testID="key-takeaway" style={styles.takeawayBlock}>
-                  <Text style={styles.takeawayLabel}>Key takeaway</Text>
-                  <Text style={styles.takeawayText}>{lesson.keyTakeaway}</Text>
-                </View>
+                <KeyTakeawayBlock testID="key-takeaway" takeaway={lesson.keyTakeaway} />
               )}
 
               {phase === 'collapsed' && (
                 <Button
                   testID="continue-btn"
                   label="Continue"
+                  variant="coral"
                   style={styles.quizBtn}
                   onPress={() => {
                     setPhase('expanded');
@@ -302,7 +277,8 @@ export default function LessonDetailScreen() {
                 <Button
                   testID="key-takeaway-btn"
                   label="Key Takeaway"
-                  style={[styles.quizBtn, styles.completeBtn]}
+                  variant="coral"
+                  style={styles.quizBtn}
                   onPress={() => {
                     setPhase('takeaway');
                     if (lesson) updatePosition(lesson.id, 'takeaway');
@@ -314,6 +290,7 @@ export default function LessonDetailScreen() {
                 <Button
                   testID="lesson-quiz-btn"
                   label="Test My Knowledge"
+                  variant="coral"
                   style={styles.quizBtn}
                   onPress={() => setQuizVisible(true)}
                 />
@@ -365,42 +342,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   content:   { padding: spacing.md, flexGrow: 1 },
 
-  trackHeader: {
-    gap:          spacing.xs,
-    marginBottom: spacing.md,
-  },
-  trackTitleRow: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'center',
-  },
-  trackName: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.base,
-    color:      colors.textDark,
-  },
-  trackPct: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.sm,
-    color:      colors.brand,
-  },
-  trackMeta: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           spacing.sm,
-    flexWrap:      'wrap',
-  },
-  topicName: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.sm,
-    color:      colors.brand,
-  },
-  positionLabel: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-  },
-
   card: { gap: spacing.md },
   titleRow: {
     flexDirection:  'row',
@@ -439,30 +380,7 @@ const styles = StyleSheet.create({
     color:      colors.textDark,
     lineHeight: fontSize.base * 1.6,
   },
-  takeawayBlock: {
-    borderLeftWidth:  4,
-    borderLeftColor:  colors.brand,
-    paddingLeft:      spacing.md,
-    paddingVertical:  spacing.sm,
-    backgroundColor:  colors.brandSoft,
-    borderRadius:     4,
-    gap:              spacing.xs,
-  },
-  takeawayLabel: {
-    fontFamily:    font.bold,
-    fontSize:      fontSize.sm,
-    color:         colors.brand,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  takeawayText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.base,
-    color:      colors.textDark,
-    lineHeight: fontSize.base * 1.5,
-  },
   quizBtn:     { marginTop: spacing.sm },
-  completeBtn: { backgroundColor: '#F97316' },
   error: {
     fontFamily: font.regular,
     fontSize:   fontSize.base,

@@ -26,7 +26,8 @@ function levelState(lvl: TrackLevelProgress): 'done' | 'active' | 'locked' {
   return 'locked';
 }
 
-export function TrackMap({ levels }: { levels: TrackLevelProgress[] }) {
+/** `showStatus` is the "<Level> in progress" line under the strip; Home's hero card turns it off (091d). */
+export function TrackMap({ levels, showStatus = true }: { levels: TrackLevelProgress[]; showStatus?: boolean }) {
   if (levels.length === 0) return null;
 
   const activeLevel = levels.find(
@@ -55,7 +56,7 @@ export function TrackMap({ levels }: { levels: TrackLevelProgress[] }) {
           );
         })}
       </View>
-      {activeLevelLabel && (
+      {showStatus && activeLevelLabel && (
         <Text style={styles.activeLabel}>{activeLevelLabel} in progress</Text>
       )}
     </View>

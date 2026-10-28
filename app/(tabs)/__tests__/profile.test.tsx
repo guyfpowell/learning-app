@@ -308,9 +308,9 @@ describe('ProfileScreen', () => {
   });
 
   describe('Ticket 072j — safe-area edges', () => {
-    it('uses edges=[left,right,bottom] so the tab layout owns the top inset', () => {
+    it('uses edges=[left,right] so the tab layout owns the top inset and the tab bar the bottom one (090)', () => {
       render(<ProfileScreen />);
-      expect(capturedEdges).toEqual(['left', 'right', 'bottom']);
+      expect(capturedEdges).toEqual(['left', 'right']);
     });
   });
 });

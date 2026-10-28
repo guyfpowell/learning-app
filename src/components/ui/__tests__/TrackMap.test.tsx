@@ -23,6 +23,15 @@ describe('TrackMap', () => {
     expect(screen.getByText('Beginner')).toBeTruthy();
   });
 
+  it('091d: shows "<Level> in progress" by default and hides it when showStatus is off', () => {
+    const { unmount } = render(<TrackMap levels={[baseLevel]} />);
+    expect(screen.getByText('Beginner in progress')).toBeTruthy();
+    unmount();
+    render(<TrackMap levels={[baseLevel]} showStatus={false} />);
+    expect(screen.queryByText('Beginner in progress')).toBeNull();
+    expect(screen.getByText('Beginner')).toBeTruthy();
+  });
+
   it('returns null when levels is empty', () => {
     const { toJSON } = render(<TrackMap levels={[]} />);
     expect(toJSON()).toBeNull();

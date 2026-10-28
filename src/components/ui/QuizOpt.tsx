@@ -23,7 +23,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors, font, fontSize, radius, spacing } from '@/theme';
+import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
 
 export type QuizOptState = 'idle' | 'selected' | 'correct' | 'incorrect';
 
@@ -50,17 +50,17 @@ export function QuizOpt({
       testID={testID}
       onPress={onPress}
       disabled={isAnswered}
+      accessibilityState={{ selected: state === 'selected' }}
       style={({ pressed }) => [
-        styles.opt,
-        stateStyle(state),
+        quizOptTileStyle(state),
         pressed && !isAnswered && styles.optPressed,
         style,
       ]}
       {...rest}
     >
       {/* Key letter */}
-      <View style={[styles.key, keyStyle(state)]}>
-        <Text style={[styles.keyText, keyTextStyle(state)]}>{optKey}</Text>
+      <View style={[styles.key, quizOptKeyStyle(state)]}>
+        <Text style={[styles.keyText, quizOptKeyTextStyle(state)]}>{optKey}</Text>
       </View>
 
       {/* Option text */}
@@ -93,7 +93,12 @@ function stateStyle(s: QuizOptState) {
   }
 }
 
-function keyStyle(s: QuizOptState) {
+/** The tile's resolved style for a state (exported: `toHaveStyle` is not installed). */
+export function quizOptTileStyle(s: QuizOptState) {
+  return StyleSheet.flatten([styles.opt, stateStyle(s)]);
+}
+
+export function quizOptKeyStyle(s: QuizOptState) {
   switch (s) {
     case 'correct':   return styles.keyCorrect;
     case 'incorrect': return styles.keyIncorrect;
@@ -102,7 +107,7 @@ function keyStyle(s: QuizOptState) {
   }
 }
 
-function keyTextStyle(s: QuizOptState) {
+export function quizOptKeyTextStyle(s: QuizOptState) {
   switch (s) {
     case 'correct':
     case 'incorrect':
@@ -121,8 +126,9 @@ const styles = StyleSheet.create({
     padding:        spacing.sm3,
     borderRadius:   radius.md,
     borderWidth:    1.5,
-    borderColor:    colors.border,
+    borderColor:    colors.borderSubtle,
     backgroundColor: colors.surface,
+    ...shadow.xs,
   },
   optPressed: {
     backgroundColor: colors.surfaceSunken,

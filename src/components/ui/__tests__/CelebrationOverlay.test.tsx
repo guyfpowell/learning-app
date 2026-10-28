@@ -1,5 +1,7 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, screen, fireEvent, act } from '@testing-library/react-native';
+import { colors } from '@/theme';
 import { CelebrationOverlay, XpChipOverlay } from '../CelebrationOverlay';
 
 jest.useFakeTimers();
@@ -33,6 +35,21 @@ describe('CelebrationOverlay', () => {
   it('calls onDismiss when backdrop is pressed', () => {
     render(<CelebrationOverlay {...baseProps} />);
     fireEvent.press(screen.getByTestId('celebration-backdrop'));
+    act(() => jest.runAllTimers());
+    expect(baseProps.onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('is a cobalt card with white text and a coral dismiss button (090)', () => {
+    render(<CelebrationOverlay {...baseProps} />);
+    const flat = (id: string) => StyleSheet.flatten(screen.getByTestId(id).props.style);
+    expect(flat('celebration-card').backgroundColor).toBe(colors.brand);
+    expect(flat('celebration-name').color).toBe(colors.onBrand);
+    expect(flat('celebration-dismiss').backgroundColor).toBe(colors.coral);
+  });
+
+  it('calls onDismiss when the dismiss button is pressed', () => {
+    render(<CelebrationOverlay {...baseProps} />);
+    fireEvent.press(screen.getByTestId('celebration-dismiss'));
     act(() => jest.runAllTimers());
     expect(baseProps.onDismiss).toHaveBeenCalledTimes(1);
   });

@@ -62,7 +62,7 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Logo size={64} />
-          <Wordmark width={150} height={35} />
+          <Wordmark height={35} />
           <Text style={styles.tagline}>A little every day</Text>
 
           <Card style={styles.card}>
@@ -111,6 +111,7 @@ export default function SignInScreen() {
 
             <Button
               testID="signin-submit"
+              variant="coral"
               label="Sign in"
               onPress={handleSubmit}
               loading={login.isPending}

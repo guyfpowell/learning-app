@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
+import { BuilderIntro } from '@/components/trackBuilder/BuilderIntro';
 import { Button } from '@/components/ui/Button';
 import { useBuildPlan } from '@/hooks/useTrackBuilder';
 import {
@@ -108,10 +109,10 @@ export default function BuildScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.subtitle}>
-          Describe where you are and what you want. I'll put together a path from
-          the whole curriculum rather than a fixed track.
-        </Text>
+        <BuilderIntro
+          heading="Describe where you are and what you want."
+          line="I'll put together a path from the whole curriculum rather than a fixed track."
+        />
 
         <Card style={styles.card}>
           <TextInput
@@ -173,7 +174,6 @@ const styles = StyleSheet.create({
   headerBackBtn:  { paddingVertical: spacing.xs, paddingRight: spacing.sm },
   headerBackText: { fontFamily: font.regular, fontSize: fontSize.lg, color: colors.brand },
   content:        { padding: spacing.lg, gap: spacing.md },
-  subtitle:       { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
   card:           { gap: spacing.md },
   input: {
     minHeight: 160,

@@ -1,8 +1,12 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { NativeStackNavigationOptions } from 'expo-router';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize } from '@/theme';
 import { HOME_ROUTE } from '@/lib/routes';
+
+/** Minimum touch target, in points. */
+const BACK_TARGET = 44;
 
 /**
  * Native Stack header with a back button, for a detail screen in the root Stack (ADR-016).
@@ -34,13 +38,12 @@ export function useDetailHeader(title: string): NativeStackNavigationOptions {
         accessibilityLabel="Go back"
         style={styles.backBtn}
       >
-        <Text style={styles.backText}>‹</Text>
+        <Ionicons name="chevron-back" size={fontSize.lg} color={colors.brand} />
       </Pressable>
     ),
   };
 }
 
 const styles = StyleSheet.create({
-  backBtn: { paddingVertical: spacing.xs, paddingRight: spacing.sm },
-  backText: { fontFamily: font.regular, fontSize: fontSize.lg, color: colors.brand },
+  backBtn: { width: BACK_TARGET, height: BACK_TARGET, alignItems: 'center', justifyContent: 'center' },
 });

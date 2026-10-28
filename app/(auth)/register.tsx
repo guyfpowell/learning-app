@@ -158,7 +158,7 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Logo size={64} />
-          <Wordmark width={150} height={35} />
+          <Wordmark height={35} />
           <Text style={styles.tagline}>A little every day</Text>
 
           <Card style={styles.card}>
@@ -260,6 +260,7 @@ export default function RegisterScreen() {
 
             <Button
               testID="register-submit"
+              variant="coral"
               label="Create account"
               onPress={handleSubmit}
               loading={register.isPending}

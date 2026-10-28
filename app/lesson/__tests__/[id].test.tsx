@@ -1,5 +1,7 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { colors } from '@/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import LessonDetailScreen from '../[id]';
 import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
@@ -306,6 +308,27 @@ describe('LessonDetailScreen', () => {
     expect(screen.getByText('Topic One')).toBeTruthy();
     expect(screen.getByText('Lesson 1 of 5')).toBeTruthy();
     expect(screen.queryByText(/·/)).toBeNull();
+  });
+
+  describe('091a: coral actions', () => {
+    const bg = (testID: string) => StyleSheet.flatten(screen.getByTestId(testID).props.style).backgroundColor;
+    const completedLesson = { ...mockLesson, quizCompleted: true, quizzes: [{ id: 'q1' }], resolvedQuizIds: ['q1'] };
+
+    it('Continue and Key Takeaway are coral', () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
+      render(<LessonDetailScreen />);
+      expect(bg('continue-btn')).toBe(colors.coral);
+      fireEvent.press(screen.getByTestId('continue-btn'));
+      expect(bg('key-takeaway-btn')).toBe(colors.coral);
+    });
+
+    it('Test My Knowledge is coral and Retake is not', async () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: completedLesson, error: null });
+      render(<LessonDetailScreen />);
+      await waitFor(() => expect(screen.getByTestId('lesson-retake-btn')).toBeTruthy());
+      expect(bg('lesson-quiz-btn')).toBe(colors.coral);
+      expect(bg('lesson-retake-btn')).not.toBe(colors.coral);
+    });
   });
 
   it('navigates to settings when upgrade is pressed in premium modal', () => {

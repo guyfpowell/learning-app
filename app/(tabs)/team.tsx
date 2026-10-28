@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
+import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Spinner } from '@/components/ui/Spinner';
 import { Progress } from '@/components/ui/Progress';
 import { FlameIcon } from '@/components/ui/Streak';
@@ -39,7 +40,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 export default function TeamScreen() {
   if (!TEAM_FEATURE_ENABLED) {
     return (
-      <SafeAreaView style={styles.centered} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={styles.centered} edges={TAB_SCREEN_EDGES}>
         <Text testID="team-coming-soon" style={styles.comingSoonHeading}>Team features coming soon</Text>
         <Text testID="team-coming-soon-body" style={styles.comingSoonBody}>
           We're building team learning dashboards. Check back soon.
@@ -58,7 +59,7 @@ export default function TeamScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.centered} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={styles.centered} edges={TAB_SCREEN_EDGES}>
         <Spinner testID="loading-spinner" fullScreen />
       </SafeAreaView>
     );
@@ -66,7 +67,7 @@ export default function TeamScreen() {
 
   if (hasError) {
     return (
-      <SafeAreaView style={styles.centered} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={styles.centered} edges={TAB_SCREEN_EDGES}>
         <Text testID="team-error" style={styles.errorText}>
           {extractError(summaryQ.error ?? membersQ.error ?? gapsQ.error ?? leaderQ.error)}
         </Text>
@@ -80,7 +81,7 @@ export default function TeamScreen() {
   const leaderboard = leaderQ.data ?? [];
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.heading}>Team Dashboard</Text>
         <Text style={styles.subheading}>Track your team's learning progress</Text>

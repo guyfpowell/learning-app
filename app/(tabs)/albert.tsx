@@ -3,6 +3,7 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
+import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { usePaths } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
@@ -100,7 +101,7 @@ export default function AlbertScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* ── Intro — typographic, no mascot ─────────────────────────────── */}
         <View testID="albert-intro" style={styles.intro}>

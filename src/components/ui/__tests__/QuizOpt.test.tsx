@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
-import { QuizOpt } from '../QuizOpt';
+import { colors, radius } from '@/theme';
+import { QuizOpt, quizOptKeyStyle, quizOptKeyTextStyle, quizOptTileStyle } from '../QuizOpt';
 
 describe('QuizOpt', () => {
   it('renders the key and label', () => {
@@ -35,6 +36,31 @@ describe('QuizOpt', () => {
     states.forEach((state) => {
       const { unmount } = render(<QuizOpt optKey="A" label="Option" state={state} />);
       expect(screen.getByText('A')).toBeTruthy();
+      unmount();
+    });
+  });
+
+  it('091c: idle is a white tile with a subtle border; picked takes the soft fill, brand border and solid badge', () => {
+    expect(quizOptTileStyle('idle')).toMatchObject({
+      backgroundColor: colors.surface,
+      borderColor: colors.borderSubtle,
+      borderWidth: 1.5,
+      borderRadius: radius.md,
+    });
+    expect(quizOptTileStyle('selected')).toMatchObject({ backgroundColor: colors.brandSoft, borderColor: colors.brand });
+    expect(quizOptKeyStyle('selected')).toMatchObject({ backgroundColor: colors.brand });
+    expect(quizOptKeyTextStyle('selected')).toMatchObject({ color: colors.onBrand });
+  });
+
+  it('091c: the incorrect-after-retry state keeps its red look', () => {
+    expect(quizOptTileStyle('incorrect')).toMatchObject({ backgroundColor: colors.errorSoft, borderColor: colors.error });
+  });
+
+  it('091c: only the picked state is accessibility-selected', () => {
+    const states = ['idle', 'selected', 'correct', 'incorrect'] as const;
+    states.forEach((state) => {
+      const { unmount } = render(<QuizOpt optKey="A" label="Option" state={state} testID="opt" />);
+      expect(screen.getByTestId('opt').props.accessibilityState).toMatchObject({ selected: state === 'selected' });
       unmount();
     });
   });

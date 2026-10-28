@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { PATHS_LOAD_ERROR, isProgressComplete, xpProgressOf, type UserPath } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
+import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Card } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { useProgress } from '@/hooks/useProgress';
@@ -81,7 +82,7 @@ export default function ProgressScreen() {
   const hasNoPaths = Array.isArray(paths) && paths.length === 0;
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>My Progress</Text>
 

@@ -2,6 +2,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
+import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Button } from '@/components/ui/Button';
 import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
 import { TopicFeedback } from '@/components/ui/TopicFeedback';
@@ -52,7 +53,7 @@ export default function LessonsScreen() {
   const pathEnd = !topicEnd && shownPath?.kind === 'custom' && shownPath.isFinished ? shownPath : null;
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
       <ScrollView contentContainerStyle={styles.content}>
 
         {/* First thing on the screen — 069 items 1+2. It used to render below the
@@ -115,6 +116,7 @@ export default function LessonsScreen() {
         {/* Active path — the one path card Home shows (076g §1). */}
         {activePath && (
           <PathCard
+            variant="hero"
             path={activePath}
             onStartLesson={id => router.push(lessonRoute(id))}
             onSkip={skip.skip}

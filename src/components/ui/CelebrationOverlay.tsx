@@ -4,9 +4,9 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  View,
 } from 'react-native';
-import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
+import { colors, font, fontSize, radius, shadow, spacing, tracking } from '@/theme';
+import { Button } from '@/components/ui/Button';
 
 interface CelebrationOverlayProps {
   visible: boolean;
@@ -76,7 +76,7 @@ export function CelebrationOverlay({
         testID="celebration-card"
         style={[
           styles.card,
-          shadow.md as object,
+          shadow.brand as object,
           {
             opacity: anim,
             transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }],
@@ -86,9 +86,7 @@ export function CelebrationOverlay({
         <Text testID="celebration-title" style={styles.title}>{title}</Text>
         <Text testID="celebration-name" style={styles.name}>{name}</Text>
         <Text testID="celebration-description" style={styles.description}>{description}</Text>
-        <View style={styles.tapHint}>
-          <Text style={styles.tapHintText}>Tap to dismiss</Text>
-        </View>
+        <Button testID="celebration-dismiss" label="Tap to dismiss" variant="coral" onPress={dismiss} style={styles.dismissBtn} />
       </Animated.View>
     </Pressable>
   );
@@ -178,7 +176,7 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   card: {
-    backgroundColor: colors.paper,
+    backgroundColor: colors.brand,
     borderRadius: radius.xl,
     padding: spacing.xl,
     marginHorizontal: spacing.xl,
@@ -190,31 +188,26 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: font.semibold,
     fontSize: fontSize.sm,
-    color: colors.brand,
+    color: colors.brandSoft,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: tracking.caps,
     marginBottom: spacing.xs,
   },
   name: {
     fontFamily: font.bold,
     fontSize: fontSize.xl,
-    color: colors.textStrong,
+    color: colors.onBrand,
     textAlign: 'center',
   },
   description: {
     fontFamily: font.regular,
     fontSize: fontSize.md,
-    color: colors.textBody,
+    color: colors.brandSoft,
     textAlign: 'center',
     marginTop: spacing.xs,
   },
-  tapHint: {
+  dismissBtn: {
     marginTop: spacing.md,
-  },
-  tapHintText: {
-    fontFamily: font.regular,
-    fontSize: fontSize.xs,
-    color: colors.textMuted,
   },
   xpChipContainer: {
     position: 'absolute',

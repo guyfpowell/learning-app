@@ -5,6 +5,7 @@ import { Stack, useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { BuilderIntro } from '@/components/trackBuilder/BuilderIntro';
 import { FollowUpCard } from '@/components/trackBuilder/FollowUpCard';
 import { ReviewSaveArea } from '@/components/trackBuilder/ReviewSaveArea';
 import { useDraftStore } from '@/store/trackBuilder.store';
@@ -118,6 +119,10 @@ export default function BuildReviewScreen() {
   // Algorithm lives in @learning/shared (076c) — one copy, one place.
   const runs = reasonRuns(result.topics);
   const busy = refine.isPending || createPlan.isPending;
+  const topicCount = `${result.topics.length} topic${result.topics.length === 1 ? '' : 's'}`;
+  const needClause = needCount > 0
+    ? `, across ${needCount} thing${needCount === 1 ? '' : 's'} you need to be able to do`
+    : '';
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -149,6 +154,12 @@ export default function BuildReviewScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <BuilderIntro
+          heading="Review your path"
+          line={`${topicCount}, chosen for what you described${needClause}.`}
+          lineTestID="plan-counts"
+        />
+
         {/* Rule 6 — the loop settled rather than resolved. Say so: a plan built
             with part of the request still unanswered must not present itself as
             the finished article, and the user is the one who can correct it. */}
@@ -174,13 +185,6 @@ export default function BuildReviewScreen() {
           {result.description != null && (
             <Text testID="path-description" style={styles.description}>{result.description}</Text>
           )}
-          <Text testID="plan-counts" style={styles.counts}>
-            {result.topics.length} topic{result.topics.length === 1 ? '' : 's'}, chosen for
-            what you described
-            {needCount > 0
-              ? `, across ${needCount} thing${needCount === 1 ? '' : 's'} you need to be able to do`
-              : ''}.
-          </Text>
         </Card>
 
         <Card style={styles.card}>
@@ -268,7 +272,6 @@ const styles = StyleSheet.create({
     fontFamily: font.regular, fontSize: fontSize.md, color: colors.textStrong,
     padding: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: 8,
   },
-  counts:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
   topic:     { gap: spacing.xs, paddingVertical: spacing.xs },
   topicName: { fontFamily: font.medium, fontSize: fontSize.md, color: colors.textStrong },
   badges:    { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },

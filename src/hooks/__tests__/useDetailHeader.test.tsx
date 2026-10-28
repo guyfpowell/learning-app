@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { fireEvent, render, renderHook } from '@testing-library/react-native';
 
 const mockBack = jest.fn();
@@ -28,6 +29,15 @@ describe('useDetailHeader', () => {
     const { result } = renderHook(() => useDetailHeader('Lesson'));
     expect(result.current.headerShown).toBe(true);
     expect(result.current.title).toBe('Lesson');
+  });
+
+  it('the back control is an icon in a centred 44pt target, not a text glyph', () => {
+    const { result } = renderHook(() => useDetailHeader('Lesson'));
+    const headerLeft = result.current.headerLeft as () => React.ReactElement;
+    const { getByTestId, queryByText } = render(headerLeft());
+    const style = StyleSheet.flatten(getByTestId('detail-back').props.style);
+    expect(style).toEqual(expect.objectContaining({ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }));
+    expect(queryByText('‹')).toBeNull();
   });
 
   it('back pops the stack when there is history', () => {
