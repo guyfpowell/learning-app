@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { isAxiosError } from 'axios';
 import * as Sentry from '@sentry/react-native';
 import type { ApiErrorResponse, PremiumRequiredDetails } from '@learning/shared';
@@ -15,11 +15,12 @@ import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizModal } from '@/components/QuizModal';
 import { useLesson, useSaveLesson, useUnsaveLesson, useStartRetake } from '@/hooks/useLesson';
 import { useLessonClock } from '@/hooks/useLessonClock';
+import { useDetailHeader } from '@/hooks/useDetailHeader';
 import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import type { LessonPhase, UserPath } from '@learning/shared';
-import { PREMIUM_LESSON_BUDGET, RETAKE_START_ERROR, lessonOpeningPhase } from '@learning/shared';
+import { LESSON_COMPLETED_BANNER, PREMIUM_LESSON_BUDGET, RETAKE_START_ERROR, lessonOpeningPhase } from '@learning/shared';
 
 function isPremiumError(error: unknown): boolean {
   return (
@@ -46,8 +47,7 @@ function flooredPct(path: UserPath): number {
 function LessonBody({ raw }: { raw: string }) {
   return (
     <View style={styles.contentBlock}>
-      <Text style={styles.scenarioLabel}>Scenario</Text>
-      <Text testID="scenario-content" style={styles.contentText}>{raw}</Text>
+      <Text testID="lesson-content" style={styles.contentText}>{raw}</Text>
     </View>
   );
 }
@@ -100,6 +100,7 @@ function PremiumModal({
 export default function LessonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const header = useDetailHeader('Lesson');
   const { data: lesson, isLoading, isError, error } = useLesson(id ?? '');
   const { data: paths } = usePaths();
   const [quizVisible, setQuizVisible] = useState(false);
@@ -182,7 +183,8 @@ export default function LessonDetailScreen() {
   const hasTrackHeader = !!(enrollment || lesson?.skillPath?.level || lesson?.topicName);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      <Stack.Screen options={header} />
       <ScrollView contentContainerStyle={styles.content}>
 
         {isLoading && (
@@ -233,12 +235,14 @@ export default function LessonDetailScreen() {
                     />
                   )}
                   {lesson.topicName && (
-                    <Text style={styles.topicName}>{lesson.topicName}</Text>
-                  )}
-                  {lesson.topicName && lesson.lessonIndex != null && lesson.totalLessons != null && (
-                    <Text style={styles.positionLabel}>
-                      {`· Lesson ${lesson.lessonIndex} of ${lesson.totalLessons}`}
-                    </Text>
+                    <View>
+                      <Text style={styles.topicName}>{lesson.topicName}</Text>
+                      {lesson.lessonIndex != null && lesson.totalLessons != null && (
+                        <Text style={styles.positionLabel}>
+                          {`Lesson ${lesson.lessonIndex} of ${lesson.totalLessons}`}
+                        </Text>
+                      )}
+                    </View>
                   )}
                 </View>
               </View>
@@ -251,14 +255,6 @@ export default function LessonDetailScreen() {
                   {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} />}
                   <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
                 </View>
-              </View>
-
-              <View style={styles.meta}>
-                <Badge
-                  label={lesson.skillPath?.levelLabel ?? lesson.difficulty}
-                  variant={LEVEL_BADGE_VARIANT[lesson.difficulty]}
-                />
-                <Text style={styles.duration}>{lesson.durationMinutes} minutes</Text>
               </View>
 
               {phase === 'collapsed' && lesson.summary && (
@@ -277,9 +273,9 @@ export default function LessonDetailScreen() {
 
               {phase === 'expanded' && <LessonBody raw={lesson.content} />}
 
-              {phase === 'takeaway' && !retakeInProgress && (
+              {phase === 'takeaway' && lesson.quizCompleted && !retakeInProgress && (
                 <View testID="lesson-completed-banner" style={styles.completedBanner}>
-                  <Text style={styles.completedBannerText}>✓ Lesson completed!</Text>
+                  <Text style={styles.completedBannerText}>{LESSON_COMPLETED_BANNER}</Text>
                 </View>
               )}
 
@@ -422,17 +418,6 @@ const styles = StyleSheet.create({
     color:      colors.textDark,
     flex:       1,
   },
-  meta: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           spacing.sm,
-    flexWrap:      'wrap',
-  },
-  duration: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-  },
   summaryText: {
     fontFamily:  font.regular,
     fontSize:    fontSize.base,
@@ -447,13 +432,6 @@ const styles = StyleSheet.create({
   },
   contentBlock: {
     gap: spacing.sm,
-  },
-  scenarioLabel: {
-    fontFamily:    font.bold,
-    fontSize:      fontSize.sm,
-    color:         colors.brand,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
   contentText: {
     fontFamily: font.regular,

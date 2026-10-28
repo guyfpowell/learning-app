@@ -165,7 +165,7 @@ describe('PathProposalSection (079g7)', () => {
     fireEvent.press(await screen.findByTestId('proposal-accept'));
     expect(await screen.findByText(PROPOSAL_UPGRADE_COPY)).toBeTruthy();
     fireEvent.press(screen.getByTestId('proposal-upgrade'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/paywall');
+    expect(mockPush).toHaveBeenCalledWith('/paywall');
   });
 
   it('shows the fixed error copy on any other failure, and logs it', async () => {

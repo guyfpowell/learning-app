@@ -6,10 +6,11 @@ import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { usePaths } from '@/hooks/useTrack';
 import { lessonService } from '@/services/lesson.service';
 import { useStartRetake } from '@/hooks/useLesson';
-import { RETAKE_START_ERROR } from '@learning/shared';
+import { LESSON_COMPLETED_BANNER, RETAKE_START_ERROR } from '@learning/shared';
 import * as Sentry from '@sentry/react-native';
 
 jest.mock('expo-router', () => ({
+  Stack: { Screen: () => null },
   useLocalSearchParams: jest.fn(),
   useRouter: jest.fn(),
 }));
@@ -30,7 +31,7 @@ jest.mock('@/services/lesson.service', () => ({
   lessonService: { updatePosition: jest.fn().mockResolvedValue(undefined) },
 }));
 
-const mockRouter = { push: jest.fn(), replace: jest.fn() };
+const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => true };
 
 const mockLesson = {
   id: 'lesson-1',
@@ -105,26 +106,24 @@ describe('LessonDetailScreen', () => {
     expect(screen.getByText('Test Lesson')).toBeTruthy();
     expect(screen.getByTestId('lesson-summary')).toBeTruthy();
     expect(screen.getByText('A test summary')).toBeTruthy();
-    // Scenario content not visible in collapsed state
-    expect(screen.queryByTestId('scenario-content')).toBeNull();
-    expect(screen.queryByText('Scenario')).toBeNull();
+    // Body not visible in collapsed state
+    expect(screen.queryByTestId('lesson-content')).toBeNull();
 
     // Press Continue to expand
     fireEvent.press(screen.getByTestId('continue-btn'));
-    expect(screen.getByTestId('scenario-content')).toBeTruthy();
-    expect(screen.getByText('Scenario')).toBeTruthy();
+    expect(screen.getByTestId('lesson-content')).toBeTruthy();
     expect(screen.getByText(mockLesson.content)).toBeTruthy();
-    // Summary hidden once Scenario is on screen
+    // Summary hidden once the body is on screen
     expect(screen.queryByTestId('lesson-summary')).toBeNull();
   });
 
-  it('renders difficulty badge and duration', () => {
+  it('085a: the card carries no level badge and no duration; the header badge stays', () => {
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: false, data: mockLesson, error: null,
     });
     render(<LessonDetailScreen />);
-    expect(screen.getAllByText('BEGINNER').length).toBeGreaterThan(0);
-    expect(screen.getByText('10 minutes')).toBeTruthy();
+    expect(screen.getAllByText('BEGINNER')).toHaveLength(1);
+    expect(screen.queryByText('10 minutes')).toBeNull();
   });
 
   // 073b Chunk 2: isTeaser is deprecated and no longer read by any client.
@@ -159,7 +158,8 @@ describe('LessonDetailScreen', () => {
     fireEvent.press(screen.getByTestId('key-takeaway-btn'));
     expect(screen.queryByTestId('key-takeaway-btn')).toBeNull();
     expect(screen.queryByTestId('lesson-summary')).toBeNull();
-    expect(screen.getByTestId('lesson-completed-banner')).toBeTruthy();
+    // 085a: no banner on a first pass before the quiz
+    expect(screen.queryByTestId('lesson-completed-banner')).toBeNull();
     expect(screen.getByTestId('key-takeaway')).toBeTruthy();
     expect(screen.getByTestId('lesson-quiz-btn')).toBeTruthy();
   });
@@ -173,8 +173,19 @@ describe('LessonDetailScreen', () => {
     render(<LessonDetailScreen />);
     expect(screen.queryByTestId('continue-btn')).toBeNull();
     expect(screen.queryByTestId('key-takeaway-btn')).toBeNull();
-    expect(screen.getByTestId('lesson-completed-banner')).toBeTruthy();
+    expect(screen.getByTestId('lesson-completed-banner')).toHaveTextContent(LESSON_COMPLETED_BANNER);
     expect(screen.getByTestId('lesson-quiz-btn')).toBeTruthy();
+  });
+
+  it('085a: no completed banner while a retake is in progress', () => {
+    (useLesson as jest.Mock).mockReturnValue({
+      isLoading: false, isError: false,
+      data: { ...mockLesson, quizCompleted: true, lessonRetakeInProgress: true },
+      error: null,
+    });
+    render(<LessonDetailScreen />);
+    expect(screen.getByTestId('lesson-quiz-btn')).toBeTruthy();
+    expect(screen.queryByTestId('lesson-completed-banner')).toBeNull();
   });
 
   it('079f: a completed lesson shows the thumbs with the stored verdict, whatever phase it opens at', () => {
@@ -293,7 +304,8 @@ describe('LessonDetailScreen', () => {
     });
     render(<LessonDetailScreen />);
     expect(screen.getByText('Topic One')).toBeTruthy();
-    expect(screen.getByText('· Lesson 1 of 5')).toBeTruthy();
+    expect(screen.getByText('Lesson 1 of 5')).toBeTruthy();
+    expect(screen.queryByText(/·/)).toBeNull();
   });
 
   it('navigates to settings when upgrade is pressed in premium modal', () => {
@@ -308,7 +320,7 @@ describe('LessonDetailScreen', () => {
     render(<LessonDetailScreen />);
     fireEvent.press(screen.getByText('LEARN MORE'));
     fireEvent.press(screen.getByText('UPGRADE NOW'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/(tabs)/paywall');
+    expect(mockRouter.push).toHaveBeenCalledWith('/paywall');
   });
 
   describe('Chunk 5 — levelLabel display', () => {
@@ -339,19 +351,17 @@ describe('LessonDetailScreen', () => {
     });
   });
 
-  describe('Chunk A5 — Scenario heading', () => {
-    it('shows Scenario heading and plain prose content when expanded', () => {
+  describe('Chunk A5 — lesson body', () => {
+    it('shows plain prose content with no Scenario label when expanded', () => {
       (useLesson as jest.Mock).mockReturnValue({
         isLoading: false, isError: false, data: mockLesson, error: null,
       });
       render(<LessonDetailScreen />);
-      // Heading and content absent before expand
-      expect(screen.queryByText('Scenario')).toBeNull();
-      expect(screen.queryByTestId('scenario-content')).toBeNull();
+      expect(screen.queryByTestId('lesson-content')).toBeNull();
       // Press Continue → expanded
       fireEvent.press(screen.getByTestId('continue-btn'));
-      expect(screen.getByText('Scenario')).toBeTruthy();
-      expect(screen.getByTestId('scenario-content')).toBeTruthy();
+      expect(screen.queryByText('Scenario')).toBeNull();
+      expect(screen.getByTestId('lesson-content')).toBeTruthy();
       expect(screen.getByText(mockLesson.content)).toBeTruthy();
     });
 

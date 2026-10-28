@@ -1,15 +1,14 @@
 import React, { type ReactNode } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { colors, font, fontSize, spacing } from '@/theme';
 
 /**
- * The frame every non-question quiz view shares: the modal, an inset-aware header with the
+ * The frame every non-question quiz view shares: an inset-aware header with the
  * bookmark and close, and a scrolling body. `overlay` renders above the body (celebrations).
  */
-export function QuizResultFrame({ visible, onClose, saved, onToggleSave, overlay, children }: {
-  visible: boolean;
+export function QuizResultFrame({ onClose, saved, onToggleSave, overlay, children }: {
   onClose: () => void;
   saved: boolean;
   onToggleSave: () => void;
@@ -18,8 +17,7 @@ export function QuizResultFrame({ visible, onClose, saved, onToggleSave, overlay
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.container}>
+    <View style={styles.container}>
         <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
           <BookmarkButton saved={saved} onToggle={onToggleSave} />
           <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
@@ -28,8 +26,7 @@ export function QuizResultFrame({ visible, onClose, saved, onToggleSave, overlay
         </View>
         <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
         {overlay}
-      </View>
-    </Modal>
+    </View>
   );
 }
 

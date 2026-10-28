@@ -256,7 +256,7 @@ describe('TracksScreen', () => {
       render(<TracksScreen />);
       fireEvent.press(screen.getByTestId('upgrade-btn-skill-2'));
       fireEvent.press(screen.getByTestId('upgrade-now-btn'));
-      expect(mockPush).toHaveBeenCalledWith('/(tabs)/paywall');
+      expect(mockPush).toHaveBeenCalledWith('/paywall');
     });
   });
 
@@ -422,7 +422,7 @@ describe('TracksScreen', () => {
       });
       render(<TracksScreen />);
       fireEvent.press(screen.getByTestId('next-lesson-btn-plan-1'));
-      expect(mockPush).toHaveBeenCalledWith('/(tabs)/lesson/l-9');
+      expect(mockPush).toHaveBeenCalledWith('/lesson/l-9');
     });
   });
 
@@ -437,14 +437,14 @@ describe('TracksScreen', () => {
     it('tapping a pre-built skill card navigates to track detail', () => {
       render(<TracksScreen />);
       fireEvent.press(screen.getByTestId('skill-card-tap-skill-1'));
-      expect(mockPush).toHaveBeenCalledWith('/(tabs)/track/track/skill-1');
+      expect(mockPush).toHaveBeenCalledWith('/track/track/skill-1');
     });
 
     it('tapping a locked skill card navigates to track detail', () => {
       setMocks({ skills: [premiumSkill] });
       render(<TracksScreen />);
       fireEvent.press(screen.getByTestId('skill-card-tap-skill-2'));
-      expect(mockPush).toHaveBeenCalledWith('/(tabs)/track/track/skill-2');
+      expect(mockPush).toHaveBeenCalledWith('/track/track/skill-2');
     });
 
     it('tapping a custom path card navigates to track detail', () => {
@@ -458,7 +458,7 @@ describe('TracksScreen', () => {
       setMocks({ enrollments: [customPath] });
       render(<TracksScreen />);
       fireEvent.press(screen.getByTestId('custom-path-tap-plan-1'));
-      expect(mockPush).toHaveBeenCalledWith('/(tabs)/track/custom/plan-1');
+      expect(mockPush).toHaveBeenCalledWith('/track/custom/plan-1');
     });
 
     it('tapping Enrol on a skill card does NOT navigate to track detail', () => {
@@ -466,7 +466,7 @@ describe('TracksScreen', () => {
       fireEvent.press(screen.getByTestId('enrol-btn-skill-1'));
       // Only the enrol mutation is called; no track-detail navigation
       expect(mockMutate).toHaveBeenCalled();
-      expect(mockPush).not.toHaveBeenCalledWith('/(tabs)/track/track/skill-1');
+      expect(mockPush).not.toHaveBeenCalledWith('/track/track/skill-1');
     });
   });
 });

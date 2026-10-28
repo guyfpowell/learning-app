@@ -158,15 +158,6 @@ export default function TabsLayout() {
           name="albert"
           options={{ title: 'Albert', tabBarIcon: tabIcon('sparkles-outline', 'sparkles') }}
         />
-        {/* lesson/[id] lives inside (tabs)/ so the tab bar stays visible during a
-            lesson (ADR-007). href: null hides it from the tab bar without moving it. */}
-        <Tabs.Screen name="lesson/[id]" options={{ href: null }} />
-        {/* track/[kind]/[id] — detail screen for a path of either kind (076d).
-            href: null prevents it from leaking into the tab bar. */}
-        <Tabs.Screen name="track/[kind]/[id]" options={{ href: null }} />
-        {/* paywall — upgrade flow (073b Chunk 5).
-            href: null keeps it off the tab bar; onUpgrade hooks navigate here. */}
-        <Tabs.Screen name="paywall" options={{ href: null }} />
       </Tabs>
     </View>
   );

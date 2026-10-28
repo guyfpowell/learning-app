@@ -158,6 +158,9 @@ function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="lesson/[id]" />
+          <Stack.Screen name="track/[kind]/[id]" />
+          <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
         </Stack>
       </QueryProvider>
     </GestureHandlerRootView>

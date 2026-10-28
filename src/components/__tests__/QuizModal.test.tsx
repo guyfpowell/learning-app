@@ -29,6 +29,7 @@ const mockMutate = jest.fn();
 const mockSaveMutate = jest.fn();
 const mockUnsaveMutate = jest.fn();
 const mockReplace = jest.fn();
+const mockBack = jest.fn();
 const mockTopicSubmit = jest.fn();
 const mockRefreshPaths = jest.fn();
 
@@ -171,7 +172,7 @@ describe('QuizModal', () => {
     setQuizMock();
     (useSaveLesson as jest.Mock).mockReturnValue({ mutate: mockSaveMutate });
     (useUnsaveLesson as jest.Mock).mockReturnValue({ mutate: mockUnsaveMutate });
-    (useRouter as jest.Mock).mockReturnValue({ replace: mockReplace });
+    (useRouter as jest.Mock).mockReturnValue({ replace: mockReplace, back: mockBack, canGoBack: () => true });
     (useTopicFeedback as jest.Mock).mockReturnValue({ submit: mockTopicSubmit });
     (useRefreshPaths as jest.Mock).mockReturnValue(mockRefreshPaths);
     mockTopicSubmit.mockResolvedValue(undefined);
@@ -338,7 +339,15 @@ describe('QuizModal', () => {
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
     fireEvent.press(screen.getByText('NEXT LESSON'));
     expect(onClose).toHaveBeenCalled();
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lesson/lesson-2');
+    expect(mockReplace).toHaveBeenCalledWith('/lesson/lesson-2');
+  });
+
+  it('the close button in the terminal view leaves the lesson, back to where it was opened from', () => {
+    setQuizMock({ data: { ...mockResult, nextLessonId: 'lesson-2' } });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    fireEvent.press(screen.getByLabelText('Close quiz results'));
+    expect(mockBack).toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('renders an animated milestone card when milestone is set on finalize', () => {
@@ -566,7 +575,7 @@ describe('QuizModal', () => {
       expect(screen.getByText('NEXT LESSON')).toBeTruthy();
       fireEvent.press(screen.getByText('NEXT LESSON'));
       expect(onClose).toHaveBeenCalled();
-      expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lesson/lesson-99');
+      expect(mockReplace).toHaveBeenCalledWith('/lesson/lesson-99');
     });
 
     it('a fresh finalized result in the same session still shows the real terminal view, not "Already Completed"', () => {
@@ -931,6 +940,8 @@ describe('QuizModal', () => {
   describe('end-of-topic feedback (079d)', () => {
     const topicEnd = { planId: 'plan-1', stableKey: 'topic-a', title: 'Pricing basics' };
 
+    afterEach(() => jest.useRealTimers());
+
     it('shows the screen in the terminal view when the result carries a topicEnd', () => {
       setQuizMock({ data: { ...mockResult, topicEnd } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
@@ -944,23 +955,25 @@ describe('QuizModal', () => {
       expect(screen.queryByTestId('topic-feedback')).toBeNull();
     });
 
-    it('an answer writes to the plan, then Close hides the screen and refetches paths', async () => {
+    it('an answer writes to the plan, then the acknowledgement closes itself, hides the screen and refetches paths', async () => {
+      jest.useFakeTimers();
       setQuizMock({ data: { ...mockResult, topicEnd } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      fireEvent.press(screen.getByTestId('topic-feedback-useful-summary'));
       fireEvent.press(screen.getByTestId('topic-feedback-useful-useful'));
       // The press awaits the write; inside act, everything it sets lands before the asserts.
       await act(async () => fireEvent.press(screen.getByTestId('topic-feedback-submit')));
       expect(mockTopicSubmit).toHaveBeenCalledWith('plan-1', { stableKey: 'topic-a', dismissed: false, useful: 'useful' });
       expect(mockRefreshPaths).not.toHaveBeenCalled();
-      fireEvent.press(screen.getByTestId('topic-feedback-close'));
+      act(() => { jest.runOnlyPendingTimers(); });
       expect(mockRefreshPaths).toHaveBeenCalledTimes(1);
       expect(screen.queryByTestId('topic-feedback')).toBeNull();
     });
 
-    it('Not now writes a dismissal', async () => {
+    it('Skip writes a dismissal', async () => {
       setQuizMock({ data: { ...mockResult, topicEnd } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      await act(async () => fireEvent.press(screen.getByTestId('topic-feedback-submit')));
+      await act(async () => fireEvent.press(screen.getByTestId('topic-feedback-skip')));
       expect(mockTopicSubmit).toHaveBeenCalledWith('plan-1', { stableKey: 'topic-a', dismissed: true });
       expect(screen.queryByTestId('topic-feedback')).toBeNull();
       expect(mockRefreshPaths).toHaveBeenCalledTimes(1);

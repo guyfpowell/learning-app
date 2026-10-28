@@ -44,7 +44,19 @@ type CelebrationItem =
   | { type: 'achievement'; id: string; name: string; description: string }
   | { type: 'xp'; id: string; amount: number };
 
-export function QuizModal({ visible, lesson, onClose, completionTime }: QuizModalProps) {
+/**
+ * One Modal for the whole quiz journey. The question and result views swap inside it, so
+ * passing the quiz never dismisses one modal and presents another.
+ */
+export function QuizModal(props: QuizModalProps) {
+  return (
+    <Modal visible={props.visible} animationType="slide" onRequestClose={props.onClose}>
+      <QuizViews {...props} />
+    </Modal>
+  );
+}
+
+function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps) {
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | undefined>(undefined);
   const [wrongAnswer, setWrongAnswer] = useState<string | undefined>(undefined);
@@ -213,7 +225,14 @@ export function QuizModal({ visible, lesson, onClose, completionTime }: QuizModa
     }
   }
 
-  const frame = { visible, onClose, saved: isSaved, onToggleSave: handleToggleSave };
+  /** ✕ on a finished quiz: leave the lesson for where it was opened from (Home if nowhere). */
+  function handleLeaveLesson() {
+    onClose();
+    if (router.canGoBack()) router.back();
+    else router.replace(HOME_ROUTE);
+  }
+
+  const frame = { onClose, saved: isSaved, onToggleSave: handleToggleSave };
 
   // ─── Wrong first attempt — retry offer ("Try again") ─────────────────────────
   if (submit.data && !submit.data.correct && submit.data.retakeAvailable) {
@@ -266,7 +285,7 @@ export function QuizModal({ visible, lesson, onClose, completionTime }: QuizModa
       </>
     );
     return (
-      <QuizResultFrame {...frame} overlay={celebration}>
+      <QuizResultFrame {...frame} onClose={handleLeaveLesson} overlay={celebration}>
         <Text style={styles.resultHeading}>{submit.data.correct ? 'Correct!' : 'Incorrect'}</Text>
         <Animated.View style={{ transform: [{ scale: scoreAnim }] }}>
           <TrackAverageBadge average={trackAverage} previous={previousAverage} retakeUsed={retakeUsed} />
@@ -302,7 +321,7 @@ export function QuizModal({ visible, lesson, onClose, completionTime }: QuizModa
   // ─── Already completed — no unresolved question left, and no fresh result to show ──
   if (alreadyCompleted) {
     return (
-      <QuizResultFrame {...frame}>
+      <QuizResultFrame {...frame} onClose={handleLeaveLesson}>
         <Text style={styles.resultHeading}>Already Completed</Text>
         <Text style={styles.completedBody}>You've already finished this lesson's quiz.</Text>
         {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} />}
@@ -317,7 +336,6 @@ export function QuizModal({ visible, lesson, onClose, completionTime }: QuizModa
 
   // ─── Quiz view ───────────────────────────────────────────────────────────────
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
         {/* The question view has no bookmark: the spacer keeps the close button right-aligned. */}
         <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
@@ -391,7 +409,6 @@ export function QuizModal({ visible, lesson, onClose, completionTime }: QuizModa
           )}
         </ScrollView>
       </View>
-    </Modal>
   );
 }
 

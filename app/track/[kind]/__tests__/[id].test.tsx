@@ -5,9 +5,9 @@ import { useTrackContents, usePaths, useEnroll } from '@/hooks/useTrack';
 import type { TrackContents, UserPath } from '@learning/shared';
 
 const mockPush = jest.fn();
-const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter:           () => ({ push: mockPush, back: mockBack }),
+  Stack:               { Screen: () => null },
+  useRouter:           () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), canGoBack: () => true }),
   useLocalSearchParams: () => ({ kind: 'track', id: 'skill-1' }),
 }));
 
@@ -171,7 +171,7 @@ describe('TrackDetailScreen', () => {
     setMocks({ paths: [pathWithLesson] });
     render(<TrackDetailScreen />);
     fireEvent.press(screen.getByTestId('track-detail-start-btn'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/lesson/lesson-1');
+    expect(mockPush).toHaveBeenCalledWith('/lesson/lesson-1');
   });
 
   // ── Primary action — not enrolled ─────────────────────────────────────────
@@ -191,10 +191,4 @@ describe('TrackDetailScreen', () => {
   });
 
   // ── Back navigation ────────────────────────────────────────────────────────
-
-  it('navigates back when back button is pressed', () => {
-    render(<TrackDetailScreen />);
-    fireEvent.press(screen.getByTestId('track-detail-back'));
-    expect(mockBack).toHaveBeenCalled();
-  });
 });

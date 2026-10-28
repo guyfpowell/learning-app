@@ -255,7 +255,7 @@ describe('ProfileScreen', () => {
     jest.spyOn(require('expo-router'), 'useRouter').mockReturnValue({ push, replace: jest.fn(), back: jest.fn() });
     render(<ProfileScreen />);
     fireEvent.press(screen.getByTestId('saved-lesson-l1'));
-    expect(push).toHaveBeenCalledWith('/(tabs)/lesson/l1');
+    expect(push).toHaveBeenCalledWith('/lesson/l1');
   });
 
   it('shows empty state when no saved lessons', () => {

@@ -148,7 +148,7 @@ describe('AlbertScreen', () => {
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('build-path-upgrade'));
     fireEvent.press(screen.getByTestId('upgrade-now-btn'));
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/paywall');
+    expect(mockPush).toHaveBeenCalledWith('/paywall');
   });
 
   it('does not crash while the user is still loading, and shows no buttons', () => {

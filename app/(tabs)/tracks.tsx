@@ -12,7 +12,7 @@ import { PremiumModal } from '@/components/ui/PremiumModal';
 import { useSkills, usePaths, useEnroll, useSetActivePath, useSkip } from '@/hooks/useTrack';
 import { extractError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
-import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
+import { HOME_ROUTE, lessonRoute, trackRoute } from '@/lib/routes';
 
 // Display-only labels. `category` is free text (web admin can create others), so
 // callers must fall back to the raw value for anything not listed here.
@@ -95,7 +95,7 @@ export default function TracksScreen() {
               <Pressable
                 key={`${path.kind}-${path.id}`}
                 testID={`custom-path-tap-${path.id}`}
-                onPress={() => router.push(`/(tabs)/track/${path.kind}/${path.id}`)}
+                onPress={() => router.push(trackRoute(path.kind, path.id))}
                 accessibilityRole="button"
                 accessibilityLabel={`View ${path.name} details`}
               >
@@ -139,7 +139,7 @@ export default function TracksScreen() {
             <Pressable
               key={skill.id}
               testID={`skill-card-tap-${skill.id}`}
-              onPress={() => router.push(`/(tabs)/track/track/${skill.id}`)}
+              onPress={() => router.push(trackRoute('track', skill.id))}
               accessibilityRole="button"
               accessibilityLabel={`View ${skill.name} track details`}
             >

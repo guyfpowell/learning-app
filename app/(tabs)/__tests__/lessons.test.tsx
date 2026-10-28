@@ -1,6 +1,6 @@
 import React from 'react';
 import { PATHS_LOAD_ERROR } from '@learning/shared';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 import LessonsScreen from '../lessons';
 import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
@@ -330,7 +330,7 @@ describe('LessonsScreen', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('next-lesson-btn-skill-1'));
-      expect(mockPush).toHaveBeenCalledWith('/(tabs)/lesson/lesson-1');
+      expect(mockPush).toHaveBeenCalledWith('/lesson/lesson-1');
     });
 
     it('shows "No lessons available yet." when nextLesson is null', () => {
@@ -681,7 +681,7 @@ describe('LessonsScreen', () => {
       setCustomPlansMock([mockCustomPlan]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('next-lesson-btn-plan-1'));
-      expect(mockPush).toHaveBeenCalledWith('/(tabs)/lesson/lesson-next');
+      expect(mockPush).toHaveBeenCalledWith('/lesson/lesson-next');
     });
 
     it('shows no-lesson fallback when nextLesson is null', () => {
@@ -805,25 +805,26 @@ describe('LessonsScreen', () => {
       expect(screen.queryByTestId('topic-feedback')).toBeNull();
     });
 
-    it('Not now writes a dismissal to that plan and refetches paths', async () => {
+    it('Skip writes a dismissal to that plan and refetches paths', async () => {
       setEnrollmentsMock([{ ...mockEnrollment, isActive: true, topicEnd }]);
       render(<LessonsScreen />);
-      fireEvent.press(screen.getByTestId('topic-feedback-submit'));
+      fireEvent.press(screen.getByTestId('topic-feedback-skip'));
       await waitFor(() =>
         expect(mockTopicSubmit).toHaveBeenCalledWith('plan-1', { stableKey: 'topic-a', dismissed: true }),
       );
       await waitFor(() => expect(mockRefreshPaths).toHaveBeenCalledTimes(1));
     });
 
-    it('an answer shows the acknowledgement first and refetches only on Close', async () => {
+    it('an answer shows the acknowledgement first and refetches only when it closes itself', async () => {
+      jest.useFakeTimers();
       setEnrollmentsMock([{ ...mockEnrollment, isActive: true, topicEnd }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('topic-feedback-level-lost_me'));
-      fireEvent.press(screen.getByTestId('topic-feedback-submit'));
-      const close = await screen.findByTestId('topic-feedback-close');
+      await act(async () => { fireEvent.press(screen.getByTestId('topic-feedback-submit')); });
       expect(mockRefreshPaths).not.toHaveBeenCalled();
-      fireEvent.press(close);
+      act(() => { jest.runOnlyPendingTimers(); });
       expect(mockRefreshPaths).toHaveBeenCalledTimes(1);
+      jest.useRealTimers();
     });
   });
   describe('path end (079i3)', () => {

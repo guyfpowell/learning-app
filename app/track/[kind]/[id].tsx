@@ -1,14 +1,13 @@
 /**
- * Track detail screen — `/(tabs)/track/:kind/:id`
+ * Track detail screen — `/track/:kind/:id`
  *
  * Shows the track name, overall progress, a primary lesson action, and the
- * TrackContentsTree. Lives inside (tabs)/ so the tab bar stays visible.
- * Declared with `href: null` in _layout.tsx — it does not appear in the tab bar.
+ * TrackContentsTree. A full-screen push in the root Stack (ADR-016), with a native header.
  */
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
@@ -16,6 +15,7 @@ import { Progress } from '@/components/ui/Progress';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { TrackContentsTree } from '@/components/learning/TrackContentsTree';
 import { useTrackContents, usePaths, useEnroll } from '@/hooks/useTrack';
+import { useDetailHeader } from '@/hooks/useDetailHeader';
 import { extractError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import type { TrackContentsLesson, UserPathKind } from '@learning/shared';
@@ -23,6 +23,7 @@ import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
 
 export default function TrackDetailScreen() {
   const router = useRouter();
+  const header = useDetailHeader('Track');
   const { kind, id } = useLocalSearchParams<{ kind: string; id: string }>();
   const pathKind = kind as UserPathKind;
 
@@ -58,6 +59,7 @@ export default function TrackDetailScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      <Stack.Screen options={header} />
         <View testID="track-detail-loading" style={styles.centred}>
           <Spinner />
         </View>
@@ -68,6 +70,7 @@ export default function TrackDetailScreen() {
   if (isError || !contents) {
     return (
       <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      <Stack.Screen options={header} />
         <View testID="track-detail-error" style={styles.centred}>
           <Text style={styles.errorText}>{extractError(error)}</Text>
         </View>
@@ -81,19 +84,8 @@ export default function TrackDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      <Stack.Screen options={header} />
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Back */}
-        <Pressable
-          testID="track-detail-back"
-          onPress={() => router.back()}
-          style={styles.backRow}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.backText}>‹ Back</Text>
-        </Pressable>
-
         {/* Heading */}
         <Text style={styles.heading}>{contents.name}</Text>
 
@@ -156,16 +148,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   content:   { padding: spacing.md, flexGrow: 1 },
   centred:   { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-
-  backRow: {
-    marginBottom: spacing.md,
-    alignSelf: 'flex-start',
-  },
-  backText: {
-    fontFamily: font.medium,
-    fontSize: fontSize.sm,
-    color: colors.brand,
-  },
 
   heading: {
     fontFamily: font.display,

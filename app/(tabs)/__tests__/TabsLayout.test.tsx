@@ -92,9 +92,8 @@ describe('(tabs) layout', () => {
     const TabsLayout = require('../_layout').default;
     render(<TabsLayout />);
     const names = React.Children.toArray(capturedTabsProps?.children)
-      .flatMap((c) => (React.isValidElement<{ name: string }>(c) ? [c.props.name] : []))
-      // Filter out href:null routes that live inside (tabs)/ but are not tabs
-      .filter((n: string) => !['lesson/[id]', 'track/[kind]/[id]', 'paywall'].includes(n));
+      .flatMap((c) => (React.isValidElement<{ name: string }>(c) ? [c.props.name] : []));
+    // Hidden tabs are redirected away from by Expo Router 58; non-tab screens are in the root Stack (ADR-016).
     expect(names).toEqual(['lessons', 'progress', 'profile', 'tracks', 'team', 'albert']);
   });
 
