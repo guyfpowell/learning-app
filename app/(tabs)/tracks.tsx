@@ -11,6 +11,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { PathCard } from '@/components/ui/PathCard';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { useSkills, usePaths, useEnroll, useSetActivePath, useSkip } from '@/hooks/useTrack';
+import type { ActivePathRef } from '@learning/shared';
 import { extractError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { HOME_ROUTE, lessonRoute, trackRoute } from '@/lib/routes';
@@ -50,6 +51,8 @@ export default function TracksScreen() {
   // built one can find it. Rendered with the same PathCard as everywhere else.
   const customPaths = paths?.filter((p) => p.kind === 'custom') ?? [];
   const activeSkillId = trackPaths.find((p) => p.isActive)?.id ?? null;
+  const isSwitchingTo = (ref: ActivePathRef) =>
+    setActive.isPending && setActive.variables?.kind === ref.kind && setActive.variables.id === ref.id;
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
@@ -106,6 +109,15 @@ export default function TracksScreen() {
                   onSkip={skip.skip}
                   skipPending={skip.pendingScope(path)}
                 />
+                {!path.isActive && (
+                  <Button
+                    testID={`make-active-btn-${path.id}`}
+                    label="Make active"
+                    loading={isSwitchingTo({ kind: path.kind, id: path.id })}
+                    style={[styles.makeActiveBtn, styles.pathMakeActiveBtn]}
+                    onPress={() => setActive.mutate({ kind: path.kind, id: path.id })}
+                  />
+                )}
               </Pressable>
             ))}
           </View>
@@ -187,7 +199,7 @@ export default function TracksScreen() {
                     <Button
                       testID={`make-active-btn-${skill.id}`}
                       label="Make active"
-                      loading={setActive.isPending && setActive.variables?.id === skill.id}
+                      loading={isSwitchingTo({ kind: 'track', id: skill.id })}
                       style={styles.makeActiveBtn}
                       onPress={() => setActive.mutate({ kind: 'track', id: skill.id })}
                     />
@@ -269,6 +281,7 @@ const styles = StyleSheet.create({
   makeActiveBtn: {
     backgroundColor: colors.brand,
   },
+  pathMakeActiveBtn: { marginBottom: spacing.md },
   errorText: {
     fontFamily: font.regular,
     fontSize: fontSize.sm,

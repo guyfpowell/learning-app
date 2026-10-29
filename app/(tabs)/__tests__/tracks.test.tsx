@@ -1,8 +1,8 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, within } from '@testing-library/react-native';
 import TracksScreen from '../tracks';
 import { useSkills, usePaths, useEnroll, useSetActivePath, useSkip } from '@/hooks/useTrack';
-import type { SkillWithAccess, UserPath } from '@learning/shared';
+import type { ActivePathRef, SkillWithAccess, UserPath } from '@learning/shared';
 import { makeCustomPath } from '@/test-utils/paths';
 
 const mockPush = jest.fn();
@@ -109,7 +109,7 @@ function setMocks({
   setActiveTrack = {
     mutate: mockSetActive,
     isPending: false,
-    variables: undefined as string | undefined,
+    variables: undefined as ActivePathRef | undefined,
     isError: false,
     error: null as unknown,
   },
@@ -423,6 +423,58 @@ describe('TracksScreen', () => {
       render(<TracksScreen />);
       fireEvent.press(screen.getByTestId('next-lesson-btn-plan-1'));
       expect(mockPush).toHaveBeenCalledWith('/lesson/l-9');
+    });
+  });
+
+  describe('Make active on an Albert path (092)', () => {
+    const albertPath = makeCustomPath({ id: 'plan-1', name: 'My Discovery Path' });
+    const pendingFor = (variables: ActivePathRef) => ({
+      mutate: mockSetActive, isPending: true, variables, isError: false, error: null as unknown,
+    });
+
+    it('shows Make active on a non-active custom path and sets that path active', () => {
+      setMocks({ enrollments: [albertPath] });
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('make-active-btn-plan-1'));
+      expect(mockSetActive).toHaveBeenCalledWith({ kind: 'custom', id: 'plan-1' });
+    });
+
+    it('shows no Make active button on the active custom path', () => {
+      setMocks({ enrollments: [{ ...albertPath, isActive: true }] });
+      render(<TracksScreen />);
+      expect(screen.queryByTestId('make-active-btn-plan-1')).toBeNull();
+      expect(screen.getByTestId('active-track-label-plan-1')).toBeTruthy();
+    });
+
+    it('tapping Make active does not open the detail screen', () => {
+      setMocks({ enrollments: [albertPath] });
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('make-active-btn-plan-1'));
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it('shows loading only on the custom path being switched', () => {
+      const other = makeCustomPath({ id: 'plan-2', name: 'Other Path' });
+      setMocks({
+        enrollments: [albertPath, other],
+        setActiveTrack: pendingFor({ kind: 'custom', id: 'plan-2' }),
+      });
+      render(<TracksScreen />);
+      // A loading Button shows a spinner in place of its label.
+      expect(within(screen.getByTestId('make-active-btn-plan-1')).getByText(/^make active$/i)).toBeTruthy();
+      expect(within(screen.getByTestId('make-active-btn-plan-2')).queryByText(/^make active$/i)).toBeNull();
+    });
+
+    it('shows the set-active error text when switching to a custom path fails', () => {
+      setMocks({
+        enrollments: [albertPath],
+        setActiveTrack: {
+          mutate: mockSetActive, isPending: false, variables: undefined, isError: true,
+          error: { response: { data: { message: 'Plan not found' } } },
+        },
+      });
+      render(<TracksScreen />);
+      expect(screen.getByText('Plan not found')).toBeTruthy();
     });
   });
 
