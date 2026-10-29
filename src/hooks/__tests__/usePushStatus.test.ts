@@ -52,7 +52,12 @@ describe('usePushStatus', () => {
   });
 
   it('clears the error when a later check succeeds', async () => {
-    mockGetPermissions.mockRejectedValueOnce(new Error('boom'));
+    // The first check fails; once register has run, the check succeeds.
+    let registered = false;
+    mockRegister.mockImplementation(async () => { registered = true; });
+    mockGetPermissions.mockImplementation(() => (
+      registered ? Promise.resolve({ status: 'granted' }) : Promise.reject(new Error('boom'))
+    ));
     const { result } = renderHook(() => usePushStatus());
     await waitFor(() => expect(result.current.error).not.toBeNull());
 

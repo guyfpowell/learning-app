@@ -10,12 +10,12 @@ import api from '@/lib/api';
 const mockApi = api as jest.Mocked<typeof api>;
 
 describe('userService', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => jest.resetAllMocks());
 
   describe('getMe', () => {
     it('calls GET /users/me and returns user', async () => {
       const mockUser = { id: 'u1', email: 'user@example.com', name: 'User' };
-      mockApi.get.mockResolvedValueOnce({ data: mockUser });
+      mockApi.get.mockResolvedValue({ data: mockUser });
 
       const result = await userService.getMe();
 
@@ -27,7 +27,7 @@ describe('userService', () => {
   describe('getProfile', () => {
     it('calls GET /users/profile and returns profile', async () => {
       const mockProfile = { id: 'p1', userId: 'u1', goal: 'Learn AI', createdAt: new Date(), updatedAt: new Date() };
-      mockApi.get.mockResolvedValueOnce({ data: mockProfile });
+      mockApi.get.mockResolvedValue({ data: mockProfile });
 
       const result = await userService.getProfile();
 
@@ -39,7 +39,7 @@ describe('userService', () => {
   describe('getDeletePreflight', () => {
     it('calls GET /users/me/delete-preflight and returns preflight', async () => {
       const mockPreflight = { teamOwnerships: [] };
-      mockApi.get.mockResolvedValueOnce({ data: mockPreflight });
+      mockApi.get.mockResolvedValue({ data: mockPreflight });
 
       const result = await userService.getDeletePreflight();
 
@@ -54,7 +54,7 @@ describe('userService', () => {
           { teamId: 't2', teamName: 'Empty Team', newOwnerName: null },
         ],
       };
-      mockApi.get.mockResolvedValueOnce({ data: mockPreflight });
+      mockApi.get.mockResolvedValue({ data: mockPreflight });
 
       const result = await userService.getDeletePreflight();
 
@@ -64,7 +64,7 @@ describe('userService', () => {
 
   describe('deleteAccount', () => {
     it('calls DELETE /users/me with password in body', async () => {
-      mockApi.delete.mockResolvedValueOnce({});
+      mockApi.delete.mockResolvedValue({});
 
       await userService.deleteAccount('my-password');
 
@@ -73,7 +73,7 @@ describe('userService', () => {
 
     it('propagates server errors', async () => {
       const serverError = { response: { data: { code: 'USER_004', message: 'You are the only admin.' } } };
-      mockApi.delete.mockRejectedValueOnce(serverError);
+      mockApi.delete.mockRejectedValue(serverError);
 
       await expect(userService.deleteAccount('pass')).rejects.toEqual(serverError);
     });

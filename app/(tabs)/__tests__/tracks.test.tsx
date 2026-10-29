@@ -1,7 +1,9 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
+import { colors } from '@/theme';
 import { render, screen, fireEvent, within } from '@testing-library/react-native';
 import TracksScreen from '../tracks';
-import { useSkills, usePaths, useEnroll, useSetActivePath, useSkip } from '@/hooks/useTrack';
+import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTrack';
 import type { ActivePathRef, SkillWithAccess, UserPath } from '@learning/shared';
 import { makeCustomPath } from '@/test-utils/paths';
 
@@ -13,7 +15,6 @@ jest.mock('@/hooks/useTrack', () => ({
   usePaths:          jest.fn(),
   useEnroll:         jest.fn(),
   useSetActivePath:  jest.fn(),
-  useSkip:           jest.fn(),
 }));
 
 let capturedEdges: string[] | undefined;
@@ -35,6 +36,8 @@ const baseSkill: SkillWithAccess = {
   trackId:       1,
   name:          'Product Strategy',
   description:   'Learn product strategy',
+  headline:      'Learn product strategy',
+  detail:        null,
   category:      'product-management',
   order:         1,
   premiumStatus: 'free',
@@ -113,13 +116,11 @@ function setMocks({
     isError: false,
     error: null as unknown,
   },
-  skipError = null as unknown,
 } = {}) {
   (useSkills         as jest.Mock).mockReturnValue({ data: skills,      isLoading: skillsLoading, isError: skillsError, error: skillsErr });
   (usePaths           as jest.Mock).mockReturnValue({ data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr });
   (useEnroll         as jest.Mock).mockReturnValue(enroll);
   (useSetActivePath  as jest.Mock).mockReturnValue(setActiveTrack);
-  (useSkip           as jest.Mock).mockReturnValue({ skip: jest.fn(), pendingScope: () => null, error: skipError });
 }
 
 describe('TracksScreen', () => {
@@ -163,10 +164,28 @@ describe('TracksScreen', () => {
     expect(screen.getByText('Product Strategy')).toBeTruthy();
   });
 
-  it('shows estimated hours from skill paths', () => {
+  it('no longer shows estimated hours (093a)', () => {
     render(<TracksScreen />);
-    // 4 + 6 = 10 hrs
-    expect(screen.getByText('10 hrs')).toBeTruthy();
+    expect(screen.queryByText('10 hrs')).toBeNull();
+  });
+
+  it('shows the headline field whole under the name (093c)', () => {
+    setMocks({ skills: [{ ...baseSkill, headline: 'Run a job search like a product — from breaking in to the top.' }] });
+    render(<TracksScreen />);
+    expect(screen.getByTestId('skill-headline-skill-1').props.children).toBe('Run a job search like a product — from breaking in to the top.');
+  });
+
+  it('shows no headline line when the headline is empty (093c)', () => {
+    setMocks({ skills: [{ ...baseSkill, headline: '' }] });
+    render(<TracksScreen />);
+    expect(screen.queryByTestId('skill-headline-skill-1')).toBeNull();
+  });
+
+  it('mutes the headline on a locked card (093a)', () => {
+    setMocks({ skills: [premiumSkill] });
+    render(<TracksScreen />);
+    const style = StyleSheet.flatten(screen.getByTestId('skill-headline-skill-2').props.style);
+    expect(style.color).toBe(colors.textMuted);
   });
 
   it('shows category badge (uppercased)', () => {
@@ -305,14 +324,6 @@ describe('TracksScreen', () => {
       expect(screen.getByTestId('tracks-set-active-error')).toBeTruthy();
       expect(screen.getByText('Not enrolled in that track')).toBeTruthy();
     });
-
-    // 079c refactor R1: a failed skip used to stop the spinner and say nothing.
-    it('shows the skip error when a skip fails', () => {
-      setMocks({ skipError: { response: { data: { message: 'Feature not available' } } } });
-      render(<TracksScreen />);
-      expect(screen.getByTestId('tracks-skip-error')).toBeTruthy();
-      expect(screen.getByText('Feature not available')).toBeTruthy();
-    });
   });
 
   describe('active track affordance (ticket 044)', () => {
@@ -396,9 +407,9 @@ describe('TracksScreen', () => {
       setMocks({ enrollments: [mockEnrollment, customPath] });
       render(<TracksScreen />);
       expect(screen.getByText('Your paths')).toBeTruthy();
-      expect(screen.getByTestId('enrollment-card-plan-1')).toBeTruthy();
-      // track-kind paths are not rendered as PathCards here
-      expect(screen.queryByTestId('enrollment-card-skill-1')).toBeNull();
+      expect(screen.getByTestId('custom-path-card-plan-1')).toBeTruthy();
+      // track-kind paths are not listed under Your paths
+      expect(screen.queryByTestId('custom-path-card-skill-1')).toBeNull();
       expect(screen.getByText('Pre-built tracks')).toBeTruthy();
     });
 
@@ -409,20 +420,42 @@ describe('TracksScreen', () => {
       expect(json.indexOf('Your paths')).toBeLessThan(json.indexOf('Pre-built tracks'));
     });
 
-    it('starting a lesson from a custom path opens that lesson', () => {
-      setMocks({
-        enrollments: [{
-          ...customPath,
-          nextLesson: {
-            id: 'l-9', skillPathId: 'sp-1', lessonNumber: 1, title: 'T', content: 'C', durationMinutes: 3,
-            difficulty: 'beginner', isTeaser: false, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
-            resumePhase: null,
-          },
-        }],
-      });
+    it('shows a My path badge on an active and a non-active custom path (093)', () => {
+      setMocks({ enrollments: [customPath, { ...makeCustomPath({ id: 'plan-2', name: 'Other' }), isActive: true }] });
       render(<TracksScreen />);
-      fireEvent.press(screen.getByTestId('next-lesson-btn-plan-1'));
-      expect(mockPush).toHaveBeenCalledWith('/lesson/l-9');
+      expect(screen.getByTestId('my-path-badge-plan-1')).toBeTruthy();
+      expect(screen.getByTestId('my-path-badge-plan-2')).toBeTruthy();
+    });
+
+    it('shows the description under the name (093)', () => {
+      setMocks({ enrollments: [{ ...customPath, description: 'Understand what AI tools can do for my job' }] });
+      render(<TracksScreen />);
+      expect(screen.getByTestId('custom-path-description-plan-1').props.children)
+        .toBe('Understand what AI tools can do for my job');
+    });
+
+    it('capitalises the first letter of the name and the description (093)', () => {
+      setMocks({ enrollments: [{ ...makeCustomPath({ id: 'plan-1', name: 'understand what AI tools' }), description: 'understand what AI tools can do' }] });
+      render(<TracksScreen />);
+      const card = within(screen.getByTestId('custom-path-card-plan-1'));
+      expect(card.getByText('Understand what AI tools')).toBeTruthy();
+      expect(screen.getByTestId('custom-path-description-plan-1').props.children).toBe('Understand what AI tools can do');
+    });
+
+    it('shows no description line when the description is null or empty (093)', () => {
+      setMocks({ enrollments: [{ ...customPath, description: null }, { ...makeCustomPath({ id: 'plan-2', name: 'Other' }), description: '' }] });
+      render(<TracksScreen />);
+      expect(screen.queryByTestId('custom-path-description-plan-1')).toBeNull();
+      expect(screen.queryByTestId('custom-path-description-plan-2')).toBeNull();
+    });
+
+    it('draws a custom path as a picker card, not a progress card (093)', () => {
+      setMocks({ enrollments: [customPath] });
+      render(<TracksScreen />);
+      const card = within(screen.getByTestId('custom-path-card-plan-1'));
+      expect(card.getByText('My Discovery Path')).toBeTruthy();
+      expect(screen.queryByTestId('next-lesson-btn-plan-1')).toBeNull();
+      expect(screen.queryByTestId('enrollment-card-plan-1')).toBeNull();
     });
   });
 
@@ -432,10 +465,11 @@ describe('TracksScreen', () => {
       mutate: mockSetActive, isPending: true, variables, isError: false, error: null as unknown,
     });
 
-    it('shows Make active on a non-active custom path and sets that path active', () => {
+    it('shows Make active inside the card of a non-active custom path and sets that path active', () => {
       setMocks({ enrollments: [albertPath] });
       render(<TracksScreen />);
-      fireEvent.press(screen.getByTestId('make-active-btn-plan-1'));
+      const button = within(screen.getByTestId('custom-path-card-plan-1')).getByTestId('make-active-btn-plan-1');
+      fireEvent.press(button);
       expect(mockSetActive).toHaveBeenCalledWith({ kind: 'custom', id: 'plan-1' });
     });
 
@@ -443,7 +477,22 @@ describe('TracksScreen', () => {
       setMocks({ enrollments: [{ ...albertPath, isActive: true }] });
       render(<TracksScreen />);
       expect(screen.queryByTestId('make-active-btn-plan-1')).toBeNull();
-      expect(screen.getByTestId('active-track-label-plan-1')).toBeTruthy();
+      expect(screen.getByTestId('active-badge-plan-1')).toBeTruthy();
+    });
+
+    it('colours the Active badge differently from the My path badge (093)', () => {
+      setMocks({ enrollments: [{ ...albertPath, isActive: true }] });
+      render(<TracksScreen />);
+      const colorOf = (testID: string, label: RegExp) =>
+        StyleSheet.flatten(within(screen.getByTestId(testID)).getByText(label).props.style).color;
+      expect(colorOf('active-badge-plan-1', /^active$/i)).not.toBe(colorOf('my-path-badge-plan-1', /^my path$/i));
+    });
+
+    it('shows the Active track text on the active custom path only (093)', () => {
+      setMocks({ enrollments: [albertPath, { ...makeCustomPath({ id: 'plan-2', name: 'Other' }), isActive: true }] });
+      render(<TracksScreen />);
+      expect(within(screen.getByTestId('custom-path-card-plan-2')).getByText('Active track')).toBeTruthy();
+      expect(screen.queryByTestId('active-text-plan-1')).toBeNull();
     });
 
     it('tapping Make active does not open the detail screen', () => {

@@ -26,6 +26,8 @@ export function makeTrackPath(overrides: Partial<TrackPath> = {}): TrackPath {
       trackId:     1,
       name:        'Product Strategy',
       description: 'Learn product strategy',
+      headline:    'Learn product strategy',
+      detail:      null,
       category:    'product-management',
       order:       1,
       createdAt:   TIMESTAMP,

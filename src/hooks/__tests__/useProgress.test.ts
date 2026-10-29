@@ -24,29 +24,29 @@ const mockStats = {
 };
 
 describe('useProgress', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); mockProgressService.getProgress.mockReset(); });
 
   it('returns progress stats on success', async () => {
-    mockProgressService.getProgress.mockResolvedValueOnce(mockStats);
+    mockProgressService.getProgress.mockResolvedValue(mockStats);
     const { result } = renderHook(() => useProgress(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(mockStats);
   });
 
   it('is in loading state initially', async () => {
-    mockProgressService.getProgress.mockResolvedValueOnce(mockStats);
+    mockProgressService.getProgress.mockResolvedValue(mockStats);
     const { result } = renderHook(() => useProgress(), { wrapper: queryWrapper() });
     expect(result.current.isLoading).toBe(true);
   });
 
   it('returns error state on failure', async () => {
-    mockProgressService.getProgress.mockRejectedValueOnce(new Error('API error'));
+    mockProgressService.getProgress.mockRejectedValue(new Error('API error'));
     const { result } = renderHook(() => useProgress(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.isError).toBe(true));
   });
 
   it('calls progressService.getProgress once', async () => {
-    mockProgressService.getProgress.mockResolvedValueOnce(mockStats);
+    mockProgressService.getProgress.mockResolvedValue(mockStats);
     const { result } = renderHook(() => useProgress(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockProgressService.getProgress).toHaveBeenCalledTimes(1);

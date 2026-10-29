@@ -15,11 +15,11 @@ import api from '@/lib/api';
 const mockApi = api as jest.Mocked<typeof api>;
 
 describe('authService', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => jest.resetAllMocks());
 
   describe('registration mode (073a)', () => {
     it('getRegistrationMode calls GET /auth/registration-mode and returns the body', async () => {
-      mockApi.get.mockResolvedValueOnce({ data: { mode: 'invite_only' } });
+      mockApi.get.mockResolvedValue({ data: { mode: 'invite_only' } });
       const res = await authService.getRegistrationMode();
       expect(mockApi.get).toHaveBeenCalledWith('/auth/registration-mode');
       expect(res.mode).toBe('invite_only');
@@ -28,7 +28,7 @@ describe('authService', () => {
 
   describe('login', () => {
     it('calls POST /auth/login with credentials', async () => {
-      mockApi.post.mockResolvedValueOnce({
+      mockApi.post.mockResolvedValue({
         data: { token: 'tok', user: { id: 'u1', email: 'user@example.com', name: 'User' } },
       });
 
@@ -42,7 +42,7 @@ describe('authService', () => {
 
     it('returns user and token on success', async () => {
       const mockUser = { id: 'u1', email: 'user@example.com', name: 'User' };
-      mockApi.post.mockResolvedValueOnce({ data: { token: 'tok-abc', user: mockUser } });
+      mockApi.post.mockResolvedValue({ data: { token: 'tok-abc', user: mockUser } });
 
       const result = await authService.login({ email: 'user@example.com', password: 'pass' });
 
@@ -52,7 +52,7 @@ describe('authService', () => {
 
     it('throws and captures exception on failure', async () => {
       const err = new Error('Network error');
-      mockApi.post.mockRejectedValueOnce(err);
+      mockApi.post.mockRejectedValue(err);
 
       await expect(authService.login({ email: 'x@x.com', password: 'p' })).rejects.toThrow('Network error');
     });
@@ -60,7 +60,7 @@ describe('authService', () => {
 
   describe('register', () => {
     it('calls POST /auth/register with email, password and name', async () => {
-      mockApi.post.mockResolvedValueOnce({
+      mockApi.post.mockResolvedValue({
         data: { token: 'tok', user: { id: 'u2', email: 'new@example.com', name: 'New User' } },
       });
 
@@ -75,7 +75,7 @@ describe('authService', () => {
 
     it('returns user and token on success', async () => {
       const mockUser = { id: 'u2', email: 'new@example.com', name: 'New User' };
-      mockApi.post.mockResolvedValueOnce({ data: { token: 'tok-xyz', user: mockUser } });
+      mockApi.post.mockResolvedValue({ data: { token: 'tok-xyz', user: mockUser } });
 
       const result = await authService.register({ email: 'new@example.com', password: 'pass', name: 'New User' });
 
@@ -86,7 +86,7 @@ describe('authService', () => {
 
   describe('logout', () => {
     it('calls POST /auth/logout to revoke the server-side session', async () => {
-      mockApi.post.mockResolvedValueOnce({ data: {} });
+      mockApi.post.mockResolvedValue({ data: {} });
 
       await authService.logout();
 
@@ -94,7 +94,7 @@ describe('authService', () => {
     });
 
     it('resolves without throwing even if the server call fails', async () => {
-      mockApi.post.mockRejectedValueOnce(new Error('network error'));
+      mockApi.post.mockRejectedValue(new Error('network error'));
 
       await expect(authService.logout()).resolves.toBeUndefined();
     });
@@ -103,7 +103,7 @@ describe('authService', () => {
   describe('getMe', () => {
     it('calls GET /auth/me and returns the current user', async () => {
       const mockUser = { id: 'u1', email: 'user@example.com', name: 'User', role: 'user', emailVerified: false };
-      (mockApi.get as jest.Mock).mockResolvedValueOnce({ data: mockUser });
+      (mockApi.get as jest.Mock).mockResolvedValue({ data: mockUser });
 
       const result = await authService.getMe();
 
@@ -114,7 +114,7 @@ describe('authService', () => {
 
   describe('resendVerification', () => {
     it('calls POST /auth/resend-verification', async () => {
-      mockApi.post.mockResolvedValueOnce({ data: {} });
+      mockApi.post.mockResolvedValue({ data: {} });
 
       await authService.resendVerification();
 

@@ -12,20 +12,13 @@ jest.mock('expo-constants', () => ({
 
 const mockClearAuth = jest.fn();
 const mockSetAuth = jest.fn();
-const mockGetState = jest.fn<
-  {
-    accessToken: string | null;
-    user: { id: string; email: string; name: string } | null;
-    clearAuth: typeof mockClearAuth;
-    setAuth: typeof mockSetAuth;
-  },
-  []
->(() => ({
-  accessToken: 'test-token',
-  user: { id: '1', email: 'test@example.com', name: 'Test' },
+const signedInState = () => ({
+  accessToken: 'test-token' as string | null,
+  user: { id: '1', email: 'test@example.com', name: 'Test' } as { id: string; email: string; name: string } | null,
   clearAuth: mockClearAuth,
   setAuth: mockSetAuth,
-}));
+});
+const mockGetState = jest.fn(signedInState);
 
 jest.mock('@/store/auth.store', () => ({
   useAuthStore: { getState: mockGetState },
@@ -57,6 +50,7 @@ describe('api module', () => {
     process.env.EXPO_PUBLIC_API_URL = savedApiUrl;
     jest.resetModules();
     jest.clearAllMocks();
+    mockGetState.mockImplementation(signedInState);
   });
 
   function fail(message: string): never {
@@ -159,7 +153,7 @@ describe('api module', () => {
     it('does not inject Authorization when no token', () => {
       setDev(true);
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
-      mockGetState.mockReturnValueOnce({ accessToken: null, user: null, clearAuth: mockClearAuth, setAuth: mockSetAuth });
+      mockGetState.mockReturnValue({ accessToken: null, user: null, clearAuth: mockClearAuth, setAuth: mockSetAuth });
 
       const api = loadApi();
 

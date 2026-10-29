@@ -56,6 +56,7 @@ export default [
       'standards/jest-mock-shared': 'error',
       'standards/expect-every-some': 'error',
       'standards/chained-mock-once': 'error',
+      'standards/client-rule-inputs': 'error',
       'standards/set-hours-zero': 'error',
       'standards/set-utc-hours': 'error',
       'standards/zod-string-format': 'error',

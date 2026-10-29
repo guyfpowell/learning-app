@@ -36,10 +36,10 @@ const mockResult: QuizResult = {
 };
 
 describe('useSubmitQuiz', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); mockQuizService.submitQuiz.mockReset(); });
 
   it('calls quizService.submitQuiz with lessonId and answers', async () => {
-    mockQuizService.submitQuiz.mockResolvedValueOnce(mockResult);
+    mockQuizService.submitQuiz.mockResolvedValue(mockResult);
     const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' } }); });
@@ -53,7 +53,7 @@ describe('useSubmitQuiz', () => {
   });
 
   it('passes isRetake and skipRetake through to the service', async () => {
-    mockQuizService.submitQuiz.mockResolvedValueOnce(mockResult);
+    mockQuizService.submitQuiz.mockResolvedValue(mockResult);
     const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' }, isRetake: true }); });
@@ -67,7 +67,7 @@ describe('useSubmitQuiz', () => {
   });
 
   it('passes completionTime through to the service (079e)', async () => {
-    mockQuizService.submitQuiz.mockResolvedValueOnce(mockResult);
+    mockQuizService.submitQuiz.mockResolvedValue(mockResult);
     const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' }, completionTime: 37 }); });
@@ -79,7 +79,7 @@ describe('useSubmitQuiz', () => {
   });
 
   it('exposes result data on success', async () => {
-    mockQuizService.submitQuiz.mockResolvedValueOnce(mockResult);
+    mockQuizService.submitQuiz.mockResolvedValue(mockResult);
     const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: {} }); });
@@ -89,7 +89,7 @@ describe('useSubmitQuiz', () => {
   });
 
   it('exposes error state on failure', async () => {
-    mockQuizService.submitQuiz.mockRejectedValueOnce(new Error('Fail'));
+    mockQuizService.submitQuiz.mockRejectedValue(new Error('Fail'));
     const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: {} }); });
@@ -101,7 +101,7 @@ describe('useSubmitQuiz', () => {
     const queryClient = createTestQueryClient();
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
 
-    mockQuizService.submitQuiz.mockResolvedValueOnce({ ...mockResult, lessonFinalized: true });
+    mockQuizService.submitQuiz.mockResolvedValue({ ...mockResult, lessonFinalized: true });
     const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper(queryClient) });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' } }); });
@@ -116,7 +116,7 @@ describe('useSubmitQuiz', () => {
     const queryClient = createTestQueryClient();
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
 
-    mockQuizService.submitQuiz.mockResolvedValueOnce({ ...mockResult, lessonFinalized: false });
+    mockQuizService.submitQuiz.mockResolvedValue({ ...mockResult, lessonFinalized: false });
     const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper(queryClient) });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' } }); });

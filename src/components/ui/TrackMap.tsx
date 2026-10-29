@@ -15,10 +15,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { isProgressComplete, type TrackLevelProgress } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { SkillNode } from '@/components/ui/SkillNode';
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
+import { capitalize } from '@/lib/capitalize';
 
 function levelState(lvl: TrackLevelProgress): 'done' | 'active' | 'locked' {
   if (isProgressComplete(lvl)) return 'done';

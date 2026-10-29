@@ -26,6 +26,12 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
+// The setups below replace a mock's behaviour for one test; put the manual mock's defaults back.
+afterEach(() => {
+  (Purchases.configure as jest.Mock).mockReset();
+  (Purchases.restorePurchases as jest.Mock).mockImplementation(() => Promise.resolve({ customerInfo: {} }));
+});
+
 // ── configure ────────────────────────────────────────────────────────────────
 
 describe('iapService.configure', () => {
@@ -112,7 +118,7 @@ describe('iapService when the native SDK is unavailable', () => {
   });
 
   it('configure does not throw when the SDK call itself throws', () => {
-    (Purchases.configure as jest.Mock).mockImplementationOnce(() => { throw new Error('native missing'); });
+    (Purchases.configure as jest.Mock).mockImplementation(() => { throw new Error('native missing'); });
     expect(() => iapService.configure('key')).not.toThrow();
   });
 
@@ -132,7 +138,7 @@ describe('iapService.restorePurchases', () => {
 
   it('propagates errors from Purchases.restorePurchases', async () => {
     const err = new Error('Restore failed');
-    (Purchases.restorePurchases as jest.Mock).mockRejectedValueOnce(err);
+    (Purchases.restorePurchases as jest.Mock).mockRejectedValue(err);
     await expect(iapService.restorePurchases()).rejects.toThrow('Restore failed');
   });
 });

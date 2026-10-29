@@ -42,14 +42,21 @@ const mockUserService = userService as jest.Mocked<typeof userService>;
 
 const mockUser = { id: 'u1', email: 'user@example.com', name: 'Test User' };
 
+// A plain answer outlives its test, so every describe starts from unanswered service mocks.
+function resetServiceMocks() {
+  jest.clearAllMocks();
+  Object.values(mockAuthService).forEach((fn) => fn.mockReset());
+  mockUserService.syncTimezone.mockResolvedValue(undefined);
+}
+
 describe('useLogin', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    resetServiceMocks();
     useAuthStore.setState({ user: null, accessToken: null, _hasHydrated: false });
   });
 
   it('calls authService.login with credentials', async () => {
-    mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'tok' });
+    mockAuthService.login.mockResolvedValue({ user: mockUser, token: 'tok' });
 
     const { result } = renderHook(() => useLogin(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate({ email: 'user@example.com', password: 'pass' }); });
@@ -59,7 +66,7 @@ describe('useLogin', () => {
   });
 
   it('stores auth in the store on success', async () => {
-    mockAuthService.login.mockResolvedValueOnce({ user: mockUser, token: 'access-token' });
+    mockAuthService.login.mockResolvedValue({ user: mockUser, token: 'access-token' });
 
     const { result } = renderHook(() => useLogin(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate({ email: 'user@example.com', password: 'pass' }); });
@@ -71,10 +78,10 @@ describe('useLogin', () => {
 });
 
 describe('useRegister', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(resetServiceMocks);
 
   it('calls authService.register with email, password and name', async () => {
-    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok' });
+    mockAuthService.register.mockResolvedValue({ user: mockUser, token: 'tok' });
 
     const { result } = renderHook(() => useRegister(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate({ email: 'new@example.com', password: 'pass', name: 'New User' }); });
@@ -88,7 +95,7 @@ describe('useRegister', () => {
   });
 
   it('stores auth in the store on success', async () => {
-    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok-reg' });
+    mockAuthService.register.mockResolvedValue({ user: mockUser, token: 'tok-reg' });
 
     const { result } = renderHook(() => useRegister(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate({ email: 'new@example.com', password: 'pass', name: 'New User' }); });
@@ -98,8 +105,8 @@ describe('useRegister', () => {
   });
 
   it('still signs the user in and logs a breadcrumb when the timezone sync fails', async () => {
-    mockAuthService.register.mockResolvedValueOnce({ user: mockUser, token: 'tok-tz' });
-    mockUserService.syncTimezone.mockRejectedValueOnce(new Error('Network Error'));
+    mockAuthService.register.mockResolvedValue({ user: mockUser, token: 'tok-tz' });
+    mockUserService.syncTimezone.mockRejectedValue(new Error('Network Error'));
 
     const { result } = renderHook(() => useRegister(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate({ email: 'new@example.com', password: 'pass', name: 'New User' }); });
@@ -116,11 +123,11 @@ describe('useRegister', () => {
 });
 
 describe('useLogout', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(resetServiceMocks);
 
   it('clears auth store after logout', async () => {
     useAuthStore.getState().setAuth(mockUser, 'access');
-    mockAuthService.logout.mockResolvedValueOnce(undefined);
+    mockAuthService.logout.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useLogout(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate(); });
@@ -132,7 +139,7 @@ describe('useLogout', () => {
 
   it('clears auth even when logout call fails', async () => {
     useAuthStore.getState().setAuth(mockUser, 'access');
-    mockAuthService.logout.mockRejectedValueOnce(new Error('Server error'));
+    mockAuthService.logout.mockRejectedValue(new Error('Server error'));
 
     const { result } = renderHook(() => useLogout(), { wrapper: queryWrapper() });
     act(() => { result.current.mutate(); });

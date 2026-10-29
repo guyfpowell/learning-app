@@ -17,23 +17,23 @@ const mockStats = {
 };
 
 describe('progressService', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => jest.resetAllMocks());
 
   describe('getProgress', () => {
     it('calls GET /users/progress', async () => {
-      mockApi.get.mockResolvedValueOnce({ data: mockStats });
+      mockApi.get.mockResolvedValue({ data: mockStats });
       await progressService.getProgress();
       expect(mockApi.get).toHaveBeenCalledWith('/users/progress');
     });
 
     it('returns progress stats on success', async () => {
-      mockApi.get.mockResolvedValueOnce({ data: mockStats });
+      mockApi.get.mockResolvedValue({ data: mockStats });
       const result = await progressService.getProgress();
       expect(result).toEqual(mockStats);
     });
 
     it('throws on network error', async () => {
-      mockApi.get.mockRejectedValueOnce(new Error('Network error'));
+      mockApi.get.mockRejectedValue(new Error('Network error'));
       await expect(progressService.getProgress()).rejects.toThrow('Network error');
     });
   });

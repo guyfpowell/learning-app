@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { SkillLevel } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 
-export type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'expert';
+export type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'expert' | 'coral';
 
 interface BadgeProps {
   label: string;
@@ -25,6 +25,7 @@ const variantStyles: Record<BadgeVariant, { bg: string; text: string }> = {
   error:   { bg: colors.errorSoft,   text: colors.error },
   info:    { bg: colors.brandSoft,   text: colors.brand },
   expert:  { bg: colors.expertSoft,  text: colors.expert },
+  coral:   { bg: colors.coralSoft,   text: colors.coralDark },
 };
 
 export function Badge({ label, variant, testID }: BadgeProps) {

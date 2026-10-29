@@ -1,6 +1,7 @@
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
-import { useSaveLesson, useUnsaveLesson, useSavedLessons, useStartRetake, useSetLessonRating } from '../useLesson';
+import * as Sentry from '@sentry/react-native';
+import { useLesson, useSaveLesson, useUnsaveLesson, useSavedLessons, useStartRetake, useSetLessonRating } from '../useLesson';
 import { lessonQueryKey } from '@/lib/queryKeys';
 import { lessonService } from '@/services/lesson.service';
 import type { Lesson } from '@learning/shared';
@@ -37,11 +38,22 @@ const mockLesson = {
   updatedAt: new Date(),
 };
 
+describe('useLesson', () => {
+  it('logs a failed load and keeps the error for the screen', async () => {
+    mockLessonService.getLesson.mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() => useLesson('lesson-1'), { wrapper: queryWrapper(createTestQueryClient()) });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
+      category: 'lesson', message: 'Lesson load failed', data: expect.objectContaining({ lessonId: 'lesson-1' }),
+    }));
+  });
+});
+
 describe('useSaveLesson (ticket 017 chunk 3)', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); Object.values(mockLessonService).forEach((fn) => fn.mockReset()); });
 
   it('calls lessonService.saveLesson with the lesson id', async () => {
-    mockLessonService.saveLesson.mockResolvedValueOnce({ saved: true });
+    mockLessonService.saveLesson.mockResolvedValue({ saved: true });
     const { result } = renderHook(() => useSaveLesson(), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate('lesson-1'); });
@@ -52,10 +64,10 @@ describe('useSaveLesson (ticket 017 chunk 3)', () => {
 });
 
 describe('useUnsaveLesson (ticket 017 chunk 3)', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); Object.values(mockLessonService).forEach((fn) => fn.mockReset()); });
 
   it('calls lessonService.unsaveLesson with the lesson id', async () => {
-    mockLessonService.unsaveLesson.mockResolvedValueOnce(undefined);
+    mockLessonService.unsaveLesson.mockResolvedValue(undefined);
     const { result } = renderHook(() => useUnsaveLesson(), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate('lesson-1'); });
@@ -66,11 +78,11 @@ describe('useUnsaveLesson (ticket 017 chunk 3)', () => {
 });
 
 describe('useSavedLessons (ticket 017 chunk 3)', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); Object.values(mockLessonService).forEach((fn) => fn.mockReset()); });
 
   it('returns saved lessons on success', async () => {
     const summaries = [{ id: 'lesson-1', title: 'Intro', topicName: null, skillName: 'PM', lessonNumber: 1, savedAt: '2026-07-04T00:00:00.000Z' }];
-    mockLessonService.getSavedLessons.mockResolvedValueOnce(summaries);
+    mockLessonService.getSavedLessons.mockResolvedValue(summaries);
     const { result } = renderHook(() => useSavedLessons(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(summaries);
@@ -78,12 +90,12 @@ describe('useSavedLessons (ticket 017 chunk 3)', () => {
 });
 
 describe('useStartRetake (079e)', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); Object.values(mockLessonService).forEach((fn) => fn.mockReset()); });
 
   it('marks the cached lesson as a retake with nothing answered, then refetches it', async () => {
     const client = createTestQueryClient();
     client.setQueryData(lessonQueryKey('lesson-1'), { ...mockLesson, quizCompleted: true, resolvedQuizIds: ['q1'] });
-    mockLessonService.startRetake.mockResolvedValueOnce({ pass: 2 });
+    mockLessonService.startRetake.mockResolvedValue({ pass: 2 });
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     const { result } = renderHook(() => useStartRetake(), { wrapper: queryWrapper(client) });
 
@@ -98,7 +110,7 @@ describe('useStartRetake (079e)', () => {
     const client = createTestQueryClient();
     const cached = { ...mockLesson, quizCompleted: true, resolvedQuizIds: ['q1'] };
     client.setQueryData(lessonQueryKey('lesson-1'), cached);
-    mockLessonService.startRetake.mockRejectedValueOnce(new Error('409'));
+    mockLessonService.startRetake.mockRejectedValue(new Error('409'));
     const { result } = renderHook(() => useStartRetake(), { wrapper: queryWrapper(client) });
 
     act(() => { result.current.mutate('lesson-1'); });

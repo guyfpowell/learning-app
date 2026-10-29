@@ -21,7 +21,8 @@ import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import type { LessonPhase, UserPath } from '@learning/shared';
-import { LESSON_COMPLETED_BANNER, PREMIUM_LESSON_BUDGET, RETAKE_START_ERROR, lessonOpeningPhase } from '@learning/shared';
+import { LESSON_COMPLETED_BANNER, LESSON_SAVE_ERROR, PREMIUM_LESSON_BUDGET, RETAKE_START_ERROR, lessonOpeningPhase } from '@learning/shared';
+import { extractError } from '@/lib/errors';
 
 function isPremiumError(error: unknown): boolean {
   return (
@@ -113,6 +114,7 @@ export default function LessonDetailScreen() {
   const startRetake = useStartRetake();
   const clock = useLessonClock();
   const [retakeFailed, setRetakeFailed] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   // Guards against re-initialising phase after the user has manually transitioned
   const phaseInitialized = useRef<string | null>(null);
@@ -147,18 +149,24 @@ export default function LessonDetailScreen() {
 
   const showPremiumError = isError && isPremiumError(error);
   const showNotFound = isError && isNotFoundError(error);
-  const lessonError = isAxiosError(error)
-    ? (error.response?.data?.message ?? error.message ?? 'Unable to load lesson. Please try again.')
-    : 'Unable to load lesson. Please try again.';
+  // The server's message or fixed copy, never the transport's own text ("Network Error").
+  const lessonError = extractError(error);
 
   function handleToggleSave() {
     if (!lesson) return;
+    const lessonId = lesson.id;
     const nextSaved = !isSaved;
     setIsSaved(nextSaved);
+    setSaveFailed(false);
+    const onError = (err: Error) => {
+      Sentry.addBreadcrumb({ category: 'lesson', message: 'Save toggle failed', level: 'warning', data: { lessonId, saved: nextSaved, err: String(err) } });
+      setIsSaved(!nextSaved);
+      setSaveFailed(true);
+    };
     if (nextSaved) {
-      saveLesson.mutate(lesson.id, { onError: () => setIsSaved(!nextSaved) });
+      saveLesson.mutate(lessonId, { onError });
     } else {
-      unsaveLesson.mutate(lesson.id, { onError: () => setIsSaved(!nextSaved) });
+      unsaveLesson.mutate(lessonId, { onError });
     }
   }
 
@@ -233,6 +241,10 @@ export default function LessonDetailScreen() {
                   <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
                 </View>
               </View>
+
+              {saveFailed && (
+                <Text testID="save-error" style={styles.error}>{LESSON_SAVE_ERROR}</Text>
+              )}
 
               {phase === 'collapsed' && lesson.summary && (
                 <Text testID="lesson-summary" style={styles.summaryText}>{lesson.summary}</Text>

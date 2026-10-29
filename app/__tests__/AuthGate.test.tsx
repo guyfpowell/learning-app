@@ -170,12 +170,15 @@ describe('splash screen failures', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // A plain rejection outlives its test, so each test starts from the resolving defaults.
+    SplashScreen.hideAsync.mockResolvedValue(true);
+    SplashScreen.preventAutoHideAsync.mockResolvedValue(true);
     mockSegments = ['(tabs)', 'lessons'];
     mockAuthState = { _hasHydrated: true, accessToken: 'tok' };
   });
 
   it('logs a breadcrumb when hiding the splash screen rejects', async () => {
-    SplashScreen.hideAsync.mockRejectedValueOnce(new Error('no native splash'));
+    SplashScreen.hideAsync.mockRejectedValue(new Error('no native splash'));
     const RootLayout = require('../_layout').default;
     render(<RootLayout />);
     await act(async () => {});
@@ -188,7 +191,7 @@ describe('splash screen failures', () => {
   });
 
   it('logs a breadcrumb when preventing auto-hide rejects', async () => {
-    SplashScreen.preventAutoHideAsync.mockRejectedValueOnce(new Error('already hidden'));
+    SplashScreen.preventAutoHideAsync.mockRejectedValue(new Error('already hidden'));
     jest.isolateModules(() => { require('../_layout'); });
     await act(async () => {});
     expect(Sentry.addBreadcrumb).toHaveBeenCalledWith({

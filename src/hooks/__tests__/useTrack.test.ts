@@ -25,13 +25,13 @@ describe('usePaths', () => {
 });
 
 describe('useSkip (079c)', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => { jest.clearAllMocks(); mockTrackService.skip.mockReset(); });
 
   it('sends the path, the scope and the reason as one call', async () => {
     // Resolved by hand, so the test sees the call in flight and ends on a settled mutation rather
     // than returning while the skip is still running.
     let resolveSkip!: (path: UserPath) => void;
-    mockTrackService.skip.mockReturnValueOnce(new Promise((resolve) => { resolveSkip = resolve; }));
+    mockTrackService.skip.mockReturnValue(new Promise((resolve) => { resolveSkip = resolve; }));
     const { result } = renderHook(() => useSkip(), { wrapper: queryWrapper() });
 
     act(() => result.current.skip(plan, 'topic', 'already_know'));
@@ -43,7 +43,7 @@ describe('useSkip (079c)', () => {
   });
 
   it('reports the pending scope on the skipped path only', async () => {
-    mockTrackService.skip.mockReturnValueOnce(new Promise(() => {}));
+    mockTrackService.skip.mockReturnValue(new Promise(() => {}));
     const { result } = renderHook(() => useSkip(), { wrapper: queryWrapper() });
 
     act(() => result.current.skip(track, 'level', 'not_now'));
@@ -54,7 +54,7 @@ describe('useSkip (079c)', () => {
 
   it('exposes the error of a failed skip', async () => {
     const failure = new Error('Feature not available');
-    mockTrackService.skip.mockRejectedValueOnce(failure);
+    mockTrackService.skip.mockRejectedValue(failure);
     const { result } = renderHook(() => useSkip(), { wrapper: queryWrapper() });
 
     act(() => result.current.skip(track, 'lesson', 'not_for_me'));

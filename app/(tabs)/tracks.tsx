@@ -8,13 +8,13 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
-import { PathCard } from '@/components/ui/PathCard';
 import { PremiumModal } from '@/components/ui/PremiumModal';
-import { useSkills, usePaths, useEnroll, useSetActivePath, useSkip } from '@/hooks/useTrack';
+import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTrack';
 import type { ActivePathRef } from '@learning/shared';
 import { extractError } from '@/lib/errors';
+import { capitalize } from '@/lib/capitalize';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
-import { HOME_ROUTE, lessonRoute, trackRoute } from '@/lib/routes';
+import { HOME_ROUTE, trackRoute } from '@/lib/routes';
 
 // Display-only labels. `category` is free text (web admin can create others), so
 // callers must fall back to the raw value for anything not listed here.
@@ -39,7 +39,6 @@ export default function TracksScreen() {
   const { data: paths, isLoading: pathsLoading, isError: pathsError, error: pathsErr } = usePaths();
   const enroll = useEnroll();
   const setActive = useSetActivePath();
-  const skip = useSkip();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const isLoading = skillsLoading || pathsLoading;
   // This screen is the catalogue of predefined tracks, so it reads only the track
@@ -48,7 +47,7 @@ export default function TracksScreen() {
   const trackPaths = paths?.filter((p) => p.kind === 'track') ?? [];
   const enrolledSkillIds = new Set(trackPaths.map((p) => p.id));
   // Custom paths are owned by Albert's builder but live here too, so a user who
-  // built one can find it. Rendered with the same PathCard as everywhere else.
+  // built one can find it. Drawn as a picker card, like the track cards below.
   const customPaths = paths?.filter((p) => p.kind === 'custom') ?? [];
   const activeSkillId = trackPaths.find((p) => p.isActive)?.id ?? null;
   const isSwitchingTo = (ref: ActivePathRef) =>
@@ -83,19 +82,14 @@ export default function TracksScreen() {
           </View>
         )}
 
-        {skip.error && (
-          <View testID="tracks-skip-error">
-            <Text style={styles.errorText}>{extractError(skip.error)}</Text>
-          </View>
-        )}
 
         {!isLoading && customPaths.length > 0 && (
           <View testID="your-paths-section" style={styles.section}>
             <Text style={styles.sectionHeading}>Your paths</Text>
             {customPaths.map((path) => (
               /* The whole path entry is tappable → navigates to the detail screen.
-                 Buttons inside PathCard (Start Lesson, Skip Topic, etc.) steal the
-                 touch event, so no explicit stopPropagation is needed (RN responder). */
+                 The Make active button inside the Card steals the touch event, so no
+                 explicit stopPropagation is needed (RN responder). */
               <Pressable
                 key={`${path.kind}-${path.id}`}
                 testID={`custom-path-tap-${path.id}`}
@@ -103,21 +97,42 @@ export default function TracksScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`View ${path.name} details`}
               >
-                <PathCard
-                  path={path}
-                  onStartLesson={(id) => router.push(lessonRoute(id))}
-                  onSkip={skip.skip}
-                  skipPending={skip.pendingScope(path)}
-                />
-                {!path.isActive && (
-                  <Button
-                    testID={`make-active-btn-${path.id}`}
-                    label="Make active"
-                    loading={isSwitchingTo({ kind: path.kind, id: path.id })}
-                    style={[styles.makeActiveBtn, styles.pathMakeActiveBtn]}
-                    onPress={() => setActive.mutate({ kind: path.kind, id: path.id })}
-                  />
-                )}
+                <Card testID={`custom-path-card-${path.id}`} style={styles.card}>
+                  <View style={styles.badgeRow}>
+                    <View testID={`my-path-badge-${path.id}`}>
+                      <Badge label="My path" variant="info" />
+                    </View>
+                    {path.isActive && (
+                      <View testID={`active-badge-${path.id}`}>
+                        <Badge label="Active" variant="coral" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.skillName}>{capitalize(path.name)}</Text>
+                  {!!path.description && (
+                    <Text
+                      testID={`custom-path-description-${path.id}`}
+                      numberOfLines={2}
+                      style={styles.skillHeadline}
+                    >
+                      {capitalize(path.description)}
+                    </Text>
+                  )}
+                  {path.isActive && (
+                    <Text testID={`active-text-${path.id}`} style={styles.activeText}>
+                      Active track
+                    </Text>
+                  )}
+                  {!path.isActive && (
+                    <Button
+                      testID={`make-active-btn-${path.id}`}
+                      label="Make active"
+                      loading={isSwitchingTo({ kind: path.kind, id: path.id })}
+                      style={styles.makeActiveBtn}
+                      onPress={() => setActive.mutate({ kind: path.kind, id: path.id })}
+                    />
+                  )}
+                </Card>
               </Pressable>
             ))}
           </View>
@@ -142,7 +157,6 @@ export default function TracksScreen() {
           const isEnrolled = enrolledSkillIds.has(skill.id);
           const isActiveMark = activeSkillId === skill.id;
           const isLocked = !skill.userHasAccess;
-          const totalHours = skill.skillPaths.reduce((sum, p) => sum + p.durationHours, 0);
           const action = skillAction(isEnrolled, isActiveMark, isLocked);
 
           return (
@@ -166,7 +180,7 @@ export default function TracksScreen() {
                   )}
                   {isActiveMark && (
                     <View testID={`active-badge-${skill.id}`}>
-                      <Badge label="Active" variant="info" />
+                      <Badge label="Active" variant="coral" />
                     </View>
                   )}
                   {isLocked && (
@@ -182,9 +196,15 @@ export default function TracksScreen() {
                 >
                   {skill.name}
                 </Text>
-                <Text style={[styles.skillHours, isLocked && styles.lockedText]}>
-                  {totalHours} hrs
-                </Text>
+                {skill.headline !== '' && (
+                  <Text
+                    testID={`skill-headline-${skill.id}`}
+                    numberOfLines={2}
+                    style={[styles.skillHeadline, isLocked && styles.lockedText]}
+                  >
+                    {skill.headline}
+                  </Text>
+                )}
 
                 {action === 'active' && (
                   <Text testID={`active-text-${skill.id}`} style={styles.activeText}>
@@ -257,7 +277,7 @@ const styles = StyleSheet.create({
     fontSize:   fontSize.md,
     color:      colors.textStrong,
   },
-  skillHours: {
+  skillHeadline: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
     color:      colors.textMuted,
@@ -281,7 +301,6 @@ const styles = StyleSheet.create({
   makeActiveBtn: {
     backgroundColor: colors.brand,
   },
-  pathMakeActiveBtn: { marginBottom: spacing.md },
   errorText: {
     fontFamily: font.regular,
     fontSize: fontSize.sm,

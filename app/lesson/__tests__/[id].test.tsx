@@ -8,7 +8,8 @@ import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { usePaths } from '@/hooks/useTrack';
 import { lessonService } from '@/services/lesson.service';
 import { useStartRetake } from '@/hooks/useLesson';
-import { LESSON_COMPLETED_BANNER, RETAKE_START_ERROR } from '@learning/shared';
+import { LESSON_COMPLETED_BANNER, LESSON_SAVE_ERROR, RETAKE_START_ERROR } from '@learning/shared';
+import { extractError } from '@/lib/errors';
 import * as Sentry from '@sentry/react-native';
 
 jest.mock('expo-router', () => ({
@@ -25,9 +26,13 @@ jest.mock('@/components/ui/LessonRatingControl', () => {
   const { Text } = require('react-native');
   return { LessonRatingControl: ({ rating }: { rating: string | null }) => <Text testID="rating-stub">{String(rating)}</Text> };
 });
-jest.mock('@/components/ui/BookmarkButton', () => ({
-  BookmarkButton: () => null,
-}));
+jest.mock('@/components/ui/BookmarkButton', () => {
+  const { Pressable } = require('react-native');
+  return {
+    BookmarkButton: ({ saved, onToggle }: { saved: boolean; onToggle: () => void }) =>
+      <Pressable testID="bookmark-stub" accessibilityState={{ checked: saved }} onPress={onToggle} />,
+  };
+});
 // The screen writes the read position on mount; without this mock it went out over the real API client.
 jest.mock('@/services/lesson.service', () => ({
   lessonService: { updatePosition: jest.fn().mockResolvedValue(undefined) },
@@ -71,6 +76,8 @@ const mockEnrollment = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // A plain rejection outlives its test, so each test starts from the resolving default.
+  (lessonService.updatePosition as jest.Mock).mockResolvedValue(undefined);
   (useLocalSearchParams as jest.Mock).mockReturnValue({ id: 'lesson-1' });
   (useRouter as jest.Mock).mockReturnValue(mockRouter);
   (useSaveLesson as jest.Mock).mockReturnValue({ mutate: jest.fn() });
@@ -82,7 +89,7 @@ beforeEach(() => {
 describe('LessonDetailScreen', () => {
   // Refactor C6: the write's failure used to be swallowed by an empty catch.
   it('leaves a breadcrumb when the position save fails, without telling the user', async () => {
-    (lessonService.updatePosition as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+    (lessonService.updatePosition as jest.Mock).mockRejectedValue(new Error('offline'));
     (useLesson as jest.Mock).mockReturnValue({ data: mockLesson, isLoading: false, error: null });
     render(<LessonDetailScreen />);
     await waitFor(() => expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
@@ -287,6 +294,52 @@ describe('LessonDetailScreen', () => {
     render(<LessonDetailScreen />);
     expect(screen.getByTestId('lesson-error')).toBeTruthy();
     expect(screen.getByText('Internal server error')).toBeTruthy();
+  });
+
+  it('shows fixed copy, never the transport text, when a load fails with no response', () => {
+    const err = { isAxiosError: true, code: 'ERR_NETWORK', message: 'Network Error' };
+    (useLesson as jest.Mock).mockReturnValue({
+      isLoading: false, isError: true, data: undefined, error: err,
+    });
+    render(<LessonDetailScreen />);
+    expect(screen.getByTestId('lesson-error')).toHaveTextContent(extractError(err));
+    expect(screen.queryByText('Network Error')).toBeNull();
+  });
+
+  describe('bookmark', () => {
+    const failing = { mutate: jest.fn((_id: string, opts: { onError: (e: Error) => void }) => opts.onError(new Error('offline'))) };
+
+    it('a failed save reverts, logs and says so', () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
+      (useSaveLesson as jest.Mock).mockReturnValue(failing);
+      render(<LessonDetailScreen />);
+      fireEvent.press(screen.getByTestId('bookmark-stub'));
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
+        category: 'lesson', message: 'Save toggle failed', data: expect.objectContaining({ lessonId: 'lesson-1', saved: true }),
+      }));
+      expect(screen.getByTestId('bookmark-stub').props.accessibilityState.checked).toBe(false);
+      expect(screen.getByTestId('save-error')).toHaveTextContent(LESSON_SAVE_ERROR);
+    });
+
+    it('a failed unsave reverts, logs and says so', () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: { ...mockLesson, isSaved: true }, error: null });
+      (useUnsaveLesson as jest.Mock).mockReturnValue(failing);
+      render(<LessonDetailScreen />);
+      fireEvent.press(screen.getByTestId('bookmark-stub'));
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
+        message: 'Save toggle failed', data: expect.objectContaining({ lessonId: 'lesson-1', saved: false }),
+      }));
+      expect(screen.getByTestId('bookmark-stub').props.accessibilityState.checked).toBe(true);
+      expect(screen.getByTestId('save-error')).toHaveTextContent(LESSON_SAVE_ERROR);
+    });
+
+    it('a successful save shows no error', () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
+      render(<LessonDetailScreen />);
+      fireEvent.press(screen.getByTestId('bookmark-stub'));
+      expect(screen.getByTestId('bookmark-stub').props.accessibilityState.checked).toBe(true);
+      expect(screen.queryByTestId('save-error')).toBeNull();
+    });
   });
 
   it('renders track header with enrollment name and progress', () => {

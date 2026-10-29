@@ -25,11 +25,11 @@ const mockResult = {
 };
 
 describe('quizService', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => jest.resetAllMocks());
 
   describe('submitQuiz', () => {
     it('sends completionTime when given (079e)', async () => {
-      mockApi.post.mockResolvedValueOnce({ data: mockResult });
+      mockApi.post.mockResolvedValue({ data: mockResult });
       await quizService.submitQuiz('lesson-1', { 'q-1': 'A' }, { completionTime: 42 });
       expect(mockApi.post).toHaveBeenCalledWith('/lessons/lesson-1/quiz', {
         answers: { 'q-1': 'A' }, isRetake: false, skipRetake: false, completionTime: 42,
@@ -37,7 +37,7 @@ describe('quizService', () => {
     });
 
     it('calls POST /lessons/:id/quiz with answers', async () => {
-      mockApi.post.mockResolvedValueOnce({ data: mockResult });
+      mockApi.post.mockResolvedValue({ data: mockResult });
       const answers = { 'q-1': 'A' };
 
       await quizService.submitQuiz('lesson-1', answers);
@@ -50,7 +50,7 @@ describe('quizService', () => {
     });
 
     it('sends isRetake and skipRetake flags when provided', async () => {
-      mockApi.post.mockResolvedValueOnce({ data: mockResult });
+      mockApi.post.mockResolvedValue({ data: mockResult });
 
       await quizService.submitQuiz('lesson-1', { 'q-1': 'A' }, { isRetake: true });
 
@@ -62,7 +62,7 @@ describe('quizService', () => {
     });
 
     it('returns quiz result on success', async () => {
-      mockApi.post.mockResolvedValueOnce({ data: mockResult });
+      mockApi.post.mockResolvedValue({ data: mockResult });
 
       const result = await quizService.submitQuiz('lesson-1', { 'q-1': 'A' });
 
@@ -70,7 +70,7 @@ describe('quizService', () => {
     });
 
     it('throws on network error', async () => {
-      mockApi.post.mockRejectedValueOnce(new Error('Network error'));
+      mockApi.post.mockRejectedValue(new Error('Network error'));
 
       await expect(quizService.submitQuiz('lesson-1', {})).rejects.toThrow('Network error');
     });
