@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, renderHook } from '@testing-library/react-native';
+import { radius } from '@/theme';
+import { must } from '@/test-utils/must';
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
@@ -31,13 +33,24 @@ describe('useDetailHeader', () => {
     expect(result.current.title).toBe('Lesson');
   });
 
-  it('the back control is an icon in a centred 44pt target, not a text glyph', () => {
+  it('the back control is a 44pt circle, not a text glyph', () => {
     const { result } = renderHook(() => useDetailHeader('Lesson'));
     const headerLeft = result.current.headerLeft as () => React.ReactElement;
     const { getByTestId, queryByText } = render(headerLeft());
     const style = StyleSheet.flatten(getByTestId('detail-back').props.style);
-    expect(style).toEqual(expect.objectContaining({ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }));
+    expect(style).toMatchObject({ width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' });
     expect(queryByText('‹')).toBeNull();
+  });
+
+  it('on iOS 26 the back circle drops the system glass bubble around it', () => {
+    const { result } = renderHook(() => useDetailHeader('Lesson'));
+    const items = must(result.current.unstable_headerLeftItems, 'unstable_headerLeftItems')({ tintColor: undefined, canGoBack: true });
+    expect(items).toHaveLength(1);
+    const item = must(items[0], 'left item');
+    expect(item).toMatchObject({ type: 'custom', hidesSharedBackground: true });
+    if (item.type !== 'custom') throw new Error('expected a custom item');
+    const { getByTestId } = render(item.element);
+    expect(getByTestId('detail-back')).toBeTruthy();
   });
 
   it('back pops the stack when there is history', () => {

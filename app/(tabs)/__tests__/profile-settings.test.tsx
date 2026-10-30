@@ -239,7 +239,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
       setPushStatusMock('undetermined');
       render(<ProfileScreen />);
       expect(screen.getByTestId('push-status-prompt')).toBeTruthy();
-      expect(screen.getByText('ENABLE NOTIFICATIONS')).toBeTruthy();
+      expect(screen.getByText('Enable notifications')).toBeTruthy();
     });
 
     it('shows the push error on screen', () => {
@@ -253,7 +253,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
   it('pressing Save Settings calls both mutations with correct args', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: false, enableStreak: true, enableLessonAvailable: true } });
     render(<ProfileScreen />);
-    fireEvent.press(screen.getByText('SAVE SETTINGS'));
+    fireEvent.press(screen.getByText('Save settings'));
     expect(mockMutate).toHaveBeenCalledWith({
       enableDailyReminder: false,
       enableStreak: true,
@@ -273,7 +273,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     expect(screen.getByText('Ask me how each topic went')).toBeTruthy();
     expect(screen.getByTestId('toggle-enableTopicFeedback').props.value).toBe(true);
     fireEvent(screen.getByTestId('toggle-enableTopicFeedback'), 'valueChange', false);
-    fireEvent.press(screen.getByText('SAVE SETTINGS'));
+    fireEvent.press(screen.getByText('Save settings'));
     expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({ enableTopicFeedback: false }));
   });
 
@@ -294,7 +294,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     render(<ProfileScreen />);
     expect(screen.getByTestId('prefs-error')).toBeTruthy();
     expect(screen.queryByTestId('toggle-enableSuggestions')).toBeNull();
-    fireEvent.press(screen.getByText('SAVE SETTINGS'));
+    fireEvent.press(screen.getByText('Save settings'));
     expect(mockMutate).not.toHaveBeenCalled();
     expect(mockProfileMutate).toHaveBeenCalled();
   });
@@ -304,7 +304,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     render(<ProfileScreen />);
     expect(screen.getByTestId('toggle-enableSuggestions').props.value).toBe(true);
     fireEvent(screen.getByTestId('toggle-enableSuggestions'), 'valueChange', false);
-    fireEvent.press(screen.getByText('SAVE SETTINGS'));
+    fireEvent.press(screen.getByText('Save settings'));
     expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({ enableSuggestions: false }));
   });
 
@@ -315,7 +315,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     const newTime = new Date();
     newTime.setHours(20, 15, 0, 0);
     fireEvent(picker, 'change', { nativeEvent: { timestamp: newTime.getTime() } });
-    fireEvent.press(screen.getByText('SAVE SETTINGS'));
+    fireEvent.press(screen.getByText('Save settings'));
     expect(mockProfileMutate).toHaveBeenCalledWith({
       preferredTime: '20:15',
       timezone: 'UTC',
@@ -358,8 +358,8 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
   it('places the settings block above the Log Out button', () => {
     const { toJSON } = render(<ProfileScreen />);
     const json = JSON.stringify(toJSON());
-    expect(json.indexOf('SAVE SETTINGS')).toBeGreaterThan(-1);
-    expect(json.indexOf('SAVE SETTINGS')).toBeLessThan(json.indexOf('LOG OUT'));
+    expect(json.indexOf('Save settings')).toBeGreaterThan(-1);
+    expect(json.indexOf('Save settings')).toBeLessThan(json.indexOf('Log out'));
   });
 
   describe('Manage Subscription — 073b-8', () => {

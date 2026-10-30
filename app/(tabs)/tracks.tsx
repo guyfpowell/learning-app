@@ -4,13 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { PremiumModal } from '@/components/ui/PremiumModal';
+import { ActiveTrackHero } from '@/components/tracks/ActiveTrackHero';
+import { TrackRow } from '@/components/tracks/TrackRow';
+import { AlbertMark } from '@/components/albert/AlbertMark';
 import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTrack';
-import type { ActivePathRef } from '@learning/shared';
+import type { ActivePathRef, SkillWithAccess, UserPath } from '@learning/shared';
 import { extractError } from '@/lib/errors';
 import { capitalize } from '@/lib/capitalize';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
@@ -24,11 +25,11 @@ const categoryLabel: Record<string, string> = {
   'business':           'Business',
 };
 
-/** What a catalogue card offers: exactly one of these, decided by enrolment first, then access. */
-type SkillAction = 'active' | 'make-active' | 'upgrade' | 'enrol';
+/** What a track row offers: exactly one of these, decided by enrolment first, then access. */
+type SkillAction = 'make-active' | 'upgrade' | 'enrol';
 
-function skillAction(isEnrolled: boolean, isActive: boolean, isLocked: boolean): SkillAction {
-  if (isEnrolled) return isActive ? 'active' : 'make-active';
+function skillAction(isEnrolled: boolean, isLocked: boolean): SkillAction {
+  if (isEnrolled) return 'make-active';
   if (isLocked) return 'upgrade';
   return 'enrol';
 }
@@ -41,17 +42,101 @@ export default function TracksScreen() {
   const setActive = useSetActivePath();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const isLoading = skillsLoading || pathsLoading;
-  // This screen is the catalogue of predefined tracks, so it reads only the track
-  // paths. That is a property of what the screen is for, not a kind filter on
-  // rendering — a custom path has no catalogue entry to mark.
+  // The screen groups by what the learner can do: the active path as the hero, the paths they have
+  // joined (to switch to), and the catalogue to explore. A custom path is joined by definition.
   const trackPaths = paths?.filter((p) => p.kind === 'track') ?? [];
   const enrolledSkillIds = new Set(trackPaths.map((p) => p.id));
-  // Custom paths are owned by Albert's builder but live here too, so a user who
-  // built one can find it. Drawn as a picker card, like the track cards below.
   const customPaths = paths?.filter((p) => p.kind === 'custom') ?? [];
-  const activeSkillId = trackPaths.find((p) => p.isActive)?.id ?? null;
+  const activeCustom = customPaths.find((p) => p.isActive);
+  const activeTrack = trackPaths.find((p) => p.isActive);
+  const activeSkill = skills?.find((s) => s.id === activeTrack?.id);
+  const otherCustomPaths = customPaths.filter((p) => !p.isActive);
+  const otherEnrolledSkills = skills?.filter((s) => enrolledSkillIds.has(s.id) && s.id !== activeTrack?.id) ?? [];
+  const exploreSkills = skills?.filter((s) => !enrolledSkillIds.has(s.id)) ?? [];
+  const hasYourTracks = !!activeCustom || !!activeTrack || otherCustomPaths.length + otherEnrolledSkills.length > 0;
   const isSwitchingTo = (ref: ActivePathRef) =>
     setActive.isPending && setActive.variables?.kind === ref.kind && setActive.variables.id === ref.id;
+
+  const skillIds = (id: string) => ({
+    tap: `skill-card-tap-${id}`, card: `skill-card-${id}`, name: `skill-name-${id}`, headline: `skill-headline-${id}`,
+  });
+  const customIds = (id: string) => ({
+    tap: `custom-path-tap-${id}`, card: `custom-path-card-${id}`, headline: `custom-path-description-${id}`,
+  });
+
+  function skillRow(skill: SkillWithAccess) {
+    const isLocked = !skill.userHasAccess;
+    const action = skillAction(enrolledSkillIds.has(skill.id), isLocked);
+    return (
+      <TrackRow
+        key={skill.id}
+        ids={skillIds(skill.id)}
+        tapLabel={`View ${skill.name} track details`}
+        onOpen={() => router.push(trackRoute('track', skill.id))}
+        eyebrow={categoryLabel[skill.category] ?? skill.category}
+        name={skill.name}
+        headline={skill.headline}
+        dimmed={isLocked}
+        action={
+          <>
+            {action === 'make-active' && (
+              <Button
+                testID={`make-active-btn-${skill.id}`}
+                label="Make active"
+                variant="outline"
+                inline
+                loading={isSwitchingTo({ kind: 'track', id: skill.id })}
+                onPress={() => setActive.mutate({ kind: 'track', id: skill.id })}
+              />
+            )}
+            {action === 'upgrade' && (
+              <Button
+                testID={`upgrade-btn-${skill.id}`}
+                label="🔒 Upgrade"
+                variant="outline"
+                inline
+                onPress={() => setPremiumModalVisible(true)}
+              />
+            )}
+            {action === 'enrol' && (
+              <Button
+                testID={`enrol-btn-${skill.id}`}
+                label="Enrol"
+                inline
+                loading={enroll.isPending && enroll.variables === skill.id}
+                onPress={() => enroll.mutate(skill.id, { onSuccess: () => router.push(HOME_ROUTE) })}
+              />
+            )}
+          </>
+        }
+      />
+    );
+  }
+
+  function customRow(path: UserPath) {
+    return (
+      <TrackRow
+        key={`${path.kind}-${path.id}`}
+        ids={customIds(path.id)}
+        tapLabel={`View ${path.name} details`}
+        onOpen={() => router.push(trackRoute(path.kind, path.id))}
+        eyebrow="Albert"
+        eyebrowMark={<AlbertMark />}
+        name={capitalize(path.name)}
+        headline={path.description ? capitalize(path.description) : null}
+        action={
+          <Button
+            testID={`make-active-btn-${path.id}`}
+            label="Make active"
+            variant="outline"
+            inline
+            loading={isSwitchingTo({ kind: path.kind, id: path.id })}
+            onPress={() => setActive.mutate({ kind: path.kind, id: path.id })}
+          />
+        }
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
@@ -82,59 +167,36 @@ export default function TracksScreen() {
           </View>
         )}
 
-
-        {!isLoading && customPaths.length > 0 && (
-          <View testID="your-paths-section" style={styles.section}>
-            <Text style={styles.sectionHeading}>Your paths</Text>
-            {customPaths.map((path) => (
-              /* The whole path entry is tappable → navigates to the detail screen.
-                 The Make active button inside the Card steals the touch event, so no
-                 explicit stopPropagation is needed (RN responder). */
-              <Pressable
-                key={`${path.kind}-${path.id}`}
-                testID={`custom-path-tap-${path.id}`}
-                onPress={() => router.push(trackRoute(path.kind, path.id))}
-                accessibilityRole="button"
-                accessibilityLabel={`View ${path.name} details`}
-              >
-                <Card testID={`custom-path-card-${path.id}`} style={styles.card}>
-                  <View style={styles.badgeRow}>
-                    <View testID={`my-path-badge-${path.id}`}>
-                      <Badge label="My path" variant="info" />
-                    </View>
-                    {path.isActive && (
-                      <View testID={`active-badge-${path.id}`}>
-                        <Badge label="Active" variant="coral" />
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.skillName}>{capitalize(path.name)}</Text>
-                  {!!path.description && (
-                    <Text
-                      testID={`custom-path-description-${path.id}`}
-                      numberOfLines={2}
-                      style={styles.skillHeadline}
-                    >
-                      {capitalize(path.description)}
-                    </Text>
-                  )}
-                  {path.isActive && (
-                    <Text testID={`active-text-${path.id}`} style={styles.activeText}>
-                      Active track
-                    </Text>
-                  )}
-                  {!path.isActive && (
-                    <Button
-                      testID={`make-active-btn-${path.id}`}
-                      label="Make active"
-                      loading={isSwitchingTo({ kind: path.kind, id: path.id })}
-                      style={styles.makeActiveBtn}
-                      onPress={() => setActive.mutate({ kind: path.kind, id: path.id })}
-                    />
-                  )}
-                </Card>
-              </Pressable>
-            ))}
+        {!isLoading && hasYourTracks && (
+          <View testID="your-tracks-section" style={styles.section}>
+            {activeCustom && (
+              <ActiveTrackHero
+                ids={customIds(activeCustom.id)}
+                activeTestID={`active-badge-${activeCustom.id}`}
+                mark={<AlbertMark color={colors.onBrand} />}
+                tapLabel={`View ${activeCustom.name} details`}
+                onOpen={() => router.push(trackRoute(activeCustom.kind, activeCustom.id))}
+                name={capitalize(activeCustom.name)}
+                headline={activeCustom.description ? capitalize(activeCustom.description) : null}
+              />
+            )}
+            {activeTrack && (
+              <ActiveTrackHero
+                ids={skillIds(activeTrack.id)}
+                activeTestID={`active-badge-${activeTrack.id}`}
+                tapLabel={`View ${activeSkill?.name ?? activeTrack.name} track details`}
+                onOpen={() => router.push(trackRoute('track', activeTrack.id))}
+                name={activeSkill?.name ?? activeTrack.name}
+                headline={activeSkill?.headline ?? activeTrack.description}
+              />
+            )}
+            {otherCustomPaths.length + otherEnrolledSkills.length > 0 && (
+              <>
+                <Text style={styles.sectionHeading}>Your tracks</Text>
+                {otherCustomPaths.map(customRow)}
+                {otherEnrolledSkills.map(skillRow)}
+              </>
+            )}
           </View>
         )}
 
@@ -151,100 +213,12 @@ export default function TracksScreen() {
           </Pressable>
         )}
 
-        {!isLoading && <Text style={styles.sectionHeading}>Pre-built tracks</Text>}
-
-        {!isLoading && skills?.map((skill) => {
-          const isEnrolled = enrolledSkillIds.has(skill.id);
-          const isActiveMark = activeSkillId === skill.id;
-          const isLocked = !skill.userHasAccess;
-          const action = skillAction(isEnrolled, isActiveMark, isLocked);
-
-          return (
-            /* The whole card is tappable → navigates to track detail.
-               Buttons inside the Card (Enrol, Make active, Upgrade) steal the touch
-               event automatically (RN responder system), so no stopPropagation is needed. */
-            <Pressable
-              key={skill.id}
-              testID={`skill-card-tap-${skill.id}`}
-              onPress={() => router.push(trackRoute('track', skill.id))}
-              accessibilityRole="button"
-              accessibilityLabel={`View ${skill.name} track details`}
-            >
-              <Card testID={`skill-card-${skill.id}`} style={styles.card}>
-                <View style={styles.badgeRow}>
-                  <Badge label={categoryLabel[skill.category] ?? skill.category} variant="info" />
-                  {isEnrolled && (
-                    <View testID={`enrolled-badge-${skill.id}`}>
-                      <Badge label="Enrolled" variant="success" />
-                    </View>
-                  )}
-                  {isActiveMark && (
-                    <View testID={`active-badge-${skill.id}`}>
-                      <Badge label="Active" variant="coral" />
-                    </View>
-                  )}
-                  {isLocked && (
-                    <View testID={`locked-badge-${skill.id}`}>
-                      <Badge label="🔒 Premium" variant="warning" />
-                    </View>
-                  )}
-                </View>
-
-                <Text
-                  testID={`skill-name-${skill.id}`}
-                  style={[styles.skillName, isLocked && styles.lockedText]}
-                >
-                  {skill.name}
-                </Text>
-                {skill.headline !== '' && (
-                  <Text
-                    testID={`skill-headline-${skill.id}`}
-                    numberOfLines={2}
-                    style={[styles.skillHeadline, isLocked && styles.lockedText]}
-                  >
-                    {skill.headline}
-                  </Text>
-                )}
-
-                {action === 'active' && (
-                  <Text testID={`active-text-${skill.id}`} style={styles.activeText}>
-                    Active track
-                  </Text>
-                )}
-                {action === 'make-active' && (
-                  <>
-                    <Text testID={`enrolled-text-${skill.id}`} style={styles.enrolledText}>
-                      Currently enrolled
-                    </Text>
-                    <Button
-                      testID={`make-active-btn-${skill.id}`}
-                      label="Make active"
-                      loading={isSwitchingTo({ kind: 'track', id: skill.id })}
-                      style={styles.makeActiveBtn}
-                      onPress={() => setActive.mutate({ kind: 'track', id: skill.id })}
-                    />
-                  </>
-                )}
-                {action === 'upgrade' && (
-                  <Button
-                    testID={`upgrade-btn-${skill.id}`}
-                    label="🔒 Upgrade"
-                    style={styles.lockedBtn}
-                    onPress={() => setPremiumModalVisible(true)}
-                  />
-                )}
-                {action === 'enrol' && (
-                  <Button
-                    testID={`enrol-btn-${skill.id}`}
-                    label="Enrol"
-                    loading={enroll.isPending && enroll.variables === skill.id}
-                    onPress={() => enroll.mutate(skill.id, { onSuccess: () => router.push(HOME_ROUTE) })}
-                  />
-                )}
-              </Card>
-            </Pressable>
-          );
-        })}
+        {!isLoading && exploreSkills.length > 0 && (
+          <View testID="explore-section">
+            <Text style={styles.sectionHeading}>Explore</Text>
+            {exploreSkills.map(skillRow)}
+          </View>
+        )}
       </ScrollView>
 
       <PremiumModal
@@ -265,41 +239,6 @@ const styles = StyleSheet.create({
     fontSize:     fontSize.xl,
     color:        colors.textStrong,
     marginBottom: spacing.lg,
-  },
-  card: { gap: spacing.sm, marginBottom: spacing.md },
-  badgeRow: {
-    flexDirection: 'row',
-    flexWrap:      'wrap',
-    gap:           spacing.xs,
-  },
-  skillName: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.md,
-    color:      colors.textStrong,
-  },
-  skillHeadline: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-  },
-  lockedText: {
-    color: colors.textMuted,
-  },
-  enrolledText: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.sm,
-    color:      colors.success,
-  },
-  activeText: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.sm,
-    color:      colors.brand,
-  },
-  lockedBtn: {
-    backgroundColor: colors.borderSubtle,
-  },
-  makeActiveBtn: {
-    backgroundColor: colors.brand,
   },
   errorText: {
     fontFamily: font.regular,

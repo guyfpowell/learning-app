@@ -1,14 +1,14 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
-import { colors } from '@/theme';
+import { colors, fontSize, spacing } from '@/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import LessonDetailScreen from '../[id]';
-import { useLesson, useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
+import { useLesson } from '@/hooks/useLesson';
 import { usePaths } from '@/hooks/useTrack';
 import { lessonService } from '@/services/lesson.service';
 import { useStartRetake } from '@/hooks/useLesson';
-import { LESSON_COMPLETED_BANNER, LESSON_SAVE_ERROR, RETAKE_START_ERROR } from '@learning/shared';
+import { LESSON_COMPLETED_BANNER, RETAKE_START_ERROR } from '@learning/shared';
 import { extractError } from '@/lib/errors';
 import * as Sentry from '@sentry/react-native';
 
@@ -80,8 +80,6 @@ beforeEach(() => {
   (lessonService.updatePosition as jest.Mock).mockResolvedValue(undefined);
   (useLocalSearchParams as jest.Mock).mockReturnValue({ id: 'lesson-1' });
   (useRouter as jest.Mock).mockReturnValue(mockRouter);
-  (useSaveLesson as jest.Mock).mockReturnValue({ mutate: jest.fn() });
-  (useUnsaveLesson as jest.Mock).mockReturnValue({ mutate: jest.fn() });
   (usePaths as jest.Mock).mockReturnValue({ data: [] });
   (useStartRetake as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
 });
@@ -260,7 +258,7 @@ describe('LessonDetailScreen', () => {
       isLoading: false, isError: true, data: undefined, error: err,
     });
     render(<LessonDetailScreen />);
-    fireEvent.press(screen.getByText('LEARN MORE'));
+    fireEvent.press(screen.getByText('Learn more'));
     expect(screen.getByText(/You've used 2 of 3 free previews\. Upgrade to continue learning\./)).toBeTruthy();
     expect(screen.getByText(/1 free preview remaining/)).toBeTruthy();
     // 080i BUG-2: the budget is lifetime, never monthly
@@ -306,39 +304,55 @@ describe('LessonDetailScreen', () => {
     expect(screen.queryByText('Network Error')).toBeNull();
   });
 
-  describe('bookmark', () => {
-    const failing = { mutate: jest.fn((_id: string, opts: { onError: (e: Error) => void }) => opts.onError(new Error('offline'))) };
-
-    it('a failed save reverts, logs and says so', () => {
-      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
-      (useSaveLesson as jest.Mock).mockReturnValue(failing);
+  describe('lesson article (096)', () => {
+    const style = (testID: string) => StyleSheet.flatten(screen.getByTestId(testID).props.style);
+    const article = { ...mockLesson, content: 'First paragraph.\n\nSecond paragraph.\n\n\nThird paragraph.' };
+    const open = (lesson = mockLesson) => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: lesson, error: null });
       render(<LessonDetailScreen />);
-      fireEvent.press(screen.getByTestId('bookmark-stub'));
-      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
-        category: 'lesson', message: 'Save toggle failed', data: expect.objectContaining({ lessonId: 'lesson-1', saved: true }),
-      }));
-      expect(screen.getByTestId('bookmark-stub').props.accessibilityState.checked).toBe(false);
-      expect(screen.getByTestId('save-error')).toHaveTextContent(LESSON_SAVE_ERROR);
+    };
+
+    it('has no bookmark', () => {
+      open();
+      expect(screen.queryByTestId('bookmark-stub')).toBeNull();
     });
 
-    it('a failed unsave reverts, logs and says so', () => {
-      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: { ...mockLesson, isSaved: true }, error: null });
-      (useUnsaveLesson as jest.Mock).mockReturnValue(failing);
-      render(<LessonDetailScreen />);
-      fireEvent.press(screen.getByTestId('bookmark-stub'));
-      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
-        message: 'Save toggle failed', data: expect.objectContaining({ lessonId: 'lesson-1', saved: false }),
-      }));
-      expect(screen.getByTestId('bookmark-stub').props.accessibilityState.checked).toBe(true);
-      expect(screen.getByTestId('save-error')).toHaveTextContent(LESSON_SAVE_ERROR);
+    it('sits on the page, not in a card: no fill, no shadow', () => {
+      open();
+      const { backgroundColor, shadowOpacity, elevation } = style('lesson-card');
+      expect([backgroundColor, shadowOpacity, elevation]).toEqual([undefined, undefined, undefined]);
     });
 
-    it('a successful save shows no error', () => {
-      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
-      render(<LessonDetailScreen />);
-      fireEvent.press(screen.getByTestId('bookmark-stub'));
-      expect(screen.getByTestId('bookmark-stub').props.accessibilityState.checked).toBe(true);
-      expect(screen.queryByTestId('save-error')).toBeNull();
+    it('keeps the title and the copy on one left edge', () => {
+      open();
+      fireEvent.press(screen.getByTestId('continue-btn'));
+      expect(style('lesson-title-row').paddingHorizontal).toBeUndefined();
+      expect(style('lesson-title').marginLeft).toBeUndefined();
+      expect(style('lesson-content').marginLeft).toBeUndefined();
+      expect(style('lesson-card').paddingHorizontal).toBe(spacing.sm);
+    });
+
+    it('leaves the copy left-aligned, not justified', () => {
+      open();
+      expect(style('lesson-summary').textAlign).toBeUndefined();
+      fireEvent.press(screen.getByTestId('continue-btn'));
+      expect(style('lesson-paragraph').textAlign).toBeUndefined();
+    });
+
+    it('splits the body into paragraphs, spaced by a gap rather than blank lines', () => {
+      open(article);
+      fireEvent.press(screen.getByTestId('continue-btn'));
+      expect(screen.getAllByTestId('lesson-paragraph').map((p) => p.props.children)).toEqual([
+        'First paragraph.', 'Second paragraph.', 'Third paragraph.',
+      ]);
+      expect(style('lesson-content').gap).toBe(spacing.sm3);
+    });
+
+    it('sets the title larger than the body copy', () => {
+      open();
+      fireEvent.press(screen.getByTestId('continue-btn'));
+      expect(style('lesson-title').fontSize).toBe(fontSize.lg);
+      expect(style('lesson-title').fontSize).toBeGreaterThan(style('lesson-paragraph').fontSize);
     });
   });
 
@@ -394,8 +408,8 @@ describe('LessonDetailScreen', () => {
       isLoading: false, isError: true, data: undefined, error: err,
     });
     render(<LessonDetailScreen />);
-    fireEvent.press(screen.getByText('LEARN MORE'));
-    fireEvent.press(screen.getByText('UPGRADE NOW'));
+    fireEvent.press(screen.getByText('Learn more'));
+    fireEvent.press(screen.getByText('Upgrade now'));
     expect(mockRouter.push).toHaveBeenCalledWith('/paywall');
   });
 
@@ -476,7 +490,7 @@ describe('LessonDetailScreen', () => {
       render(<LessonDetailScreen />);
       fireEvent.press(screen.getByTestId('continue-btn'));
       fireEvent.press(screen.getByTestId('key-takeaway-btn'));
-      expect(screen.getByText('TEST MY KNOWLEDGE')).toBeTruthy();
+      expect(screen.getByText('Test my knowledge')).toBeTruthy();
     });
   });
 

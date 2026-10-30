@@ -171,7 +171,7 @@ export function PathCard({
             testID={`next-lesson-card-${path.id}`}
             style={[styles.nextLessonCard, hero && styles.heroCard]}
           >
-            <View style={styles.nextLessonMeta}>
+            <View testID={`next-lesson-meta-${path.id}`} style={styles.nextLessonMeta}>
               {level && (
                 <Badge
                   label={levelLabel ?? level}
@@ -180,10 +180,13 @@ export function PathCard({
               )}
               {nextLesson.topicName && (
                 <Text style={[styles.positionLabel, hero && styles.heroEyebrow]}>
-                  {nextLesson.topicName} · Lesson {nextLesson.lessonIndex} of {nextLesson.totalLessons}
+                  Lesson {nextLesson.lessonIndex} of {nextLesson.totalLessons}
                 </Text>
               )}
             </View>
+            {nextLesson.topicName && (
+              <Text style={[styles.positionLabel, hero && styles.heroEyebrow]}>{nextLesson.topicName}</Text>
+            )}
 
             {revisit && (
               <Text testID={`revisit-label-${path.id}`} style={[styles.revisitLabel, hero && styles.heroEyebrow]}>
@@ -287,10 +290,10 @@ const styles = StyleSheet.create({
     color:      colors.textStrong,
   },
   nextLessonMeta: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           spacing.sm,
-    flexWrap:      'wrap',
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+    gap:            spacing.sm,
   },
   positionLabel: {
     fontFamily: font.regular,

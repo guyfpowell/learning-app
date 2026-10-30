@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render, screen } from '@testing-library/react-native';
-import { colors } from '@/theme';
+import { render, screen, within } from '@testing-library/react-native';
+import { colors, spacing } from '@/theme';
 import { LessonPathHeader, type LessonPathHeaderProps } from '../LessonPathHeader';
 
 const FULL: LessonPathHeaderProps = {
@@ -26,6 +26,28 @@ describe('LessonPathHeader', () => {
     expect(screen.getByText('Lesson 2 of 5')).toBeTruthy();
     expect(screen.getByText('Product Management')).toBeTruthy();
     expect(screen.getByText('40% complete')).toBeTruthy();
+  });
+
+  it('puts the level badge on the right of the "Lesson N of M" line', () => {
+    setup(FULL);
+    const row = within(screen.getByTestId('lesson-position-row'));
+    expect(row.getByText('Lesson 2 of 5')).toBeTruthy();
+    expect(row.getByText('BEGINNER')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByTestId('lesson-position-row').props.style)).toMatchObject({
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    });
+  });
+
+  it('keeps the badge on the eyebrow line when there is no position line to hold it', () => {
+    setup({ level: 'beginner', levelLabel: 'Beginner' });
+    expect(screen.getByText('BEGINNER')).toBeTruthy();
+    expect(screen.queryByTestId('lesson-position-row')).toBeNull();
+  });
+
+  it('leaves a gap between the position line and the progress bar', () => {
+    setup(FULL);
+    expect(StyleSheet.flatten(screen.getByTestId('lesson-position-block').props.style).gap).toBe(spacing.sm);
   });
 
   it('the Progress bar is N of M', () => {

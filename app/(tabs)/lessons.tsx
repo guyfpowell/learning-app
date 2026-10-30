@@ -10,7 +10,7 @@ import { extractError } from '@/lib/errors';
 import { useProgress } from '@/hooks/useProgress';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { PathCard } from '@/components/ui/PathCard';
-import { Ring } from '@/components/ui/Ring';
+import { MomentumCard } from '@/components/home/MomentumCard';
 import { PathEndSection } from '@/components/albert/PathEndSection';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
@@ -19,17 +19,6 @@ import { TRACKS_ROUTE, lessonRoute } from '@/lib/routes';
 
 /** The streak banner shows from this many days on. */
 const STREAK_BANNER_AFTER_DAYS = 3;
-/** The streak ring fills over this many days; there is no target, so it is only a scale. */
-const STREAK_RING_DAYS = 30;
-
-function streakCopy(streak: number): string {
-  if (streak === 0) return 'Complete a lesson today to start your streak';
-  if (streak <= 2) return "You're building a habit — keep going!";
-  if (streak <= 6) return `You're on a ${streak}-day streak — don't break it!`;
-  if (streak <= 29) return `Impressive — ${streak} days in a row!`;
-  return `You're on fire — ${streak}-day streak!`;
-}
-
 export default function LessonsScreen() {
   const { data: paths, isError: pathsFailed } = usePaths();
   const { data: progress } = useProgress();
@@ -74,24 +63,8 @@ export default function LessonsScreen() {
           </View>
         )}
 
-        {/* Streak hero — 069 A9.
-            Ring re-tasks the kit's daily-goal ring to show the streak count.
-            No target, no denominator, no "X of Y" — streak presence only.
-            Value normalised against STREAK_RING_DAYS so the ring fills gradually. */}
-        {progress && !hasNoContent && (
-          <View testID="streak-hero" style={styles.streakHero}>
-            <Ring
-              value={Math.min(100, (progress.currentStreak / STREAK_RING_DAYS) * 100)}
-              size={84}
-              stroke={9}
-              label={String(progress.currentStreak)}
-            />
-            <View style={styles.streakHeroText}>
-              <Text style={styles.streakHeroLabel}>Day streak</Text>
-              <Text style={styles.streakHeroCopy}>{streakCopy(progress.currentStreak)}</Text>
-            </View>
-          </View>
-        )}
+        {/* Momentum — the streak, XP and one achievement: a reason to keep going. */}
+        {progress && !hasNoContent && <MomentumCard streak={progress.currentStreak} />}
 
         {/* A failed skip says so (079c refactor R1: it used to stop the spinner and show nothing). */}
         {skip.error && (
@@ -158,32 +131,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   content:   { padding: spacing.md, flexGrow: 1 },
-
-  // ── Streak hero (069 A9) ─────────────────────────────────────────────────
-  // Replaces the old streak card — ring + label + copy, row layout matching the kit.
-  streakHero: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    gap:            spacing.lg,
-    marginBottom:   spacing.md,
-    padding:        spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius:   16,
-  },
-  streakHeroText: {
-    flex: 1,
-    gap:  spacing.xs,
-  },
-  streakHeroLabel: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
-  },
-  streakHeroCopy: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-  },
 
   // ── Streak banner ────────────────────────────────────────────────────────
   streakBanner: {

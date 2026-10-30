@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, within } from '@testing-library/react-native';
 import SignInScreen, { extractError } from '../sign-in';
 import { useLogin } from '@/hooks/useAuth';
 import { colors } from '@/theme';
@@ -78,12 +78,12 @@ describe('SignInScreen', () => {
     render(<SignInScreen />);
     expect(screen.getByPlaceholderText('you@example.com')).toBeTruthy();
     expect(screen.getByPlaceholderText('••••••••')).toBeTruthy();
-    expect(screen.getByText('SIGN IN')).toBeTruthy();
+    expect(screen.getByTestId('signin-submit')).toBeTruthy();
   });
 
   it('shows validation errors when submitting empty form', () => {
     render(<SignInScreen />);
-    fireEvent.press(screen.getByText('SIGN IN'));
+    fireEvent.press(screen.getByTestId('signin-submit'));
     expect(screen.getByText('Email is required')).toBeTruthy();
     expect(screen.getByText('Password is required')).toBeTruthy();
   });
@@ -91,13 +91,13 @@ describe('SignInScreen', () => {
   it('shows email format error for invalid email', () => {
     render(<SignInScreen />);
     fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'not-an-email');
-    fireEvent.press(screen.getByText('SIGN IN'));
+    fireEvent.press(screen.getByTestId('signin-submit'));
     expect(screen.getByText('Enter a valid email address')).toBeTruthy();
   });
 
   it('does not call mutate when form is invalid', () => {
     render(<SignInScreen />);
-    fireEvent.press(screen.getByText('SIGN IN'));
+    fireEvent.press(screen.getByTestId('signin-submit'));
     expect(mockMutate).not.toHaveBeenCalled();
   });
 
@@ -106,7 +106,7 @@ describe('SignInScreen', () => {
     // Uppercase passes regex validation; the screen lowercases before calling mutate
     fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'USER@EXAMPLE.COM');
     fireEvent.changeText(screen.getByPlaceholderText('••••••••'), 'secret123');
-    fireEvent.press(screen.getByText('SIGN IN'));
+    fireEvent.press(screen.getByTestId('signin-submit'));
     expect(mockMutate).toHaveBeenCalledWith({
       email: 'user@example.com',
       password: 'secret123',
@@ -126,7 +126,7 @@ describe('SignInScreen', () => {
     setLoginMock({ isPending: true });
     const { UNSAFE_getByType } = render(<SignInScreen />);
     expect(UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
-    expect(screen.queryByText('SIGN IN')).toBeNull();
+    expect(within(screen.getByTestId('signin-submit')).queryByText('Sign in')).toBeNull();
   });
 
   it('navigates to register when "Create one" is pressed', () => {
@@ -139,7 +139,7 @@ describe('SignInScreen', () => {
     render(<SignInScreen />);
     fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'user@example.com');
     fireEvent.changeText(screen.getByPlaceholderText('••••••••'), 'short');
-    fireEvent.press(screen.getByText('SIGN IN'));
+    fireEvent.press(screen.getByTestId('signin-submit'));
     expect(mockMutate).toHaveBeenCalledWith({ email: 'user@example.com', password: 'short' });
   });
 
@@ -147,7 +147,7 @@ describe('SignInScreen', () => {
     render(<SignInScreen />);
     fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), ' user@example.com ');
     fireEvent.changeText(screen.getByPlaceholderText('••••••••'), 'secret123');
-    fireEvent.press(screen.getByText('SIGN IN'));
+    fireEvent.press(screen.getByTestId('signin-submit'));
     expect(screen.queryByText('Enter a valid email address')).toBeNull();
     expect(mockMutate).toHaveBeenCalledWith({ email: 'user@example.com', password: 'secret123' });
   });

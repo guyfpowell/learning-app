@@ -1,18 +1,34 @@
 import React from 'react';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
+import { font, radius, tracking } from '@/theme';
 import { render, screen, fireEvent } from '@testing-library/react-native';
-import { Button } from '../Button';
+import { Button, CTA_FONT } from '../Button';
 
 describe('Button', () => {
-  it('renders the label in uppercase', () => {
-    render(<Button label="Sign In" onPress={jest.fn()} />);
-    expect(screen.getByText('SIGN IN')).toBeTruthy();
+  it('shows the label in sentence case', () => {
+    render(<Button label="Key Takeaway" onPress={jest.fn()} />);
+    expect(screen.getByText('Key takeaway')).toBeTruthy();
+  });
+
+  it('is a centred, barely rounded call to action in its own serif face', () => {
+    render(<Button testID="btn" label="Sign In" onPress={jest.fn()} />);
+    const button = StyleSheet.flatten(screen.getByTestId('btn').props.style);
+    expect(button).toMatchObject({ alignItems: 'center', borderRadius: radius.xs });
+    const label = StyleSheet.flatten(screen.getByText('Sign in').props.style);
+    expect(label.fontFamily).toBe(CTA_FONT);
+    expect(label.fontFamily).not.toBe(font.bold);
+    expect(label.letterSpacing).toBe(tracking.normal);
+  });
+
+  it('keeps the large size barely rounded too', () => {
+    render(<Button testID="btn" label="Large" size="lg" onPress={jest.fn()} />);
+    expect(StyleSheet.flatten(screen.getByTestId('btn').props.style).borderRadius).toBe(radius.xs);
   });
 
   it('calls onPress when pressed and not disabled', () => {
     const onPress = jest.fn();
     render(<Button label="Click me" onPress={onPress} />);
-    fireEvent.press(screen.getByText('CLICK ME'));
+    fireEvent.press(screen.getByText('Click me'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
@@ -20,13 +36,13 @@ describe('Button', () => {
     const onPress = jest.fn();
     render(<Button label="Disabled" onPress={onPress} disabled />);
     // Pressing the label text propagates to the Pressable — which blocks it when disabled
-    fireEvent.press(screen.getByText('DISABLED'));
+    fireEvent.press(screen.getByText('Disabled'));
     expect(onPress).not.toHaveBeenCalled();
   });
 
   it('shows ActivityIndicator and hides label text when loading', () => {
     const { UNSAFE_getByType } = render(<Button label="Loading" onPress={jest.fn()} loading />);
-    expect(screen.queryByText('LOADING')).toBeNull();
+    expect(screen.queryByText('Loading')).toBeNull();
     expect(UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
   });
 
@@ -41,7 +57,7 @@ describe('Button', () => {
   it('renders outline variant without throwing', () => {
     const { toJSON } = render(<Button label="Outline" onPress={jest.fn()} variant="outline" />);
     expect(toJSON()).toBeTruthy();
-    expect(screen.getByText('OUTLINE')).toBeTruthy();
+    expect(screen.getByText('Outline')).toBeTruthy();
   });
 
   it('renders secondary variant without throwing', () => {

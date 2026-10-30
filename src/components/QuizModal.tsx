@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import type { AchievementKey, Lesson, QuizFeedback } from '@learning/shared';
 import { ACHIEVEMENTS_BY_KEY, ERROR_CODES } from '@learning/shared';
 import * as Sentry from '@sentry/react-native';
@@ -19,9 +20,10 @@ import { colors, font, fontSize, spacing } from '@/theme';
 import { CelebrationOverlay, XpChipOverlay } from '@/components/ui/CelebrationOverlay';
 import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
 import { QuizHeroCard } from '@/components/quiz/QuizHeroCard';
-import { QuizResultFrame, quizFrameStyles, frameContentStyle } from '@/components/quiz/QuizResultFrame';
-import { CoachingCard, KeyTakeawayCard, MilestoneCard, StreakRow, TrackAverageBadge, XpAward } from '@/components/quiz/QuizResultParts';
+import { QuizResultFrame, quizFrameStyles, frameContentStyle, headerRowBox } from '@/components/quiz/QuizResultFrame';
+import { CoachingCard, KeyTakeawayCard, MilestoneCard, TrackAverageBadge, XpAward } from '@/components/quiz/QuizResultParts';
 import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
+import { nextFeedbackPhrase } from '@/lib/quizFeedbackPhrase';
 
 interface QuizModalProps {
   visible: boolean;
@@ -45,6 +47,59 @@ export function QuizModal(props: QuizModalProps) {
     <Modal visible={props.visible} animationType="slide" onRequestClose={props.onClose}>
       <QuizViews {...props} />
     </Modal>
+  );
+}
+
+// A correct heading bursts in from far behind the screen, overshoots, then a springy pull settles it.
+const HEADING_START_SCALE = 0.05;
+const HEADING_BURST_SCALE = 1.7;
+const HEADING_BURST_MS = 260;
+const HEADING_FADE_MS = 120;
+
+function useHeadingBurst(enabled: boolean) {
+  const scale = useRef(new Animated.Value(enabled ? HEADING_START_SCALE : 1)).current;
+  const opacity = useRef(new Animated.Value(enabled ? 0 : 1)).current;
+  useEffect(() => {
+    if (!enabled) return;
+    const burst = Animated.sequence([
+      Animated.timing(scale, {
+        toValue: HEADING_BURST_SCALE,
+        duration: HEADING_BURST_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, { toValue: 1, friction: 5, tension: 90, useNativeDriver: true }),
+    ]);
+    const fade = Animated.timing(opacity, { toValue: 1, duration: HEADING_FADE_MS, useNativeDriver: true });
+    Animated.parallel([burst, fade]).start();
+  }, [enabled, scale, opacity]);
+  return enabled ? { opacity, transform: [{ scale }] } : undefined;
+}
+
+// The phrase is picked once when a result screen appears, so a re-render never changes the word.
+function ResultHeading({ correct, left, right }: { correct: boolean; left?: React.ReactNode; right?: React.ReactNode }) {
+  const [phrase] = useState(() => nextFeedbackPhrase(correct));
+  const burst = useHeadingBurst(correct);
+  const heading = (
+    <Animated.Text
+      testID="result-heading"
+      style={[styles.resultHeading, correct && styles.resultHeadingCorrect, burst]}
+      numberOfLines={1}
+      adjustsFontSizeToFit
+    >
+      {phrase}
+    </Animated.Text>
+  );
+  if (!left && !right) {
+    return <View style={styles.headline}><View style={styles.headlineCentre}>{heading}</View></View>;
+  }
+  // Equal side columns keep the heading centred whether or not there is an XP award.
+  return (
+    <View testID="result-headline" style={styles.headline}>
+      <View style={[styles.headlineSide, styles.headlineLeft]}>{left}</View>
+      <View style={styles.headlineCentre}>{heading}</View>
+      <View style={[styles.headlineSide, styles.headlineRight]}>{right}</View>
+    </View>
   );
 }
 
@@ -230,7 +285,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   if (submit.data && !submit.data.correct && submit.data.retakeAvailable) {
     return (
       <QuizResultFrame {...frame}>
-        <Text style={styles.resultHeading}>Incorrect</Text>
+        <ResultHeading correct={false} />
         {lesson.keyTakeaway && <Text style={styles.keyTakeaway}>{lesson.keyTakeaway}</Text>}
         <Button label="Try again" onPress={handleTryAgain} style={styles.actionBtn} />
       </QuizResultFrame>
@@ -242,7 +297,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
     const fb = submit.data.feedbacks.find((f: QuizFeedback) => f.quizId === current?.id) ?? submit.data.feedbacks[0];
     return (
       <QuizResultFrame {...frame}>
-        <Text style={styles.resultHeading}>{fb?.isCorrect ? 'Correct!' : 'Incorrect'}</Text>
+        <ResultHeading correct={fb?.isCorrect === true} />
         {fb && <QuizFeedbackCard fb={fb} />}
         <Button
           label="Next Question"
@@ -272,7 +327,13 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
           />
         )}
         {currentCelebration?.type === 'xp' && (
-          <XpChipOverlay key={currentCelebration.id} visible xp={currentCelebration.amount} onDismiss={advanceCelebration} />
+          <XpChipOverlay
+            key={currentCelebration.id}
+            visible
+            xp={currentCelebration.amount}
+            anchor={headerRowBox(insets.top)}
+            onDismiss={advanceCelebration}
+          />
         )}
       </>
     );
@@ -280,16 +341,20 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
       <QuizResultFrame
         {...frame}
         onClose={handleLeaveLesson}
+        streak={streak}
         overlay={celebration}
         /* 079f: the result's lesson carries the stored verdict, so no refetch. */
         rating={<LessonRatingControl lessonId={lesson.id} rating={submit.data.lesson.rating ?? null} />}
       >
-        <Text style={styles.resultHeading}>{submit.data.correct ? 'Correct!' : 'Incorrect'}</Text>
-        <Animated.View style={{ transform: [{ scale: scoreAnim }] }}>
-          <TrackAverageBadge average={trackAverage} previous={previousAverage} retakeUsed={retakeUsed} />
-        </Animated.View>
-        {streak > 0 && <StreakRow streak={streak} />}
-        {xpAwarded != null && xpAwarded > 0 && <XpAward xp={xpAwarded} />}
+        <ResultHeading
+          correct={submit.data.correct}
+          left={
+            <Animated.View style={{ transform: [{ scale: scoreAnim }] }}>
+              <TrackAverageBadge average={trackAverage} previous={previousAverage} retakeUsed={retakeUsed} />
+            </Animated.View>
+          }
+          right={xpAwarded != null && xpAwarded > 0 ? <XpAward xp={xpAwarded} /> : null}
+        />
         {milestone && <MilestoneCard milestone={milestone} streak={streak} scale={milestoneAnim} />}
         {/* Feedback cards — one per quiz question */}
         {feedbacks.map((fb: QuizFeedback) => <QuizFeedbackCard key={fb.quizId} fb={fb} />)}
@@ -340,10 +405,12 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
       <View style={styles.container}>
         {/* The question view has no bookmark: the spacer keeps the close button right-aligned. */}
         <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-          <View style={styles.spacer} />
-          <Pressable onPress={onClose} style={styles.closeBtn}>
-            <Text style={styles.closeText}>✕</Text>
-          </Pressable>
+          <View style={styles.headerRow}>
+            <View style={styles.spacer} />
+            <Pressable onPress={onClose} style={styles.circleBtn} accessibilityLabel="Close quiz">
+              <Ionicons name="close" size={22} color={colors.textMuted} />
+            </Pressable>
+          </View>
         </View>
 
         <ScrollView testID="quiz-question-content" contentContainerStyle={frameContentStyle(insets.bottom)}>
@@ -404,6 +471,9 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   );
 }
 
+// How far the track average and XP chip sit in from the content edges (no 20pt token).
+const HEADLINE_INSET = spacing.md + spacing.xs;
+
 const styles = StyleSheet.create({
   ...quizFrameStyles,
   spacer:    { width: 32 },
@@ -437,13 +507,25 @@ const styles = StyleSheet.create({
     textAlign:    'center',
     marginBottom: spacing.xl,
   },
-  resultHeading: {
-    fontFamily:   font.semibold,
-    fontSize:     fontSize.xl,
-    color:        colors.textStrong,
-    textAlign:    'center',
-    marginTop:    spacing.lg,
-    marginBottom: spacing.md,
+  headline: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    paddingHorizontal: HEADLINE_INSET,
+    marginTop:         spacing.md,
+    marginBottom:  spacing.md,
+    gap:           spacing.sm,
   },
+  headlineSide:   { flex: 1 },
+  headlineLeft:   { alignItems: 'flex-start' },
+  headlineRight:  { alignItems: 'flex-end' },
+  // Above the side chips, so the burst passes over them.
+  headlineCentre: { flex: 1.6, zIndex: 1 },
+  resultHeading: {
+    fontFamily: font.semibold,
+    fontSize:   fontSize.xl,
+    color:      colors.textStrong,
+    textAlign:  'center',
+  },
+  resultHeadingCorrect: { fontSize: fontSize.xxl },
   doneBtn: { marginTop: spacing.lg },
 });

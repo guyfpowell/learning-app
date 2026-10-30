@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Tabs } from 'expo-router';
-import { View, Text, AppState, type ColorValue } from 'react-native';
+import { View, Text, Pressable, AppState, StyleSheet, type ColorValue, type PressableProps } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
+import { TEAM_FEATURE_ENABLED } from '@/config/features';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useCurrentUser, useResendVerification } from '@/hooks/useEmailVerification';
 import { CURRENT_USER_QUERY_KEY } from '@/lib/queryKeys';
@@ -19,6 +21,36 @@ type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 const BANNER_BG = '#fffbeb';
 const BANNER_BORDER = '#fde68a';
 const BANNER_TEXT = '#92400e';
+
+const TAB_BAR_HEIGHT = 56;
+// Lower is more see-through (0-100).
+const TAB_BAR_BLUR = 25;
+
+type TabButtonProps = Pick<PressableProps, 'onPress' | 'onLongPress' | 'testID' | 'accessibilityLabel'> & {
+  children: React.ReactNode;
+  accessibilityState?: { selected?: boolean };
+};
+
+// The selected tab sits in a fully rounded soft pill, as in the floating bar references.
+function TabButton({ children, accessibilityState, ...pressable }: TabButtonProps) {
+  const selected = accessibilityState?.selected === true;
+  return (
+    <Pressable
+      {...pressable}
+      accessibilityRole="tab"
+      accessibilityState={accessibilityState}
+      style={[styles.tabButton, selected && styles.tabButtonSelected]}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  tabButton: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill },
+  tabBarBlur: { borderRadius: radius.pill },
+  tabButtonSelected: { backgroundColor: colors.brandSoft },
+});
 
 function tabIcon(name: IoniconName, focusedName: IoniconName) {
   return ({ color, focused }: { color: ColorValue; focused: boolean }) => (
@@ -124,10 +156,28 @@ export default function TabsLayout() {
           headerShown: false,
           tabBarActiveTintColor: colors.brand,
           tabBarInactiveTintColor: colors.textMuted,
+          tabBarButton: (props) => <TabButton {...props} />,
           tabBarStyle: {
-            backgroundColor: colors.surface,
-            borderTopColor: colors.borderSubtle,
+            position: 'absolute',
+            // `start`/`end`, not `left`/`right`: React Navigation sets `start: 0`/`end: 0` on the bar, which win over them.
+            start: spacing.lg,
+            end: spacing.lg,
+            bottom: Math.max(insets.bottom - spacing.sm, spacing.md) + spacing.xs,
+            height: TAB_BAR_HEIGHT,
+            paddingTop: 0,
+            paddingBottom: 0,
+            borderRadius: radius.pill,
+            borderTopWidth: 0,
+            borderWidth: 1,
+            borderColor: colors.borderSubtle,
+            backgroundColor: 'transparent',
+            overflow: 'hidden',
+            ...shadow.md,
           },
+          tabBarItemStyle: { paddingVertical: spacing.xs },
+          tabBarBackground: () => (
+            <BlurView testID="tab-bar-blur" intensity={TAB_BAR_BLUR} tint="light" style={[StyleSheet.absoluteFill, styles.tabBarBlur]} />
+          ),
           tabBarLabelStyle: {
             fontFamily: font.medium,
             fontSize: fontSize.xs,
@@ -152,7 +202,11 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="team"
-          options={{ title: 'Team', tabBarIcon: tabIcon('people-outline', 'people') }}
+          options={{
+            title: 'Team',
+            tabBarIcon: tabIcon('people-outline', 'people'),
+            href: TEAM_FEATURE_ENABLED ? undefined : null,
+          }}
         />
         <Tabs.Screen
           name="albert"

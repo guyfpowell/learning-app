@@ -1,6 +1,6 @@
 import React from 'react';
 import { PATHS_LOAD_ERROR } from '@learning/shared';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react-native';
 import LessonsScreen from '../lessons';
 import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
@@ -10,16 +10,11 @@ import { makeCustomPath } from '@/test-utils/paths';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { TRACKS_ROUTE } from '@/lib/routes';
 
-jest.mock('@/components/ui/Ring', () => ({
-  Ring: (props: { value: number; label?: string }) => {
-    const React = require('react');
-    const { View, Text } = require('react-native');
-    return React.createElement(
-      View, { testID: 'streak-ring' },
-      React.createElement(Text, { testID: 'streak-ring-label' }, props.label)
-    );
-  },
-}));
+// Its own suite covers the card; here Home only has to show it, with the streak, at the right times.
+jest.mock('@/components/home/MomentumCard', () => {
+  const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  return { MomentumCard: ({ streak }: { streak: number }) => <Text testID="momentum-card">{`streak:${streak}`}</Text> };
+});
 
 const mockPush = jest.fn();
 const mockSkip = jest.fn();
@@ -197,46 +192,32 @@ describe('LessonsScreen', () => {
     expect(queryByTestId('no-track-notice')).toBeNull();
   });
 
-  describe('streak hero (069 A9)', () => {
-    it('shows streak hero when progress data exists and track enrolled', () => {
+  describe('momentum card (096)', () => {
+    it('shows the momentum card when progress data exists and a track is enrolled', () => {
       setProgressMock(mockProgress);
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('streak-hero')).toBeTruthy();
+      expect(screen.getByTestId('momentum-card')).toBeTruthy();
     });
 
-    it('shows the Ring inside the streak hero', () => {
-      setProgressMock(mockProgress);
-      setEnrollmentsMock([mockEnrollment]);
-      render(<LessonsScreen />);
-      expect(screen.getByTestId('streak-ring')).toBeTruthy();
-    });
-
-    it('passes streak count as ring label', () => {
+    it('passes the current streak to the card', () => {
       setProgressMock({ ...mockProgress, currentStreak: 7 });
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('streak-ring-label').props.children).toBe('7');
+      expect(screen.getByText('streak:7')).toBeTruthy();
     });
 
-    it('shows zero-state copy when streak is 0', () => {
-      setProgressMock({ ...mockProgress, currentStreak: 0 });
+    it('does not show the card when progress is undefined', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.getByText('Complete a lesson today to start your streak')).toBeTruthy();
+      expect(screen.queryByTestId('momentum-card')).toBeNull();
     });
 
-    it('does not show streak hero when progress is undefined', () => {
-      setEnrollmentsMock([mockEnrollment]);
-      render(<LessonsScreen />);
-      expect(screen.queryByTestId('streak-hero')).toBeNull();
-    });
-
-    it('does not show streak hero while no track is enrolled', () => {
+    it('does not show the card while no track is enrolled', () => {
       setProgressMock(mockProgress);
       setEnrollmentsMock([]);
       render(<LessonsScreen />);
-      expect(screen.queryByTestId('streak-hero')).toBeNull();
+      expect(screen.queryByTestId('momentum-card')).toBeNull();
     });
   });
 
@@ -313,17 +294,25 @@ describe('LessonsScreen', () => {
       expect(screen.getByText('BEGINNER')).toBeTruthy();
     });
 
-    it('shows position label on enrollment card', () => {
+    it('shows the topic name on its own line, without the lesson position', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.getByText('Foundations · Lesson 1 of 10')).toBeTruthy();
+      expect(screen.getByText('Foundations')).toBeTruthy();
+    });
+
+    it('puts the lesson position in the top row, beside the level badge', () => {
+      setEnrollmentsMock([mockEnrollment]);
+      render(<LessonsScreen />);
+      const row = screen.getByTestId('next-lesson-meta-skill-1');
+      expect(within(row).getByText('BEGINNER')).toBeTruthy();
+      expect(within(row).getByText('Lesson 1 of 10')).toBeTruthy();
     });
 
     it('shows Start Lesson button in next-lesson card', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
       expect(screen.getByTestId('next-lesson-btn-skill-1')).toBeTruthy();
-      expect(screen.getByText('START LESSON →')).toBeTruthy();
+      expect(screen.getByText('Start lesson →')).toBeTruthy();
     });
 
     it('navigates to lesson detail when Start Lesson is pressed', () => {
@@ -597,7 +586,7 @@ describe('LessonsScreen', () => {
       setEnrollmentsMock([]);
       setProgressMock(mockProgress);
       render(<LessonsScreen />);
-      expect(screen.queryByTestId('streak-hero')).toBeNull();
+      expect(screen.queryByTestId('momentum-card')).toBeNull();
       expect(screen.queryByTestId('streak-banner')).toBeNull();
     });
 
@@ -605,7 +594,7 @@ describe('LessonsScreen', () => {
       setEnrollmentsMock([mockEnrollment]);
       setProgressMock(mockProgress);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('streak-hero')).toBeTruthy();
+      expect(screen.getByTestId('momentum-card')).toBeTruthy();
     });
   });
 
@@ -728,7 +717,7 @@ describe('LessonsScreen', () => {
       setCustomPlansMock([mockCustomPlan]);
       setProgressMock(mockProgress);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('streak-hero')).toBeTruthy();
+      expect(screen.getByTestId('momentum-card')).toBeTruthy();
     });
   });
 

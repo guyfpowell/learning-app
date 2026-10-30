@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { must } from '@/test-utils/must';
-import { colors, radius, spacing } from '@/theme';
+import { colors, fontSize, radius, spacing } from '@/theme';
+import { headerRowBox } from '@/components/quiz/QuizResultFrame';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react-native';
 import { QuizModal } from '../QuizModal';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
@@ -167,6 +168,10 @@ const q1CorrectNotFinalized = {
   coaching: null,
 };
 
+jest.mock('@/lib/quizFeedbackPhrase', () => ({
+  nextFeedbackPhrase: (correct: boolean) => (correct ? 'Correct!' : 'Incorrect'),
+}));
+
 describe('QuizModal', () => {
   const onClose = jest.fn();
 
@@ -236,11 +241,11 @@ describe('QuizModal', () => {
 
   it('091c: Submit is the coral variant, and disabled keeps coral at reduced opacity', () => {
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-    const disabled = StyleSheet.flatten(must(screen.getByText('SUBMIT').parent?.parent, 'button').props.style);
+    const disabled = StyleSheet.flatten(must(screen.getByText('Submit').parent?.parent, 'button').props.style);
     expect(disabled).toMatchObject({ backgroundColor: colors.coral });
     expect(disabled.opacity).toBeLessThan(1);
     fireEvent.press(screen.getByText('Option A'));
-    const enabled = StyleSheet.flatten(must(screen.getByText('SUBMIT').parent?.parent, 'button').props.style);
+    const enabled = StyleSheet.flatten(must(screen.getByText('Submit').parent?.parent, 'button').props.style);
     expect(enabled).toMatchObject({ backgroundColor: colors.coral });
     expect(enabled.opacity).toBeUndefined();
   });
@@ -262,13 +267,13 @@ describe('QuizModal', () => {
 
   it('shows Submit button for each question', () => {
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('SUBMIT')).toBeTruthy();
+    expect(screen.getByText('Submit')).toBeTruthy();
   });
 
   it('calls mutate with only the current question answer on Submit', () => {
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
     fireEvent.press(screen.getByText('Option A'));
-    fireEvent.press(screen.getByText('SUBMIT'));
+    fireEvent.press(screen.getByText('Submit'));
     expect(mockMutate).toHaveBeenCalledWith(
       { lessonId: 'lesson-1', answers: { 'q-1': 'Option A' } },
       expect.anything()
@@ -278,7 +283,7 @@ describe('QuizModal', () => {
   it('shows spinner on Submit button while submitting', () => {
     setQuizMock({ isPending: true });
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-    expect(screen.queryByText('SUBMIT')).toBeNull();
+    expect(screen.queryByText('Submit')).toBeNull();
     const { ActivityIndicator } = require('react-native');
     expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeTruthy();
   });
@@ -352,21 +357,21 @@ describe('QuizModal', () => {
 
   it('calls onClose when close button is pressed', () => {
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    fireEvent.press(screen.getByText('✕'));
+    fireEvent.press(screen.getByLabelText('Close quiz'));
     expect(onClose).toHaveBeenCalled();
   });
 
   it('shows "Back to Dashboard" button in terminal view when nextLessonId is null', () => {
     setQuizMock({ data: { ...mockResult, nextLessonId: null } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('BACK TO DASHBOARD')).toBeTruthy();
+    expect(screen.getByText('Back to dashboard')).toBeTruthy();
     expect(screen.queryByText('DONE')).toBeNull();
   });
 
   it('"Back to Dashboard" in terminal view calls onClose and navigates to lessons', () => {
     setQuizMock({ data: { ...mockResult, nextLessonId: null } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    fireEvent.press(screen.getByText('BACK TO DASHBOARD'));
+    fireEvent.press(screen.getByText('Back to dashboard'));
     expect(onClose).toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lessons');
   });
@@ -374,21 +379,21 @@ describe('QuizModal', () => {
   it('shows "Next Lesson" button in terminal view when nextLessonId is present', () => {
     setQuizMock({ data: { ...mockResult, nextLessonId: 'lesson-2' } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('NEXT LESSON')).toBeTruthy();
+    expect(screen.getByText('Next lesson')).toBeTruthy();
     expect(screen.queryByText('DONE')).toBeNull();
   });
 
   it('091b: the result action is the coral variant', () => {
     setQuizMock({ data: { ...mockResult, nextLessonId: 'lesson-2' } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    const btn = must(screen.getByText('NEXT LESSON').parent?.parent, 'button');
+    const btn = must(screen.getByText('Next lesson').parent?.parent, 'button');
     expect(StyleSheet.flatten(btn.props.style)).toMatchObject({ backgroundColor: colors.coral });
   });
 
   it('"Next Lesson" in terminal view calls onClose and navigates to that lesson', () => {
     setQuizMock({ data: { ...mockResult, nextLessonId: 'lesson-2' } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    fireEvent.press(screen.getByText('NEXT LESSON'));
+    fireEvent.press(screen.getByText('Next lesson'));
     expect(onClose).toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith('/lesson/lesson-2');
   });
@@ -445,7 +450,7 @@ describe('QuizModal', () => {
     it('shows "Next Question" button in per-question feedback view', () => {
       setQuizMock({ data: q1CorrectNotFinalized });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByText('NEXT QUESTION')).toBeTruthy();
+      expect(screen.getByText('Next question')).toBeTruthy();
     });
 
     it('Next Question button advances to Q2 after Q1 per-question feedback', () => {
@@ -453,7 +458,7 @@ describe('QuizModal', () => {
       setQuizMock({ data: q1CorrectNotFinalized, reset: resetMock });
       const { rerender } = render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
 
-      fireEvent.press(screen.getByText('NEXT QUESTION'));
+      fireEvent.press(screen.getByText('Next question'));
 
       // After advancing, reset is called and submit.data clears — show Q2 quiz view
       setQuizMock({ reset: resetMock });
@@ -474,7 +479,7 @@ describe('QuizModal', () => {
       setQuizMock({ data: q1WrongResolved });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(screen.getByText('Incorrect')).toBeTruthy();
-      expect(screen.getByText('NEXT QUESTION')).toBeTruthy();
+      expect(screen.getByText('Next question')).toBeTruthy();
       expect(screen.queryByText('Quiz Complete!')).toBeNull();
     });
 
@@ -483,7 +488,7 @@ describe('QuizModal', () => {
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(screen.getByText('Correct!')).toBeTruthy();
       expect(screen.getByText('Track Average')).toBeTruthy();
-      expect(screen.queryByText('NEXT QUESTION')).toBeNull();
+      expect(screen.queryByText('Next question')).toBeNull();
     });
 
     it('079f: finalized result shows the thumbs with the stored verdict from the result lesson', () => {
@@ -536,7 +541,7 @@ describe('QuizModal', () => {
 
       // Select and submit Q1 — the mock triggers LESSON_003 immediately
       fireEvent.press(screen.getByText('Option A'));
-      fireEvent.press(screen.getByText('SUBMIT'));
+      fireEvent.press(screen.getByText('Submit'));
 
       // Restore normal mock (no data), reset clears — should now show Q2
       setQuizMock({ reset: resetMock });
@@ -547,7 +552,7 @@ describe('QuizModal', () => {
     it('submits only Q1 answer when Submit is pressed on Q1', () => {
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       fireEvent.press(screen.getByText('Option A'));
-      fireEvent.press(screen.getByText('SUBMIT'));
+      fireEvent.press(screen.getByText('Submit'));
       expect(mockMutate).toHaveBeenCalledWith(
         { lessonId: 'lesson-1', answers: { 'q-1': 'Option A' } },
         expect.anything()
@@ -559,7 +564,7 @@ describe('QuizModal', () => {
     it('sends completionTime with every submission', () => {
       render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} completionTime={() => 73} />);
       fireEvent.press(screen.getByText('Option A'));
-      fireEvent.press(screen.getByText('SUBMIT'));
+      fireEvent.press(screen.getByText('Submit'));
       expect(mockMutate).toHaveBeenCalledWith(
         { lessonId: 'lesson-1', answers: { 'q-1': 'Option A' }, completionTime: 73 },
         expect.anything()
@@ -571,7 +576,7 @@ describe('QuizModal', () => {
       render(<QuizModal visible={true} lesson={completedLesson} onClose={onClose} />);
       expect(screen.queryByText('Already Completed')).toBeNull();
       fireEvent.press(screen.getByText('Option A'));
-      fireEvent.press(screen.getByText('SUBMIT'));
+      fireEvent.press(screen.getByText('Submit'));
       expect(mockMutate).toHaveBeenCalled();
     });
   });
@@ -618,7 +623,7 @@ describe('QuizModal', () => {
 
       const { rerender } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       fireEvent.press(screen.getByText('Option A'));
-      fireEvent.press(screen.getByText('SUBMIT'));
+      fireEvent.press(screen.getByText('Submit'));
 
       setQuizMock({ reset: resetMock });
       rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
@@ -629,8 +634,8 @@ describe('QuizModal', () => {
     it('"Back to Dashboard" on "Already Completed" calls onClose and navigates to lessons when no nextLessonId', () => {
       const completedLesson = { ...singleQuizLesson, quizCompleted: true };
       render(<QuizModal visible={true} lesson={completedLesson} onClose={onClose} />);
-      expect(screen.getByText('BACK TO DASHBOARD')).toBeTruthy();
-      fireEvent.press(screen.getByText('BACK TO DASHBOARD'));
+      expect(screen.getByText('Back to dashboard')).toBeTruthy();
+      fireEvent.press(screen.getByText('Back to dashboard'));
       expect(onClose).toHaveBeenCalled();
       expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lessons');
     });
@@ -638,8 +643,8 @@ describe('QuizModal', () => {
     it('"Next Lesson" on "Already Completed" navigates to next lesson when nextLessonId present', () => {
       const completedLesson = { ...singleQuizLesson, quizCompleted: true, nextLessonId: 'lesson-99' };
       render(<QuizModal visible={true} lesson={completedLesson} onClose={onClose} />);
-      expect(screen.getByText('NEXT LESSON')).toBeTruthy();
-      fireEvent.press(screen.getByText('NEXT LESSON'));
+      expect(screen.getByText('Next lesson')).toBeTruthy();
+      fireEvent.press(screen.getByText('Next lesson'));
       expect(onClose).toHaveBeenCalled();
       expect(mockReplace).toHaveBeenCalledWith('/lesson/lesson-99');
     });
@@ -659,9 +664,9 @@ describe('QuizModal', () => {
 
       expect(screen.getByText('Incorrect')).toBeTruthy();
       expect(screen.getByText('Fit beats features.')).toBeTruthy();
-      expect(screen.getByText('TRY AGAIN')).toBeTruthy();
+      expect(screen.getByText('Try again')).toBeTruthy();
       // "Next lesson" button removed (item 7) — try again is the only action
-      expect(screen.queryByText('NEXT LESSON')).toBeNull();
+      expect(screen.queryByText('Next lesson')).toBeNull();
       expect(screen.queryByText('Quiz Complete!')).toBeNull();
     });
 
@@ -670,7 +675,7 @@ describe('QuizModal', () => {
       setQuizMock({ data: wrongPendingResult, reset });
       render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
 
-      fireEvent.press(screen.getByText('TRY AGAIN'));
+      fireEvent.press(screen.getByText('Try again'));
       expect(reset).toHaveBeenCalled();
     });
 
@@ -678,7 +683,7 @@ describe('QuizModal', () => {
       setQuizMock({ data: undefined });
       const { rerender } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       fireEvent.press(screen.getByText('Option B'));
-      fireEvent.press(screen.getByText('SUBMIT'));
+      fireEvent.press(screen.getByText('Submit'));
       expect(mockMutate).toHaveBeenCalledWith(
         { lessonId: 'lesson-1', answers: { 'q-1': 'Option B' } },
         expect.anything()
@@ -686,12 +691,12 @@ describe('QuizModal', () => {
 
       setQuizMock({ data: wrongPendingResult });
       rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-      fireEvent.press(screen.getByText('TRY AGAIN'));
+      fireEvent.press(screen.getByText('Try again'));
 
       setQuizMock({ data: undefined });
       rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       fireEvent.press(screen.getByText('Option A'));
-      fireEvent.press(screen.getByText('SUBMIT'));
+      fireEvent.press(screen.getByText('Submit'));
 
       expect(mockMutate).toHaveBeenLastCalledWith(
         { lessonId: 'lesson-1', answers: { 'q-1': 'Option A' }, isRetake: true },
@@ -711,11 +716,11 @@ describe('QuizModal', () => {
       setQuizMock({ data: undefined });
       const { rerender } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       fireEvent.press(screen.getByText('Option B'));
-      fireEvent.press(screen.getByText('SUBMIT'));
+      fireEvent.press(screen.getByText('Submit'));
 
       setQuizMock({ data: wrongPendingResult });
       rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-      fireEvent.press(screen.getByText('TRY AGAIN'));
+      fireEvent.press(screen.getByText('Try again'));
 
       setQuizMock({
         data: { ...mockResult, correct: true, retakeAvailable: false, trackAverage: 70, previousAverage: 70 },
@@ -908,6 +913,92 @@ describe('QuizModal', () => {
       // All options are initially present
       expect(screen.getByTestId('quiz-opt-0')).toBeTruthy();
       expect(screen.getByTestId('quiz-opt-1')).toBeTruthy();
+    });
+  });
+
+  describe('096 — heading animation', () => {
+    const headingStyle = () => StyleSheet.flatten(screen.getByTestId('result-heading').props.style);
+
+    it('scales a correct heading in from behind the screen', () => {
+      setQuizMock({ data: { ...mockResult, correct: true } });
+      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      expect(headingStyle().transform).toHaveLength(1);
+    });
+
+    it('leaves an incorrect heading still', () => {
+      setQuizMock({ data: { ...mockResult, correct: false, retakeAvailable: false } });
+      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      expect(headingStyle().transform).toBeUndefined();
+    });
+  });
+
+  describe('096 — result screen layout', () => {
+    it('shows the day streak as a number in the header, and not in the body', () => {
+      setQuizMock({ data: { ...mockResult, streak: 4 } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      const flame = within(screen.getByTestId('quiz-frame-header')).getByTestId('streak-flame');
+      expect(within(flame).getByText('4')).toBeTruthy();
+      expect(screen.queryByText('4-day streak')).toBeNull();
+    });
+
+    it('draws the streak count in brand blue at body-copy size', () => {
+      setQuizMock({ data: { ...mockResult, streak: 4 } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      const count = StyleSheet.flatten(screen.getByTestId('streak-flame-count').props.style);
+      expect(count.color).toBe(colors.brand);
+      expect(count.fontSize).toBe(fontSize.md);
+    });
+
+    it('puts the thumbs in their own bubble in the header', () => {
+      setQuizMock({ data: { ...mockResult } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      const bubble = within(screen.getByTestId('header-rating-bubble'));
+      expect(bubble.getByTestId('rating-stub')).toBeTruthy();
+      expect(bubble.queryByLabelText('Close quiz results')).toBeNull();
+    });
+
+    it('draws the close button as a circle', () => {
+      setQuizMock({ data: { ...mockResult } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      const close = StyleSheet.flatten(screen.getByLabelText('Close quiz results').props.style);
+      expect(close.width).toBe(close.height);
+      expect(close.borderRadius).toBe(radius.pill);
+    });
+
+    it('draws the bookmark as a circle matching the close button', () => {
+      setQuizMock({ data: { ...mockResult } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      const bookmark = StyleSheet.flatten(screen.getByLabelText('Save lesson').props.style);
+      const close = StyleSheet.flatten(screen.getByLabelText('Close quiz results').props.style);
+      expect(bookmark).toMatchObject({ width: close.width, height: close.height, borderRadius: radius.pill });
+    });
+
+    it('anchors the XP animation on the header row, where the streak flame is', () => {
+      setQuizMock({ data: { ...mockResult, streak: 4, xpAwarded: 20, achievementsUnlocked: [] } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      const { top, height } = headerRowBox(44); // the mocked top inset
+      expect(StyleSheet.flatten(screen.getByTestId('xp-chip-overlay').props.style)).toMatchObject({ top, height });
+    });
+
+    it('shows no streak flame when the streak is 0', () => {
+      setQuizMock({ data: { ...mockResult, streak: 0 } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.queryByTestId('streak-flame')).toBeNull();
+    });
+
+    it('puts the track average and the XP award on either side of the heading', () => {
+      setQuizMock({ data: { ...mockResult, xpAwarded: 20 } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      const headline = within(screen.getByTestId('result-headline'));
+      expect(headline.getByText('Track Average')).toBeTruthy();
+      expect(headline.getByText('Correct!')).toBeTruthy();
+      expect(headline.getByTestId('xp-chip')).toBeTruthy();
+    });
+
+    it('keeps the heading in the headline row when there is no XP award', () => {
+      setQuizMock({ data: { ...mockResult, xpAwarded: null } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(within(screen.getByTestId('result-headline')).getByText('Correct!')).toBeTruthy();
     });
   });
 

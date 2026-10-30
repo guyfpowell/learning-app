@@ -150,7 +150,7 @@ describe('TrackDetailScreen', () => {
     setMocks({ paths: [pathWithLesson] });
     render(<TrackDetailScreen />);
     // Button renders label.toUpperCase()
-    expect(screen.getByText('START LESSON')).toBeTruthy();
+    expect(screen.getByText('Start lesson')).toBeTruthy();
   });
 
   it('shows Continue lesson when nextLesson.resumePhase is set', () => {
@@ -160,7 +160,7 @@ describe('TrackDetailScreen', () => {
     };
     setMocks({ paths: [pathWithLesson] });
     render(<TrackDetailScreen />);
-    expect(screen.getByText('CONTINUE LESSON')).toBeTruthy();
+    expect(screen.getByText('Continue lesson')).toBeTruthy();
   });
 
   it('navigates to lesson screen when Start lesson is tapped', () => {

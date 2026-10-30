@@ -1,12 +1,22 @@
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, StyleSheet, type AppStateStatus, type StyleProp, type ViewStyle } from 'react-native';
 import { CURRENT_USER_QUERY_KEY } from '@/lib/queryKeys';
 import { must } from '@/test-utils/must';
 
 interface CapturedTabsProps {
   children?: React.ReactNode;
   screenListeners?: { focus?: () => void };
+  screenOptions?: {
+    tabBarStyle?: StyleProp<ViewStyle>;
+    tabBarItemStyle?: StyleProp<ViewStyle>;
+    tabBarButton?: (props: {
+      children: React.ReactNode;
+      accessibilityState?: { selected?: boolean };
+      testID?: string;
+    }) => React.ReactNode;
+    tabBarBackground?: () => React.ReactNode;
+  };
 }
 
 let capturedTabsProps: CapturedTabsProps | null = null;
@@ -21,6 +31,12 @@ jest.mock('expo-router', () => ({
   ),
 }));
 
+jest.mock('expo-blur', () => {
+  const { View: MockView } = jest.requireActual('react-native');
+  const { createElement } = jest.requireActual('react');
+  return { BlurView: (props: object) => createElement(MockView, { testID: 'tab-bar-blur', ...props }) };
+});
+
 jest.mock('@expo/vector-icons', () => ({
   Ionicons: () => null,
 }));
@@ -32,13 +48,16 @@ jest.mock('@/theme', () => ({
     white: '#FFFFFF',
     border: '#E2E8F0',
     brand: '#1C66D2',
+    brandSoft: '#E8F0FC',
     surface: '#FEFDFB',
     borderSubtle: '#EEEBE5',
     bg: '#F8FAFC',
   },
   font: { medium: 'Hanken_500Medium' },
   fontSize: { xs: 12 },
-  spacing: { sm: 8 },
+  spacing: { xs: 4, sm: 8, md: 16, lg: 24, xxl: 48 },
+  radius: { pill: 999 },
+  shadow: { md: {} },
 }));
 
 jest.mock('@/hooks/useNotifications', () => ({
@@ -95,6 +114,67 @@ describe('(tabs) layout', () => {
       .flatMap((c) => (React.isValidElement<{ name: string }>(c) ? [c.props.name] : []));
     // Hidden tabs are redirected away from by Expo Router 58; non-tab screens are in the root Stack (ADR-016).
     expect(names).toEqual(['lessons', 'progress', 'profile', 'tracks', 'team', 'albert']);
+  });
+
+  describe('096 — floating tab bar', () => {
+    const screenOptionsOf = () => {
+      const options = capturedTabsProps?.screenOptions;
+      if (!options) throw new Error('Tabs was not given screenOptions');
+      return options;
+    };
+
+    it('floats a compact bar as a fully rounded pill, inset from the edges', () => {
+      const TabsLayout = require('../_layout').default;
+      render(<TabsLayout />);
+      const style = StyleSheet.flatten(screenOptionsOf().tabBarStyle);
+      expect(style).toMatchObject({
+        position: 'absolute',
+        start: 24,
+        end: 24,
+        bottom: 20,
+        height: 56,
+        paddingTop: 0,
+        paddingBottom: 0,
+        borderRadius: 999,
+        borderTopWidth: 0,
+        backgroundColor: 'transparent',
+      });
+    });
+
+    it('draws the glass with a blur background', () => {
+      const TabsLayout = require('../_layout').default;
+      render(<TabsLayout />);
+      const background = screenOptionsOf().tabBarBackground;
+      if (!background) throw new Error('Tabs was not given a tabBarBackground');
+      const { getByTestId } = render(<>{background()}</>);
+      expect(getByTestId('tab-bar-blur')).toBeTruthy();
+    });
+
+    it('highlights only the selected tab with a fully rounded soft fill', () => {
+      const TabsLayout = require('../_layout').default;
+      render(<TabsLayout />);
+      const tabBarButton = capturedTabsProps?.screenOptions?.tabBarButton;
+      if (!tabBarButton) throw new Error('Tabs was not given a tabBarButton');
+      const selected = render(<>{tabBarButton({ children: null, accessibilityState: { selected: true }, testID: 'sel' })}</>);
+      const idle = render(<>{tabBarButton({ children: null, accessibilityState: { selected: false }, testID: 'idle' })}</>);
+      expect(StyleSheet.flatten(selected.getByTestId('sel').props.style)).toMatchObject({
+        backgroundColor: '#E8F0FC',
+        borderRadius: 999,
+      });
+      expect(StyleSheet.flatten(idle.getByTestId('idle').props.style).backgroundColor).toBeUndefined();
+    });
+
+    it('hides the Team tab from the bar while the team feature is off', () => {
+      const TabsLayout = require('../_layout').default;
+      render(<TabsLayout />);
+      const team = React.Children.toArray(capturedTabsProps?.children).flatMap((c) =>
+        React.isValidElement<{ name: string; options?: { href?: null } }>(c) && c.props.name === 'team'
+          ? [c.props.options]
+          : []
+      );
+      expect(team).toHaveLength(1);
+      expect(team[0]?.href).toBeNull();
+    });
   });
 
   it('shows the verification banner when the current user is unverified', () => {

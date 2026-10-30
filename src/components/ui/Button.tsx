@@ -1,12 +1,20 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   PressableProps,
   StyleSheet,
   Text,
 } from 'react-native';
-import { colors, font, fontSize, radius, spacing, tracking } from '@/theme';
+import { colors, fontSize, radius, spacing, tracking } from '@/theme';
+import { sentenceCase } from '@/lib/sentenceCase';
+
+/**
+ * The call-to-action face: a system serif, so a button reads as an action and not as UI text.
+ * It is not one of the design system's fonts (Georgia ships with iOS; Android falls back to its serif).
+ */
+export const CTA_FONT = Platform.select({ ios: 'Georgia', default: 'serif' });
 
 type ButtonVariant =
   | 'primary'
@@ -56,7 +64,7 @@ export function Button({
       {loading ? (
         <ActivityIndicator size="small" color={spinnerColor(variant)} />
       ) : (
-        <Text style={[styles.label, labelColor(variant)]}>{label.toUpperCase()}</Text>
+        <Text style={[styles.label, labelColor(variant)]}>{sentenceCase(label)}</Text>
       )}
     </Pressable>
   );
@@ -109,7 +117,7 @@ const styles = StyleSheet.create({
   base: {
     paddingHorizontal: spacing.lg,
     paddingVertical:   spacing.sm + 2,
-    borderRadius:      radius.btn,
+    borderRadius:      radius.xs,
     alignItems:        'center',
     justifyContent:    'center',
     minHeight:         44,
@@ -118,7 +126,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical:   spacing.sm3,
     minHeight:         52,
-    borderRadius:      radius.sm,
+    borderRadius:      radius.xs,
   },
   blockFull: {
     alignSelf: 'center',
@@ -173,9 +181,9 @@ const styles = StyleSheet.create({
 
   // ── Label colours ─────────────────────────────────────────────────────────
   label: {
-    fontFamily:    font.bold,
-    fontSize:      fontSize.sm,
-    letterSpacing: tracking.caps,
+    fontFamily:    CTA_FONT,
+    fontSize:      fontSize.base,
+    letterSpacing: tracking.normal,
   },
   labelOnColor: {
     color: colors.onBrand,

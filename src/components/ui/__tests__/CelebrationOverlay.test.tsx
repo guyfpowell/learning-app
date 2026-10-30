@@ -77,6 +77,15 @@ describe('XpChipOverlay', () => {
     expect(screen.getByText('+50 XP')).toBeTruthy();
   });
 
+  it('sits on the given anchor box, centred, instead of the default spot', () => {
+    render(<XpChipOverlay {...baseProps} anchor={{ top: 52, height: 44 }} />);
+    expect(StyleSheet.flatten(screen.getByTestId('xp-chip-overlay').props.style)).toMatchObject({
+      top: 52,
+      height: 44,
+      justifyContent: 'center',
+    });
+  });
+
   it('does not render when visible is false', () => {
     render(<XpChipOverlay {...baseProps} visible={false} />);
     expect(screen.queryByTestId('xp-chip-animated')).toBeNull();

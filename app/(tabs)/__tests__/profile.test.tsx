@@ -286,12 +286,12 @@ describe('ProfileScreen', () => {
 
   it('shows logout button', () => {
     render(<ProfileScreen />);
-    expect(screen.getByText('LOG OUT')).toBeTruthy();
+    expect(screen.getByText('Log out')).toBeTruthy();
   });
 
   it('calls logout mutate on button press', () => {
     render(<ProfileScreen />);
-    fireEvent.press(screen.getByText('LOG OUT'));
+    fireEvent.press(screen.getByText('Log out'));
     expect(mockMutate).toHaveBeenCalledTimes(1);
   });
 

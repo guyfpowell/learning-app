@@ -1,8 +1,19 @@
 import React, { type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { circleButtonStyle, CIRCLE_BUTTON_SIZE } from '@/components/ui/circleButtonStyle';
+import { StreakFlame } from '@/components/quiz/QuizResultParts';
+import { colors, radius, shadow, spacing } from '@/theme';
+
+/** The header's controls row: tall enough for a 44pt touch target. */
+const HEADER_ROW_HEIGHT = CIRCLE_BUTTON_SIZE;
+
+/** Where the header row sits on screen, so an overlay (the XP chip) can land on the streak flame. */
+export function headerRowBox(topInset: number) {
+  return { top: topInset + spacing.sm, height: HEADER_ROW_HEIGHT };
+}
 
 /** The scrolling body's padding: the bottom clears the home-indicator inset and the screen's rounded corners. */
 export function frameContentStyle(bottomInset: number) {
@@ -11,13 +22,14 @@ export function frameContentStyle(bottomInset: number) {
 
 /**
  * The frame every non-question quiz view shares: an inset-aware header with the
- * bookmark (left), the optional `rating` and close (right), and a scrolling body.
+ * bookmark (left), the optional day `streak`, `rating` and close (right), and a scrolling body.
  * `overlay` renders above the body (celebrations).
  */
-export function QuizResultFrame({ onClose, saved, onToggleSave, rating, overlay, children }: {
+export function QuizResultFrame({ onClose, saved, onToggleSave, streak, rating, overlay, children }: {
   onClose: () => void;
   saved: boolean;
   onToggleSave: () => void;
+  streak?: number;
   rating?: ReactNode;
   overlay?: ReactNode;
   children: ReactNode;
@@ -26,12 +38,19 @@ export function QuizResultFrame({ onClose, saved, onToggleSave, rating, overlay,
   return (
     <View style={styles.container}>
         <View testID="quiz-frame-header" style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-          <BookmarkButton saved={saved} onToggle={onToggleSave} />
-          <View style={styles.headerRight}>
-            {rating}
-            <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz results">
-              <Text style={styles.closeText}>✕</Text>
-            </Pressable>
+          <View style={styles.headerRow}>
+            <BookmarkButton saved={saved} onToggle={onToggleSave} style={styles.circleBtn} />
+            {streak !== undefined && streak > 0 && (
+              <View pointerEvents="none" style={styles.headerCentre}>
+                <StreakFlame streak={streak} />
+              </View>
+            )}
+            <View style={styles.headerRight}>
+              {rating && <View testID="header-rating-bubble" style={styles.bubble}>{rating}</View>}
+              <Pressable onPress={onClose} style={styles.circleBtn} accessibilityLabel="Close quiz results">
+                <Ionicons name="close" size={22} color={colors.textMuted} />
+              </Pressable>
+            </View>
           </View>
         </View>
         <ScrollView testID="quiz-frame-content" contentContainerStyle={frameContentStyle(insets.bottom)}>{children}</ScrollView>
@@ -43,22 +62,39 @@ export function QuizResultFrame({ onClose, saved, onToggleSave, rating, overlay,
 export const quizFrameStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   header: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     // paddingTop is applied inline via useSafeAreaInsets() — not hardcoded here
     paddingBottom:     spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSubtle,
   },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  closeBtn:  { padding: spacing.xs },
-  closeText: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.md,
-    color:      colors.textMuted,
+  headerRow: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+    height:         HEADER_ROW_HEIGHT,
   },
+  // Spans the row so the streak sits in the true centre, whatever the sides hold.
+  headerCentre: {
+    position:       'absolute',
+    top:            0,
+    bottom:         0,
+    left:           0,
+    right:          0,
+    alignItems:     'center',
+    justifyContent: 'center',
+  },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  bubble: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    height:            HEADER_ROW_HEIGHT,
+    paddingHorizontal: spacing.xs,
+    borderRadius:      radius.pill,
+    backgroundColor:   colors.surface,
+    ...shadow.card,
+  },
+  circleBtn: circleButtonStyle,
   content:   { padding: spacing.md, flexGrow: 1 },
 });
 

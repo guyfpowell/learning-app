@@ -98,9 +98,11 @@ interface XpChipOverlayProps {
   visible: boolean;
   onDismiss: () => void;
   autoDismissMs?: number;
+  /** A box (top and height) to centre the chip in, instead of the default spot. */
+  anchor?: { top: number; height: number };
 }
 
-export function XpChipOverlay({ xp, visible, onDismiss, autoDismissMs = 2000 }: XpChipOverlayProps) {
+export function XpChipOverlay({ xp, visible, onDismiss, autoDismissMs = 2000, anchor }: XpChipOverlayProps) {
   const anim = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -143,7 +145,7 @@ export function XpChipOverlay({ xp, visible, onDismiss, autoDismissMs = 2000 }: 
   return (
     <Pressable
       testID="xp-chip-overlay"
-      style={styles.xpChipContainer}
+      style={[styles.xpChipContainer, anchor && { ...anchor, justifyContent: 'center' }]}
       onPress={dismiss}
       accessibilityLabel="Dismiss XP award"
     >

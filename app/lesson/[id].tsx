@@ -11,17 +11,16 @@ import { Button } from '@/components/ui/Button';
 import { KeyTakeawayBlock } from '@/components/ui/KeyTakeawayBlock';
 import { LessonPathHeader } from '@/components/learning/LessonPathHeader';
 import { Spinner } from '@/components/ui/Spinner';
-import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizModal } from '@/components/QuizModal';
-import { useLesson, useSaveLesson, useUnsaveLesson, useStartRetake } from '@/hooks/useLesson';
+import { useLesson, useStartRetake } from '@/hooks/useLesson';
 import { useLessonClock } from '@/hooks/useLessonClock';
 import { useDetailHeader } from '@/hooks/useDetailHeader';
 import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import type { LessonPhase, UserPath } from '@learning/shared';
-import { LESSON_COMPLETED_BANNER, LESSON_SAVE_ERROR, PREMIUM_LESSON_BUDGET, RETAKE_START_ERROR, lessonOpeningPhase } from '@learning/shared';
+import { LESSON_COMPLETED_BANNER, PREMIUM_LESSON_BUDGET, RETAKE_START_ERROR, lessonOpeningPhase } from '@learning/shared';
 import { extractError } from '@/lib/errors';
 
 function isPremiumError(error: unknown): boolean {
@@ -46,10 +45,17 @@ function flooredPct(path: UserPath): number {
     : 0;
 }
 
+// Paragraphs are separated by a gap, not by the blank lines in the stored text.
+function paragraphsOf(raw: string): string[] {
+  return raw.split(/\n{2,}/).map((p) => p.trim()).filter((p) => p.length > 0);
+}
+
 function LessonBody({ raw }: { raw: string }) {
   return (
-    <View style={styles.contentBlock}>
-      <Text testID="lesson-content" style={styles.contentText}>{raw}</Text>
+    <View testID="lesson-content" style={styles.contentBlock}>
+      {paragraphsOf(raw).map((paragraph, i) => (
+        <Text key={i} testID="lesson-paragraph" style={styles.contentText}>{paragraph}</Text>
+      ))}
     </View>
   );
 }
@@ -107,14 +113,10 @@ export default function LessonDetailScreen() {
   const { data: paths } = usePaths();
   const [quizVisible, setQuizVisible] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
   const [phase, setPhase] = useState<LessonPhase>('collapsed');
-  const saveLesson = useSaveLesson();
-  const unsaveLesson = useUnsaveLesson();
   const startRetake = useStartRetake();
   const clock = useLessonClock();
   const [retakeFailed, setRetakeFailed] = useState(false);
-  const [saveFailed, setSaveFailed] = useState(false);
 
   // Guards against re-initialising phase after the user has manually transitioned
   const phaseInitialized = useRef<string | null>(null);
@@ -126,10 +128,6 @@ export default function LessonDetailScreen() {
       Sentry.addBreadcrumb({ category: 'lesson', message: 'Position save failed', level: 'warning', data: { lessonId, phase: p, err: String(err) } });
     });
   }
-
-  useEffect(() => {
-    setIsSaved(!!lesson?.isSaved);
-  }, [lesson?.id, lesson?.isSaved]);
 
   // Where the reader opens, the same rule as web. Waits for paths: they carry the saved position.
   useEffect(() => {
@@ -151,24 +149,6 @@ export default function LessonDetailScreen() {
   const showNotFound = isError && isNotFoundError(error);
   // The server's message or fixed copy, never the transport's own text ("Network Error").
   const lessonError = extractError(error);
-
-  function handleToggleSave() {
-    if (!lesson) return;
-    const lessonId = lesson.id;
-    const nextSaved = !isSaved;
-    setIsSaved(nextSaved);
-    setSaveFailed(false);
-    const onError = (err: Error) => {
-      Sentry.addBreadcrumb({ category: 'lesson', message: 'Save toggle failed', level: 'warning', data: { lessonId, saved: nextSaved, err: String(err) } });
-      setIsSaved(!nextSaved);
-      setSaveFailed(true);
-    };
-    if (nextSaved) {
-      saveLesson.mutate(lessonId, { onError });
-    } else {
-      unsaveLesson.mutate(lessonId, { onError });
-    }
-  }
 
   const retakeInProgress = !!lesson?.lessonRetakeInProgress;
 
@@ -233,18 +213,11 @@ export default function LessonDetailScreen() {
               path={enrollment && pct !== null ? { name: enrollment.name, percentComplete: pct } : undefined}
             />
 
-            <Card testID="lesson-card" style={styles.card}>
-              <View style={styles.titleRow}>
+            <View testID="lesson-card" style={styles.card}>
+              <View testID="lesson-title-row" style={styles.titleRow}>
                 <Text testID="lesson-title" style={styles.title}>{lesson.title}</Text>
-                <View style={styles.titleActions}>
-                  {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} />}
-                  <BookmarkButton saved={isSaved} onToggle={handleToggleSave} />
-                </View>
+                {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} />}
               </View>
-
-              {saveFailed && (
-                <Text testID="save-error" style={styles.error}>{LESSON_SAVE_ERROR}</Text>
-              )}
 
               {phase === 'collapsed' && lesson.summary && (
                 <Text testID="lesson-summary" style={styles.summaryText}>{lesson.summary}</Text>
@@ -322,7 +295,7 @@ export default function LessonDetailScreen() {
               {retakeFailed && (
                 <Text testID="retake-error" style={styles.error}>{RETAKE_START_ERROR}</Text>
               )}
-            </Card>
+            </View>
           </>
         )}
 
@@ -354,20 +327,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   content:   { padding: spacing.md, flexGrow: 1 },
 
-  card: { gap: spacing.md },
+  // Article, not a card: it sits on the page with the screen's margin plus a little.
+  card: { gap: spacing.md, paddingHorizontal: spacing.sm },
   titleRow: {
     flexDirection:  'row',
     alignItems:     'flex-start',
     justifyContent: 'space-between',
     gap:            spacing.sm,
   },
-  titleActions: {
-    flexDirection: 'row',
-    alignItems:    'center',
-  },
   title: {
     fontFamily: font.bold,
-    fontSize:   fontSize.md,
+    fontSize:   fontSize.lg,
     color:      colors.textDark,
     flex:       1,
   },
@@ -384,7 +354,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   contentBlock: {
-    gap: spacing.sm,
+    gap: spacing.sm3,
   },
   contentText: {
     fontFamily: font.regular,

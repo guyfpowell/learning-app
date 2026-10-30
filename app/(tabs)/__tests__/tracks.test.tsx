@@ -188,22 +188,22 @@ describe('TracksScreen', () => {
     expect(style.color).toBe(colors.textMuted);
   });
 
-  it('shows category badge (uppercased)', () => {
+  it('shows the category as a small eyebrow above the name', () => {
     render(<TracksScreen />);
-    expect(screen.getByText('PRODUCT')).toBeTruthy();
+    expect(screen.getByText('Product')).toBeTruthy();
   });
 
   it('falls back to the raw category for a value with no label (BUG-080e-1)', () => {
     // Web admin can create categories such as 'design' / 'data-science'.
     setMocks({ skills: [{ ...baseSkill, category: 'data-science' }] });
     render(<TracksScreen />);
-    expect(screen.getByText('DATA-SCIENCE')).toBeTruthy();
+    expect(screen.getByText('data-science')).toBeTruthy();
   });
 
   it('shows Enrol button for accessible, non-enrolled skill', () => {
     render(<TracksScreen />);
     expect(screen.getByTestId('enrol-btn-skill-1')).toBeTruthy();
-    expect(screen.getByText('ENROL')).toBeTruthy();
+    expect(screen.getByText('Enrol')).toBeTruthy();
   });
 
   it('pressing Enrol calls mutate with skill id', () => {
@@ -212,13 +212,12 @@ describe('TracksScreen', () => {
     expect(mockMutate).toHaveBeenCalledWith('skill-1', expect.objectContaining({ onSuccess: expect.any(Function) }));
   });
 
-  it('shows Currently enrolled text and Enrolled badge for enrolled skill', () => {
+  it('lists an enrolled skill under Your tracks, not under Explore, with no status badges', () => {
     setMocks({ enrollments: [mockEnrollment] });
     render(<TracksScreen />);
-    expect(screen.getByTestId('enrolled-badge-skill-1')).toBeTruthy();
-    expect(screen.getByText('ENROLLED')).toBeTruthy();
-    expect(screen.getByTestId('enrolled-text-skill-1')).toBeTruthy();
-    expect(screen.getByText('Currently enrolled')).toBeTruthy();
+    expect(within(screen.getByTestId('your-tracks-section')).getByTestId('skill-card-skill-1')).toBeTruthy();
+    expect(screen.queryByTestId('explore-section')).toBeNull();
+    expect(screen.queryByText(/enrolled/i)).toBeNull();
   });
 
   it('does not show Enrol button for enrolled skill', () => {
@@ -227,12 +226,11 @@ describe('TracksScreen', () => {
     expect(screen.queryByTestId('enrol-btn-skill-1')).toBeNull();
   });
 
-  it('shows locked badge and Upgrade button for premium skill', () => {
+  it('shows an Upgrade button for premium skill', () => {
     setMocks({ skills: [premiumSkill] });
     render(<TracksScreen />);
-    expect(screen.getByTestId('locked-badge-skill-2')).toBeTruthy();
     expect(screen.getByTestId('upgrade-btn-skill-2')).toBeTruthy();
-    expect(screen.getByText('🔒 UPGRADE')).toBeTruthy();
+    expect(screen.getByText('🔒 Upgrade')).toBeTruthy();
   });
 
   it('does not show Enrol button for locked skill', () => {
@@ -327,18 +325,20 @@ describe('TracksScreen', () => {
   });
 
   describe('active track affordance (ticket 044)', () => {
-    it('shows ACTIVE badge for enrolled active track', () => {
+    it('shows the active track as the hero, labelled Active', () => {
       setMocks({ skills: [baseSkill], enrollments: [activeEnrollment] });
       render(<TracksScreen />);
+      expect(screen.queryByTestId('albert-mark')).toBeNull();
       expect(screen.getByTestId('active-badge-skill-1')).toBeTruthy();
-      expect(screen.getByText('ACTIVE')).toBeTruthy();
+      expect(screen.getByText('Active')).toBeTruthy();
+      expect(StyleSheet.flatten(screen.getByTestId('skill-card-skill-1').props.style).backgroundColor).toBe(colors.brand);
     });
 
-    it('shows "Active track" label for enrolled active track', () => {
+    it('shows the active track once, as the hero only, not also as a row', () => {
       setMocks({ skills: [baseSkill], enrollments: [activeEnrollment] });
       render(<TracksScreen />);
-      expect(screen.getByTestId('active-text-skill-1')).toBeTruthy();
-      expect(screen.getByText('Active track')).toBeTruthy();
+      expect(screen.getAllByTestId('skill-card-skill-1')).toHaveLength(1);
+      expect(screen.queryByText('Your tracks')).toBeNull();
     });
 
     it('does not show "Make active" button for the active track', () => {
@@ -351,7 +351,7 @@ describe('TracksScreen', () => {
       setMocks({ skills: [baseSkill], enrollments: [mockEnrollment] });
       render(<TracksScreen />);
       expect(screen.getByTestId('make-active-btn-skill-1')).toBeTruthy();
-      expect(screen.getByText('MAKE ACTIVE')).toBeTruthy();
+      expect(screen.getByText('Make active')).toBeTruthy();
     });
 
     it('pressing "Make active" calls setActivePath mutate with the path ref', () => {
@@ -359,12 +359,6 @@ describe('TracksScreen', () => {
       render(<TracksScreen />);
       fireEvent.press(screen.getByTestId('make-active-btn-skill-1'));
       expect(mockSetActive).toHaveBeenCalledWith({ kind: 'track', id: 'skill-1' });
-    });
-
-    it('does not show "Active track" label for non-active enrolled track', () => {
-      setMocks({ skills: [baseSkill], enrollments: [mockEnrollment] });
-      render(<TracksScreen />);
-      expect(screen.queryByTestId('active-text-skill-1')).toBeNull();
     });
 
     it('does not show ACTIVE badge for non-active enrolled track', () => {
@@ -396,35 +390,50 @@ describe('TracksScreen', () => {
       expect(mockPush).toHaveBeenCalledWith('/(tabs)/albert');
     });
 
-    it('omits the Your paths section entirely when there are no custom paths', () => {
-      setMocks({ enrollments: [mockEnrollment] });
+    it('omits Your tracks entirely when the learner has joined nothing', () => {
       render(<TracksScreen />);
-      expect(screen.queryByTestId('your-paths-section')).toBeNull();
-      expect(screen.queryByText('Your paths')).toBeNull();
+      expect(screen.queryByTestId('your-tracks-section')).toBeNull();
+      expect(screen.queryByText('Your tracks')).toBeNull();
+      expect(screen.getByText('Explore')).toBeTruthy();
     });
 
-    it('lists custom paths above the pre-built tracks', () => {
+    it('lists custom paths in Your tracks, apart from the catalogue', () => {
       setMocks({ enrollments: [mockEnrollment, customPath] });
       render(<TracksScreen />);
-      expect(screen.getByText('Your paths')).toBeTruthy();
-      expect(screen.getByTestId('custom-path-card-plan-1')).toBeTruthy();
-      // track-kind paths are not listed under Your paths
+      expect(screen.getByText('Your tracks')).toBeTruthy();
+      expect(within(screen.getByTestId('your-tracks-section')).getByTestId('custom-path-card-plan-1')).toBeTruthy();
+      // a track-kind path is a skill row, not a custom-path row
       expect(screen.queryByTestId('custom-path-card-skill-1')).toBeNull();
-      expect(screen.getByText('Pre-built tracks')).toBeTruthy();
     });
 
-    it('renders the custom paths section before the pre-built heading', () => {
-      setMocks({ enrollments: [customPath] });
+    it('puts Your tracks (with the hero) above the Albert link, and Explore after it', () => {
+      setMocks({ skills: [baseSkill, premiumSkill], enrollments: [customPath] });
       const { toJSON } = render(<TracksScreen />);
       const json = JSON.stringify(toJSON());
-      expect(json.indexOf('Your paths')).toBeLessThan(json.indexOf('Pre-built tracks'));
+      expect(json.indexOf('Your tracks')).toBeLessThan(json.indexOf('Ask Albert.'));
+      expect(json.indexOf('Ask Albert.')).toBeLessThan(json.indexOf('Explore'));
     });
 
-    it('shows a My path badge on an active and a non-active custom path (093)', () => {
-      setMocks({ enrollments: [customPath, { ...makeCustomPath({ id: 'plan-2', name: 'Other' }), isActive: true }] });
+    it('marks an Albert path in Your tracks with the Albert mark and the word Albert', () => {
+      setMocks({ enrollments: [customPath] });
       render(<TracksScreen />);
-      expect(screen.getByTestId('my-path-badge-plan-1')).toBeTruthy();
-      expect(screen.getByTestId('my-path-badge-plan-2')).toBeTruthy();
+      const row = within(screen.getByTestId('custom-path-card-plan-1'));
+      expect(row.getByText('Albert')).toBeTruthy();
+      expect(row.getByTestId('albert-mark')).toBeTruthy();
+      expect(row.queryByText('My path')).toBeNull();
+    });
+
+    it('lifts the Albert mark 2px so it sits level with the word', () => {
+      setMocks({ enrollments: [customPath] });
+      render(<TracksScreen />);
+      const style = StyleSheet.flatten(screen.getByTestId('track-eyebrow-mark').props.style);
+      expect(style.transform).toEqual([{ translateY: -2 }]);
+    });
+
+    it('gives a pre-built track no Albert mark', () => {
+      setMocks({ enrollments: [mockEnrollment] });
+      render(<TracksScreen />);
+      expect(within(screen.getByTestId('skill-card-skill-1')).queryByTestId('albert-mark')).toBeNull();
     });
 
     it('shows the description under the name (093)', () => {
@@ -480,19 +489,22 @@ describe('TracksScreen', () => {
       expect(screen.getByTestId('active-badge-plan-1')).toBeTruthy();
     });
 
-    it('colours the Active badge differently from the My path badge (093)', () => {
+    it('shows the active Albert path as the cobalt hero, labelled Active, with the Albert mark and no My path', () => {
       setMocks({ enrollments: [{ ...albertPath, isActive: true }] });
       render(<TracksScreen />);
-      const colorOf = (testID: string, label: RegExp) =>
-        StyleSheet.flatten(within(screen.getByTestId(testID)).getByText(label).props.style).color;
-      expect(colorOf('active-badge-plan-1', /^active$/i)).not.toBe(colorOf('my-path-badge-plan-1', /^my path$/i));
+      const hero = within(screen.getByTestId('custom-path-card-plan-1'));
+      expect(hero.getByText('Active')).toBeTruthy();
+      expect(hero.getByTestId('albert-mark')).toBeTruthy();
+      expect(hero.queryByText('My path')).toBeNull();
+      expect(StyleSheet.flatten(screen.getByTestId('custom-path-card-plan-1').props.style).backgroundColor).toBe(colors.brand);
     });
 
-    it('shows the Active track text on the active custom path only (093)', () => {
+    it('shows only the one active path as the hero when another path is not active', () => {
       setMocks({ enrollments: [albertPath, { ...makeCustomPath({ id: 'plan-2', name: 'Other' }), isActive: true }] });
       render(<TracksScreen />);
-      expect(within(screen.getByTestId('custom-path-card-plan-2')).getByText('Active track')).toBeTruthy();
-      expect(screen.queryByTestId('active-text-plan-1')).toBeNull();
+      expect(screen.queryByTestId('active-badge-plan-1')).toBeNull();
+      expect(screen.getByTestId('active-badge-plan-2')).toBeTruthy();
+      expect(screen.getByTestId('make-active-btn-plan-1')).toBeTruthy();
     });
 
     it('tapping Make active does not open the detail screen', () => {

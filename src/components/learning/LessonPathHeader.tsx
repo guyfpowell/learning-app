@@ -22,17 +22,23 @@ export function LessonPathHeader({ level, levelLabel, topicName, lessonIndex, to
     ? { index: lessonIndex, total: totalLessons }
     : null;
 
+  const badge = level ? <Badge label={levelLabel ?? level} variant={LEVEL_BADGE_VARIANT[level]} /> : null;
+
   return (
     <View testID="track-header" style={styles.card}>
-      {(level || topicName) && (
+      {/* With a position line the badge goes on its right; otherwise it stays here. */}
+      {(topicName || (badge && !position)) && (
         <View style={styles.eyebrowRow}>
-          {level && <Badge label={levelLabel ?? level} variant={LEVEL_BADGE_VARIANT[level]} />}
+          {!position && badge}
           {topicName && <Text style={styles.eyebrow} numberOfLines={1}>{topicName}</Text>}
         </View>
       )}
       {position && (
-        <View style={styles.positionBlock}>
-          <Text style={styles.position}>{`Lesson ${position.index} of ${position.total}`}</Text>
+        <View testID="lesson-position-block" style={styles.positionBlock}>
+          <View testID="lesson-position-row" style={styles.positionRow}>
+            <Text style={styles.position}>{`Lesson ${position.index} of ${position.total}`}</Text>
+            {badge}
+          </View>
           <Progress testID="lesson-position-progress" value={(position.index / position.total) * 100} />
         </View>
       )}
@@ -70,7 +76,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color:         colors.textMuted,
   },
-  positionBlock: { gap: spacing.xs },
+  positionBlock: { gap: spacing.sm },
+  positionRow: {
+    flexDirection:  'row',
+    justifyContent: 'space-between',
+    alignItems:     'center',
+    gap:            spacing.sm,
+  },
   position: {
     fontFamily: font.semibold,
     fontSize:   fontSize.base,
