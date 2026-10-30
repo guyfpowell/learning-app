@@ -4,9 +4,15 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  View,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { colors, font, fontSize, radius, shadow, spacing, tracking } from '@/theme';
 import { Button } from '@/components/ui/Button';
+
+/** Blur strength and cobalt tint of the achievement card's glass (096). */
+const CARD_BLUR = 40;
+const CARD_WASH_OPACITY = 0.6;
 
 interface CelebrationOverlayProps {
   visible: boolean;
@@ -83,6 +89,8 @@ export function CelebrationOverlay({
           },
         ]}
       >
+        <BlurView testID="celebration-blur" intensity={CARD_BLUR} tint="dark" style={StyleSheet.absoluteFill} />
+        <View testID="celebration-wash" style={styles.wash} pointerEvents="none" />
         <Text testID="celebration-title" style={styles.title}>{title}</Text>
         <Text testID="celebration-name" style={styles.name}>{name}</Text>
         <Text testID="celebration-description" style={styles.description}>{description}</Text>
@@ -172,20 +180,27 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
   },
   card: {
-    backgroundColor: colors.brand,
     borderRadius: radius.xl,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.brandSoft,
     padding: spacing.xl,
     marginHorizontal: spacing.xl,
     alignItems: 'center',
     gap: spacing.xs,
     maxWidth: 360,
     width: '100%',
+  },
+  wash: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: colors.brand,
+    opacity: CARD_WASH_OPACITY,
   },
   title: {
     fontFamily: font.semibold,

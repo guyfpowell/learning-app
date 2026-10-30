@@ -19,6 +19,7 @@ import type { QuizOptState } from '@/components/ui/QuizOpt';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { CelebrationOverlay, XpChipOverlay } from '@/components/ui/CelebrationOverlay';
 import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
+import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
 import { QuizHeroCard } from '@/components/quiz/QuizHeroCard';
 import { QuizResultFrame, quizFrameStyles, frameContentStyle, headerRowBox } from '@/components/quiz/QuizResultFrame';
 import { CoachingCard, KeyTakeawayCard, MilestoneCard, TrackAverageBadge, XpAward } from '@/components/quiz/QuizResultParts';
@@ -213,6 +214,29 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   }
 
   const current = quizzes[currentQuizIndex];
+
+  function renderOptions(options: string[]) {
+    return (
+      <View style={styles.options}>
+        {options.map((option, idx) => {
+          const optKey = String.fromCharCode(65 + idx); // A, B, C, D…
+          let state: QuizOptState = 'idle';
+          if (wrongAnswer === option) state = 'incorrect';
+          else if (selectedAnswer === option) state = 'selected';
+          return (
+            <QuizOpt
+              key={option}
+              testID={`quiz-opt-${idx}`}
+              optKey={optKey}
+              label={option}
+              state={state}
+              onPress={() => handleSelectOption(option)}
+            />
+          );
+        })}
+      </View>
+    );
+  }
 
   function handleSelectOption(option: string) {
     setSelectedAnswer(option);
@@ -413,7 +437,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
           </View>
         </View>
 
-        <ScrollView testID="quiz-question-content" contentContainerStyle={frameContentStyle(insets.bottom)}>
+        <ScrollView testID="quiz-question-content" contentContainerStyle={[...frameContentStyle(insets.bottom), quizzes.length > 0 && { paddingBottom: PINNED_ACTION_CLEARANCE + insets.bottom }]}>
           {quizzes.length === 0 ? (
             <Text style={styles.empty}>No quiz available for this lesson.</Text>
           ) : (
@@ -424,24 +448,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
               />
 
               {current.type === 'multiple-choice' ? (
-                <View style={styles.options}>
-                  {current.options.map((option, idx) => {
-                    const optKey = String.fromCharCode(65 + idx); // A, B, C, D…
-                    let state: QuizOptState = 'idle';
-                    if (wrongAnswer === option) state = 'incorrect';
-                    else if (selectedAnswer === option) state = 'selected';
-                    return (
-                      <QuizOpt
-                        key={option}
-                        testID={`quiz-opt-${idx}`}
-                        optKey={optKey}
-                        label={option}
-                        state={state}
-                        onPress={() => handleSelectOption(option)}
-                      />
-                    );
-                  })}
-                </View>
+                renderOptions(current.options)
               ) : (
                 <Input
                   placeholder="Your answer..."
@@ -455,18 +462,23 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
                 <Text testID="submit-error" style={styles.error}>{extractError(submit.error)}</Text>
               )}
 
-              <Button
-                label="Submit"
-                onPress={handleSubmit}
-                loading={submit.isPending}
-                disabled={!selectedAnswer}
-                variant="coral"
-                size="lg"
-                style={styles.actionBtn}
-              />
             </>
           )}
         </ScrollView>
+
+        {/* Submit floats over the question, which scrolls behind its glass (096). */}
+        {quizzes.length > 0 && (
+          <PinnedAction>
+            <Button
+              label="Submit"
+              onPress={handleSubmit}
+              loading={submit.isPending}
+              disabled={!selectedAnswer}
+              variant="glass"
+              size="lg"
+            />
+          </PinnedAction>
+        )}
       </View>
   );
 }

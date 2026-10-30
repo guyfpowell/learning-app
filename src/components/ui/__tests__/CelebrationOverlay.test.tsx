@@ -39,10 +39,13 @@ describe('CelebrationOverlay', () => {
     expect(baseProps.onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('is a cobalt card with white text and a coral dismiss button (090)', () => {
+  it('is a frosted-glass card: a blur under a translucent cobalt wash, white text, coral dismiss button (096)', () => {
     render(<CelebrationOverlay {...baseProps} />);
     const flat = (id: string) => StyleSheet.flatten(screen.getByTestId(id).props.style);
-    expect(flat('celebration-card').backgroundColor).toBe(colors.brand);
+    expect(screen.getByTestId('celebration-blur')).toBeTruthy();
+    expect(flat('celebration-wash').backgroundColor).toBe(colors.brand);
+    expect(flat('celebration-wash').opacity).toBeLessThan(1);
+    expect(flat('celebration-card').backgroundColor).toBeUndefined();
     expect(flat('celebration-name').color).toBe(colors.onBrand);
     expect(flat('celebration-dismiss').backgroundColor).toBe(colors.coral);
   });

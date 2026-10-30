@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { colors, fontSize, spacing } from '@/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import LessonDetailScreen from '../[id]';
@@ -12,10 +12,15 @@ import { LESSON_COMPLETED_BANNER, RETAKE_START_ERROR } from '@learning/shared';
 import { extractError } from '@/lib/errors';
 import * as Sentry from '@sentry/react-native';
 
+const mockHeaderOptions = jest.fn();
 jest.mock('expo-router', () => ({
-  Stack: { Screen: () => null },
+  Stack: { Screen: ({ options }: { options: unknown }) => { mockHeaderOptions(options); return null; } },
   useLocalSearchParams: jest.fn(),
   useRouter: jest.fn(),
+}));
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  useSafeAreaInsets: () => ({ top: 44, bottom: 34, left: 0, right: 0 }),
 }));
 jest.mock('@/hooks/useLesson');
 jest.mock('@/hooks/useTrack');
@@ -104,24 +109,17 @@ describe('LessonDetailScreen', () => {
     expect(screen.queryByTestId('lesson-card')).toBeNull();
   });
 
-  it('renders lesson title and summary in collapsed state; body reveals after Continue', () => {
+  it('opens straight on the title and the full lesson: no summary step, no Continue (096)', () => {
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: false, data: mockLesson, error: null,
     });
     render(<LessonDetailScreen />);
     expect(screen.getByTestId('lesson-title')).toBeTruthy();
     expect(screen.getByText('Test Lesson')).toBeTruthy();
-    expect(screen.getByTestId('lesson-summary')).toBeTruthy();
-    expect(screen.getByText('A test summary')).toBeTruthy();
-    // Body not visible in collapsed state
-    expect(screen.queryByTestId('lesson-content')).toBeNull();
-
-    // Press Continue to expand
-    fireEvent.press(screen.getByTestId('continue-btn'));
     expect(screen.getByTestId('lesson-content')).toBeTruthy();
     expect(screen.getByText(mockLesson.content)).toBeTruthy();
-    // Summary hidden once the body is on screen
     expect(screen.queryByTestId('lesson-summary')).toBeNull();
+    expect(screen.queryByTestId('continue-btn')).toBeNull();
   });
 
   it('085a: the card carries no level badge and no duration; the header badge stays', () => {
@@ -144,21 +142,15 @@ describe('LessonDetailScreen', () => {
     expect(screen.queryByTestId('teaser-badge')).toBeNull();
   });
 
-  it('3-phase lesson flow: collapsed → expanded → takeaway', () => {
+  it('2-phase lesson flow: full lesson → takeaway (096)', () => {
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: false, data: mockLesson, error: null,
     });
     render(<LessonDetailScreen />);
 
-    // Collapsed: continue-btn visible, key-takeaway-btn and banner absent
-    expect(screen.getByTestId('continue-btn')).toBeTruthy();
-    expect(screen.queryByTestId('key-takeaway-btn')).toBeNull();
-    expect(screen.queryByTestId('lesson-completed-banner')).toBeNull();
-
-    // Press Continue → expanded: summary hidden
-    fireEvent.press(screen.getByTestId('continue-btn'));
-    expect(screen.queryByTestId('continue-btn')).toBeNull();
+    // Full lesson: key-takeaway-btn visible, banner absent
     expect(screen.getByTestId('key-takeaway-btn')).toBeTruthy();
+    expect(screen.queryByTestId('lesson-completed-banner')).toBeNull();
     expect(screen.queryByTestId('lesson-summary')).toBeNull();
 
     // Press Key Takeaway → takeaway: summary still hidden
@@ -169,6 +161,41 @@ describe('LessonDetailScreen', () => {
     expect(screen.queryByTestId('lesson-completed-banner')).toBeNull();
     expect(screen.getByTestId('key-takeaway')).toBeTruthy();
     expect(screen.getByTestId('lesson-quiz-btn')).toBeTruthy();
+  });
+
+  it('the main action floats over the copy, outside the lesson card, as glass (096)', () => {
+    (useLesson as jest.Mock).mockReturnValue({
+      isLoading: false, isError: false, data: mockLesson, error: null,
+    });
+    render(<LessonDetailScreen />);
+    const card = screen.getByTestId('lesson-card');
+    expect(within(card).queryByTestId('key-takeaway-btn')).toBeNull();
+    expect(within(screen.getByTestId('pinned-action')).getByTestId('key-takeaway-btn')).toBeTruthy();
+    expect(screen.getByTestId('key-takeaway-btn-wash')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('key-takeaway-btn'));
+    expect(within(card).queryByTestId('lesson-quiz-btn')).toBeNull();
+    expect(within(screen.getByTestId('pinned-action')).getByTestId('lesson-quiz-btn')).toBeTruthy();
+  });
+
+  it('the header carries no title: the word "Lesson" is gone (096)', () => {
+    (useLesson as jest.Mock).mockReturnValue({
+      isLoading: false, isError: false, data: mockLesson, error: null,
+    });
+    render(<LessonDetailScreen />);
+    expect(mockHeaderOptions.mock.calls[mockHeaderOptions.mock.calls.length - 1][0].title).toBe('');
+    expect(screen.getByTestId('lesson-title')).toBeTruthy();
+    expect(screen.getByText('Test Lesson')).toBeTruthy();
+  });
+
+  it('takeaway page: a smaller title (096)', () => {
+    (useLesson as jest.Mock).mockReturnValue({
+      isLoading: false, isError: false, data: mockLesson, error: null,
+    });
+    render(<LessonDetailScreen />);
+    const flat = (id: string) => StyleSheet.flatten(screen.getByTestId(id).props.style);
+    expect(flat('lesson-title').fontSize).toBe(fontSize.lg);
+    fireEvent.press(screen.getByTestId('key-takeaway-btn'));
+    expect(flat('lesson-title').fontSize).toBe(fontSize.md);
   });
 
   it('shows completed state from load when quizCompleted is true', () => {
@@ -325,7 +352,6 @@ describe('LessonDetailScreen', () => {
 
     it('keeps the title and the copy on one left edge', () => {
       open();
-      fireEvent.press(screen.getByTestId('continue-btn'));
       expect(style('lesson-title-row').paddingHorizontal).toBeUndefined();
       expect(style('lesson-title').marginLeft).toBeUndefined();
       expect(style('lesson-content').marginLeft).toBeUndefined();
@@ -334,23 +360,20 @@ describe('LessonDetailScreen', () => {
 
     it('leaves the copy left-aligned, not justified', () => {
       open();
-      expect(style('lesson-summary').textAlign).toBeUndefined();
-      fireEvent.press(screen.getByTestId('continue-btn'));
       expect(style('lesson-paragraph').textAlign).toBeUndefined();
     });
 
     it('splits the body into paragraphs, spaced by a gap rather than blank lines', () => {
       open(article);
-      fireEvent.press(screen.getByTestId('continue-btn'));
       expect(screen.getAllByTestId('lesson-paragraph').map((p) => p.props.children)).toEqual([
         'First paragraph.', 'Second paragraph.', 'Third paragraph.',
       ]);
       expect(style('lesson-content').gap).toBe(spacing.sm3);
     });
 
+
     it('sets the title larger than the body copy', () => {
       open();
-      fireEvent.press(screen.getByTestId('continue-btn'));
       expect(style('lesson-title').fontSize).toBe(fontSize.lg);
       expect(style('lesson-title').fontSize).toBeGreaterThan(style('lesson-paragraph').fontSize);
     });
@@ -381,19 +404,17 @@ describe('LessonDetailScreen', () => {
     const bg = (testID: string) => StyleSheet.flatten(screen.getByTestId(testID).props.style).backgroundColor;
     const completedLesson = { ...mockLesson, quizCompleted: true, quizzes: [{ id: 'q1' }], resolvedQuizIds: ['q1'] };
 
-    it('Continue and Key Takeaway are coral', () => {
+    it('Key Takeaway is coral glass (096)', () => {
       (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
       render(<LessonDetailScreen />);
-      expect(bg('continue-btn')).toBe(colors.coral);
-      fireEvent.press(screen.getByTestId('continue-btn'));
-      expect(bg('key-takeaway-btn')).toBe(colors.coral);
+      expect(bg('key-takeaway-btn-wash')).toBe(colors.coral);
     });
 
-    it('Test My Knowledge is coral and Retake is not', async () => {
+    it('Test My Knowledge is coral glass and Retake is not coral (096)', async () => {
       (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: completedLesson, error: null });
       render(<LessonDetailScreen />);
       await waitFor(() => expect(screen.getByTestId('lesson-retake-btn')).toBeTruthy());
-      expect(bg('lesson-quiz-btn')).toBe(colors.coral);
+      expect(bg('lesson-quiz-btn-wash')).toBe(colors.coral);
       expect(bg('lesson-retake-btn')).not.toBe(colors.coral);
     });
   });
@@ -447,9 +468,6 @@ describe('LessonDetailScreen', () => {
         isLoading: false, isError: false, data: mockLesson, error: null,
       });
       render(<LessonDetailScreen />);
-      expect(screen.queryByTestId('lesson-content')).toBeNull();
-      // Press Continue → expanded
-      fireEvent.press(screen.getByTestId('continue-btn'));
       expect(screen.queryByText('Scenario')).toBeNull();
       expect(screen.getByTestId('lesson-content')).toBeTruthy();
       expect(screen.getByText(mockLesson.content)).toBeTruthy();
@@ -460,23 +478,19 @@ describe('LessonDetailScreen', () => {
         isLoading: false, isError: false, data: mockLesson, error: null,
       });
       render(<LessonDetailScreen />);
-      fireEvent.press(screen.getByTestId('continue-btn'));
       // Structured-branch testIDs must never appear
       expect(screen.queryByTestId('lesson-introduction')).toBeNull();
     });
   });
 
-  describe('Chunk 2 — 3-phase flow', () => {
-    it('media hidden in collapsed and takeaway phases, visible in expanded', () => {
+  describe('Chunk 2 — 2-phase flow (096)', () => {
+    it('media visible in the full lesson, hidden in the takeaway', () => {
       const lesson = { ...mockLesson, mediaUrl: 'https://example.com/image.jpg' };
       (useLesson as jest.Mock).mockReturnValue({
         isLoading: false, isError: false, data: lesson, error: null,
       });
       render(<LessonDetailScreen />);
-      // Collapsed: no media
-      expect(screen.queryByTestId('lesson-media')).toBeNull();
-      // Press Continue → expanded: media visible
-      fireEvent.press(screen.getByTestId('continue-btn'));
+      // Full lesson: media visible
       expect(screen.getByTestId('lesson-media')).toBeTruthy();
       // Press Key Takeaway → takeaway: media hidden
       fireEvent.press(screen.getByTestId('key-takeaway-btn'));
@@ -488,7 +502,6 @@ describe('LessonDetailScreen', () => {
         isLoading: false, isError: false, data: mockLesson, error: null,
       });
       render(<LessonDetailScreen />);
-      fireEvent.press(screen.getByTestId('continue-btn'));
       fireEvent.press(screen.getByTestId('key-takeaway-btn'));
       expect(screen.getByText('Test my knowledge')).toBeTruthy();
     });
@@ -506,7 +519,6 @@ describe('LessonDetailScreen', () => {
     it('is hidden on a lesson that is not completed', () => {
       (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
       render(<LessonDetailScreen />);
-      fireEvent.press(screen.getByTestId('continue-btn'));
       fireEvent.press(screen.getByTestId('key-takeaway-btn'));
       expect(screen.queryByTestId('lesson-retake-btn')).toBeNull();
     });
@@ -518,8 +530,8 @@ describe('LessonDetailScreen', () => {
       await waitFor(() => expect(screen.getByTestId('lesson-retake-btn')).toBeTruthy());
       fireEvent.press(screen.getByTestId('lesson-retake-btn'));
       expect(mutate).toHaveBeenCalledWith('lesson-1', expect.anything());
-      expect(screen.getByTestId('continue-btn')).toBeTruthy();
-      expect(lessonService.updatePosition).toHaveBeenCalledWith('lesson-1', 'collapsed');
+      expect(screen.getByTestId('key-takeaway-btn')).toBeTruthy();
+      expect(lessonService.updatePosition).toHaveBeenCalledWith('lesson-1', 'expanded');
     });
 
     it('is hidden while a retake is in progress, including one started in an earlier visit', async () => {

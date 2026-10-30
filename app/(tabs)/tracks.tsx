@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
-import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
+import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { PremiumModal } from '@/components/ui/PremiumModal';
@@ -140,9 +140,7 @@ export default function TracksScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Tracks</Text>
-
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]}>
         {isLoading && (
           <View testID="tracks-loading">
             <Spinner fullScreen />
@@ -234,12 +232,6 @@ export default function TracksScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   content:   { padding: spacing.md, flexGrow: 1 },
-  heading: {
-    fontFamily:   font.semibold,
-    fontSize:     fontSize.xl,
-    color:        colors.textStrong,
-    marginBottom: spacing.lg,
-  },
   errorText: {
     fontFamily: font.regular,
     fontSize: fontSize.sm,

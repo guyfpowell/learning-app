@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
+import { must } from '@/test-utils/must';
 import ProfileScreen from '../profile';
 import { useAuthStore } from '@/store/auth.store';
 import {
@@ -154,9 +155,13 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     expect(() => render(<ProfileScreen />)).not.toThrow();
   });
 
-  it('shows Settings heading', () => {
+  it('096: one grey-caps heading style: Saved, Reminders, Account (no cards, no "Settings" block)', () => {
     render(<ProfileScreen />);
-    expect(screen.getByText('Settings')).toBeTruthy();
+    expect(screen.getByText('Saved')).toBeTruthy();
+    expect(screen.getByText('Reminders')).toBeTruthy();
+    expect(screen.getByText('Account')).toBeTruthy();
+    expect(screen.queryByText('Settings')).toBeNull();
+    expect(screen.queryByText('Push Notifications')).toBeNull();
   });
 
   it('shows spinner while loading preferences', () => {
@@ -196,24 +201,36 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     expect(screen.queryByTestId('reminder-time-picker')).toBeNull();
   });
 
-  it('shows the time picker when daily reminder is on', () => {
+  it('096: with the daily reminder on, a time row shows the time and the wheel stays closed', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: true } });
     render(<ProfileScreen />);
-    expect(screen.getByTestId('reminder-time-picker')).toBeTruthy();
+    expect(screen.getByTestId('reminder-time-value')).toHaveTextContent('08:00');
+    expect(screen.queryByTestId('reminder-time-picker')).toBeNull();
   });
 
-  it('toggling daily reminder on reveals the time picker', () => {
+  it('096: tapping the time row opens the wheel, and again closes it', () => {
+    setQueryMock({ data: { ...mockPrefs, enableDailyReminder: true } });
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByTestId('reminder-time-row'));
+    expect(screen.getByTestId('reminder-time-picker')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('reminder-time-row'));
+    expect(screen.queryByTestId('reminder-time-picker')).toBeNull();
+  });
+
+  it('toggling daily reminder on reveals the time row', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: false } });
     render(<ProfileScreen />);
-    expect(screen.queryByTestId('reminder-time-picker')).toBeNull();
+    expect(screen.queryByTestId('reminder-time-row')).toBeNull();
     fireEvent(screen.getByTestId('toggle-enableDailyReminder'), 'valueChange', true);
-    expect(screen.getByTestId('reminder-time-picker')).toBeTruthy();
+    expect(screen.getByTestId('reminder-time-row')).toBeTruthy();
   });
 
   it('initialises the time picker from profile preferredTime', () => {
     setProfileQueryMock({ data: { preferredTime: '14:30' } });
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: true } });
     render(<ProfileScreen />);
+    expect(screen.getByTestId('reminder-time-value')).toHaveTextContent('14:30');
+    fireEvent.press(screen.getByTestId('reminder-time-row'));
     const picker = screen.getByTestId('reminder-time-picker');
     const value = new Date(picker.props.date);
     expect(value.getHours()).toBe(14);
@@ -221,11 +238,12 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
   });
 
   describe('push notification status', () => {
-    it('shows enabled state when permission is granted', () => {
+    it('096: says nothing when permission is granted', () => {
       setPushStatusMock('granted');
       render(<ProfileScreen />);
-      expect(screen.getByTestId('push-status-enabled')).toBeTruthy();
-      expect(screen.getByText('Push notifications are enabled')).toBeTruthy();
+      expect(screen.queryByTestId('push-status-enabled')).toBeNull();
+      expect(screen.queryByTestId('push-status-prompt')).toBeNull();
+      expect(screen.queryByTestId('push-status-blocked')).toBeNull();
     });
 
     it('shows blocked message when permission is denied', () => {
@@ -235,11 +253,12 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
       expect(screen.getByText('Notifications are blocked. Enable them in your device settings.')).toBeTruthy();
     });
 
-    it('shows enable button when permission is undetermined', () => {
+    it('096: shows a "turn on" row when permission is undetermined, and pressing it registers', () => {
       setPushStatusMock('undetermined');
       render(<ProfileScreen />);
-      expect(screen.getByTestId('push-status-prompt')).toBeTruthy();
-      expect(screen.getByText('Enable notifications')).toBeTruthy();
+      expect(screen.getByText('Notifications are off on this phone')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('push-status-prompt'));
+      expect(mockRegister).toHaveBeenCalled();
     });
 
     it('shows the push error on screen', () => {
@@ -250,14 +269,34 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     });
   });
 
-  it('pressing Save Settings calls both mutations with correct args', () => {
+  it('096: Save changes is disabled until something changes, and it is the only blue button', () => {
+    render(<ProfileScreen />);
+    const save = () => StyleSheet.flatten(must(screen.getByText('Save changes').parent?.parent, 'button').props.style);
+    expect(save().opacity).toBeLessThan(1);
+    fireEvent.press(screen.getByText('Save changes'));
+    expect(mockMutate).not.toHaveBeenCalled();
+    fireEvent(screen.getByTestId('toggle-enableStreak'), 'valueChange', false);
+    expect(save().opacity).toBeUndefined();
+    fireEvent(screen.getByTestId('toggle-enableStreak'), 'valueChange', true);
+    expect(save().opacity).toBeLessThan(1);
+  });
+
+  it('096: a person who has never saved a reminder time can save the one shown', () => {
+    setProfileQueryMock({ data: { preferredTime: undefined } });
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('Save changes'));
+    expect(mockProfileMutate).toHaveBeenCalledWith({ preferredTime: '08:00', timezone: 'UTC' });
+  });
+
+  it('pressing Save changes calls both mutations with correct args', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: false, enableStreak: true, enableLessonAvailable: true } });
     render(<ProfileScreen />);
-    fireEvent.press(screen.getByText('Save settings'));
+    fireEvent(screen.getByTestId('toggle-enableLessonAvailable'), 'valueChange', false);
+    fireEvent.press(screen.getByText('Save changes'));
     expect(mockMutate).toHaveBeenCalledWith({
       enableDailyReminder: false,
       enableStreak: true,
-      enableLessonAvailable: true,
+      enableLessonAvailable: false,
       enableTopicFeedback: true,
       enableSuggestions: true,
     });
@@ -273,7 +312,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     expect(screen.getByText('Ask me how each topic went')).toBeTruthy();
     expect(screen.getByTestId('toggle-enableTopicFeedback').props.value).toBe(true);
     fireEvent(screen.getByTestId('toggle-enableTopicFeedback'), 'valueChange', false);
-    fireEvent.press(screen.getByText('Save settings'));
+    fireEvent.press(screen.getByText('Save changes'));
     expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({ enableTopicFeedback: false }));
   });
 
@@ -294,9 +333,9 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     render(<ProfileScreen />);
     expect(screen.getByTestId('prefs-error')).toBeTruthy();
     expect(screen.queryByTestId('toggle-enableSuggestions')).toBeNull();
-    fireEvent.press(screen.getByText('Save settings'));
+    fireEvent.press(screen.getByText('Save changes'));
     expect(mockMutate).not.toHaveBeenCalled();
-    expect(mockProfileMutate).toHaveBeenCalled();
+    expect(mockProfileMutate).not.toHaveBeenCalled();
   });
 
   it("the Albert's suggestions toggle (079g8) is saved with the other preferences", () => {
@@ -304,18 +343,19 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     render(<ProfileScreen />);
     expect(screen.getByTestId('toggle-enableSuggestions').props.value).toBe(true);
     fireEvent(screen.getByTestId('toggle-enableSuggestions'), 'valueChange', false);
-    fireEvent.press(screen.getByText('Save settings'));
+    fireEvent.press(screen.getByText('Save changes'));
     expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({ enableSuggestions: false }));
   });
 
-  it('Save Settings sends updated time when picker is changed', () => {
+  it('Save changes sends updated time when picker is changed', () => {
     setQueryMock({ data: { ...mockPrefs, enableDailyReminder: true } });
     render(<ProfileScreen />);
+    fireEvent.press(screen.getByTestId('reminder-time-row'));
     const picker = screen.getByTestId('reminder-time-picker');
     const newTime = new Date();
     newTime.setHours(20, 15, 0, 0);
     fireEvent(picker, 'change', { nativeEvent: { timestamp: newTime.getTime() } });
-    fireEvent.press(screen.getByText('Save settings'));
+    fireEvent.press(screen.getByText('Save changes'));
     expect(mockProfileMutate).toHaveBeenCalledWith({
       preferredTime: '20:15',
       timezone: 'UTC',
@@ -355,11 +395,12 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     expect(screen.getByText('Profile update failed')).toBeTruthy();
   });
 
-  it('places the settings block above the Log Out button', () => {
+  it('places the reminders block above the Account rows, and log out is a plain row (096)', () => {
     const { toJSON } = render(<ProfileScreen />);
     const json = JSON.stringify(toJSON());
-    expect(json.indexOf('Save settings')).toBeGreaterThan(-1);
-    expect(json.indexOf('Save settings')).toBeLessThan(json.indexOf('Log out'));
+    expect(json.indexOf('Save changes')).toBeGreaterThan(-1);
+    expect(json.indexOf('Save changes')).toBeLessThan(json.indexOf('Log out'));
+    expect(screen.getByTestId('logout-btn')).toBeTruthy();
   });
 
   describe('Manage Subscription — 073b-8', () => {

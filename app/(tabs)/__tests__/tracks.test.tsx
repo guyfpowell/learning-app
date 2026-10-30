@@ -135,9 +135,9 @@ describe('TracksScreen', () => {
     expect(() => render(<TracksScreen />)).not.toThrow();
   });
 
-  it('shows Tracks heading', () => {
+  it('096: has no "Tracks" heading: the selected tab already says where you are', () => {
     render(<TracksScreen />);
-    expect(screen.getByText('Tracks')).toBeTruthy();
+    expect(screen.queryByText('Tracks')).toBeNull();
   });
 
   it('shows loading indicator while skills are loading', () => {

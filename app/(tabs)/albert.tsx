@@ -3,7 +3,7 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
-import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
+import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { usePaths } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
@@ -13,8 +13,9 @@ import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { PathProposalSection } from '@/components/albert/PathProposalSection';
 import { SituationChangeSection } from '@/components/albert/SituationChangeSection';
 import { BuildPathCard, type BuildCardState } from '@/components/albert/BuildPathCard';
-import { ALBERT_PATH_ACTIONS_UNLOADED, ALBERT_STEPS, ERROR_CODES, albertPathActions, isAlbertLocked, type AlbertPathActions, type SessionUser, type UserPath } from '@learning/shared';
-import { BUILD_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
+import { AlbertSteps, albertStepStatuses } from '@/components/albert/AlbertSteps';
+import { ALBERT_PATH_ACTIONS_UNLOADED, ERROR_CODES, albertPathActions, isAlbertLocked, type AlbertPathActions, type SessionUser, type UserPath } from '@learning/shared';
+import { BUILD_ROUTE, trackRoute } from '@/lib/routes';
 
 /** Which build card to show; the loading state comes first so the no-paths card never flashes. */
 function buildCardState(
@@ -60,9 +61,12 @@ export default function AlbertScreen() {
   // Telling Albert what changed only makes sense partway through a path; a finished one asks what's next on Home (079i3).
   const situationPaths = customPaths.filter(p => !p.isFinished);
   const cardState = buildCardState({ loading: pathsLoading || userLoading, failed: pathsFailed, customPaths, unfinished });
+  const hasPath = cardState === 'unfinished' || cardState === 'complete';
+  // The path the card shows: the one in progress, else the finished one.
+  const shownPath = unfinished ?? customPaths[0] ?? null;
 
   function handleViewMyPath() {
-    router.push(TRACKS_ROUTE);
+    if (shownPath) router.push(trackRoute('custom', shownPath.id));
   }
 
   function handleConfirmArchive() {
@@ -102,36 +106,24 @@ export default function AlbertScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]} showsVerticalScrollIndicator={false}>
         {/* ── Intro — typographic, no mascot ─────────────────────────────── */}
         <View testID="albert-intro" style={styles.intro}>
           <Text style={styles.eyebrow}>AI ASSISTANT</Text>
           <Text style={styles.heading}>
             Meet <Text style={styles.headingAccent}>Albert</Text>
           </Text>
-          <Text style={styles.lead}>
-            Your personalised AI assistant. Albert builds a learning path around what you
-            actually need, instead of a fixed track.
-          </Text>
+          {/* Someone with a path has met Albert: the name only, without the lead, so the path is on the first screen (096). */}
+          {!hasPath && (
+            <Text style={styles.lead}>
+              Your personalised AI assistant. Albert builds a learning path around what you
+              actually need, instead of a fixed track.
+            </Text>
+          )}
         </View>
 
-        {/* ── How it works — the progress motif ──────────────────────────── */}
-        <View style={styles.steps}>
-          {ALBERT_STEPS.map((step, i) => (
-            <View key={step.title} style={styles.stepRow}>
-              <View style={styles.stepRail}>
-                <View style={[styles.stepDot, i === 0 && styles.stepDotActive]}>
-                  <Text style={[styles.stepNum, i === 0 && styles.stepNumActive]}>{i + 1}</Text>
-                </View>
-                {i < ALBERT_STEPS.length - 1 && <View style={styles.stepLine} />}
-              </View>
-              <View style={styles.stepText}>
-                <Text style={styles.stepTitle}>{step.title}</Text>
-                <Text style={styles.stepBody}>{step.body}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
+        {/* ── The four steps, showing where the person is (096) ─────────── */}
+        <AlbertSteps statuses={albertStepStatuses(cardState, proposalPaths.length > 0)} />
 
         {/* ── Albert's suggestions: one per custom path that has one, finished or not ── */}
         {proposalPaths.map(p => <PathProposalSection key={p.id} path={p} />)}
@@ -139,6 +131,7 @@ export default function AlbertScreen() {
         {/* ── Build a path (moved from Tracks) ───────────────────────────── */}
         <BuildPathCard
           state={cardState}
+          path={shownPath}
           actions={actions}
           allowanceSpent={allowanceSpent}
           archiveError={archiveError}
@@ -152,7 +145,6 @@ export default function AlbertScreen() {
           <SituationChangeSection key={p.id} planId={p.id} locked={!user.isPremium} pathFinished={false} onUpgrade={() => setPremiumModalVisible(true)} />
         ))}
 
-        <Text style={styles.more}>More from Albert is on the way.</Text>
       </ScrollView>
 
       <PremiumModal
@@ -163,8 +155,6 @@ export default function AlbertScreen() {
     </SafeAreaView>
   );
 }
-
-const DOT = 28;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
@@ -194,51 +184,4 @@ const styles = StyleSheet.create({
     marginTop:  spacing.sm,
   },
 
-  steps:    { marginBottom: spacing.lg },
-  stepRow:  { flexDirection: 'row', gap: spacing.md },
-  stepRail: { alignItems: 'center', width: DOT },
-  stepDot: {
-    width:           DOT,
-    height:          DOT,
-    borderRadius:    DOT / 2,
-    alignItems:      'center',
-    justifyContent:  'center',
-    backgroundColor: colors.surface,
-    borderWidth:     1.5,
-    borderColor:     colors.border,
-  },
-  stepDotActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  stepNum: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.xs,
-    color:      colors.textMuted,
-  },
-  stepNumActive: { color: colors.onBrand },
-  stepLine: {
-    flex:            1,
-    width:           2,
-    minHeight:       spacing.lg,
-    backgroundColor: colors.borderSubtle,
-    marginVertical:  2,
-  },
-  stepText:  { flex: 1, paddingBottom: spacing.md },
-  stepTitle: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
-  },
-  stepBody: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-    marginTop:  2,
-  },
-
-  more: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textSubtle,
-    textAlign:  'center',
-    marginTop:  spacing.lg,
-  },
 });

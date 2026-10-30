@@ -28,11 +28,10 @@ describe('LessonPathHeader', () => {
     expect(screen.getByText('40% complete')).toBeTruthy();
   });
 
-  it('puts the level badge on the right of the "Lesson N of M" line', () => {
+  it('puts the level badge on the left and "Lesson N of M" on the right, as on Home (096)', () => {
     setup(FULL);
     const row = within(screen.getByTestId('lesson-position-row'));
-    expect(row.getByText('Lesson 2 of 5')).toBeTruthy();
-    expect(row.getByText('BEGINNER')).toBeTruthy();
+    expect(row.getAllByText(/^(BEGINNER|Lesson 2 of 5)$/).map(n => n.props.children)).toEqual(['BEGINNER', 'Lesson 2 of 5']);
     expect(StyleSheet.flatten(screen.getByTestId('lesson-position-row').props.style)).toMatchObject({
       flexDirection: 'row',
       justifyContent: 'space-between',

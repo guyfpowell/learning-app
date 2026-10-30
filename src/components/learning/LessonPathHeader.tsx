@@ -26,7 +26,7 @@ export function LessonPathHeader({ level, levelLabel, topicName, lessonIndex, to
 
   return (
     <View testID="track-header" style={styles.card}>
-      {/* With a position line the badge goes on its right; otherwise it stays here. */}
+      {/* With a position line the badge shares its row, on the left (as on Home); otherwise it stays here. */}
       {(topicName || (badge && !position)) && (
         <View style={styles.eyebrowRow}>
           {!position && badge}
@@ -36,8 +36,8 @@ export function LessonPathHeader({ level, levelLabel, topicName, lessonIndex, to
       {position && (
         <View testID="lesson-position-block" style={styles.positionBlock}>
           <View testID="lesson-position-row" style={styles.positionRow}>
-            <Text style={styles.position}>{`Lesson ${position.index} of ${position.total}`}</Text>
             {badge}
+            <Text style={styles.position}>{`Lesson ${position.index} of ${position.total}`}</Text>
           </View>
           <Progress testID="lesson-position-progress" value={(position.index / position.total) * 100} />
         </View>

@@ -8,6 +8,7 @@ import type { ApiErrorResponse, PremiumRequiredDetails } from '@learning/shared'
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
 import { KeyTakeawayBlock } from '@/components/ui/KeyTakeawayBlock';
 import { LessonPathHeader } from '@/components/learning/LessonPathHeader';
 import { Spinner } from '@/components/ui/Spinner';
@@ -22,6 +23,14 @@ import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import type { LessonPhase, UserPath } from '@learning/shared';
 import { LESSON_COMPLETED_BANNER, PREMIUM_LESSON_BUDGET, RETAKE_START_ERROR, lessonOpeningPhase } from '@learning/shared';
 import { extractError } from '@/lib/errors';
+
+/**
+ * The lesson opens on the full text, never the summary-only step (096): the Home hero already shows the
+ * summary. A saved 'collapsed' position (shared rule, still used by web) reads as 'expanded' here.
+ */
+function readingPhase(phase: LessonPhase): LessonPhase {
+  return phase === 'collapsed' ? 'expanded' : phase;
+}
 
 function isPremiumError(error: unknown): boolean {
   return (
@@ -108,12 +117,14 @@ function PremiumModal({
 export default function LessonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const header = useDetailHeader('Lesson');
   const { data: lesson, isLoading, isError, error } = useLesson(id ?? '');
+  // The lesson's own title, once loaded: it stays in the header through the lesson, takeaway and quiz (096).
+  // No header title: the screen's own heading carries the lesson's name (096).
+  const header = useDetailHeader('');
   const { data: paths } = usePaths();
   const [quizVisible, setQuizVisible] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
-  const [phase, setPhase] = useState<LessonPhase>('collapsed');
+  const [phase, setPhase] = useState<LessonPhase>('expanded');
   const startRetake = useStartRetake();
   const clock = useLessonClock();
   const [retakeFailed, setRetakeFailed] = useState(false);
@@ -132,7 +143,7 @@ export default function LessonDetailScreen() {
   // Where the reader opens, the same rule as web. Waits for paths: they carry the saved position.
   useEffect(() => {
     if (!lesson || !paths || phaseInitialized.current === lesson.id) return;
-    const initial = lessonOpeningPhase(lesson, paths);
+    const initial = readingPhase(lessonOpeningPhase(lesson, paths));
     setPhase(initial);
     phaseInitialized.current = lesson.id;
     updatePosition(lesson.id, initial);
@@ -159,8 +170,8 @@ export default function LessonDetailScreen() {
     startRetake.mutate(lesson.id, {
       onSuccess: () => {
         clock.reset();
-        setPhase('collapsed');
-        updatePosition(lesson.id, 'collapsed');
+        setPhase('expanded');
+        updatePosition(lesson.id, 'expanded');
       },
       onError: (err) => {
         Sentry.addBreadcrumb({ category: 'lesson', message: 'Retake start failed', level: 'warning', data: { lessonId: lesson.id, err: String(err) } });
@@ -172,7 +183,7 @@ export default function LessonDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <Stack.Screen options={header} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, lesson && styles.contentPinned]}>
 
         {isLoading && (
           <View testID="loading-indicator">
@@ -215,13 +226,9 @@ export default function LessonDetailScreen() {
 
             <View testID="lesson-card" style={styles.card}>
               <View testID="lesson-title-row" style={styles.titleRow}>
-                <Text testID="lesson-title" style={styles.title}>{lesson.title}</Text>
+                <Text testID="lesson-title" style={[styles.title, phase === 'takeaway' && styles.titleTakeaway]}>{lesson.title}</Text>
                 {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} />}
               </View>
-
-              {phase === 'collapsed' && lesson.summary && (
-                <Text testID="lesson-summary" style={styles.summaryText}>{lesson.summary}</Text>
-              )}
 
               {phase === 'expanded' && lesson.mediaUrl && (
                 <Image
@@ -245,42 +252,6 @@ export default function LessonDetailScreen() {
                 <KeyTakeawayBlock testID="key-takeaway" takeaway={lesson.keyTakeaway} />
               )}
 
-              {phase === 'collapsed' && (
-                <Button
-                  testID="continue-btn"
-                  label="Continue"
-                  variant="coral"
-                  style={styles.quizBtn}
-                  onPress={() => {
-                    setPhase('expanded');
-                    if (lesson) updatePosition(lesson.id, 'expanded');
-                  }}
-                />
-              )}
-
-              {phase === 'expanded' && (
-                <Button
-                  testID="key-takeaway-btn"
-                  label="Key Takeaway"
-                  variant="coral"
-                  style={styles.quizBtn}
-                  onPress={() => {
-                    setPhase('takeaway');
-                    if (lesson) updatePosition(lesson.id, 'takeaway');
-                  }}
-                />
-              )}
-
-              {phase === 'takeaway' && (
-                <Button
-                  testID="lesson-quiz-btn"
-                  label="Test My Knowledge"
-                  variant="coral"
-                  style={styles.quizBtn}
-                  onPress={() => setQuizVisible(true)}
-                />
-              )}
-
               {phase === 'takeaway' && lesson.quizCompleted && !retakeInProgress && (
                 <Button
                   testID="lesson-retake-btn"
@@ -300,6 +271,33 @@ export default function LessonDetailScreen() {
         )}
 
       </ScrollView>
+
+      {/* The lesson's main action floats over the copy, which scrolls behind its glass (096). */}
+      {lesson && (
+        <PinnedAction>
+          {phase === 'expanded' && (
+            <Button
+              testID="key-takeaway-btn"
+              label="Key Takeaway"
+              variant="glass"
+              size="lg"
+              onPress={() => {
+                setPhase('takeaway');
+                updatePosition(lesson.id, 'takeaway');
+              }}
+            />
+          )}
+          {phase === 'takeaway' && (
+            <Button
+              testID="lesson-quiz-btn"
+              label="Test My Knowledge"
+              variant="glass"
+              size="lg"
+              onPress={() => setQuizVisible(true)}
+            />
+          )}
+        </PinnedAction>
+      )}
 
       {lesson && (
         <QuizModal
@@ -326,6 +324,8 @@ export default function LessonDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   content:   { padding: spacing.md, flexGrow: 1 },
+  // Leaves room under the last line for the pinned button (096).
+  contentPinned: { paddingBottom: PINNED_ACTION_CLEARANCE },
 
   // Article, not a card: it sits on the page with the screen's margin plus a little.
   card: { gap: spacing.md, paddingHorizontal: spacing.sm },
@@ -341,13 +341,7 @@ const styles = StyleSheet.create({
     color:      colors.textDark,
     flex:       1,
   },
-  summaryText: {
-    fontFamily:  font.regular,
-    fontSize:    fontSize.base,
-    color:       colors.textMuted,
-    fontStyle:   'italic',
-    lineHeight:  fontSize.base * 1.5,
-  },
+  titleTakeaway: { fontSize: fontSize.md },
   media: {
     width:        '100%',
     height:       180,

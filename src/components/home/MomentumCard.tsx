@@ -1,16 +1,19 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { xpProgressOf } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
-import { Card } from '@/components/ui/Card';
 import { Progress } from '@/components/ui/Progress';
 import { StreakCalendar } from '@/components/ui/StreakCalendar';
 import { useXp } from '@/hooks/useXp';
 import { useAchievements } from '@/hooks/useAchievements';
-import { achievementLineOf, streakCopy, xpLineOf, type AchievementLine } from '@/lib/momentum';
+import { achievementLineOf, nextStreakCopy, streakStageOf, xpLineOf, type AchievementLine } from '@/lib/momentum';
 
 /** Big enough to read as a badge, but the row stays as tall as its text (see achievementIconSlot). */
 const ACHIEVEMENT_ICON_SIZE = fontSize.xl;
+
+/** Taken off the card's gap between the streak row and the XP block (096). */
+const STREAK_TO_XP_TRIM = spacing.xs;
 
 function achievementText(line: AchievementLine): string {
   return line.kind === 'new' ? `New: ${line.name}` : `Next up: ${line.name} · ${line.description}`;
@@ -20,14 +23,17 @@ function achievementText(line: AchievementLine): string {
 export function MomentumCard({ streak }: { streak: number }) {
   const { data: xp } = useXp();
   const { data: achievements } = useAchievements();
+  // One line per stage, picked when the stage is first shown, so a re-render never changes the words.
+  const stage = streakStageOf(streak);
+  const copy = useMemo(() => nextStreakCopy(stage), [stage]);
   const xpLine = xp ? xpLineOf(xpProgressOf(xp)) : null;
   const achievementLine = achievements ? achievementLineOf(achievements, Date.now()) : null;
 
   return (
-    <Card testID="momentum-card" style={styles.card}>
+    <View testID="momentum-card" style={styles.card}>
       <View style={styles.streakRow}>
         <StreakCalendar streak={streak} />
-        <Text style={styles.streakCopy}>{streakCopy(streak)}</Text>
+        <Text style={styles.streakCopy}>{copy}</Text>
       </View>
 
       {xp && xpLine && (
@@ -52,13 +58,13 @@ export function MomentumCard({ streak }: { streak: number }) {
           <Text style={styles.achievementText} numberOfLines={2}>{achievementText(achievementLine)}</Text>
         </View>
       )}
-    </Card>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card:         { gap: spacing.md, marginBottom: spacing.md, padding: spacing.md },
-  streakRow:    { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  card:         { gap: spacing.md, marginBottom: spacing.md, padding: spacing.md, paddingBottom: 0 },
+  streakRow:    { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: -STREAK_TO_XP_TRIM },
   streakCopy: {
     flex:       1,
     fontFamily: font.medium,

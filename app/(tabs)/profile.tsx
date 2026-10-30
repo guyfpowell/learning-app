@@ -1,25 +1,19 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import type { AchievementAxis, AchievementDefinition, AchievementKey, UserPath, UserAchievement } from '@learning/shared';
 import type { ClockTime, NotificationToggleKey, NotificationToggles } from '@learning/shared';
 import {
-  ACHIEVEMENTS_BY_KEY, DEFAULT_REMINDER_TIME, formatPreferredTime, isProgressComplete, notificationTogglesOf,
+  DEFAULT_REMINDER_TIME, formatPreferredTime, notificationTogglesOf,
   parsePreferredTime,
 } from '@learning/shared';
-import { colors, font, fontSize, radius, spacing, shadow } from '@/theme';
-import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
-import { Card } from '@/components/ui/Card';
+import { colors, font, fontSize, spacing } from '@/theme';
+import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Button } from '@/components/ui/Button';
-import { Spinner } from '@/components/ui/Spinner';
 import { useAuthStore } from '@/store/auth.store';
 import { useLogout } from '@/hooks/useAuth';
-import { useProgress } from '@/hooks/useProgress';
-import { usePaths } from '@/hooks/useTrack';
 import { useSavedLessons } from '@/hooks/useLesson';
-import { useAchievements } from '@/hooks/useAchievements';
 import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
@@ -43,33 +37,6 @@ function initials(name: string): string {
     .join('');
 }
 
-function flooredPct(path: UserPath): number {
-  return path.completedLessons > 0
-    ? Math.max(1, Math.round(path.percentComplete))
-    : 0;
-}
-
-/** Icon name by achievement axis — badge artwork is uncommissioned; axis determines the placeholder. */
-const AXIS_ICON: Record<AchievementAxis, keyof typeof Ionicons.glyphMap> = {
-  session:     'flash-outline',
-  accuracy:    'ribbon-outline',
-  improvement: 'trending-up-outline',
-  breadth:     'globe-outline',
-  depth:       'layers-outline',
-  curation:    'bookmark-outline',
-  return:      'refresh-outline',
-  social:      'people-outline',
-  milestone:   'star-outline',
-};
-
-type AchievementItem =
-  | (UserAchievement & { earned: true })
-  | (AchievementDefinition & { earned: false; unlockedAt: undefined });
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
 function PushPermissionStatus({
   status,
   onRegister,
@@ -77,13 +44,8 @@ function PushPermissionStatus({
   status: ReturnType<typeof usePushStatus>['permissionStatus'];
   onRegister: () => void;
 }) {
-  if (status === 'granted') {
-    return (
-      <Text testID="push-status-enabled" style={styles.pushEnabledText}>
-        Push notifications are enabled
-      </Text>
-    );
-  }
+  // Granted needs no words: the reminders below just work.
+  if (status === 'granted') return null;
   if (status === 'denied') {
     return (
       <Text testID="push-status-blocked" style={styles.pushBlockedText}>
@@ -92,51 +54,10 @@ function PushPermissionStatus({
     );
   }
   return (
-    <View testID="push-status-prompt">
-      <Button label="Enable notifications" onPress={onRegister} />
-    </View>
-  );
-}
-
-// ── Achievement detail modal ──────────────────────────────────────────────────
-
-function AchievementDetailModal({ item, onClose }: { item: AchievementItem; onClose: () => void }) {
-  const iconName = AXIS_ICON[item.axis] ?? 'star-outline';
-  const earned = item.earned;
-  const def = ACHIEVEMENTS_BY_KEY[item.key];
-
-  return (
-    <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable style={styles.modalCard} onPress={() => { /* swallow — keep modal open */ }}>
-          <View testID="achievement-detail-modal" style={styles.modalContent}>
-            <View style={[styles.modalIconCircle, { backgroundColor: earned ? colors.xpSoft : colors.surfaceSunken }]}>
-              <Ionicons name={iconName} size={32} color={earned ? '#BE7C1C' : colors.textSubtle} />
-            </View>
-
-            <Text testID="achievement-detail-name" style={styles.modalName}>{item.name}</Text>
-
-            <Text testID="achievement-detail-description" style={styles.modalDescription}>{item.description}</Text>
-
-            {earned && item.unlockedAt && (
-              <Text testID="achievement-detail-earned-date" style={styles.modalEarnedDate}>
-                Earned {formatDate(item.unlockedAt)}
-              </Text>
-            )}
-
-            {def?.xpThreshold && (
-              <Text testID="achievement-detail-xp" style={styles.modalXp}>
-                {def.xpThreshold.toLocaleString()} XP
-              </Text>
-            )}
-
-            <Pressable testID="achievement-detail-close" onPress={onClose} style={styles.modalCloseBtn}>
-              <Text style={styles.modalCloseTxt}>Close</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    <Pressable testID="push-status-prompt" onPress={onRegister} style={[styles.row, styles.rowSpread]} accessibilityRole="button">
+      <Text style={styles.rowText}>Notifications are off on this phone</Text>
+      <Text style={styles.turnOn}>Turn on</Text>
+    </Pressable>
   );
 }
 
@@ -147,12 +68,8 @@ export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
 
-  const { data: progress } = useProgress();
-  const { data: pathsData } = usePaths();
   const { data: savedData } = useSavedLessons();
-  const { data: achievements, isLoading: achievementsLoading } = useAchievements();
 
-  const [selectedKey, setSelectedKey] = useState<AchievementKey | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   // ── Settings (folded in from the deleted Settings tab, 076b) ──────────────
@@ -185,25 +102,27 @@ export default function ProfileScreen() {
     if (toggles) updatePrefs.mutate(toggles);
   }
 
+  // Nothing to save until a toggle or the time differs from what is stored. A person who has never
+  // saved a time can save the one shown.
+  const savedToggles = prefs ? notificationTogglesOf(prefs) : null;
+  const savedReminder = parsePreferredTime(profile?.preferredTime);
+  const togglesChanged = !!toggles && !!savedToggles
+    && (Object.keys(toggles) as NotificationToggleKey[]).some(k => toggles[k] !== savedToggles[k]);
+  const reminderChanged = profile
+    ? !savedReminder || savedReminder.hour !== reminder.hour || savedReminder.minute !== reminder.minute
+    : false;
+  const hasChanges = togglesChanged || reminderChanged;
+
   const isSaving = updatePrefs.isPending || updateProfile.isPending;
   const isSaveSuccess = updatePrefs.isSuccess && updateProfile.isSuccess;
   const isSaveError = updatePrefs.isError || updateProfile.isError;
   const saveError = updatePrefs.error ?? updateProfile.error;
 
-  const activePaths = pathsData?.filter(p => !isProgressComplete(p)) ?? [];
   const savedLessons = savedData ?? [];
-  const totalUnlocked = achievements?.totalUnlocked ?? 0;
-
-  const allAchievements: AchievementItem[] = [
-    ...(achievements?.unlocked.map(a => ({ ...a, earned: true as const })) ?? []),
-    ...(achievements?.locked.map(a => ({ ...a, earned: false as const, unlockedAt: undefined })) ?? []),
-  ];
-
-  const selectedItem = selectedKey ? (allAchievements.find(a => a.key === selectedKey) ?? null) : null;
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]} showsVerticalScrollIndicator={false}>
 
         {/* ── Avatar + header ──────────────────────────────────────────────── */}
         <View style={styles.header}>
@@ -211,145 +130,58 @@ export default function ProfileScreen() {
             <Text style={styles.avatarText}>{user ? initials(user.name) : '?'}</Text>
           </View>
           {user && (
-            <>
+            <View style={styles.headerText}>
               <Text style={styles.name}>{user.name}</Text>
               <Text style={styles.email}>{user.email}</Text>
-            </>
+            </View>
           )}
         </View>
-
-        {/* ── Stat tiles ───────────────────────────────────────────────────── */}
-        <View style={styles.statRow}>
-          <Card padding={spacing.md} style={styles.statCard}>
-            <Text testID="profile-streak" style={styles.statValue}>
-              {progress?.currentStreak ?? 0}
-            </Text>
-            <Text style={styles.statLabel}>day streak</Text>
-          </Card>
-
-          <Card padding={spacing.md} style={styles.statCard}>
-            <Text testID="profile-lessons" style={styles.statValue}>
-              {progress?.totalLessonsCompleted ?? 0}
-            </Text>
-            <Text style={styles.statLabel}>lessons</Text>
-          </Card>
-
-          <Card padding={spacing.md} style={styles.statCard}>
-            <Text testID="profile-achievement-count" style={styles.statValue}>
-              {totalUnlocked}
-            </Text>
-            <Text style={styles.statLabel}>achievements</Text>
-          </Card>
-        </View>
-
-        {/* ── Achievements grid ─────────────────────────────────────────────── */}
-        <Text style={styles.sectionHeading}>Achievements</Text>
-
-        {achievementsLoading && <Spinner />}
-
-        {!achievementsLoading && allAchievements.length > 0 && (
-          <View style={styles.achievementGrid}>
-            {allAchievements.map(a => {
-              const iconName = AXIS_ICON[a.axis] ?? 'star-outline';
-              const earned = a.earned;
-              return (
-                <Pressable
-                  key={a.key}
-                  testID={`achievement-${a.key}`}
-                  onPress={() => setSelectedKey(a.key)}
-                  style={[styles.achievementCard, shadow.card, { opacity: earned ? 1 : 0.45 }]}
-                >
-                  <View style={[styles.iconCircle, { backgroundColor: earned ? colors.xpSoft : colors.surfaceSunken }]}>
-                    <Ionicons
-                      name={iconName}
-                      size={22}
-                      color={earned ? '#BE7C1C' : colors.textSubtle}
-                    />
-                  </View>
-                  <Text style={styles.achievementName} numberOfLines={2}>{a.name}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
 
         {/* ── Saved lessons ─────────────────────────────────────────────────── */}
         <Text style={styles.sectionHeading}>Saved</Text>
 
         {savedLessons.length === 0 ? (
-          <Card testID="saved-empty" style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No saved lessons yet. Bookmark any lesson to find it here.</Text>
-          </Card>
+          <Text testID="saved-empty" style={styles.emptyText}>
+            No saved lessons yet. Bookmark any lesson to find it here.
+          </Text>
         ) : (
-          <View style={styles.savedList}>
+          <View>
             {savedLessons.map(lesson => (
               <Pressable
                 key={lesson.id}
                 testID={`saved-lesson-${lesson.id}`}
                 onPress={() => router.push(lessonRoute(lesson.id))}
+                style={styles.savedRow}
               >
-                <Card padding={spacing.md} style={styles.savedCard}>
-                  <Text style={styles.savedTitle} numberOfLines={2}>{lesson.title}</Text>
-                  <Text style={styles.savedMeta}>{lesson.skillName}{lesson.topicName ? ` · ${lesson.topicName}` : ''}</Text>
-                </Card>
+                <Text style={styles.savedTitle} numberOfLines={2}>{lesson.title}</Text>
+                <Text style={styles.savedMeta}>{lesson.skillName}{lesson.topicName ? ` · ${lesson.topicName}` : ''}</Text>
               </Pressable>
             ))}
           </View>
         )}
 
-        {/* ── Track progress ────────────────────────────────────────────────── */}
-        <Text style={styles.sectionHeading}>Track progress</Text>
+        {/* ── Reminders ─────────────────────────────────────────────────────── */}
+        <Text style={styles.sectionHeading}>Reminders</Text>
 
-        {activePaths.length === 0 ? (
-          <Card testID="profile-no-tracks" style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No tracks enrolled yet.</Text>
-          </Card>
-        ) : (
-          <View style={styles.trackList}>
-            {activePaths.map(e => {
-              const pct = flooredPct(e);
-              return (
-                <View key={`${e.kind}-${e.id}`} style={styles.trackItem}>
-                  <View style={styles.trackRow}>
-                    <Text style={styles.trackName}>{e.name}</Text>
-                    <Text style={styles.trackPct}>{pct}%</Text>
-                  </View>
-                  {/* .asc-progress bar — track + fill */}
-                  <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: `${pct}%` as `${number}%` }]} />
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
+        <PushPermissionStatus status={permissionStatus} onRegister={register} />
+        {pushError ? (
+          <Text testID="push-status-error" style={styles.errorMsg}>{pushError}</Text>
+        ) : null}
 
-        {/* ── Settings ──────────────────────────────────────────────────────── */}
-        <Text style={styles.sectionHeading}>Settings</Text>
+        <NotificationSettings
+          toggles={toggles}
+          loading={prefsLoading}
+          onToggle={handleToggle}
+          reminder={reminder}
+          onReminderChange={setReminder}
+        />
 
-        <Text style={styles.settingsLabel}>Push Notifications</Text>
-        <Card style={styles.settingsCard}>
-          <PushPermissionStatus status={permissionStatus} onRegister={register} />
-          {pushError ? (
-            <Text testID="push-status-error" style={styles.errorMsg}>{pushError}</Text>
-          ) : null}
-        </Card>
-
-        <Text style={styles.settingsLabel}>Notifications</Text>
-        <Card style={styles.settingsCard}>
-          <NotificationSettings
-            toggles={toggles}
-            loading={prefsLoading}
-            onToggle={handleToggle}
-            reminder={reminder}
-            onReminderChange={setReminder}
-          />
-        </Card>
-
+        {/* The one blue button on the page; nothing to save until something changes (096). */}
         <Button
-          label="Save Settings"
+          label="Save changes"
           onPress={handleSaveSettings}
           loading={isSaving}
+          disabled={!hasChanges}
           style={styles.saveBtn}
         />
 
@@ -360,42 +192,38 @@ export default function ProfileScreen() {
           <Text testID="settings-error" style={styles.errorMsg}>{extractError(saveError)}</Text>
         )}
 
-        {/* ── Subscription ──────────────────────────────────────────────────── */}
-        <Text style={styles.settingsLabel}>Subscription</Text>
-        <Card style={styles.settingsCard}>
-          <Pressable
-            testID="manage-subscription-btn"
-            onPress={openManageSubscriptions}
-            style={styles.manageSubRow}
-          >
-            <Text style={styles.manageSubText}>Manage Subscription</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-          </Pressable>
-        </Card>
+        {/* ── Account ───────────────────────────────────────────────────────── */}
+        <Text style={styles.sectionHeading}>Account</Text>
 
-        {/* ── Log out ───────────────────────────────────────────────────────── */}
-        <Button
-          label="Log Out"
-          variant="outline"
-          style={styles.logoutBtn}
-          loading={logout.isPending}
+        <Pressable
+          testID="manage-subscription-btn"
+          onPress={openManageSubscriptions}
+          style={[styles.row, styles.rowSpread]}
+        >
+          <Text style={styles.rowText}>Manage subscription</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+        </Pressable>
+
+        <Pressable
+          testID="logout-btn"
           onPress={() => logout.mutate()}
-        />
+          disabled={logout.isPending}
+          style={styles.row}
+          accessibilityRole="button"
+        >
+          <Text style={styles.rowText}>Log out</Text>
+        </Pressable>
 
-        {/* ── Delete account ────────────────────────────────────────────────── */}
         <Pressable
           testID="delete-account-btn"
           onPress={() => setDeleteModalOpen(true)}
-          style={styles.deleteAccountLink}
+          style={styles.row}
+          accessibilityRole="button"
         >
-          <Text style={styles.deleteAccountText}>Delete Account</Text>
+          <Text style={styles.deleteAccountText}>Delete account</Text>
         </Pressable>
 
       </ScrollView>
-
-      {selectedKey && selectedItem && (
-        <AchievementDetailModal item={selectedItem} onClose={() => setSelectedKey(null)} />
-      )}
 
       {deleteModalOpen && (
         <DeleteAccountModal onClose={() => setDeleteModalOpen(false)} />
@@ -407,119 +235,86 @@ export default function ProfileScreen() {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const GRID_GAP = 10;
-const GRID_COLS = 3;
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   content:   { padding: spacing.lg, paddingBottom: spacing.xl2 },
 
-  // Header
+  // Header: avatar left, name and email beside it
   header: {
+    flexDirection: 'row',
     alignItems:    'center',
-    marginBottom:  spacing.lg,
+    gap:           spacing.md,
+    marginBottom:  spacing.md,
     paddingTop:    spacing.md,
   },
   avatarRing: {
-    width:           74,
-    height:          74,
-    borderRadius:    37,
+    width:           60,
+    height:          60,
+    borderRadius:    30,
     backgroundColor: colors.brand,
-    borderWidth:     3,
+    borderWidth:     2,
     borderColor:     colors.brandSoft,
     alignItems:      'center',
     justifyContent:  'center',
-    marginBottom:    spacing.sm,
   },
   avatarText: {
     fontFamily: font.display,
-    fontSize:   fontSize.lg,
+    fontSize:   fontSize.md,
     color:      colors.onBrand,
-    lineHeight: 28,
   },
+  headerText: { flex: 1 },
   name: {
     fontFamily:   font.semibold,
     fontSize:     fontSize.md,
     color:        colors.textStrong,
     marginBottom: 2,
-    textAlign:    'center',
   },
   email: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
     color:      colors.textMuted,
-    textAlign:  'center',
   },
 
-  // Stat row
-  statRow: {
-    flexDirection: 'row',
-    gap:           GRID_GAP,
-    marginBottom:  spacing.lg,
-  },
-  statCard: {
-    flex:       1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontFamily: font.display,
-    fontSize:   fontSize.xxl - 8,   // 28pt numeric display
-    color:      colors.textStrong,
-    lineHeight: 32,
-  },
-  statLabel: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textMuted,
-    marginTop:  2,
-  },
-
-  // Section headings
+  // One heading style: small grey caps, as on Progress
   sectionHeading: {
-    fontFamily:   font.semibold,
-    fontSize:     fontSize.base,
-    color:        colors.textStrong,
-    marginBottom: spacing.sm,
-    marginTop:    spacing.sm,
+    fontFamily:    font.semibold,
+    fontSize:      fontSize.sm,
+    color:         colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop:     spacing.lg,
+    marginBottom:  spacing.sm,
   },
 
-  // Achievements
-  achievementGrid: {
+  // Hairline rows, no cards
+  row: {
+    paddingVertical:   spacing.sm3,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+  },
+  rowSpread: {
     flexDirection:  'row',
-    flexWrap:       'wrap',
-    gap:            GRID_GAP,
-    marginBottom:   spacing.lg,
-  },
-  achievementCard: {
-    flexBasis:       `${100 / GRID_COLS - (GRID_GAP * (GRID_COLS - 1)) / GRID_COLS}%`,
-    flex:            1,
-    backgroundColor: colors.surface,
-    borderRadius:    radius.card,
-    padding:         spacing.sm,
-    alignItems:      'center',
-    minWidth:        90,
-  },
-  iconCircle: {
-    width:          44,
-    height:         44,
-    borderRadius:   22,
     alignItems:     'center',
-    justifyContent: 'center',
-    marginBottom:   spacing.xs,
+    justifyContent: 'space-between',
   },
-  achievementName: {
-    fontFamily: font.semibold,
-    fontSize:   10,
-    color:      colors.textMuted,
-    textAlign:  'center',
+  rowText: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.base,
+    color:      colors.textStrong,
+  },
+  turnOn: {
+    fontFamily: font.medium,
+    fontSize:   fontSize.base,
+    color:      colors.brand,
   },
 
   // Saved lessons
-  savedList: {
-    gap:          spacing.xs,
-    marginBottom: spacing.lg,
+  savedRow: {
+    paddingVertical:   spacing.sm3,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+    gap:               2,
   },
-  savedCard: { gap: 2 },
   savedTitle: {
     fontFamily: font.semibold,
     fontSize:   fontSize.sm,
@@ -530,129 +325,18 @@ const styles = StyleSheet.create({
     fontSize:   fontSize.xs,
     color:      colors.textMuted,
   },
-
-  // Track progress
-  trackList: {
-    gap:          spacing.md,
-    marginBottom: spacing.lg,
-  },
-  trackItem: { gap: spacing.xs },
-  trackRow: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'baseline',
-  },
-  trackName: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.sm,
-    color:      colors.textBody,
-  },
-  trackPct: {
+  emptyText: {
     fontFamily: font.regular,
-    fontSize:   fontSize.xs,
+    fontSize:   fontSize.sm,
     color:      colors.textMuted,
   },
-  progressTrack: {
-    height:          6,
-    backgroundColor: colors.borderSubtle,
-    borderRadius:    radius.pill,
-    overflow:        'hidden',
-  },
-  progressFill: {
-    height:          6,
-    backgroundColor: colors.brand,
-    borderRadius:    radius.pill,
-  },
 
-  // Achievement detail modal
-  modalOverlay: {
-    flex:            1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent:  'center',
-    alignItems:      'center',
-    padding:         spacing.lg,
-  },
-  modalCard: {
-    width:           '100%',
-    maxWidth:        360,
-    backgroundColor: colors.surface,
-    borderRadius:    radius.xl,
-    padding:         spacing.lg,
-    alignItems:      'center',
-    gap:             spacing.sm,
-  },
-  modalContent: {
-    alignItems: 'center',
-    width:      '100%',
-  },
-  modalIconCircle: {
-    width:          64,
-    height:         64,
-    borderRadius:   32,
-    alignItems:     'center',
-    justifyContent: 'center',
-    marginBottom:   spacing.xs,
-  },
-  modalName: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.lg,
-    color:      colors.textStrong,
-    textAlign:  'center',
-  },
-  modalDescription: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textBody,
-    textAlign:  'center',
-  },
-  modalEarnedDate: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textMuted,
-    textAlign:  'center',
-  },
-  modalXp: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.xs,
-    color:      '#BE7C1C',
-    textAlign:  'center',
-  },
-  modalCloseBtn: {
-    marginTop:    spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.brandSoft,
-    borderRadius: radius.pill,
-  },
-  modalCloseTxt: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.sm,
-    color:      colors.brand,
-    textAlign:  'center',
-  },
-
-  // Settings (folded in from the Settings tab)
-  settingsLabel: {
-    fontFamily:    font.semibold,
-    fontSize:      fontSize.sm,
-    color:         colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom:  spacing.sm,
-    marginTop:     spacing.sm,
-  },
-  settingsCard: { marginBottom: spacing.sm },
-  pushEnabledText: {
-    fontFamily:      font.medium,
-    fontSize:        fontSize.base,
-    color:           colors.success,
-    paddingVertical: spacing.xs,
-  },
+  // Reminders
   pushBlockedText: {
     fontFamily:      font.regular,
     fontSize:        fontSize.sm,
     color:           colors.textMuted,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm,
   },
   saveBtn: { marginTop: spacing.lg },
   successMsg: {
@@ -670,35 +354,7 @@ const styles = StyleSheet.create({
     marginTop:  spacing.sm,
   },
 
-  // Subscription — 073b-8
-  manageSubRow: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    justifyContent:  'space-between',
-    paddingVertical: spacing.sm,
-  },
-  manageSubText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
-  },
-
-  // Misc
-  emptyCard: { alignItems: 'center', paddingVertical: spacing.lg },
-  emptyText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-    textAlign:  'center',
-  },
-  logoutBtn: { marginTop: spacing.md },
-
-  // Delete account link
-  deleteAccountLink: {
-    alignItems:    'center',
-    paddingVertical: spacing.md,
-    marginTop:     spacing.sm,
-  },
+  // Account
   deleteAccountText: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,

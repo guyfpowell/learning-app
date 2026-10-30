@@ -10,6 +10,10 @@ describe('QuizOpt', () => {
     expect(screen.getByText('Revert the redesign')).toBeTruthy();
   });
 
+  it('centres the key circle vertically against the label (096)', () => {
+    expect(quizOptTileStyle('idle')).toMatchObject({ flexDirection: 'row', alignItems: 'center' });
+  });
+
   it('calls onPress when pressed in idle state', () => {
     const onPress = jest.fn();
     render(<QuizOpt optKey="B" label="Segment the drop" onPress={onPress} />);
@@ -44,7 +48,7 @@ describe('QuizOpt', () => {
     expect(quizOptTileStyle('idle')).toMatchObject({
       backgroundColor: colors.surface,
       borderColor: colors.borderSubtle,
-      borderWidth: 1.5,
+      borderWidth: 1,
       borderRadius: radius.md,
     });
     expect(quizOptTileStyle('selected')).toMatchObject({ backgroundColor: colors.brandSoft, borderColor: colors.brand });

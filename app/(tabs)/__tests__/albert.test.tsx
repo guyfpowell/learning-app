@@ -1,13 +1,13 @@
 import React from 'react';
 import { Alert, type AlertButton } from 'react-native';
-import { render, screen, fireEvent, act } from '@testing-library/react-native';
+import { render, screen, fireEvent, act, within } from '@testing-library/react-native';
 import AlbertScreen from '../albert';
 import { usePaths } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
 import { ALBERT_STEPS, ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, type SessionUser, type UserPath } from '@learning/shared';
-import { makeCustomPath, makeTrackPath } from '@/test-utils/paths';
-import { BUILD_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
+import { makeCustomPath, makeNextLesson, makeTrackPath } from '@/test-utils/paths';
+import { BUILD_ROUTE } from '@/lib/routes';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -326,20 +326,78 @@ describe('AlbertScreen', () => {
     expect(screen.queryByTestId('build-another')).toBeNull();
   });
 
-  it('View my path routes to Tracks for a premium user', () => {
+  it('096: the path row opens the path\'s detail for a premium user', () => {
     setUser('premium');
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('view-my-path'));
-    expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
+    expect(mockPush).toHaveBeenCalledWith('/track/custom/plan-1');
   });
 
-  it('View my path routes to Tracks for a non-premium user', () => {
+  it('096: the path row opens the path\'s detail for a non-premium user', () => {
     setUser('spent');
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('view-my-path'));
-    expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
+    expect(mockPush).toHaveBeenCalledWith('/track/custom/plan-1');
+  });
+
+  it('096: the path row shows the name, how far along and the next lesson', () => {
+    setUser('premium');
+    setPaths([{ ...unfinishedPath, nextLesson: makeNextLesson({ id: 'l9', title: 'Closures' }) }]);
+    render(<AlbertScreen />);
+    const row = within(screen.getByTestId('view-my-path'));
+    expect(row.getByText('My AI Path')).toBeTruthy();
+    expect(row.getByText('40% complete')).toBeTruthy();
+    expect(row.getByText('Next: Closures')).toBeTruthy();
+  });
+
+  it('096: Create a new path is a quiet link, not a button', () => {
+    setUser('premium');
+    setPaths([unfinishedPath]);
+    render(<AlbertScreen />);
+    expect(screen.getByText('Create a new path')).toBeTruthy();
+    expect(screen.queryByText('Create a NEW path')).toBeNull();
+  });
+
+  it('096: no "More from Albert" line: every Albert feature is done for now', () => {
+    render(<AlbertScreen />);
+    expect(screen.queryByText(/More from Albert/i)).toBeNull();
+  });
+
+  describe('096: the four steps show where the person is', () => {
+    const states = (n: number) => [1, 2, 3, 4].map(i => (['done', 'current', 'todo'] as const).find(st => screen.queryByTestId(`albert-step-${i}-${st}`)) ?? 'missing').slice(0, n);
+
+    it('step 1 is current with no path, and the intro stays whole', () => {
+      setUser('premium');
+      render(<AlbertScreen />);
+      expect(states(4)).toEqual(['current', 'todo', 'todo', 'todo']);
+      expect(screen.getByText('AI ASSISTANT')).toBeTruthy();
+      expect(screen.getByText(/Your personalised AI assistant/)).toBeTruthy();
+    });
+
+    it('steps 1 and 2 are done and step 3 current with a path in progress; the intro shrinks to the label and name', () => {
+      setUser('premium');
+      setPaths([unfinishedPath]);
+      render(<AlbertScreen />);
+      expect(states(4)).toEqual(['done', 'done', 'current', 'todo']);
+      expect(screen.getByText('Meet Albert')).toBeTruthy();
+      expect(screen.getByText('AI ASSISTANT')).toBeTruthy();
+      expect(screen.queryByText(/Your personalised AI assistant/)).toBeNull();
+    });
+
+    it('step 4 is current while Albert has a suggestion waiting', () => {
+      setUser('premium');
+      setPaths([{ ...unfinishedPath, hasProposal: true }]);
+      render(<AlbertScreen />);
+      expect(states(4)).toEqual(['done', 'done', 'done', 'current']);
+    });
+
+    it('all four are done when the path is finished', () => {
+      setPaths([finishedPath]);
+      render(<AlbertScreen />);
+      expect(states(4)).toEqual(['done', 'done', 'done', 'done']);
+    });
   });
 
   it('Create a NEW path opens a confirmation Alert for a premium user', () => {
@@ -417,11 +475,11 @@ describe('AlbertScreen', () => {
     expect(screen.queryByTestId('build-path-start')).toBeNull();
   });
 
-  it('View my path routes to Tracks in the all-complete state', () => {
+  it('the path row opens the finished path\'s detail in the all-complete state', () => {
     setPaths([finishedPath]);
     render(<AlbertScreen />);
     fireEvent.press(screen.getByTestId('view-my-path'));
-    expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
+    expect(mockPush).toHaveBeenCalledWith('/track/custom/plan-2');
   });
 
   it('Build another routes straight to the builder for a premium user (no confirmation)', () => {

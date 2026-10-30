@@ -1,67 +1,31 @@
-import { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { PATHS_LOAD_ERROR, isProgressComplete, xpProgressOf, type UserPath } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
-import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
-import { Card } from '@/components/ui/Card';
+import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Spinner } from '@/components/ui/Spinner';
 import { useProgress } from '@/hooks/useProgress';
-import { usePaths, useTrackContents } from '@/hooks/useTrack';
+import { usePaths } from '@/hooks/useTrack';
 import { useXp } from '@/hooks/useXp';
 import { Progress } from '@/components/ui/Progress';
 import { PathProgress } from '@/components/ui/PathProgress';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
-import { FlameIcon } from '@/components/ui/Streak';
-import { TrackContentsTree } from '@/components/learning/TrackContentsTree';
-import { TRACKS_ROUTE } from '@/lib/routes';
+import { AchievementsSection } from '@/components/achievements/AchievementsSection';
+import { TRACKS_ROUTE, trackRoute } from '@/lib/routes';
 
-// ── Expandable path card — wraps PathProgress + lazily-loaded tree ────────────
+// ── A path card that opens its detail (096) ─────────────────────────────────
 
-function ExpandablePathCard({ path, onFindNext }: { path: UserPath; onFindNext: () => void }) {
-  const [expanded, setExpanded] = useState(false);
-  const { data: contents, isLoading: treeLoading } = useTrackContents(
-    path.kind,
-    path.id,
-    { enabled: expanded },
-  );
-
-  // Derive initial expand targets from the server's isCurrent markers.
-  // An empty object (no isCurrent group) means fully collapsed — correct for 100% paths.
-  const initialExpanded = useMemo(() => {
-    if (!contents) return undefined;
-    const currentGroup = contents.groups.find(g => g.isCurrent);
-    if (!currentGroup) return undefined;
-    const currentTopic = currentGroup.topics.find(t => t.isCurrent);
-    return { groupKey: currentGroup.key, topicKey: currentTopic?.key };
-  }, [contents]);
-
+function PathCardLink({ path, onOpen, onFindNext }: { path: UserPath; onOpen: () => void; onFindNext: () => void }) {
   return (
-    <View>
+    <Pressable
+      testID={`path-card-link-${path.id}`}
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${path.name}`}
+    >
       <PathProgress path={path} onFindNext={onFindNext} />
-      <Pressable
-        testID={`path-expand-btn-${path.id}`}
-        onPress={() => setExpanded(e => !e)}
-        style={styles.expandToggle}
-        accessibilityRole="button"
-        accessibilityLabel={expanded ? 'Collapse lesson tree' : 'Expand lesson tree'}
-        accessibilityState={{ expanded }}
-        hitSlop={{ top: 4, bottom: 4 }}
-      >
-        <Text style={styles.expandLabel}>{expanded ? 'Hide lessons' : 'Show lessons'}</Text>
-        <Text style={styles.expandChevron}>{expanded ? '▾' : '▸'}</Text>
-      </Pressable>
-
-      {expanded && (
-        <>
-          {treeLoading && <Spinner testID={`tree-loading-${path.id}`} />}
-          {!treeLoading && contents && (
-            <TrackContentsTree contents={contents} initialExpanded={initialExpanded} />
-          )}
-        </>
-      )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -83,9 +47,7 @@ export default function ProgressScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>My Progress</Text>
-
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]}>
         {isLoading && <Spinner fullScreen />}
 
         {isError && (
@@ -102,40 +64,22 @@ export default function ProgressScreen() {
 
         {data && (
           <>
-            {/* Hero stat — streak */}
-            <Card testID="progress-streak-card" style={styles.heroCard}>
-              <View style={styles.heroInner}>
-                <FlameIcon size={28} />
-                <Text testID="progress-streak" style={styles.heroValue}>{data.currentStreak}</Text>
-              </View>
-              <Text style={styles.heroLabel}>Day Streak</Text>
-            </Card>
-
-            {/* Subordinate stats */}
-            <View style={styles.statsRow}>
-              <Card style={styles.statCard}>
-                <Text testID="progress-lessons-count" style={styles.statValue}>{data.totalLessonsCompleted}</Text>
-                <Text style={styles.statLabel}>Lessons Done</Text>
-              </Card>
-              <Card style={styles.statCard}>
-                <Text testID="progress-avg-score" style={styles.statValue}>{Math.round(data.averageScore)}%</Text>
-                <Text style={styles.statLabel}>Avg Score</Text>
-              </Card>
-            </View>
-
+            {/* Hero: the level and the XP toward the next (096). No box: it sits on the page. */}
             {xpProgress && xpData && (
-              <Card testID="xp-card" style={styles.xpCard}>
+              <View testID="xp-card" style={styles.xp}>
                 <View style={styles.xpHeader}>
+                  {xpProgress.kind === 'tier' ? (
+                    <Text testID="xp-tier-label" style={styles.xpLevel}>{xpProgress.label}</Text>
+                  ) : (
+                    <Text style={styles.xpLevel}>XP</Text>
+                  )}
                   <Text testID="xp-total" style={styles.xpTotal}>{xpData.totalXp.toLocaleString()} XP</Text>
-                  {xpProgress.kind === 'tier' && (
-                    <Text testID="xp-tier-label" style={styles.xpTierLabel}>{xpProgress.label}</Text>
-                  )}
-                  {xpProgress.kind === 'milestone' && (
-                    <Text testID="xp-next-label" style={styles.xpNextLabel}>
-                      {xpProgress.name} in {xpProgress.xpRemaining.toLocaleString()} XP
-                    </Text>
-                  )}
                 </View>
+                {xpProgress.kind === 'milestone' && (
+                  <Text testID="xp-next-label" style={styles.xpNextLabel}>
+                    {xpProgress.name} in {xpProgress.xpRemaining.toLocaleString()} XP
+                  </Text>
+                )}
                 {xpProgress.kind === 'tier' && (
                   <Text testID="xp-level-hint" style={styles.xpNextLabel}>
                     {xpProgress.xpToNext.toLocaleString()} XP to next level
@@ -144,44 +88,51 @@ export default function ProgressScreen() {
                 {xpProgress.kind !== 'done' && (
                   <Progress testID="xp-progress-bar" value={xpProgress.percent} tone="xp" />
                 )}
-              </Card>
+              </View>
             )}
 
-            {data.lastLessonDate && (
-              <Card style={styles.dateCard}>
-                <Text style={styles.dateLabel}>
-                  Last lesson:{' '}
-                  {new Date(data.lastLessonDate).toLocaleDateString('en-GB', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
-                </Text>
-              </Card>
-            )}
+            {/* The three numbers, as one quiet row. */}
+            <View testID="progress-stats" style={styles.statsRow}>
+              <View style={styles.stat}>
+                <Text testID="progress-lessons-count" style={styles.statValue}>{data.totalLessonsCompleted}</Text>
+                <Text style={styles.statLabel}>Lessons</Text>
+              </View>
+              <View style={styles.stat}>
+                <Text testID="progress-avg-score" style={styles.statValue}>{Math.round(data.averageScore)}%</Text>
+                <Text style={styles.statLabel}>Average quiz score</Text>
+              </View>
+              <View style={styles.stat}>
+                <Text testID="progress-streak" style={styles.statValue}>{data.currentStreak}</Text>
+                <Text style={styles.statLabel}>Day streak</Text>
+              </View>
+            </View>
           </>
         )}
 
         {inProgress.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionHeading}>Keep Going</Text>
+            <Text style={styles.sectionHeading}>Your path</Text>
             {inProgress.map(path => (
-              <ExpandablePathCard
+              <PathCardLink
                 key={`${path.kind}-${path.id}`}
                 path={path}
+                onOpen={() => router.push(trackRoute(path.kind, path.id))}
                 onFindNext={() => router.push(TRACKS_ROUTE)}
               />
             ))}
           </View>
         )}
 
+        {data && <AchievementsSection />}
+
         {completed.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionHeading}>Completed</Text>
             {completed.map(path => (
-              <ExpandablePathCard
+              <PathCardLink
                 key={`${path.kind}-${path.id}`}
                 path={path}
+                onOpen={() => router.push(trackRoute(path.kind, path.id))}
                 onFindNext={() => router.push(TRACKS_ROUTE)}
               />
             ))}
@@ -202,44 +153,42 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   content:   { padding: spacing.md, flexGrow: 1 },
 
-  heading: {
-    fontFamily:   font.semibold,
-    fontSize:     fontSize.xl,
-    color:        colors.textStrong,
+  // ── XP hero ───────────────────────────────────────────────────────────────
+  xp: {
+    gap:          spacing.sm,
     marginBottom: spacing.lg,
   },
-
-  // ── Hero stat (streak) ────────────────────────────────────────────────────
-  heroCard: {
-    alignItems:   'center',
-    paddingVertical: spacing.lg,
-    marginBottom: spacing.sm,
+  xpHeader: {
+    flexDirection:  'row',
+    justifyContent: 'space-between',
+    alignItems:     'baseline',
+    gap:            spacing.sm,
   },
-  heroInner: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           spacing.xs,
-  },
-  heroValue: {
-    fontFamily: font.bold,
+  xpLevel: {
+    fontFamily: font.display,
     fontSize:   fontSize.xl,
-    color:      colors.brand,
+    color:      colors.textStrong,
   },
-  heroLabel: {
-    fontFamily:  font.regular,
-    fontSize:    fontSize.sm,
-    color:       colors.textMuted,
-    marginTop:   spacing.xs,
-    textAlign:   'center',
+  xpTotal: {
+    fontFamily: font.bold,
+    fontSize:   fontSize.lg,
+    color:      colors.xp,
+  },
+  xpNextLabel: {
+    fontFamily: font.regular,
+    fontSize:   fontSize.sm,
+    color:      colors.textMuted,
   },
 
-  // ── Subordinate stats ─────────────────────────────────────────────────────
+  // ── Quiet stats row ───────────────────────────────────────────────────────
   statsRow: {
-    flexDirection: 'row',
-    gap:           spacing.sm,
-    marginBottom:  spacing.md,
+    flexDirection:     'row',
+    paddingVertical:   spacing.md,
+    borderTopWidth:    1,
+    borderBottomWidth: 1,
+    borderColor:       colors.borderSubtle,
   },
-  statCard: {
+  stat: {
     flex:       1,
     alignItems: 'center',
     gap:        spacing.xs,
@@ -254,42 +203,6 @@ const styles = StyleSheet.create({
     fontSize:   fontSize.xs,
     color:      colors.textMuted,
     textAlign:  'center',
-  },
-
-  // ── XP card ───────────────────────────────────────────────────────────────
-  xpCard: {
-    gap:          spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  xpHeader: {
-    flexDirection:  'row',
-    justifyContent: 'space-between',
-    alignItems:     'baseline',
-    flexWrap:       'wrap',
-    gap:            spacing.xs,
-  },
-  xpTotal: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.lg,
-    color:      colors.xp,
-  },
-  xpNextLabel: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textMuted,
-  },
-  xpTierLabel: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.xs,
-    color:      colors.xp,
-  },
-
-  // ── Last lesson card ──────────────────────────────────────────────────────
-  dateCard: { marginBottom: spacing.sm },
-  dateLabel: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
   },
 
   // ── Section headings ──────────────────────────────────────────────────────
@@ -307,26 +220,6 @@ const styles = StyleSheet.create({
   section: {
     gap:          spacing.sm,
     marginBottom: spacing.md,
-  },
-
-  // ── Expand toggle row (beneath each PathProgress card) ────────────────────
-  expandToggle: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'flex-end',
-    paddingVertical:   spacing.xs,
-    paddingHorizontal: spacing.sm,
-    gap: spacing.xs,
-  },
-  expandLabel: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textMuted,
-  },
-  expandChevron: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textMuted,
   },
 
   // ── Error / empty ─────────────────────────────────────────────────────────

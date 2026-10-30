@@ -9,6 +9,8 @@ import type { SessionUser } from '@learning/shared';
 import { makeCustomPath } from '@/test-utils/paths';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { TRACKS_ROUTE } from '@/lib/routes';
+import { TAB_BAR_CLEARANCE } from '@/lib/safeArea';
+import { ScrollView, StyleSheet } from 'react-native';
 
 // Its own suite covers the card; here Home only has to show it, with the streak, at the right times.
 jest.mock('@/components/home/MomentumCard', () => {
@@ -165,6 +167,13 @@ const mockCustomPlan = {
 };
 
 describe('LessonsScreen', () => {
+  it('096: leaves room under the last item so it scrolls clear of the floating tab bar', () => {
+    setEnrollmentsMock([mockEnrollment]);
+    render(<LessonsScreen />);
+    const content = StyleSheet.flatten(screen.UNSAFE_getByType(ScrollView).props.contentContainerStyle);
+    expect(content.paddingBottom).toBe(TAB_BAR_CLEARANCE);
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     capturedEdges = undefined;
@@ -300,6 +309,15 @@ describe('LessonsScreen', () => {
       expect(screen.getByText('Foundations')).toBeTruthy();
     });
 
+    it('puts the topic name above the level badge and lesson position row (096)', () => {
+      setEnrollmentsMock([mockEnrollment]);
+      render(<LessonsScreen />);
+      const card = screen.getByTestId('next-lesson-card-skill-1');
+      // Matches come back in tree order.
+      const shown = within(card).getAllByText(/^(Foundations|BEGINNER)$/i).map(n => n.props.children);
+      expect(shown).toEqual(['Foundations', 'BEGINNER']);
+    });
+
     it('puts the lesson position in the top row, beside the level badge', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
@@ -312,7 +330,7 @@ describe('LessonsScreen', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
       expect(screen.getByTestId('next-lesson-btn-skill-1')).toBeTruthy();
-      expect(screen.getByText('Start lesson →')).toBeTruthy();
+      expect(screen.getByText('Start lesson')).toBeTruthy();
     });
 
     it('navigates to lesson detail when Start Lesson is pressed', () => {
@@ -616,16 +634,10 @@ describe('LessonsScreen', () => {
       expect(screen.queryByTestId('enrollment-card-skill-1')).toBeNull();
     });
 
-    it('shows ACTIVE badge on the active path progress card (076g §3)', () => {
-      // Badge moved from next-lesson card to progress card; testID is unchanged.
+    it('shows no ACTIVE badge on the active path progress card (096): only the active path is shown', () => {
       setEnrollmentsMock([{ ...mockEnrollment, isActive: true }]);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('active-track-label-skill-1')).toBeTruthy();
-    });
-
-    it('does not show ACTIVE badge on a non-active path', () => {
-      setEnrollmentsMock([mockEnrollment]);
-      render(<LessonsScreen />);
+      expect(screen.getByTestId('enrollment-card-skill-1')).toBeTruthy();
       expect(screen.queryByTestId('active-track-label-skill-1')).toBeNull();
     });
   });
@@ -645,10 +657,18 @@ describe('LessonsScreen', () => {
       expect(screen.getByTestId('enrollment-card-plan-1')).toBeTruthy();
     });
 
-    it('badges a custom path so the user can tell where it came from', () => {
+    it('096: marks a custom path with Albert\'s mark before its name, and has no "My Path" chip', () => {
       setCustomPlansMock([mockCustomPlan]);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('custom-path-label-plan-1')).toBeTruthy();
+      expect(within(screen.getByTestId('enrollment-card-plan-1')).getByTestId('albert-mark')).toBeTruthy();
+      expect(screen.queryByText(/my path/i)).toBeNull();
+      expect(screen.queryByTestId('custom-path-label-plan-1')).toBeNull();
+    });
+
+    it('096: a curated track has no Albert mark', () => {
+      setEnrollmentsMock([mockEnrollment]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('albert-mark')).toBeNull();
     });
 
     it('renders the path name', () => {
@@ -680,10 +700,11 @@ describe('LessonsScreen', () => {
       expect(screen.queryByTestId('next-lesson-btn-plan-1')).toBeNull();
     });
 
-    it('can be the active path — the badge is not track-only', () => {
+    it('can be the active path, with no ACTIVE badge (096)', () => {
       setCustomPlansMock([{ ...mockCustomPlan, isActive: true }]);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('active-track-label-plan-1')).toBeTruthy();
+      expect(screen.getByTestId('enrollment-card-plan-1')).toBeTruthy();
+      expect(screen.queryByTestId('active-track-label-plan-1')).toBeNull();
     });
 
     it('shows unresolved-topics note when unresolvedTopics > 0', () => {

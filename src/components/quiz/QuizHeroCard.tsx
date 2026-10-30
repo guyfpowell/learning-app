@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
+import { colors, font, fontSize, spacing, tracking } from '@/theme';
 
 interface QuizHeroCardProps {
   question: string;
@@ -7,15 +7,15 @@ interface QuizHeroCardProps {
   progress?: { index: number; total: number };
 }
 
-/** The question view's hero: the question, and a capstone's progress, on cobalt (docs/app-styling.md §4). */
+/** The question view's lead: large text beside a cobalt bar, no box, with a capstone's progress above it (096). */
 export function QuizHeroCard({ question, progress }: QuizHeroCardProps) {
   const percent = progress ? ((progress.index + 1) / progress.total) * 100 : 0;
   return (
     <View testID="quiz-hero-card" style={styles.card}>
-      {progress && (
+      {progress ? (
         <View style={styles.progressWrap}>
           <View style={styles.progressRow}>
-            <Text style={styles.progressText}>
+            <Text style={styles.eyebrow}>
               Question {progress.index + 1} of {progress.total}
             </Text>
             <Text style={styles.progressText}>{Math.round(percent)}%</Text>
@@ -24,20 +24,31 @@ export function QuizHeroCard({ question, progress }: QuizHeroCardProps) {
             <View style={[styles.fill, { width: `${Math.min(100, Math.max(0, percent))}%` as `${number}%` }]} />
           </View>
         </View>
+      ) : (
+        <Text style={styles.eyebrow}>Question</Text>
       )}
       <Text style={styles.question}>{question}</Text>
     </View>
   );
 }
 
+/** Thickness of the cobalt bar beside the question, as on the key takeaway (096). */
+const BAR_WIDTH = spacing.xs;
+
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.brand,
-    borderRadius:    radius.card,
-    padding:         spacing.lg,
-    gap:             spacing.md,
+    borderLeftWidth: BAR_WIDTH,
+    borderLeftColor: colors.brand,
+    paddingLeft:     spacing.md,
+    gap:             spacing.sm,
     marginBottom:    spacing.lg,
-    ...shadow.brand,
+  },
+  eyebrow: {
+    fontFamily:    font.bold,
+    fontSize:      fontSize.xs,
+    letterSpacing: tracking.caps,
+    textTransform: 'uppercase',
+    color:         colors.brand,
   },
   progressWrap: { gap: spacing.xs },
   progressRow: {
@@ -47,23 +58,23 @@ const styles = StyleSheet.create({
   progressText: {
     fontFamily: font.medium,
     fontSize:   fontSize.sm,
-    color:      colors.brandSoft,
+    color:      colors.textMuted,
   },
   track: {
     height:          6,
-    backgroundColor: colors.brandPress,
+    backgroundColor: colors.borderSubtle,
     borderRadius:    3,
     overflow:        'hidden',
   },
   fill: {
     height:          6,
-    backgroundColor: colors.onBrand,
+    backgroundColor: colors.brand,
     borderRadius:    3,
   },
   question: {
     fontFamily: font.displayMedium,
     fontSize:   fontSize.lg,
     lineHeight: fontSize.lg * 1.3,
-    color:      colors.onBrand,
+    color:      colors.textStrong,
   },
 });

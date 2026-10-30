@@ -74,13 +74,13 @@ describe('PathCard revisit (079g7)', () => {
     expect(screen.queryByTestId('skip-reason-picker')).toBeNull();
   });
 
-  it('labels the revisit button "Revisit Lesson →"', () => {
+  it('labels the revisit button "Revisit Lesson"', () => {
     renderCard(makeCustomPath({
       id: 'plan-1',
       nextLesson: forward,
       revisit: { topicKey: 'disc', topicTitle: 'Discovery', nextLesson: revisitLesson, isRetake: true },
     }));
-    expect(screen.getByText(/^Revisit Lesson →$/i)).toBeTruthy();
+    expect(screen.getByText(/^Revisit Lesson$/i)).toBeTruthy();
   });
 });
 

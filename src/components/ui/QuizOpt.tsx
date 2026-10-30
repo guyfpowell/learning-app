@@ -23,7 +23,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
+import { colors, font, fontSize, radius, spacing } from '@/theme';
 
 export type QuizOptState = 'idle' | 'selected' | 'correct' | 'incorrect';
 
@@ -121,14 +121,13 @@ export function quizOptKeyTextStyle(s: QuizOptState) {
 const styles = StyleSheet.create({
   opt: {
     flexDirection:  'row',
-    alignItems:     'flex-start',
+    alignItems:     'center',
     gap:            spacing.sm,
     padding:        spacing.sm3,
     borderRadius:   radius.md,
-    borderWidth:    1.5,
+    borderWidth:    1,
     borderColor:    colors.borderSubtle,
     backgroundColor: colors.surface,
-    ...shadow.xs,
   },
   optPressed: {
     backgroundColor: colors.surfaceSunken,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ERROR_CODES,
@@ -80,10 +80,10 @@ export function SituationChangeSection({ planId, locked, pathFinished, onUpgrade
 
   if (locked) {
     return (
-      <Card testID="situation-change-locked" style={styles.card}>
+      <Box testID="situation-change-locked" finished={pathFinished}>
         <Text style={styles.body}>{invite}</Text>
         <UpgradeButton onPress={onUpgrade} />
-      </Card>
+      </Box>
     );
   }
 
@@ -94,7 +94,7 @@ export function SituationChangeSection({ planId, locked, pathFinished, onUpgrade
   const notice = looking ? null : noticeFor({ sendError: create.error, loadFailed: latest.isError, watched, outcome, pathFinished });
 
   return (
-    <Card testID={`situation-change-${planId}`} style={styles.card}>
+    <Box testID={`situation-change-${planId}`} finished={pathFinished}>
       <Text style={styles.body}>{invite}</Text>
       {looking ? (
         <Text testID="situation-change-looking" accessibilityLiveRegion="polite" style={styles.body}>
@@ -123,12 +123,19 @@ export function SituationChangeSection({ planId, locked, pathFinished, onUpgrade
         </Text>
       )}
       {notice === SITUATION_NOTICE.upgrade && <UpgradeButton onPress={onUpgrade} />}
-    </Card>
+    </Box>
   );
+}
+
+/** Mid-path (the Albert tab) it sits on the page under a hairline (096); at path end on Home it is still a card. */
+function Box({ testID, finished, children }: { testID: string; finished: boolean; children: React.ReactNode }) {
+  if (finished) return <Card testID={testID} style={styles.card}>{children}</Card>;
+  return <View testID={testID} style={styles.plain}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
   card: { gap: spacing.sm, marginBottom: spacing.lg },
+  plain: { gap: spacing.sm, marginTop: spacing.lg, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.borderSubtle },
   body: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,

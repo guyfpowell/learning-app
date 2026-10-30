@@ -10,6 +10,7 @@ import { TEAM_FEATURE_ENABLED } from '@/config/features';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useCurrentUser, useResendVerification } from '@/hooks/useEmailVerification';
 import { CURRENT_USER_QUERY_KEY } from '@/lib/queryKeys';
+import { TAB_BAR_HEIGHT } from '@/lib/safeArea';
 import { iapService } from '@/services/iap.service';
 import { useAuthStore } from '@/store/auth.store';
 import * as Sentry from '@sentry/react-native';
@@ -22,7 +23,6 @@ const BANNER_BG = '#fffbeb';
 const BANNER_BORDER = '#fde68a';
 const BANNER_TEXT = '#92400e';
 
-const TAB_BAR_HEIGHT = 56;
 // Lower is more see-through (0-100).
 const TAB_BAR_BLUR = 25;
 

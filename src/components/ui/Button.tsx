@@ -6,7 +6,9 @@ import {
   PressableProps,
   StyleSheet,
   Text,
+  View,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { colors, fontSize, radius, spacing, tracking } from '@/theme';
 import { sentenceCase } from '@/lib/sentenceCase';
 
@@ -22,6 +24,7 @@ type ButtonVariant =
   | 'outline'   // alias for secondary — kept for backward compat
   | 'ghost'
   | 'coral'
+  | 'glass'     // coral tinted glass, for a button floating over scrolling copy (096)
   | 'danger';
 
 type ButtonSize = 'sm' | 'lg';
@@ -34,6 +37,10 @@ interface ButtonProps extends PressableProps {
   inline?: boolean;
   loading?: boolean;
 }
+
+/** Blur strength and coral tint of the glass variant (096). */
+const GLASS_BLUR = 30;
+const GLASS_WASH_OPACITY = 0.8;
 
 export function Button({
   label,
@@ -61,6 +68,12 @@ export function Button({
       disabled={isDisabled}
       {...rest}
     >
+      {variant === 'glass' && (
+        <>
+          <BlurView testID={rest.testID ? `${rest.testID}-blur` : undefined} intensity={GLASS_BLUR} tint="light" style={StyleSheet.absoluteFill} />
+          <View testID={rest.testID ? `${rest.testID}-wash` : undefined} pointerEvents="none" style={styles.glassWash} />
+        </>
+      )}
       {loading ? (
         <ActivityIndicator size="small" color={spinnerColor(variant)} />
       ) : (
@@ -74,6 +87,7 @@ function variantStyle(v: ButtonVariant) {
   switch (v) {
     case 'primary':    return styles.primary;
     case 'coral':      return styles.coral;
+    case 'glass':      return styles.glass;
     case 'danger':     return styles.danger;
     case 'ghost':      return styles.ghost;
     case 'secondary':
@@ -85,6 +99,7 @@ function variantPressedStyle(v: ButtonVariant) {
   switch (v) {
     case 'primary':    return styles.primaryPressed;
     case 'coral':      return styles.coralPressed;
+    case 'glass':      return styles.glassPressed;
     case 'danger':     return styles.dangerPressed;
     case 'ghost':      return styles.ghostPressed;
     case 'secondary':
@@ -96,6 +111,7 @@ function labelColor(v: ButtonVariant) {
   switch (v) {
     case 'primary':
     case 'coral':
+    case 'glass':
     case 'danger':    return styles.labelOnColor;
     case 'secondary':
     case 'outline':   return styles.labelBrand;
@@ -107,6 +123,7 @@ function spinnerColor(v: ButtonVariant): string {
   switch (v) {
     case 'primary':
     case 'coral':
+    case 'glass':
     case 'danger':  return colors.onBrand;
     case 'ghost':   return colors.textMuted;
     default:        return colors.brand;
@@ -163,6 +180,19 @@ const styles = StyleSheet.create({
 
   coral: {
     backgroundColor: colors.coral,
+  },
+  // Glass: the blur and wash are drawn inside; the button itself has no fill.
+  glass: {
+    backgroundColor: 'transparent',
+    overflow:        'hidden',
+  },
+  glassPressed: {
+    opacity: 0.85,
+  },
+  glassWash: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: colors.coral,
+    opacity:         GLASS_WASH_OPACITY,
   },
   coralPressed: {
     backgroundColor: colors.coralDark,

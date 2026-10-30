@@ -1,7 +1,9 @@
-import { View, Text, StyleSheet, Switch } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, Switch, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { type DateTimePickerChangeEvent } from '@react-native-community/datetimepicker';
 import {
-  NOTIFICATION_SETTINGS_LOAD_ERROR, NOTIFICATION_TOGGLE_LABELS, NOTIFICATION_TOGGLES_BELOW_REMINDER,
+  NOTIFICATION_SETTINGS_LOAD_ERROR, NOTIFICATION_TOGGLE_LABELS, formatPreferredTime, NOTIFICATION_TOGGLES_BELOW_REMINDER,
   type ClockTime, type NotificationToggleKey, type NotificationToggles,
 } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
@@ -25,7 +27,7 @@ function PreferenceToggle({
 }) {
   const label = NOTIFICATION_TOGGLE_LABELS[field];
   return (
-    <View style={styles.toggleRow}>
+    <View style={[styles.row, styles.rowSpread]}>
       <Text style={styles.toggleLabel}>{label}</Text>
       <Switch
         testID={`toggle-${field}`}
@@ -56,6 +58,9 @@ export function NotificationSettings({
   reminder: ClockTime;
   onReminderChange: (reminder: ClockTime) => void;
 }) {
+  // The wheel is out of the way until the time row is tapped (096).
+  const [timeOpen, setTimeOpen] = useState(false);
+
   if (loading) {
     return (
       <View testID="prefs-loading" style={styles.loadingRow}>
@@ -72,22 +77,37 @@ export function NotificationSettings({
       <PreferenceToggle field="enableDailyReminder" value={toggles.enableDailyReminder} onToggle={onToggle} />
 
       {toggles.enableDailyReminder && (
-        <DateTimePicker
-          testID="reminder-time-picker"
-          value={timeToDate(reminder)}
-          mode="time"
-          display="spinner"
-          onValueChange={(_event: DateTimePickerChangeEvent, date: Date) => {
-            onReminderChange({ hour: date.getHours(), minute: date.getMinutes() });
-          }}
-        />
+        <>
+          <Pressable
+            testID="reminder-time-row"
+            onPress={() => setTimeOpen(open => !open)}
+            style={[styles.row, styles.rowSpread]}
+            accessibilityRole="button"
+            accessibilityLabel="Reminder time"
+            accessibilityState={{ expanded: timeOpen }}
+          >
+            <Text style={styles.toggleLabel}>Reminder time</Text>
+            <View style={styles.timeValue}>
+              <Text testID="reminder-time-value" style={styles.timeText}>{formatPreferredTime(reminder)}</Text>
+              <Ionicons name={timeOpen ? 'chevron-up' : 'chevron-forward'} size={16} color={colors.textMuted} />
+            </View>
+          </Pressable>
+          {timeOpen && (
+            <DateTimePicker
+              testID="reminder-time-picker"
+              value={timeToDate(reminder)}
+              mode="time"
+              display="spinner"
+              onValueChange={(_event: DateTimePickerChangeEvent, date: Date) => {
+                onReminderChange({ hour: date.getHours(), minute: date.getMinutes() });
+              }}
+            />
+          )}
+        </>
       )}
 
       {NOTIFICATION_TOGGLES_BELOW_REMINDER.map((field) => (
-        <View key={field}>
-          <View style={styles.divider} />
-          <PreferenceToggle field={field} value={toggles[field]} onToggle={onToggle} />
-        </View>
+        <PreferenceToggle key={field} field={field} value={toggles[field]} onToggle={onToggle} />
       ))}
     </>
   );
@@ -101,21 +121,28 @@ const styles = StyleSheet.create({
     color:      colors.error,
     textAlign:  'center',
   },
-  toggleRow: {
+  // Hairline rows, no card around them (096).
+  row: {
+    paddingVertical:   spacing.xs,
+    minHeight:         48,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+  },
+  rowSpread: {
     flexDirection:  'row',
     alignItems:     'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.xs,
+  },
+  timeValue: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  timeText: {
+    fontFamily: font.medium,
+    fontSize:   fontSize.base,
+    color:      colors.textStrong,
   },
   toggleLabel: {
     fontFamily: font.regular,
     fontSize:   fontSize.base,
     color:      colors.textStrong,
     flex:       1,
-  },
-  divider: {
-    height:          1,
-    backgroundColor: colors.borderSubtle,
-    marginVertical:  spacing.xs,
   },
 });

@@ -10,12 +10,6 @@ function flooredPct(path: UserPath): number {
   return path.completedLessons > 0 ? Math.max(1, Math.round(path.percentComplete)) : 0;
 }
 
-function motivation(path: UserPath, pct: number): string {
-  const lessonsLeft = path.totalLessons - path.completedLessons;
-  if (lessonsLeft <= 20) return `Only ${lessonsLeft} lessons to complete ${path.name}!`;
-  return `You're ${pct}% through ${path.name} — keep going!`;
-}
-
 /** Prefer the capstone score; fall back to the path average; null if neither. */
 function completedScore(path: UserPath): number | null {
   return path.capstoneScore ?? path.averageScore ?? null;
@@ -47,13 +41,17 @@ export function PathProgress({ path, onFindNext }: PathProgressProps) {
           <Text style={styles.enrollmentTitle}>{path.name}</Text>
           <Text style={styles.pctText}>{pct}% complete</Text>
         </View>
-        <Text style={styles.motivationText}>{motivation(path, pct)}</Text>
         <Text style={styles.lessonsCount}>
           {path.completedLessons} of {path.totalLessons} lessons complete
         </Text>
+        {path.nextLesson && (
+          <Text testID={`path-next-lesson-${path.id}`} style={styles.lessonsCount} numberOfLines={1}>
+            Next: {path.nextLesson.title}
+          </Text>
+        )}
         {/* Curated tracks show level strip; custom paths (levels=[]) show a progress bar (C10). */}
         {path.levels.length > 0 ? (
-          <TrackMap levels={path.levels} />
+          <TrackMap levels={path.levels} showStatus={false} />
         ) : (
           <Progress value={pct} tone="brand" testID={`path-progress-bar-${path.id}`} />
         )}
@@ -116,7 +114,6 @@ const styles = StyleSheet.create({
   enrollmentHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   enrollmentTitle:   { fontFamily: font.semibold, fontSize: fontSize.base, color: colors.textStrong, flex: 1 },
   pctText:           { fontFamily: font.medium, fontSize: fontSize.sm, color: colors.brand },
-  motivationText:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
   lessonsCount:      { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
 
   completedCard:     { gap: spacing.sm },

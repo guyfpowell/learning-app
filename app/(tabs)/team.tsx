@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
-import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
+import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Spinner } from '@/components/ui/Spinner';
 import { Progress } from '@/components/ui/Progress';
 import { FlameIcon } from '@/components/ui/Streak';
@@ -82,7 +82,7 @@ export default function TeamScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: TAB_BAR_CLEARANCE }]}>
         <Text style={styles.heading}>Team Dashboard</Text>
         <Text style={styles.subheading}>Track your team's learning progress</Text>
 

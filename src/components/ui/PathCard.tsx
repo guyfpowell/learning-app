@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View, type DimensionValue } from 'react-native';
 import { colors, font, fontSize, shadow, spacing, tracking } from '@/theme';
 import { Card } from '@/components/ui/Card';
+import { AlbertMark } from '@/components/albert/AlbertMark';
 import { Button } from '@/components/ui/Button';
 import { Badge, LEVEL_BADGE_VARIANT } from '@/components/ui/Badge';
 import { TrackMap } from '@/components/ui/TrackMap';
@@ -12,6 +13,15 @@ export function flooredPct(path: Pick<UserPath, 'completedLessons' | 'percentCom
   return path.completedLessons > 0 ? Math.max(1, Math.round(path.percentComplete)) : 0;
 }
 
+/** Gap between the text blocks of the cobalt hero card (096); other next-lesson cards keep spacing.sm. */
+const HERO_BLOCK_GAP = spacing.sm3;
+
+/**
+ * Space between the cobalt hero card and the skip controls under it (096). Negative: the skip button's
+ * own 44pt-high box pads its label, so the box pulls up under the card and the label sits closer.
+ */
+const HERO_SKIPS_GAP = -spacing.xs;
+
 function motivation(path: UserPath, pct: number): string {
   const lessonsLeft = path.totalLessons - path.completedLessons;
   if (lessonsLeft <= 20) return `Only ${lessonsLeft} lessons to complete ${path.name}!`;
@@ -19,8 +29,8 @@ function motivation(path: UserPath, pct: number): string {
 }
 
 function ctaLabel(isRevisit: boolean, resumePhase: boolean): string {
-  if (isRevisit) return 'Revisit Lesson →';
-  return resumePhase ? 'Continue Lesson →' : 'Start Lesson →';
+  if (isRevisit) return 'Revisit Lesson';
+  return resumePhase ? 'Continue Lesson' : 'Start Lesson';
 }
 
 /**
@@ -28,9 +38,9 @@ function ctaLabel(isRevisit: boolean, resumePhase: boolean): string {
  * topic and level skips are behind their own flags, off by default (076h).
  */
 const SKIP_BUTTONS: { scope: SkipScope; label: string; offered: (path: UserPath) => boolean }[] = [
-  { scope: 'lesson', label: 'Skip Lesson →', offered: p => p.canSkipLesson },
-  { scope: 'topic',  label: 'Skip Topic →',  offered: p => p.canSkipTopic },
-  { scope: 'level',  label: 'Skip Level →',  offered: p => p.canSkipLevel },
+  { scope: 'lesson', label: 'Skip Lesson', offered: p => p.canSkipLesson },
+  { scope: 'topic',  label: 'Skip Topic',  offered: p => p.canSkipTopic },
+  { scope: 'level',  label: 'Skip Level',  offered: p => p.canSkipLevel },
 ];
 
 function ProgressBar({ value }: { value: number }) {
@@ -109,25 +119,13 @@ export function PathCard({
     <>
       {/* Progress card — renders first (076g card order: streak → path progress → next lesson). */}
       <Card testID={`enrollment-card-${path.id}`} style={[styles.enrollmentCard, hero && styles.heroProgressCard]}>
-        {/* Badges — moved here from next-lesson card (076g §3). */}
-        {(path.isActive || path.kind === 'custom') && (
-          <View style={styles.badgeRow}>
-            {path.isActive && (
-              <View testID={`active-track-label-${path.id}`}>
-                <Badge label="Active" variant="success" />
-              </View>
-            )}
-            {path.kind === 'custom' && (
-              <View testID={`custom-path-label-${path.id}`}>
-                <Badge label="My Path" variant="info" />
-              </View>
-            )}
-          </View>
-        )}
-
         <View style={styles.enrollmentHeader}>
-          {/* testID moved here from the next-lesson card (076g §3 — preserves ex-line 78 testID). */}
-          <Text testID={`path-name-${path.id}`} style={styles.enrollmentTitle} numberOfLines={1}>{path.name}</Text>
+          {/* An Albert path is marked by Albert's mark before its name, not a chip (096). */}
+          <View style={styles.titleGroup}>
+            {path.kind === 'custom' && <AlbertMark size={fontSize.base} />}
+            {/* testID moved here from the next-lesson card (076g §3 — preserves ex-line 78 testID). */}
+            <Text testID={`path-name-${path.id}`} style={styles.enrollmentTitle} numberOfLines={1}>{path.name}</Text>
+          </View>
           <Text style={styles.pctText}>{pct}% complete</Text>
         </View>
         {path.description != null && (
@@ -171,6 +169,9 @@ export function PathCard({
             testID={`next-lesson-card-${path.id}`}
             style={[styles.nextLessonCard, hero && styles.heroCard]}
           >
+            {nextLesson.topicName && (
+              <Text style={[styles.positionLabel, hero && styles.heroEyebrow]}>{nextLesson.topicName}</Text>
+            )}
             <View testID={`next-lesson-meta-${path.id}`} style={styles.nextLessonMeta}>
               {level && (
                 <Badge
@@ -184,9 +185,6 @@ export function PathCard({
                 </Text>
               )}
             </View>
-            {nextLesson.topicName && (
-              <Text style={[styles.positionLabel, hero && styles.heroEyebrow]}>{nextLesson.topicName}</Text>
-            )}
 
             {revisit && (
               <Text testID={`revisit-label-${path.id}`} style={[styles.revisitLabel, hero && styles.heroEyebrow]}>
@@ -216,11 +214,6 @@ export function PathCard({
 }
 
 const styles = StyleSheet.create({
-  badgeRow: {
-    flexDirection: 'row',
-    gap:           spacing.xs,
-    flexWrap:      'wrap',
-  },
   enrollmentCard: {
     gap: spacing.sm,
   },
@@ -229,11 +222,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems:     'flex-start',
   },
+  titleGroup: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   enrollmentTitle: {
     fontFamily: font.semibold,
     fontSize:   fontSize.base,
     color:      colors.textStrong,
-    flex:       1,
+    flexShrink: 1,
   },
   pctText: {
     fontFamily: font.medium,
@@ -312,11 +306,12 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     marginTop:       spacing.md,
+    gap:             HERO_BLOCK_GAP,
     backgroundColor: colors.brand,
     ...shadow.brand,
   },
   heroSkips: {
-    marginTop: spacing.md,
+    marginTop: HERO_SKIPS_GAP,
     gap:       spacing.sm,
   },
   heroEyebrow: {

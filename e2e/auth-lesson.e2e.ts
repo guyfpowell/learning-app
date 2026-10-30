@@ -70,7 +70,7 @@ describe('Login → progress tab → streak visible', () => {
     // Tap Progress tab
     await element(by.text('Progress')).tap();
 
-    await waitFor(element(by.text('My Progress'))).toBeVisible().withTimeout(5000);
+    await waitFor(element(by.id('progress-stats'))).toBeVisible().withTimeout(5000);
 
     try {
       await waitFor(element(by.id('progress-streak'))).toBeVisible().withTimeout(5000);

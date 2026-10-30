@@ -2,7 +2,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
-import { TAB_SCREEN_EDGES } from '@/lib/safeArea';
+import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Button } from '@/components/ui/Button';
 import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
 import { TopicFeedback } from '@/components/ui/TopicFeedback';
@@ -43,7 +43,7 @@ export default function LessonsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]}>
 
         {/* First thing on the screen — 069 items 1+2. It used to render below the
             streak hero and the stats row, so a brand-new user met a wall of zeros

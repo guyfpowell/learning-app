@@ -4,6 +4,7 @@ import { must } from '@/test-utils/must';
 import { colors, fontSize, radius, spacing } from '@/theme';
 import { headerRowBox } from '@/components/quiz/QuizResultFrame';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react-native';
+import { PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
 import { QuizModal } from '../QuizModal';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
 import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
@@ -217,11 +218,14 @@ describe('QuizModal', () => {
     expect(screen.queryByTestId('quiz-progress-bar')).toBeNull();
   });
 
-  it('091c: the question sits inside the cobalt hero card', () => {
+  it('096: the question is large text beside a cobalt bar, with no box', () => {
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
     const card = screen.getByTestId('quiz-hero-card');
     expect(within(card).getByText('What is product-market fit?')).toBeTruthy();
-    expect(StyleSheet.flatten(card.props.style)).toMatchObject({ backgroundColor: colors.brand, borderRadius: radius.card, padding: spacing.lg });
+    const style = StyleSheet.flatten(card.props.style);
+    expect(style).toMatchObject({ borderLeftColor: colors.brand, paddingLeft: spacing.md });
+    expect([style.backgroundColor, style.shadowOpacity]).toEqual([undefined, undefined]);
+    expect(StyleSheet.flatten(within(card).getByText('What is product-market fit?').props.style).color).toBe(colors.textStrong);
   });
 
   it('091c: a capstone\'s "Question N of M", percentage and bar are inside the hero card', () => {
@@ -239,15 +243,13 @@ describe('QuizModal', () => {
     expect(screen.getByPlaceholderText('Your answer...')).toBeTruthy();
   });
 
-  it('091c: Submit is the coral variant, and disabled keeps coral at reduced opacity', () => {
+  it('096: Submit is a pinned coral glass button; disabled is at reduced opacity', () => {
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-    const disabled = StyleSheet.flatten(must(screen.getByText('Submit').parent?.parent, 'button').props.style);
-    expect(disabled).toMatchObject({ backgroundColor: colors.coral });
-    expect(disabled.opacity).toBeLessThan(1);
+    const button = () => StyleSheet.flatten(must(screen.getByText('Submit').parent?.parent, 'button').props.style);
+    expect(within(screen.getByTestId('pinned-action')).getByText('Submit')).toBeTruthy();
+    expect(button().opacity).toBeLessThan(1);
     fireEvent.press(screen.getByText('Option A'));
-    const enabled = StyleSheet.flatten(must(screen.getByText('Submit').parent?.parent, 'button').props.style);
-    expect(enabled).toMatchObject({ backgroundColor: colors.coral });
-    expect(enabled.opacity).toBeUndefined();
+    expect(button().opacity).toBeUndefined();
   });
 
   it('091c: a picked option is announced as selected', () => {
@@ -508,7 +510,8 @@ describe('QuizModal', () => {
       unmount();
       setQuizMock({ data: undefined });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(StyleSheet.flatten(screen.getByTestId('quiz-question-content').props.contentContainerStyle).paddingBottom).toBe(34 + spacing.md);
+      // The question body leaves room under its last line for the pinned Submit (096).
+      expect(StyleSheet.flatten(screen.getByTestId('quiz-question-content').props.contentContainerStyle).paddingBottom).toBe(PINNED_ACTION_CLEARANCE + 34);
     });
 
     it('079f: no thumbs while the lesson is not finalized', () => {

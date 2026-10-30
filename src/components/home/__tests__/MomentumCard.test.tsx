@@ -5,6 +5,7 @@ import { DAY_MS, type AchievementsResponse, type XpResponse } from '@learning/sh
 import { useXp } from '@/hooks/useXp';
 import { useAchievements } from '@/hooks/useAchievements';
 import { colors, font, fontSize } from '@/theme';
+import { STREAK_COPY } from '@/lib/momentum';
 import { MomentumCard } from '../MomentumCard';
 
 jest.mock('@/hooks/useXp', () => ({ useXp: jest.fn() }));
@@ -39,13 +40,24 @@ describe('MomentumCard', () => {
     expect(screen.getAllByTestId('streak-calendar')).toHaveLength(1);
     expect(screen.queryByText('Calendar')).toBeNull();
     expect(screen.queryByText(/^Day \d/)).toBeNull();
-    expect(screen.getByText("You're on a 4-day streak — don't break it!")).toBeTruthy();
+    const shown = STREAK_COPY.building.filter((line) => screen.queryByText(line) !== null);
+    expect(shown).toHaveLength(1);
+  });
+
+  it('keeps the same line when the card re-renders, and changes stage with the streak', () => {
+    setData(undefined, undefined);
+    const { rerender } = render(<MomentumCard streak={4} />);
+    const shown = STREAK_COPY.building.find((line) => screen.queryByText(line) !== null);
+    rerender(<MomentumCard streak={5} />);
+    expect(screen.getByText(shown ?? '')).toBeTruthy();
+    rerender(<MomentumCard streak={0} />);
+    expect(screen.getByText('Complete a lesson to start your streak')).toBeTruthy();
   });
 
   it('shows the zero-streak copy', () => {
     setData(undefined, undefined);
     render(<MomentumCard streak={0} />);
-    expect(screen.getByText('Complete a lesson today to start your streak')).toBeTruthy();
+    expect(screen.getByText('Complete a lesson to start your streak')).toBeTruthy();
   });
 
   it('shows the XP level, total and what is left, with a bar', () => {

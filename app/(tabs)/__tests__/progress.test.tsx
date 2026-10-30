@@ -1,9 +1,9 @@
 import React from 'react';
 import { PATHS_LOAD_ERROR } from '@learning/shared';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, within } from '@testing-library/react-native';
 import ProgressScreen from '../progress';
 import { useProgress } from '@/hooks/useProgress';
-import { usePaths, useTrackContents } from '@/hooks/useTrack';
+import { usePaths } from '@/hooks/useTrack';
 import { useXp } from '@/hooks/useXp';
 import { TRACKS_ROUTE } from '@/lib/routes';
 
@@ -11,21 +11,9 @@ const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 
 jest.mock('@/hooks/useProgress', () => ({ useProgress: jest.fn() }));
-jest.mock('@/hooks/useTrack', () => ({ usePaths: jest.fn(), useTrackContents: jest.fn() }));
+jest.mock('@/hooks/useTrack', () => ({ usePaths: jest.fn() }));
 jest.mock('@/hooks/useXp', () => ({ useXp: jest.fn() }));
-// Lightweight tree stub — tests only care that it is/isn't rendered and what props it got.
-jest.mock('@/components/learning/TrackContentsTree', () => {
-  const mockReact = require('react');
-  const { View: MockView } = require('react-native');
-  return {
-    TrackContentsTree: ({ contents, initialExpanded }: { contents: { id: string }; initialExpanded?: { groupKey?: string; topicKey?: string } }) =>
-      mockReact.createElement(MockView, {
-        testID: 'mock-track-tree',
-        accessibilityLabel: [contents.id, initialExpanded?.groupKey ?? '', initialExpanded?.topicKey ?? ''].join('|'),
-      }),
-  };
-});
-
+jest.mock('@/hooks/useAchievements', () => ({ useAchievements: jest.fn(() => ({ data: undefined, isLoading: false })) }));
 let capturedEdges: string[] | undefined;
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children, edges }: { children: React.ReactNode; edges?: string[] }) => {
@@ -86,7 +74,6 @@ describe('ProgressScreen', () => {
     capturedEdges = undefined;
     (usePaths as jest.Mock).mockReturnValue({ data: undefined });
     (useXp as jest.Mock).mockReturnValue({ data: undefined });
-    (useTrackContents as jest.Mock).mockReturnValue({ data: undefined, isLoading: false });
   });
 
   it('renders without errors', () => {
@@ -102,10 +89,10 @@ describe('ProgressScreen', () => {
     expect(getByTestId('paths-load-error')).toHaveTextContent(PATHS_LOAD_ERROR);
   });
 
-  it('shows "My Progress" heading', () => {
+  it('096: has no "My Progress" heading: the selected tab already says where you are', () => {
     setMock();
     render(<ProgressScreen />);
-    expect(screen.getByText('My Progress')).toBeTruthy();
+    expect(screen.queryByText('My Progress')).toBeNull();
   });
 
   it('shows error message when fetch fails', () => {
@@ -151,31 +138,27 @@ describe('ProgressScreen', () => {
     expect(screen.queryByText('83.33%')).toBeNull();
   });
 
-  it('shows last lesson date when available', () => {
+  it('096: no last-lesson date card', () => {
     setMock({ data: mockStats });
-    render(<ProgressScreen />);
-    expect(screen.getByText(/Last lesson/i)).toBeTruthy();
-  });
-
-  it('does not show last lesson date when null', () => {
-    setMock({ data: { ...mockStats, lastLessonDate: null } });
     render(<ProgressScreen />);
     expect(screen.queryByText(/Last lesson/i)).toBeNull();
   });
 
-  it('shows streak stat card with the flame SVG and count', () => {
+  it('096: the three numbers are one quiet row, with no boxes and no flame', () => {
     setMock({ data: mockStats });
     render(<ProgressScreen />);
-    expect(screen.getByTestId('progress-streak')).toBeTruthy();
+    const row = within(screen.getByTestId('progress-stats'));
+    expect(row.getByTestId('progress-lessons-count')).toBeTruthy();
+    expect(row.getByTestId('progress-avg-score')).toBeTruthy();
+    expect(row.getByTestId('progress-streak')).toBeTruthy();
+    expect(row.getByText('Average quiz score')).toBeTruthy();
+    expect(screen.queryByTestId('progress-streak-card')).toBeNull();
   });
 
-  it('streak is a hero card above the subordinate stats', () => {
+  it('096: the achievements move here from Profile', () => {
     setMock({ data: mockStats });
     render(<ProgressScreen />);
-    expect(screen.getByTestId('progress-streak-card')).toBeTruthy();
-    expect(screen.getByTestId('progress-streak')).toBeTruthy();
-    expect(screen.getByTestId('progress-lessons-count')).toBeTruthy();
-    expect(screen.getByTestId('progress-avg-score')).toBeTruthy();
+    expect(screen.getByTestId('achievements-section')).toBeTruthy();
   });
 });
 
@@ -184,7 +167,6 @@ describe('ProgressScreen — enrollment cards', () => {
     jest.clearAllMocks();
     (useProgress as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: false });
     (useXp as jest.Mock).mockReturnValue({ data: undefined });
-    (useTrackContents as jest.Mock).mockReturnValue({ data: undefined, isLoading: false });
   });
 
   it('shows active enrollment card with track name and % complete', () => {
@@ -200,11 +182,13 @@ describe('ProgressScreen — enrollment cards', () => {
     expect(screen.getByText('3 of 10 lessons complete')).toBeTruthy();
   });
 
-  it('shows motivation text on active enrollment card', () => {
-    (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
+  it('096: no motivation line that repeats the path name; the next lesson shows instead', () => {
+    (usePaths as jest.Mock).mockReturnValue({
+      data: [{ ...mockActiveEnrollment, nextLesson: { id: 'l9', title: 'Closures', skillPath: { level: 'beginner' }, topicName: 'Functions', lessonIndex: 4, totalLessons: 10 } }],
+    });
     render(<ProgressScreen />);
-    // lessonsLeft = 7 <= 20 → "Only 7 lessons to complete JavaScript Fundamentals!"
-    expect(screen.getByText('Only 7 lessons to complete JavaScript Fundamentals!')).toBeTruthy();
+    expect(screen.queryByText(/Only 7 lessons to complete|keep going/i)).toBeNull();
+    expect(screen.getByText('Next: Closures')).toBeTruthy();
   });
 
   it('shows completed track with Terminus achievement badge', () => {
@@ -254,7 +238,7 @@ describe('ProgressScreen — enrollment cards', () => {
       data: [mockActiveEnrollment, mockCompletedEnrollment],
     });
     render(<ProgressScreen />);
-    expect(screen.getByText('Keep Going')).toBeTruthy();
+    expect(screen.getByText('Your path')).toBeTruthy();
     expect(screen.getByText('Completed')).toBeTruthy();
   });
 
@@ -267,7 +251,7 @@ describe('ProgressScreen — enrollment cards', () => {
   it('does not show enrollment sections while loading (data undefined)', () => {
     (usePaths as jest.Mock).mockReturnValue({ data: undefined });
     render(<ProgressScreen />);
-    expect(screen.queryByText('Keep Going')).toBeNull();
+    expect(screen.queryByText('Your path')).toBeNull();
     expect(screen.queryByText('Completed')).toBeNull();
     expect(screen.queryByTestId('no-track-notice')).toBeNull();
   });
@@ -281,7 +265,7 @@ describe('ProgressScreen — enrollment cards', () => {
   it('does not show active section for completed-only enrollments', () => {
     (usePaths as jest.Mock).mockReturnValue({ data: [mockCompletedEnrollment] });
     render(<ProgressScreen />);
-    expect(screen.queryByText('Keep Going')).toBeNull();
+    expect(screen.queryByText('Your path')).toBeNull();
   });
 
   it('does not show Saved section', () => {
@@ -302,7 +286,6 @@ describe('ProgressScreen — P6 TrackMap segmented bar', () => {
     jest.clearAllMocks();
     (usePaths as jest.Mock).mockReturnValue({ data: undefined });
     (useXp as jest.Mock).mockReturnValue({ data: undefined });
-    (useTrackContents as jest.Mock).mockReturnValue({ data: undefined, isLoading: false });
   });
 
   it('renders segmented level nodes on active enrollment card when levels provided', () => {
@@ -312,6 +295,16 @@ describe('ProgressScreen — P6 TrackMap segmented bar', () => {
     });
     render(<ProgressScreen />);
     expect(screen.getAllByTestId('track-map-level')).toHaveLength(2);
+  });
+
+  it('096: the strip shows no "<Level> in progress" line; the highlighted level says it', () => {
+    setMock({ data: undefined });
+    (usePaths as jest.Mock).mockReturnValue({
+      data: [{ ...mockActiveEnrollment, levels: mockLevels }],
+    });
+    render(<ProgressScreen />);
+    expect(screen.getAllByTestId('track-map-level')).toHaveLength(2);
+    expect(screen.queryByText(/in progress/i)).toBeNull();
   });
 
   it('does not render TrackMap when enrollment has no levels', () => {
@@ -328,7 +321,6 @@ describe('ProgressScreen — Ticket 070 XP card', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (usePaths as jest.Mock).mockReturnValue({ data: undefined });
-    (useTrackContents as jest.Mock).mockReturnValue({ data: undefined, isLoading: false });
     setMock({ data: mockStats });
   });
 
@@ -431,7 +423,6 @@ describe('ProgressScreen — Ticket 072j safe-area edges', () => {
     (useProgress as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: false });
     (usePaths as jest.Mock).mockReturnValue({ data: undefined });
     (useXp as jest.Mock).mockReturnValue({ data: undefined });
-    (useTrackContents as jest.Mock).mockReturnValue({ data: undefined, isLoading: false });
   });
 
   it('uses edges=[left,right] so the tab layout owns the top inset and the tab bar the bottom one (090)', () => {
@@ -440,145 +431,38 @@ describe('ProgressScreen — Ticket 072j safe-area edges', () => {
   });
 });
 
-// ── 076e — Expandable progress tree ──────────────────────────────────────────
+// ── 096 — a path card opens its detail ──────────────────────────────────────
 
-const mockContents = {
-  kind: 'track' as const,
-  id: 'skill-1',
-  name: 'JavaScript Fundamentals',
-  enrolled: true,
-  groups: [
-    {
-      key: 'beginner',
-      label: 'Beginner',
-      completedLessons: 0,
-      totalLessons: 5,
-      isCurrent: true,
-      topics: [
-        {
-          key: 'topic-1',
-          name: 'Variables',
-          lessons: [],
-          completedLessons: 0,
-          totalLessons: 3,
-          isCurrent: true,
-          unresolved: false,
-        },
-      ],
-    },
-  ],
-};
-
-const mockCompletedContents = {
-  ...mockContents,
-  id: 'skill-2',
-  groups: [
-    {
-      ...mockContents.groups[0],
-      isCurrent: false,
-      topics: [{ ...mockContents.groups[0].topics[0], isCurrent: false }],
-    },
-  ],
-};
-
-describe('ProgressScreen — 076e expandable tree', () => {
+describe('ProgressScreen — path cards open their detail (096)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useProgress as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: false });
     (useXp as jest.Mock).mockReturnValue({ data: undefined });
-    (useTrackContents as jest.Mock).mockReturnValue({ data: undefined, isLoading: false });
   });
 
-  it('shows expand toggle for each path card', () => {
+  it('tapping an in-progress path card opens that path\'s detail', () => {
     (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
     render(<ProgressScreen />);
-    expect(screen.getByTestId('path-expand-btn-skill-1')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('path-card-link-skill-1'));
+    expect(mockPush).toHaveBeenCalledWith('/track/track/skill-1');
   });
 
-  it('tree is hidden before expand', () => {
+  it('has no lessons toggle or inline tree any more', () => {
     (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
     render(<ProgressScreen />);
-    expect(screen.queryByTestId('mock-track-tree')).toBeNull();
+    expect(screen.queryByTestId('path-expand-btn-skill-1')).toBeNull();
+    expect(screen.queryByText('Show lessons')).toBeNull();
   });
 
-  it('tree appears after pressing expand toggle', () => {
-    (useTrackContents as jest.Mock).mockReturnValue({ data: mockContents, isLoading: false });
-    (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
-    render(<ProgressScreen />);
-    fireEvent.press(screen.getByTestId('path-expand-btn-skill-1'));
-    expect(screen.getByTestId('mock-track-tree')).toBeTruthy();
-  });
-
-  it('tree hides again after toggling twice', () => {
-    (useTrackContents as jest.Mock).mockReturnValue({ data: mockContents, isLoading: false });
-    (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
-    render(<ProgressScreen />);
-    fireEvent.press(screen.getByTestId('path-expand-btn-skill-1'));
-    fireEvent.press(screen.getByTestId('path-expand-btn-skill-1'));
-    expect(screen.queryByTestId('mock-track-tree')).toBeNull();
-  });
-
-  it('useTrackContents is called with enabled=false on mount (lazy fetch)', () => {
-    (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
-    render(<ProgressScreen />);
-    const calls = (useTrackContents as jest.Mock).mock.calls;
-    // All calls on mount should have enabled: false
-    calls.forEach((call: unknown[]) => {
-      const options = call[2] as { enabled?: boolean } | undefined;
-      expect(options?.enabled).toBe(false);
-    });
-  });
-
-  it('useTrackContents called with enabled=true after expand', () => {
-    (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
-    render(<ProgressScreen />);
-    fireEvent.press(screen.getByTestId('path-expand-btn-skill-1'));
-    const calls = (useTrackContents as jest.Mock).mock.calls;
-    const lastCall = calls[calls.length - 1];
-    expect((lastCall[2] as { enabled?: boolean })?.enabled).toBe(true);
-  });
-
-  it('tree receives initialExpanded with current group and topic keys', () => {
-    (useTrackContents as jest.Mock).mockReturnValue({ data: mockContents, isLoading: false });
-    (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
-    render(<ProgressScreen />);
-    fireEvent.press(screen.getByTestId('path-expand-btn-skill-1'));
-    const tree = screen.getByTestId('mock-track-tree');
-    // accessibilityLabel encodes: contentId|groupKey|topicKey
-    expect(tree.props.accessibilityLabel).toBe('skill-1|beginner|topic-1');
-  });
-
-  it('tree receives no initialExpanded when path is 100% complete (no isCurrent)', () => {
-    (useTrackContents as jest.Mock).mockReturnValue({ data: mockCompletedContents, isLoading: false });
+  it('a completed card opens its detail too, but Find next track still goes to Tracks', () => {
     (usePaths as jest.Mock).mockReturnValue({ data: [mockCompletedEnrollment] });
     render(<ProgressScreen />);
-    fireEvent.press(screen.getByTestId('path-expand-btn-skill-2'));
-    const tree = screen.getByTestId('mock-track-tree');
-    // No isCurrent → groupKey and topicKey both empty
-    expect(tree.props.accessibilityLabel).toBe('skill-2||');
-  });
-
-  it('shows loading indicator when tree fetch is in flight', () => {
-    (useTrackContents as jest.Mock).mockReturnValue({ data: undefined, isLoading: true });
-    (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
-    render(<ProgressScreen />);
-    fireEvent.press(screen.getByTestId('path-expand-btn-skill-1'));
-    expect(screen.getByTestId('tree-loading-skill-1')).toBeTruthy();
-    expect(screen.queryByTestId('mock-track-tree')).toBeNull();
-  });
-
-  it('expands separate cards independently (expanding one does not fetch others)', () => {
-    const secondEnrollment = { ...mockActiveEnrollment, id: 'skill-3', name: 'CSS Basics' };
-    (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment, secondEnrollment] });
-    render(<ProgressScreen />);
-    // Only expand the first card
-    fireEvent.press(screen.getByTestId('path-expand-btn-skill-1'));
-    // Check that useTrackContents for skill-3 is still called with enabled: false
-    const calls = (useTrackContents as jest.Mock).mock.calls;
-    const skill3Calls = calls.filter((c: unknown[]) => c[1] === 'skill-3');
-    skill3Calls.forEach((call: unknown[]) => {
-      expect((call[2] as { enabled?: boolean })?.enabled).toBe(false);
-    });
+    fireEvent.press(screen.getByTestId(`path-card-link-${mockCompletedEnrollment.id}`));
+    expect(mockPush).toHaveBeenCalledWith(`/track/track/${mockCompletedEnrollment.id}`);
+    mockPush.mockClear();
+    fireEvent.press(screen.getByTestId(`completed-next-track-${mockCompletedEnrollment.id}`));
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
   });
 });
 
@@ -587,7 +471,6 @@ describe('ProgressScreen — 076e custom path progress bar', () => {
     jest.clearAllMocks();
     (useProgress as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: false });
     (useXp as jest.Mock).mockReturnValue({ data: undefined });
-    (useTrackContents as jest.Mock).mockReturnValue({ data: undefined, isLoading: false });
   });
 
   it('shows a progress bar on custom path card (levels empty)', () => {

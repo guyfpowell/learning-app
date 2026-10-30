@@ -22,6 +22,11 @@ describe('sentenceCase', () => {
     expect(sentenceCase('Ask the AI Coach')).toBe('Ask the AI coach');
   });
 
+  it('keeps the proper noun Albert: "Tell Albert" was shown as "Tell albert"', () => {
+    expect(sentenceCase('Tell Albert')).toBe('Tell Albert');
+    expect(sentenceCase('Ask Albert Now')).toBe('Ask Albert now');
+  });
+
   it('leaves punctuation and an empty label alone', () => {
     expect(sentenceCase('Saving…')).toBe('Saving…');
     expect(sentenceCase('')).toBe('');

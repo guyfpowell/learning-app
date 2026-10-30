@@ -1,10 +1,10 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, PATHS_LOAD_ERROR, type AlbertPathActions } from '@learning/shared';
-import { colors, font, fontSize, radius, spacing } from '@/theme';
-import { Card } from '@/components/ui/Card';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, PATHS_LOAD_ERROR, type AlbertPathActions, type UserPath } from '@learning/shared';
+import { colors, font, fontSize, spacing } from '@/theme';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
+import { flooredPct } from '@/components/ui/PathCard';
 
 /**
  * Which build card the Albert tab shows. It keys off the *unfinished* custom path, not the path
@@ -15,6 +15,8 @@ export type BuildCardState = 'loading' | 'load-error' | 'unfinished' | 'complete
 
 export interface BuildPathCardProps {
   state: BuildCardState;
+  /** The path to show (the one in progress, else the finished one); null with no custom path. */
+  path: UserPath | null;
   /** Which Albert path actions are offered (shared `albertPathActions`, 079i1); nothing here decides it. */
   actions: AlbertPathActions;
   /** The free allowance is spent: said plainly, next to the upgrade (079a). */
@@ -49,6 +51,21 @@ interface BuildButtonSpec {
   variant: 'primary' | 'outline';
 }
 
+/** The person's path as one tappable row: its name, how far along, and what is next (096). */
+function PathRow({ path, onOpen }: { path: UserPath; onOpen: () => void }) {
+  return (
+    <Pressable testID="view-my-path" onPress={onOpen} style={styles.pathRow} accessibilityRole="button" accessibilityLabel={`Open ${path.name}`}>
+      <View style={styles.pathRowTop}>
+        <Text style={styles.pathName} numberOfLines={1}>{path.name}</Text>
+        <Text style={styles.pathPct}>{flooredPct(path)}% complete</Text>
+      </View>
+      {path.nextLesson && (
+        <Text style={styles.pathNext} numberOfLines={1}>Next: {path.nextLesson.title}</Text>
+      )}
+    </Pressable>
+  );
+}
+
 /** How building is offered: open, locked behind premium while the trial is open, or not at all once it is over. */
 type BuildOffer = 'build' | 'upgrade' | null;
 
@@ -74,12 +91,12 @@ function showsAllowanceUsed({ allowanceSpent, actions }: BuildPathCardProps): bo
 }
 
 const COMPLETE_BUILD: Record<'build' | 'upgrade', BuildButtonSpec> = {
-  build:   { testID: 'build-another', label: 'Build another', variant: 'outline' },
+  build:   { testID: 'build-another', label: 'Build another', variant: 'primary' },
   upgrade: { testID: 'build-another', label: 'Upgrade to build a path', variant: 'outline' },
 };
 
 const NO_PATH_BUILD: Record<'build' | 'upgrade', BuildButtonSpec> = {
-  build:   { testID: 'build-path-start', label: 'Start', variant: 'primary' },
+  build:   { testID: 'build-path-start', label: 'Tell Albert about you', variant: 'primary' },
   upgrade: { testID: 'build-path-upgrade', label: 'Upgrade to build a path', variant: 'outline' },
 };
 
@@ -87,13 +104,8 @@ function UnfinishedBody(props: BuildPathCardProps) {
   const { archiveError, actions, onViewMyPath, onCreateNewPath } = props;
   return (
     <>
-      <Text style={styles.buildTitle}>Your path is waiting</Text>
-      <Text style={styles.buildBody}>
-        {actions.canRemove
-          ? 'You already have a path in progress. Pick up where you left off, or start fresh — your current path will be removed if you do.'
-          : 'You already have a path in progress. Pick up where you left off.'}
-      </Text>
-      {actions.canRemove && <Text style={styles.buildBody}>{FRESH_PATH_TRIAL_NOTE}</Text>}
+      <Text style={styles.heading}>Your path</Text>
+      {props.path && <PathRow path={props.path} onOpen={onViewMyPath} />}
       {actions.trialOver && <TrialOver />}
       {showsAllowanceUsed(props) && <AllowanceUsed />}
       {archiveError && (
@@ -101,8 +113,15 @@ function UnfinishedBody(props: BuildPathCardProps) {
           {archiveError}
         </Text>
       )}
-      <Button testID="view-my-path" label="View my path" variant="primary" onPress={onViewMyPath} />
-      {actions.canRemove && <Button testID="create-new-path" label="Create a NEW path" variant="outline" onPress={onCreateNewPath} />}
+      {/* Starting again removes this path, so it is a quiet link, not a button (096). */}
+      {actions.canRemove && (
+        <View style={styles.newPath}>
+          <Text style={styles.buildBody}>{FRESH_PATH_TRIAL_NOTE}</Text>
+          <Pressable testID="create-new-path" onPress={onCreateNewPath} accessibilityRole="button">
+            <Text style={styles.newPathLink}>Create a new path</Text>
+          </Pressable>
+        </View>
+      )}
     </>
   );
 }
@@ -112,7 +131,8 @@ function CompleteBody(props: BuildPathCardProps) {
   const offer = buildOfferOf(actions);
   return (
     <>
-      <Text style={styles.buildTitle}>You've finished your path</Text>
+      <Text style={styles.heading}>Your path</Text>
+      {props.path && <PathRow path={props.path} onOpen={onViewMyPath} />}
       <Text style={styles.buildBody}>
         {offer === null
           ? 'Great work — your custom path is complete. View it on your Tracks.'
@@ -120,7 +140,6 @@ function CompleteBody(props: BuildPathCardProps) {
       </Text>
       {actions.trialOver && <TrialOver />}
       {showsAllowanceUsed(props) && <AllowanceUsed />}
-      <Button testID="view-my-path" label="View my path" variant="primary" onPress={onViewMyPath} />
       <BuildButton offer={offer} specs={COMPLETE_BUILD} onBuild={onBuild} />
     </>
   );
@@ -159,22 +178,39 @@ export function BuildPathCard(props: BuildPathCardProps) {
   // Premium only while building is offered behind the upgrade; after the trial nothing here is premium.
   const premium = buildOfferOf(props.actions) === 'upgrade';
   return (
-    <Card testID="build-path-card" style={styles.buildCard}>
-      <View style={styles.badgeRow}>
-        <Badge label={premium ? 'Premium' : 'Albert'} variant={premium ? 'warning' : 'info'} />
-      </View>
+    <View testID="build-path-card" style={styles.buildCard}>
+      {premium && (
+        <View style={styles.badgeRow}>
+          <Badge label="Premium" variant="warning" />
+        </View>
+      )}
       <CardBody {...props} />
-    </Card>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  buildCard: {
-    gap:          spacing.sm,
-    borderRadius: radius.xl,
-    borderTopWidth: 3,
-    borderTopColor: colors.brand,
+  buildCard: { gap: spacing.sm },
+  heading: {
+    fontFamily:    font.semibold,
+    fontSize:      fontSize.sm,
+    color:         colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
+  pathRow: {
+    paddingVertical:   spacing.sm3,
+    borderTopWidth:    1,
+    borderBottomWidth: 1,
+    borderColor:       colors.borderSubtle,
+    gap:               spacing.xs,
+  },
+  pathRowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.sm },
+  pathName: { flex: 1, fontFamily: font.semibold, fontSize: fontSize.base, color: colors.textStrong },
+  pathPct:  { fontFamily: font.medium, fontSize: fontSize.sm, color: colors.brand },
+  pathNext: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
+  newPath: { gap: spacing.xs, marginTop: spacing.sm },
+  newPathLink: { fontFamily: font.medium, fontSize: fontSize.sm, color: colors.textMuted, textDecorationLine: 'underline' },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   buildTitle: {
     fontFamily: font.displayMedium,

@@ -1,12 +1,12 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, font, fontSize, radius, shadow, spacing, tracking } from '@/theme';
+import { colors, font, fontSize, spacing, tracking } from '@/theme';
 
 interface KeyTakeawayBlockProps {
   takeaway: string;
   testID: string;
 }
 
-/** The lesson screen's hero: the one thing to remember, on cobalt (docs/app-styling.md §4). */
+/** The lesson screen's one thing to remember: large text beside a cobalt bar, no box (096). */
 export function KeyTakeawayBlock({ takeaway, testID }: KeyTakeawayBlockProps) {
   return (
     <View testID={testID} style={styles.block}>
@@ -16,25 +16,27 @@ export function KeyTakeawayBlock({ takeaway, testID }: KeyTakeawayBlockProps) {
   );
 }
 
+/** Thickness of the cobalt bar beside the takeaway (096). */
+const BAR_WIDTH = spacing.xs;
+
 const styles = StyleSheet.create({
   block: {
-    backgroundColor: colors.brand,
-    borderRadius:    radius.card,
-    padding:         spacing.lg,
+    borderLeftWidth: BAR_WIDTH,
+    borderLeftColor: colors.brand,
+    paddingLeft:     spacing.md,
     gap:             spacing.sm,
-    ...shadow.brand,
   },
   eyebrow: {
     fontFamily:    font.bold,
     fontSize:      fontSize.xs,
     letterSpacing: tracking.caps,
     textTransform: 'uppercase',
-    color:         colors.brandSoft,
+    color:         colors.brand,
   },
   text: {
     fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-    lineHeight: fontSize.base * 1.5,
-    color:      colors.onBrand,
+    fontSize:   fontSize.lg,
+    lineHeight: fontSize.lg * 1.35,
+    color:      colors.textStrong,
   },
 });

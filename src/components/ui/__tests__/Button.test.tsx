@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
-import { font, radius, tracking } from '@/theme';
+import { colors, font, radius, tracking } from '@/theme';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { Button, CTA_FONT } from '../Button';
 
@@ -18,6 +18,18 @@ describe('Button', () => {
     expect(label.fontFamily).toBe(CTA_FONT);
     expect(label.fontFamily).not.toBe(font.bold);
     expect(label.letterSpacing).toBe(tracking.normal);
+  });
+
+  it('glass variant: a blur under a translucent coral wash, white label, no solid fill (096)', () => {
+    render(<Button testID="btn" label="Submit" variant="glass" onPress={jest.fn()} />);
+    const button = StyleSheet.flatten(screen.getByTestId('btn').props.style);
+    expect(button.backgroundColor).toBe('transparent');
+    expect(button.overflow).toBe('hidden');
+    expect(screen.getByTestId('btn-blur')).toBeTruthy();
+    const wash = StyleSheet.flatten(screen.getByTestId('btn-wash').props.style);
+    expect(wash.backgroundColor).toBe(colors.coral);
+    expect(wash.opacity).toBeLessThan(1);
+    expect(StyleSheet.flatten(screen.getByText('Submit').props.style).color).toBe(colors.onBrand);
   });
 
   it('keeps the large size barely rounded too', () => {
