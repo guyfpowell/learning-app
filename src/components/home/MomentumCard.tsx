@@ -4,15 +4,13 @@ import { xpProgressOf } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Progress } from '@/components/ui/Progress';
-import { StreakFlame } from '@/components/quiz/QuizResultParts';
+import { StreakCalendar } from '@/components/ui/StreakCalendar';
 import { useXp } from '@/hooks/useXp';
 import { useAchievements } from '@/hooks/useAchievements';
 import { achievementLineOf, streakCopy, xpLineOf, type AchievementLine } from '@/lib/momentum';
 
 /** Big enough to read as a badge, but the row stays as tall as its text (see achievementIconSlot). */
 const ACHIEVEMENT_ICON_SIZE = fontSize.xl;
-/** The streak flame is bigger here than in the quiz header: it is the card's lead. */
-const STREAK_FLAME_SIZE = 64;
 
 function achievementText(line: AchievementLine): string {
   return line.kind === 'new' ? `New: ${line.name}` : `Next up: ${line.name} · ${line.description}`;
@@ -28,7 +26,7 @@ export function MomentumCard({ streak }: { streak: number }) {
   return (
     <Card testID="momentum-card" style={styles.card}>
       <View style={styles.streakRow}>
-        <StreakFlame streak={streak} solid size={STREAK_FLAME_SIZE} />
+        <StreakCalendar streak={streak} />
         <Text style={styles.streakCopy}>{streakCopy(streak)}</Text>
       </View>
 

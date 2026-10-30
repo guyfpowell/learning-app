@@ -24,15 +24,13 @@ const FLAME_PATH =
 interface FlameIconProps {
   size?: number;
   color?: string;
-  /** Draw the flame as an outline, so something can sit inside it. */
-  outline?: boolean;
 }
 
 /** Standalone SVG flame — drop-in replacement for the 🔥 emoji in stat rows. */
-export function FlameIcon({ size = 22, color = colors.coral, outline = false }: FlameIconProps) {
+export function FlameIcon({ size = 22, color = colors.coral }: FlameIconProps) {
   return (
-    <Svg viewBox="0 0 24 24" width={size} height={size} fill={outline ? 'none' : color}>
-      <Path d={FLAME_PATH} stroke={outline ? color : undefined} strokeWidth={outline ? 1.6 : undefined} strokeLinejoin="round" />
+    <Svg viewBox="0 0 24 24" width={size} height={size} fill={color}>
+      <Path d={FLAME_PATH} />
     </Svg>
   );
 }

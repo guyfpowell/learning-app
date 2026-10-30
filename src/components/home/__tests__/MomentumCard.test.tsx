@@ -32,20 +32,14 @@ function setData(x: XpResponse | undefined, a: AchievementsResponse | undefined)
 }
 
 describe('MomentumCard', () => {
-  it('shows the streak as a flame with the count inside, with its copy', () => {
+  it('shows one streak calendar with the count on it, with no label, and the copy', () => {
     setData(undefined, undefined);
     render(<MomentumCard streak={4} />);
-    expect(within(screen.getByTestId('streak-flame')).getByText('4')).toBeTruthy();
+    expect(within(screen.getByTestId('streak-calendar')).getByText('4')).toBeTruthy();
+    expect(screen.getAllByTestId('streak-calendar')).toHaveLength(1);
+    expect(screen.queryByText('Calendar')).toBeNull();
+    expect(screen.queryByText(/^Day \d/)).toBeNull();
     expect(screen.getByText("You're on a 4-day streak — don't break it!")).toBeTruthy();
-  });
-
-  it('draws the streak count blue and large on a solid flame', () => {
-    setData(undefined, undefined);
-    render(<MomentumCard streak={12} />);
-    const count = StyleSheet.flatten(screen.getByTestId('streak-flame-count').props.style);
-    expect(count.color).toBe(colors.brand);
-    expect(count.fontFamily).toBe(font.display);
-    expect(count.fontSize).toBeGreaterThan(fontSize.lg);
   });
 
   it('shows the zero-streak copy', () => {

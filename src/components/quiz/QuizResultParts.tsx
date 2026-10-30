@@ -1,14 +1,11 @@
 import React from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
-import { FlameIcon } from '@/components/ui/Streak';
 
 /** The milestone card's subtitle: a warm off-white on coral, not a theme token. */
 const MILESTONE_SUBTEXT = '#fff7ed';
 /** From this streak the milestone card says more than "Keep going!". */
 const UNSTOPPABLE_STREAK = 30;
-
-const STREAK_FLAME_SIZE = 44;
 
 type Arrow = '↑' | '↓' | '=';
 
@@ -30,40 +27,6 @@ export function TrackAverageBadge({ average, previous, retakeUsed }: { average: 
         {arrow && <Text style={[styles.trackAverageBadge, styles[ARROW_STYLE[arrow]]]}>{arrow}</Text>}
       </View>
       <Text style={styles.scoreFraction}>Track Average</Text>
-    </View>
-  );
-}
-
-/** The count's font on the solid flame: heavy and round, so it reads like a badge. */
-const SOLID_COUNT_FONT = font.display;
-/** On the solid flame the count is this share of the flame's size, and sits this far down it. */
-const SOLID_COUNT_SCALE = 0.44;
-const SOLID_COUNT_DROP = 0.45;
-const SOLID_COUNT_WIDTH = 0.6;
-
-interface StreakFlameProps {
-  streak: number;
-  /** A filled coral flame with a large cobalt count on it. Default: an outline flame with a cobalt count. */
-  solid?: boolean;
-  size?: number;
-}
-
-/** The day streak: a flame with the count inside it. */
-export function StreakFlame({ streak, solid = false, size = STREAK_FLAME_SIZE }: StreakFlameProps) {
-  const box = { width: size, height: size };
-  return (
-    <View testID="streak-flame" accessibilityLabel={`${streak}-day streak`} style={[styles.streakFlame, box]}>
-      <FlameIcon size={size} outline={!solid} />
-      <View style={[styles.streakFlameCountBox, solid && { paddingTop: size * SOLID_COUNT_DROP }]}>
-        <Text
-          testID="streak-flame-count"
-          style={solid ? [styles.streakFlameCount, styles.streakFlameCountSolid, { fontSize: size * SOLID_COUNT_SCALE, width: size * SOLID_COUNT_WIDTH }] : styles.streakFlameCount}
-          numberOfLines={1}
-          adjustsFontSizeToFit={solid}
-        >
-          {streak}
-        </Text>
-      </View>
     </View>
   );
 }
@@ -134,32 +97,6 @@ const styles = StyleSheet.create({
   trackAverageUp:   { color: colors.success },
   trackAverageDown: { color: colors.error },
   trackAverageFlat: { color: colors.success },
-  streakFlame: {
-    alignItems:     'center',
-    justifyContent: 'center',
-  },
-  // Fills the flame's box so the count is centred on it; the flame's body sits low, so it is nudged down.
-  streakFlameCountBox: {
-    position:       'absolute',
-    top:            0,
-    bottom:         0,
-    left:           0,
-    right:          0,
-    alignItems:     'center',
-    justifyContent: 'center',
-    paddingTop:     spacing.md + spacing.xs,
-    paddingRight:   spacing.xs / 2,
-  },
-  streakFlameCountSolid: {
-    fontFamily: SOLID_COUNT_FONT,
-    color:      colors.brand,
-    textAlign:  'center',
-  },
-  streakFlameCount: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.md,
-    color:      colors.brand,
-  },
   xpChip: {
     backgroundColor:   colors.xpSoft,
     borderRadius:      radius.pill,

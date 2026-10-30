@@ -4,11 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { circleButtonStyle, CIRCLE_BUTTON_SIZE } from '@/components/ui/circleButtonStyle';
-import { StreakFlame } from '@/components/quiz/QuizResultParts';
+import { StreakCalendar } from '@/components/ui/StreakCalendar';
 import { colors, radius, shadow, spacing } from '@/theme';
 
 /** The header's controls row: tall enough for a 44pt touch target. */
 const HEADER_ROW_HEIGHT = CIRCLE_BUTTON_SIZE;
+
+/** The header's streak calendar: a little smaller than Home's, in the same shape. */
+const HEADER_CALENDAR_SIZE = 40;
 
 /** Where the header row sits on screen, so an overlay (the XP chip) can land on the streak flame. */
 export function headerRowBox(topInset: number) {
@@ -42,7 +45,7 @@ export function QuizResultFrame({ onClose, saved, onToggleSave, streak, rating, 
             <BookmarkButton saved={saved} onToggle={onToggleSave} style={styles.circleBtn} />
             {streak !== undefined && streak > 0 && (
               <View pointerEvents="none" style={styles.headerCentre}>
-                <StreakFlame streak={streak} />
+                <StreakCalendar streak={streak} size={HEADER_CALENDAR_SIZE} />
               </View>
             )}
             <View style={styles.headerRight}>

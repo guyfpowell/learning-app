@@ -936,17 +936,18 @@ describe('QuizModal', () => {
     it('shows the day streak as a number in the header, and not in the body', () => {
       setQuizMock({ data: { ...mockResult, streak: 4 } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      const flame = within(screen.getByTestId('quiz-frame-header')).getByTestId('streak-flame');
-      expect(within(flame).getByText('4')).toBeTruthy();
+      const calendar = within(screen.getByTestId('quiz-frame-header')).getByTestId('streak-calendar');
+      expect(within(calendar).getByText('4')).toBeTruthy();
       expect(screen.queryByText('4-day streak')).toBeNull();
     });
 
-    it('draws the streak count in brand blue at body-copy size', () => {
+    it('draws the streak as a calendar a little smaller than Home\'s, with a blue count', () => {
       setQuizMock({ data: { ...mockResult, streak: 4 } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      const count = StyleSheet.flatten(screen.getByTestId('streak-flame-count').props.style);
+      const count = StyleSheet.flatten(screen.getByTestId('streak-calendar-count').props.style);
       expect(count.color).toBe(colors.brand);
-      expect(count.fontSize).toBe(fontSize.md);
+      const calendar = StyleSheet.flatten(screen.getByTestId('streak-calendar').props.style);
+      expect(calendar).toMatchObject({ width: 40, height: 40 });
     });
 
     it('puts the thumbs in their own bubble in the header', () => {
@@ -973,17 +974,17 @@ describe('QuizModal', () => {
       expect(bookmark).toMatchObject({ width: close.width, height: close.height, borderRadius: radius.pill });
     });
 
-    it('anchors the XP animation on the header row, where the streak flame is', () => {
+    it('anchors the XP animation on the header row, where the streak calendar is', () => {
       setQuizMock({ data: { ...mockResult, streak: 4, xpAwarded: 20, achievementsUnlocked: [] } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       const { top, height } = headerRowBox(44); // the mocked top inset
       expect(StyleSheet.flatten(screen.getByTestId('xp-chip-overlay').props.style)).toMatchObject({ top, height });
     });
 
-    it('shows no streak flame when the streak is 0', () => {
+    it('shows no streak calendar when the streak is 0', () => {
       setQuizMock({ data: { ...mockResult, streak: 0 } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.queryByTestId('streak-flame')).toBeNull();
+      expect(screen.queryByTestId('streak-calendar')).toBeNull();
     });
 
     it('puts the track average and the XP award on either side of the heading', () => {
