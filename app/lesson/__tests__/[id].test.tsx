@@ -187,15 +187,40 @@ describe('LessonDetailScreen', () => {
     expect(screen.getByText('Test Lesson')).toBeTruthy();
   });
 
-  it('takeaway page: a smaller title (096)', () => {
+  it('takeaway page: "Key takeaway" in the header, small and muted; no title on the lesson page (096)', () => {
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: false, data: mockLesson, error: null,
     });
     render(<LessonDetailScreen />);
-    const flat = (id: string) => StyleSheet.flatten(screen.getByTestId(id).props.style);
-    expect(flat('lesson-title').fontSize).toBe(fontSize.lg);
+    const last = () => mockHeaderOptions.mock.calls[mockHeaderOptions.mock.calls.length - 1][0];
+    expect(last().title).toBe('');
     fireEvent.press(screen.getByTestId('key-takeaway-btn'));
-    expect(flat('lesson-title').fontSize).toBe(fontSize.md);
+    expect(last().title).toBe('Key takeaway');
+    expect(last().headerTitleStyle).toEqual(expect.objectContaining({ color: colors.textMuted, fontSize: fontSize.md }));
+  });
+
+  it('an empty media URL or takeaway renders no bare string outside a Text (096)', () => {
+    (useLesson as jest.Mock).mockReturnValue({
+      isLoading: false, isError: false, data: { ...mockLesson, mediaUrl: '', keyTakeaway: '' }, error: null,
+    });
+    // The test renderer drops '' from its output, so read the card's own children: React Native throws on a '' there.
+    const strings = () => [screen.getByTestId('lesson-card').props.children].flat().filter((c) => typeof c === 'string');
+    render(<LessonDetailScreen />);
+    expect(strings()).toEqual([]);
+    fireEvent.press(screen.getByTestId('key-takeaway-btn'));
+    expect(strings()).toEqual([]);
+  });
+
+  it('takeaway page: no lesson title, it repeats the lesson just read (096)', () => {
+    (useLesson as jest.Mock).mockReturnValue({
+      isLoading: false, isError: false, data: mockLesson, error: null,
+    });
+    render(<LessonDetailScreen />);
+    expect(screen.getByTestId('lesson-title')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('key-takeaway-btn'));
+    expect(screen.queryByTestId('lesson-title')).toBeNull();
+    expect(screen.queryByText('Test Lesson')).toBeNull();
+    expect(screen.getByTestId('key-takeaway')).toBeTruthy();
   });
 
   it('shows completed state from load when quizCompleted is true', () => {

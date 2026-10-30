@@ -5,6 +5,7 @@ import { colors, fontSize, radius, spacing } from '@/theme';
 import { headerRowBox } from '@/components/quiz/QuizResultFrame';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react-native';
 import { PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
+import { QUESTION_RANGE } from '@/components/quiz/QuizHeroCard';
 import { QuizModal } from '../QuizModal';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
 import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
@@ -218,14 +219,28 @@ describe('QuizModal', () => {
     expect(screen.queryByTestId('quiz-progress-bar')).toBeNull();
   });
 
-  it('096: the question is large text beside a cobalt bar, with no box', () => {
+  it('096: the question is large text with no bar and no box', () => {
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
     const card = screen.getByTestId('quiz-hero-card');
     expect(within(card).getByText('What is product-market fit?')).toBeTruthy();
-    const style = StyleSheet.flatten(card.props.style);
-    expect(style).toMatchObject({ borderLeftColor: colors.brand, paddingLeft: spacing.md });
-    expect([style.backgroundColor, style.shadowOpacity]).toEqual([undefined, undefined]);
+    const style = StyleSheet.flatten(card.props.style) ?? {};
+    expect([style.borderLeftWidth, style.borderLeftColor, style.paddingLeft, style.backgroundColor, style.shadowOpacity])
+      .toEqual([undefined, undefined, undefined, undefined, undefined]);
     expect(StyleSheet.flatten(within(card).getByText('What is product-market fit?').props.style).color).toBe(colors.textStrong);
+  });
+
+  it('096: a single question has no "Question" label; the header says "Test my knowledge"', () => {
+    render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+    expect(screen.queryByText(/^question$/i)).toBeNull();
+    const title = StyleSheet.flatten(screen.getByText('Test my knowledge').props.style);
+    expect(title).toMatchObject({ color: colors.textMuted, fontSize: fontSize.md });
+  });
+
+  it('096: the question is fitted like the key takeaway, hidden until its size settles', () => {
+    render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+    const text = screen.getByText('What is product-market fit?');
+    expect(QUESTION_RANGE).toEqual({ min: 20, max: 26 });
+    expect(StyleSheet.flatten(text.props.style)).toMatchObject({ fontSize: QUESTION_RANGE.max, opacity: 0 });
   });
 
   it('091c: a capstone\'s "Question N of M", percentage and bar are inside the hero card', () => {

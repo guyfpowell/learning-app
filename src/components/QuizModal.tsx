@@ -431,6 +431,9 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
         <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
           <View style={styles.headerRow}>
             <View style={styles.spacer} />
+            <View style={styles.headerCentre} pointerEvents="none">
+              <Text style={styles.headerTitle}>Test my knowledge</Text>
+            </View>
             <Pressable onPress={onClose} style={styles.circleBtn} accessibilityLabel="Close quiz">
               <Ionicons name="close" size={22} color={colors.textMuted} />
             </Pressable>
@@ -489,6 +492,8 @@ const HEADLINE_INSET = spacing.md + spacing.xs;
 const styles = StyleSheet.create({
   ...quizFrameStyles,
   spacer:    { width: 32 },
+  // Small and muted, as the lesson screen's "Key takeaway" header title (096).
+  headerTitle: { fontFamily: font.regular, fontSize: fontSize.md, color: colors.textMuted },
   options:  { gap: spacing.sm, marginBottom: spacing.lg },
   shortAnswerInput:   { marginBottom: spacing.lg },
   actionBtn:          { marginTop: spacing.sm },

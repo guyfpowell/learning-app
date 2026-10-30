@@ -118,13 +118,16 @@ export default function LessonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data: lesson, isLoading, isError, error } = useLesson(id ?? '');
-  // The lesson's own title, once loaded: it stays in the header through the lesson, takeaway and quiz (096).
-  // No header title: the screen's own heading carries the lesson's name (096).
-  const header = useDetailHeader('');
   const { data: paths } = usePaths();
   const [quizVisible, setQuizVisible] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [phase, setPhase] = useState<LessonPhase>('expanded');
+  // No header title on the lesson page: the screen's own heading carries the lesson's name.
+  // On the takeaway page the header says "Key takeaway", small and muted (096).
+  const header = {
+    ...useDetailHeader(phase === 'takeaway' ? 'Key takeaway' : ''),
+    headerTitleStyle: { fontFamily: font.regular, fontSize: fontSize.md, color: colors.textMuted },
+  };
   const startRetake = useStartRetake();
   const clock = useLessonClock();
   const [retakeFailed, setRetakeFailed] = useState(false);
@@ -225,12 +228,14 @@ export default function LessonDetailScreen() {
             />
 
             <View testID="lesson-card" style={styles.card}>
-              <View testID="lesson-title-row" style={styles.titleRow}>
-                <Text testID="lesson-title" style={[styles.title, phase === 'takeaway' && styles.titleTakeaway]}>{lesson.title}</Text>
-                {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} />}
-              </View>
+              {(phase !== 'takeaway' || lesson.quizCompleted) && (
+                <View testID="lesson-title-row" style={[styles.titleRow, phase === 'takeaway' && styles.titleRowEnd]}>
+                  {phase !== 'takeaway' && <Text testID="lesson-title" style={styles.title}>{lesson.title}</Text>}
+                  {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} />}
+                </View>
+              )}
 
-              {phase === 'expanded' && lesson.mediaUrl && (
+              {phase === 'expanded' && !!lesson.mediaUrl && (
                 <Image
                   testID="lesson-media"
                   source={{ uri: lesson.mediaUrl }}
@@ -248,7 +253,7 @@ export default function LessonDetailScreen() {
                 </View>
               )}
 
-              {phase === 'takeaway' && lesson.keyTakeaway && (
+              {phase === 'takeaway' && !!lesson.keyTakeaway && (
                 <KeyTakeawayBlock testID="key-takeaway" takeaway={lesson.keyTakeaway} />
               )}
 
@@ -341,7 +346,8 @@ const styles = StyleSheet.create({
     color:      colors.textDark,
     flex:       1,
   },
-  titleTakeaway: { fontSize: fontSize.md },
+  // The takeaway page has no title, so the rating control stays at the right edge on its own.
+  titleRowEnd: { justifyContent: 'flex-end' },
   media: {
     width:        '100%',
     height:       180,

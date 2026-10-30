@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, font, fontSize, spacing, tracking } from '@/theme';
+import { FittedText } from '@/components/ui/FittedText';
+import type { SizeRange } from '@/lib/fitTakeaway';
 
 interface QuizHeroCardProps {
   question: string;
@@ -7,7 +9,7 @@ interface QuizHeroCardProps {
   progress?: { index: number; total: number };
 }
 
-/** The question view's lead: large text beside a cobalt bar, no box, with a capstone's progress above it (096). */
+/** The question view's lead: large fitted text, no bar, no box, with a capstone's progress above it (096). A single question has no label. */
 export function QuizHeroCard({ question, progress }: QuizHeroCardProps) {
   const percent = progress ? ((progress.index + 1) / progress.total) * 100 : 0;
   return (
@@ -24,22 +26,18 @@ export function QuizHeroCard({ question, progress }: QuizHeroCardProps) {
             <View style={[styles.fill, { width: `${Math.min(100, Math.max(0, percent))}%` as `${number}%` }]} />
           </View>
         </View>
-      ) : (
-        <Text style={styles.eyebrow}>Question</Text>
-      )}
-      <Text style={styles.question}>{question}</Text>
+      ) : null}
+      <FittedText text={question} testID="quiz-question" fontFamily={font.displayMedium} lineHeight={QUESTION_LINE_HEIGHT} range={QUESTION_RANGE} />
     </View>
   );
 }
 
-/** Thickness of the cobalt bar beside the question, as on the key takeaway (096). */
-const BAR_WIDTH = spacing.xs;
+const QUESTION_LINE_HEIGHT = 1.3;
+/** The question has more room than the takeaway, so it may go a little larger: 20 to 26pt (no 20 or 26 token) (096). */
+export const QUESTION_RANGE: SizeRange = { min: fontSize.md + 2, max: fontSize.lg + 4 };
 
 const styles = StyleSheet.create({
   card: {
-    borderLeftWidth: BAR_WIDTH,
-    borderLeftColor: colors.brand,
-    paddingLeft:     spacing.md,
     gap:             spacing.sm,
     marginBottom:    spacing.lg,
   },
@@ -70,11 +68,5 @@ const styles = StyleSheet.create({
     height:          6,
     backgroundColor: colors.brand,
     borderRadius:    3,
-  },
-  question: {
-    fontFamily: font.displayMedium,
-    fontSize:   fontSize.lg,
-    lineHeight: fontSize.lg * 1.3,
-    color:      colors.textStrong,
   },
 });

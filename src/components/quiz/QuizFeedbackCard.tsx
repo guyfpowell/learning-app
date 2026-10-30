@@ -104,15 +104,15 @@ const styles = StyleSheet.create({
     color:      colors.success,
   },
   feedbackQuestion: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
+    fontFamily:   font.medium,
+    fontSize:     fontSize.sm,
+    color:        colors.textMuted,
     marginBottom: spacing.xs,
   },
   feedbackAnswerText: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
   },
-  correct:    { color: colors.success },
-  incorrect:  { color: colors.error },
+  correct:   { color: colors.success },
+  incorrect: { color: colors.error },
 });
