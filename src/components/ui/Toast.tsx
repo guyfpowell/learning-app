@@ -16,9 +16,9 @@ import React from 'react';
 import {
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Feather } from '@expo/vector-icons';
 import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
 

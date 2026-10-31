@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ERROR_CODES,

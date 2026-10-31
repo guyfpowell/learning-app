@@ -4,9 +4,10 @@ import { phraseAt } from '@/lib/quizFeedbackPhrase';
 /** An achievement unlocked this recently is celebrated on Home. */
 export const NEW_ACHIEVEMENT_DAYS = 3;
 
-export type AchievementLine =
-  | { kind: 'new'; name: string }
-  | { kind: 'next'; name: string; description: string };
+export interface AchievementLine {
+  kind: 'new' | 'next';
+  name: string;
+}
 
 /**
  * The one achievement line Home shows: the newest unlock if it is recent, else the next locked one.
@@ -22,7 +23,7 @@ export function achievementLineOf(achievements: AchievementsResponse, now: numbe
     return { kind: 'new', name: newest.name };
   }
   const next = achievements.locked.find((a) => a.ladder !== 'xp');
-  return next ? { kind: 'next', name: next.name, description: next.description } : null;
+  return next ? { kind: 'next', name: next.name } : null;
 }
 
 export interface XpLine {

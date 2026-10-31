@@ -1,4 +1,5 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { colors, font, fontSize, spacing } from '@/theme';
 
 // Paragraphs are separated by a gap, not by the blank lines in the stored text.

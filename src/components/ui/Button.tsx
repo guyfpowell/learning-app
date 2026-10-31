@@ -5,9 +5,9 @@ import {
   Pressable,
   PressableProps,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { BlurView } from 'expo-blur';
 import { colors, fontSize, radius, spacing, tracking } from '@/theme';
 import { sentenceCase } from '@/lib/sentenceCase';

@@ -3,9 +3,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -129,7 +129,7 @@ export default function PaywallScreen() {
             <PlanCard
               label="Annual"
               period="per year"
-              price={offering?.annual?.product.priceString ?? '—'}
+              price={offering?.annual?.product.priceString ?? 'n/a'}
               badge="Best value"
               selected={selected === 'annual'}
               testID="plan-annual-card"
@@ -138,7 +138,7 @@ export default function PaywallScreen() {
             <PlanCard
               label="Monthly"
               period="per month"
-              price={offering?.monthly?.product.priceString ?? '—'}
+              price={offering?.monthly?.product.priceString ?? 'n/a'}
               selected={selected === 'monthly'}
               testID="plan-monthly-card"
               onSelect={() => setSelected('monthly')}

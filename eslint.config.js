@@ -86,6 +86,20 @@ export default [
     }
   },
   {
+    // The app never shows an em dash: every screen uses the app's Text, which replaces them as it shows the text.
+    files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', 'src/components/ui/Text.tsx'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{
+          name: 'react-native',
+          importNames: ['Text'],
+          message: "Use Text from '@/components/ui/Text': it never shows an em dash."
+        }]
+      }]
+    }
+  },
+  {
     files: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx'],
     rules: {
       '@typescript-eslint/no-unused-vars': 'off',

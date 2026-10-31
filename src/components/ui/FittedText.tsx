@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import type { LayoutChangeEvent, TextLayoutEvent } from 'react-native';
 import { colors } from '@/theme';
 import {

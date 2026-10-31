@@ -271,7 +271,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
 
   it('096: Save changes is disabled until something changes, and it is the only blue button', () => {
     render(<ProfileScreen />);
-    const save = () => StyleSheet.flatten(must(screen.getByText('Save changes').parent?.parent, 'button').props.style);
+    const save = () => StyleSheet.flatten(must(screen.getByText('Save changes').parent?.parent?.parent, 'button').props.style);
     expect(save().opacity).toBeLessThan(1);
     fireEvent.press(screen.getByText('Save changes'));
     expect(mockMutate).not.toHaveBeenCalled();

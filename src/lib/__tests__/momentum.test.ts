@@ -45,12 +45,12 @@ describe('achievementLineOf', () => {
 
   it('falls back to the next locked achievement when nothing is new', () => {
     const line = achievementLineOf(response([unlocked('a', 'Old One', 9)], [locked('c', 'Warm Up')]), NOW);
-    expect(line).toEqual({ kind: 'next', name: 'Warm Up', description: 'Warm Up description' });
+    expect(line).toEqual({ kind: 'next', name: 'Warm Up' });
   });
 
   it('skips the XP ladder, which the XP bar already shows', () => {
     const line = achievementLineOf(response([], [locked('x', 'Foothills', 'xp'), locked('c', 'Warm Up')]), NOW);
-    expect(line).toEqual({ kind: 'next', name: 'Warm Up', description: 'Warm Up description' });
+    expect(line).toEqual({ kind: 'next', name: 'Warm Up' });
   });
 
   it('shows nothing when everything else is unlocked', () => {

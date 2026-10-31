@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,12 +18,13 @@ import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizOpt } from '@/components/ui/QuizOpt';
 import type { QuizOptState } from '@/components/ui/QuizOpt';
 import { colors, font, fontSize, spacing } from '@/theme';
-import { CelebrationOverlay, XpChipOverlay } from '@/components/ui/CelebrationOverlay';
+import { CelebrationOverlay, XpChipOverlay, type ScreenRect } from '@/components/ui/CelebrationOverlay';
 import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
 import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
 import { QuizHeroCard } from '@/components/quiz/QuizHeroCard';
 import { QuizResultFrame, quizFrameStyles, frameContentStyle, headerRowBox } from '@/components/quiz/QuizResultFrame';
 import { CoachingCard, KeyTakeawayCard, MilestoneCard, TrackAverageBadge, XpAward } from '@/components/quiz/QuizResultParts';
+import { Reveal, revealDelay } from '@/components/ui/Reveal';
 import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
 import { nextFeedbackPhrase } from '@/lib/quizFeedbackPhrase';
 
@@ -113,6 +115,8 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   const [isSaved, setIsSaved] = useState(false);
   const [, setCelebrationQueue] = useState<CelebrationItem[]>([]);
   const [currentCelebration, setCurrentCelebration] = useState<CelebrationItem | null>(null);
+  // Where the XP chip sits on the screen, so the XP animation can fly back onto it.
+  const [xpRect, setXpRect] = useState<ScreenRect | null>(null);
   const [topicFeedbackClosed, setTopicFeedbackClosed] = useState(false);
   const celebrationFired = useRef(false);
   const insets = useSafeAreaInsets();
@@ -308,10 +312,12 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   // ─── Wrong first attempt — retry offer ("Try again") ─────────────────────────
   if (submit.data && !submit.data.correct && submit.data.retakeAvailable) {
     return (
-      <QuizResultFrame {...frame}>
+      <QuizResultFrame
+        {...frame}
+        action={<Button testID="result-action-btn" label="Try again" onPress={handleTryAgain} variant="glass" size="lg" />}
+      >
         <ResultHeading correct={false} />
-        {lesson.keyTakeaway && <Text style={styles.keyTakeaway}>{lesson.keyTakeaway}</Text>}
-        <Button label="Try again" onPress={handleTryAgain} style={styles.actionBtn} />
+        {lesson.keyTakeaway && <Reveal delay={revealDelay(0)}><Text style={styles.keyTakeaway}>{lesson.keyTakeaway}</Text></Reveal>}
       </QuizResultFrame>
     );
   }
@@ -320,15 +326,21 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   if (submit.data && !submit.data.lessonFinalized) {
     const fb = submit.data.feedbacks.find((f: QuizFeedback) => f.quizId === current?.id) ?? submit.data.feedbacks[0];
     return (
-      <QuizResultFrame {...frame}>
+      <QuizResultFrame
+        {...frame}
+        action={
+          <Button
+            testID="result-action-btn"
+            label="Next Question"
+            onPress={() => advanceToNextUnresolved(current?.id)}
+            variant="glass"
+            size="lg"
+            accessibilityLabel="Next question"
+          />
+        }
+      >
         <ResultHeading correct={fb?.isCorrect === true} />
-        {fb && <QuizFeedbackCard fb={fb} />}
-        <Button
-          label="Next Question"
-          onPress={() => advanceToNextUnresolved(current?.id)}
-          style={styles.actionBtn}
-          accessibilityLabel="Next question"
-        />
+        {fb && <Reveal delay={revealDelay(0)}><QuizFeedbackCard fb={fb} /></Reveal>}
       </QuizResultFrame>
     );
   }
@@ -338,6 +350,8 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
     const { feedbacks, coaching, streak, milestone, trackAverage, previousAverage, xpAwarded, nextLessonId } = submit.data;
     const retakeUsed = wrongAnswer !== undefined;
     const topicEnd = topicFeedbackClosed ? null : submit.data.topicEnd;
+    // Where the page's tail (topic feedback and the button) comes in: after every block above it.
+    const tailStep = feedbacks.length + (coaching ? 1 : 0) + (lesson.keyTakeaway ? 1 : 0);
     const celebration = (
       <>
         {currentCelebration?.type === 'achievement' && (
@@ -356,6 +370,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
             visible
             xp={currentCelebration.amount}
             anchor={headerRowBox(insets.top)}
+            returnTo={xpRect}
             onDismiss={advanceCelebration}
           />
         )}
@@ -365,8 +380,16 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
       <QuizResultFrame
         {...frame}
         onClose={handleLeaveLesson}
-        streak={streak}
         overlay={celebration}
+        action={
+          <Button
+            testID="result-action-btn"
+            label={nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
+            onPress={() => handleNavigateAfterQuiz(nextLessonId)}
+            variant="glass"
+            size="lg"
+          />
+        }
         /* 079f: the result's lesson carries the stored verdict, so no refetch. */
         rating={<LessonRatingControl lessonId={lesson.id} rating={submit.data.lesson.rating ?? null} />}
       >
@@ -377,29 +400,29 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
               <TrackAverageBadge average={trackAverage} previous={previousAverage} retakeUsed={retakeUsed} />
             </Animated.View>
           }
-          right={xpAwarded != null && xpAwarded > 0 ? <XpAward xp={xpAwarded} /> : null}
+          right={xpAwarded != null && xpAwarded > 0 ? <XpAward xp={xpAwarded} onMeasure={setXpRect} /> : null}
         />
         {milestone && <MilestoneCard milestone={milestone} streak={streak} scale={milestoneAnim} />}
-        {/* Feedback cards — one per quiz question */}
-        {feedbacks.map((fb: QuizFeedback) => <QuizFeedbackCard key={fb.quizId} fb={fb} />)}
-        {coaching && <CoachingCard coaching={coaching} />}
-        {/* Key takeaway — last, per item 6 */}
-        {lesson.keyTakeaway && <KeyTakeawayCard takeaway={lesson.keyTakeaway} />}
+        {/* The rest arrives block by block, after the heading (096, experiment 53). */}
+        {feedbacks.map((fb: QuizFeedback, i: number) => (
+          <Reveal key={fb.quizId} delay={revealDelay(i)}><QuizFeedbackCard fb={fb} /></Reveal>
+        ))}
+        {coaching && <Reveal delay={revealDelay(feedbacks.length)}><CoachingCard coaching={coaching} /></Reveal>}
+        {/* Key takeaway: last, per item 6 */}
+        {lesson.keyTakeaway && (
+          <Reveal delay={revealDelay(feedbacks.length + (coaching ? 1 : 0))}><KeyTakeawayCard takeaway={lesson.keyTakeaway} /></Reveal>
+        )}
         {/* End-of-topic feedback (079d). Closing hides it here only: the write already
             happened, so Home will not show it again; one never written comes back on Home. */}
-        {topicEnd && (
-          <TopicFeedback
-            topicEnd={topicEnd}
-            onSubmit={body => topicFeedback.submit(topicEnd.planId, body)}
-            onClose={() => { setTopicFeedbackClosed(true); refreshPaths(); }}
-          />
-        )}
-        <Button
-          label={nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
-          onPress={() => handleNavigateAfterQuiz(nextLessonId)}
-          variant="coral"
-          style={styles.doneBtn}
-        />
+        <Reveal delay={revealDelay(tailStep)}>
+          {topicEnd && (
+            <TopicFeedback
+              topicEnd={topicEnd}
+              onSubmit={body => topicFeedback.submit(topicEnd.planId, body)}
+              onClose={() => { setTopicFeedbackClosed(true); refreshPaths(); }}
+            />
+          )}
+        </Reveal>
       </QuizResultFrame>
     );
   }
@@ -411,15 +434,18 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
         {...frame}
         onClose={handleLeaveLesson}
         rating={lesson.quizCompleted ? <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} /> : undefined}
+        action={
+          <Button
+            testID="result-action-btn"
+            label={lesson.nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
+            onPress={() => handleNavigateAfterQuiz(lesson.nextLessonId)}
+            variant="glass"
+            size="lg"
+          />
+        }
       >
         <Text style={styles.resultHeading}>Already Completed</Text>
         <Text style={styles.completedBody}>You've already finished this lesson's quiz.</Text>
-        <Button
-          label={lesson.nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
-          onPress={() => handleNavigateAfterQuiz(lesson.nextLessonId)}
-          variant="coral"
-          style={styles.doneBtn}
-        />
       </QuizResultFrame>
     );
   }
@@ -496,7 +522,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontFamily: font.regular, fontSize: fontSize.md, color: colors.textMuted },
   options:  { gap: spacing.sm, marginBottom: spacing.lg },
   shortAnswerInput:   { marginBottom: spacing.lg },
-  actionBtn:          { marginTop: spacing.sm },
   error: {
     fontFamily:   font.regular,
     fontSize:     fontSize.sm,
@@ -536,7 +561,8 @@ const styles = StyleSheet.create({
   headlineLeft:   { alignItems: 'flex-start' },
   headlineRight:  { alignItems: 'flex-end' },
   // Above the side chips, so the burst passes over them.
-  headlineCentre: { flex: 1.6, zIndex: 1 },
+  // Lifted 6px (a token and a half): the heading's big letters look lower than the figures beside it.
+  headlineCentre: { flex: 1.6, zIndex: 1, transform: [{ translateY: -(spacing.xs + spacing.xs / 2) }] },
   resultHeading: {
     fontFamily: font.semibold,
     fontSize:   fontSize.xl,
@@ -544,5 +570,4 @@ const styles = StyleSheet.create({
     textAlign:  'center',
   },
   resultHeadingCorrect: { fontSize: fontSize.xxl },
-  doneBtn: { marginTop: spacing.lg },
 });

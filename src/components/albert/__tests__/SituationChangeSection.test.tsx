@@ -1,4 +1,5 @@
 import React from 'react';
+import { withoutEmDashes } from '@/lib/emDash';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import {
   ERROR_CODES,
@@ -51,6 +52,9 @@ async function poll() {
   await act(async () => { jest.advanceTimersByTime(SITUATION_POLL_MS); });
 }
 
+/** The copy as the learner sees it: the app never shows an em dash. */
+const shown = withoutEmDashes;
+
 describe('SituationChangeSection (079h)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -97,8 +101,8 @@ describe('SituationChangeSection (079h)', () => {
     await tellAlbert('I want to learn pricing');
     serverLatest = change('no_change');
     await poll();
-    expect(await screen.findByText(SITUATION_NO_CHANGE_PATH_END_COPY)).toBeTruthy();
-    expect(screen.queryByText(SITUATION_NO_CHANGE_COPY)).toBeNull();
+    expect(await screen.findByText(shown(SITUATION_NO_CHANGE_PATH_END_COPY))).toBeTruthy();
+    expect(screen.queryByText(shown(SITUATION_NO_CHANGE_COPY))).toBeNull();
     // Declined or silent, the path stays finished and the box stays, so they can write again.
     expect(screen.getByTestId('situation-change-text')).toBeTruthy();
   });
@@ -131,11 +135,11 @@ describe('SituationChangeSection (079h)', () => {
     serverLatest = change('running');
     await poll();
     expect(screen.getByTestId('situation-change-looking')).toBeTruthy();
-    expect(screen.queryByText(SITUATION_NO_CHANGE_COPY)).toBeNull();
+    expect(screen.queryByText(shown(SITUATION_NO_CHANGE_COPY))).toBeNull();
 
     serverLatest = change('no_change');
     await poll();
-    expect(await screen.findByText(SITUATION_NO_CHANGE_COPY)).toBeTruthy();
+    expect(await screen.findByText(shown(SITUATION_NO_CHANGE_COPY))).toBeTruthy();
     expect(screen.queryByTestId('situation-change-looking')).toBeNull();
     expect(screen.getByTestId('situation-change-text').props.value).toBe('');
   });
@@ -146,8 +150,8 @@ describe('SituationChangeSection (079h)', () => {
     await screen.findByTestId('situation-change-text');
     await tellAlbert('I got promoted');
 
-    expect(await screen.findByText(SITUATION_FAILED_COPY)).toBeTruthy();
-    expect(screen.queryByText(SITUATION_NO_CHANGE_COPY)).toBeNull();
+    expect(await screen.findByText(shown(SITUATION_FAILED_COPY))).toBeTruthy();
+    expect(screen.queryByText(shown(SITUATION_NO_CHANGE_COPY))).toBeNull();
   });
 
   it('on a proposal, re-reads the paths and that path\'s suggestion so the card appears or is replaced', async () => {
@@ -162,8 +166,8 @@ describe('SituationChangeSection (079h)', () => {
 
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: PATHS_QUERY_KEY }));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: proposalQueryKey('plan-1') });
-    expect(screen.queryByText(SITUATION_NO_CHANGE_COPY)).toBeNull();
-    expect(screen.queryByText(SITUATION_FAILED_COPY)).toBeNull();
+    expect(screen.queryByText(shown(SITUATION_NO_CHANGE_COPY))).toBeNull();
+    expect(screen.queryByText(shown(SITUATION_FAILED_COPY))).toBeNull();
     expect(screen.queryByTestId('situation-change-looking')).toBeNull();
   });
 
@@ -177,8 +181,8 @@ describe('SituationChangeSection (079h)', () => {
     serverLatest = change('no_change');
     renderSection();
     await screen.findByTestId('situation-change-text');
-    expect(screen.queryByText(SITUATION_NO_CHANGE_COPY)).toBeNull();
-    expect(screen.queryByText(SITUATION_FAILED_COPY)).toBeNull();
+    expect(screen.queryByText(shown(SITUATION_NO_CHANGE_COPY))).toBeNull();
+    expect(screen.queryByText(shown(SITUATION_FAILED_COPY))).toBeNull();
   });
 
   it('shows the send error, keeps the words, and logs nothing of them', async () => {

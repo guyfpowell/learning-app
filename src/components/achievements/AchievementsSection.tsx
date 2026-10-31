@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
+import { View, StyleSheet, Pressable, Modal } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { AchievementAxis, AchievementDefinition, AchievementKey, UserAchievement } from '@learning/shared';
 import { ACHIEVEMENTS_BY_KEY } from '@learning/shared';

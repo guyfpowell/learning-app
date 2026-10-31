@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { colors, font, fontSize, spacing } from '@/theme';
 
 interface TabBarProps<T extends string> {

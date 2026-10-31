@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
@@ -28,7 +29,7 @@ import { BUILD_REVIEW_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
  */
 
 const PLACEHOLDER =
-  'Tell me about yourself — your role, your level, and the kind of company you work for.\n\n' +
+  'Tell me about yourself: your role, your level, and the kind of company you work for.\n\n' +
   'What do you want to get out of this?';
 
 export default function BuildScreen() {
@@ -159,7 +160,7 @@ export default function BuildScreen() {
               <ActivityIndicator color={colors.textMuted} />
               <Text style={styles.waitingText}>
                 Reading what you wrote and picking the topics that serve it. This
-                takes a few seconds — the more you told me, the longer it takes.
+                takes a few seconds. The more you told me, the longer it takes.
               </Text>
             </View>
           )}

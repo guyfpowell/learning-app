@@ -204,10 +204,10 @@ describe('PaywallScreen — Expo Go / SDK unavailable (BUG-073b-2)', () => {
     expect(() => render(<PaywallScreen />)).not.toThrow();
   });
 
-  it('shows "—" placeholder prices when offerings are null', () => {
+  it('shows "n/a" placeholder prices when offerings are null', () => {
     setMocks({ offering: null });
     render(<PaywallScreen />);
-    const prices = screen.getAllByText('—');
+    const prices = screen.getAllByText('n/a');
     expect(prices.length).toBeGreaterThanOrEqual(2); // annual + monthly
   });
 

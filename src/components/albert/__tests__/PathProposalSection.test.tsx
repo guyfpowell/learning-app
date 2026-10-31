@@ -1,4 +1,5 @@
 import React from 'react';
+import { withoutEmDashes } from '@/lib/emDash';
 import { fireEvent, render, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react-native';
 import * as Sentry from '@sentry/react-native';
 import {
@@ -120,7 +121,7 @@ describe('PathProposalSection (079g7)', () => {
 
     expect(await screen.findByTestId('move-card')).toBeTruthy();
     expect(screen.getByText('Move on to Pricing')).toBeTruthy();
-    expect(screen.getByText(moveProposal.move?.text ?? '')).toBeTruthy();
+    expect(screen.getByText(withoutEmDashes(moveProposal.move?.text ?? ''))).toBeTruthy();
     expect(screen.getAllByTestId('move-skip').map(n => n.props.children)).toEqual(['Discovery', 'Okrs']);
     expect(screen.queryByTestId('proposal-card')).toBeNull();
   });

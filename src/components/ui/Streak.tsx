@@ -12,7 +12,8 @@
  *   - Streak   — .asc-streak chip (flame + count), used in header chips
  */
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import Svg, { Path } from 'react-native-svg';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 

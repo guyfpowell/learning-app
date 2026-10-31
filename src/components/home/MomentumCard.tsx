@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { xpProgressOf } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Progress } from '@/components/ui/Progress';
 import { StreakCalendar } from '@/components/ui/StreakCalendar';
+import { CairnLevel } from '@/components/ui/CairnLevel';
 import { useXp } from '@/hooks/useXp';
 import { useAchievements } from '@/hooks/useAchievements';
 import { achievementLineOf, nextStreakCopy, streakStageOf, xpLineOf, type AchievementLine } from '@/lib/momentum';
@@ -12,11 +14,18 @@ import { achievementLineOf, nextStreakCopy, streakStageOf, xpLineOf, type Achiev
 /** Big enough to read as a badge, but the row stays as tall as its text (see achievementIconSlot). */
 const ACHIEVEMENT_ICON_SIZE = fontSize.xl;
 
+/**
+ * As large as the longest streak line ("Complete a lesson to start your streak", 38 characters) can be
+ * and still fit one line beside the calendar on an iPhone 15 Pro: it measured about 94% of the line at
+ * fontSize.sm (14), so about 14.8 is the limit. Half a point over `fontSize.sm`, with a little room to spare.
+ */
+const STREAK_COPY_SIZE = fontSize.sm + 0.5;
+
 /** Taken off the card's gap between the streak row and the XP block (096). */
 const STREAK_TO_XP_TRIM = spacing.xs;
 
 function achievementText(line: AchievementLine): string {
-  return line.kind === 'new' ? `New: ${line.name}` : `Next up: ${line.name} · ${line.description}`;
+  return line.kind === 'new' ? `New: ${line.name}` : `Next up: ${line.name}`;
 }
 
 /** Home's reason to keep going: the streak, XP toward the next level, and one achievement. */
@@ -39,7 +48,11 @@ export function MomentumCard({ streak }: { streak: number }) {
       {xp && xpLine && (
         <View testID="momentum-xp" style={styles.xp}>
           <View style={styles.xpHeader}>
-            <Text style={styles.xpTitle}>{xpLine.title}</Text>
+            {/* A level shows its name and its step as cairns, not as a numeral ("Foothills I"). */}
+            <View style={styles.xpName}>
+              <Text style={styles.xpTitle}>{xp.tier ? xp.tier.name : xpLine.title}</Text>
+              {xp.tier && <CairnLevel level={xp.tier.level} />}
+            </View>
             <Text style={styles.xpTotal}>{`${xp.totalXp.toLocaleString('en-GB')} XP`}</Text>
           </View>
           <Progress testID="momentum-xp-bar" value={xpLine.percent} tone="xp" />
@@ -50,7 +63,7 @@ export function MomentumCard({ streak }: { streak: number }) {
       {achievementLine && (
         <View
           testID="momentum-achievement"
-          style={[styles.achievement, achievementLine.kind === 'new' && styles.achievementNew]}
+          style={styles.achievement}
         >
           <View testID="momentum-achievement-icon" style={styles.achievementIconSlot}>
             <Ionicons name="ribbon-outline" size={ACHIEVEMENT_ICON_SIZE} color={colors.xp} />
@@ -68,11 +81,15 @@ const styles = StyleSheet.create({
   streakCopy: {
     flex:       1,
     fontFamily: font.medium,
-    fontSize:   fontSize.sm,
+    fontSize:   STREAK_COPY_SIZE,
     color:      colors.textStrong,
+    // Nudged 2px down, so it reads level with the calendar.
+    transform:  [{ translateY: spacing.xs / 2 }],
   },
   xp:           { gap: spacing.xs },
   xpHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  // The stones' common bottom edge sits on the level name's baseline.
+  xpName:       { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
   xpTitle: {
     fontFamily: font.semibold,
     fontSize:   fontSize.base,
@@ -95,6 +112,7 @@ const styles = StyleSheet.create({
     paddingVertical:   spacing.sm,
     paddingHorizontal: spacing.sm3,
     borderRadius:      radius.md,
+    backgroundColor:   colors.xpSoft,
   },
   // The icon's own box is full size, so nothing clips it; the negative margin takes back the extra
   // height, so the row is as tall as the text.
@@ -105,7 +123,6 @@ const styles = StyleSheet.create({
     alignItems:     'center',
     justifyContent: 'center',
   },
-  achievementNew: { backgroundColor: colors.xpSoft },
   achievementText: {
     flex:       1,
     fontFamily: font.medium,

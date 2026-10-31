@@ -11,7 +11,8 @@
  *   active — completedLessons > 0 and percentComplete < 100
  *   locked — completedLessons === 0
  */
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { isProgressComplete, type TrackLevelProgress } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { SkillNode } from '@/components/ui/SkillNode';

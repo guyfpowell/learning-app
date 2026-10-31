@@ -260,7 +260,7 @@ describe('QuizModal', () => {
 
   it('096: Submit is a pinned coral glass button; disabled is at reduced opacity', () => {
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-    const button = () => StyleSheet.flatten(must(screen.getByText('Submit').parent?.parent, 'button').props.style);
+    const button = () => StyleSheet.flatten(must(screen.getByText('Submit').parent?.parent?.parent, 'button').props.style);
     expect(within(screen.getByTestId('pinned-action')).getByText('Submit')).toBeTruthy();
     expect(button().opacity).toBeLessThan(1);
     fireEvent.press(screen.getByText('Option A'));
@@ -400,11 +400,20 @@ describe('QuizModal', () => {
     expect(screen.queryByText('DONE')).toBeNull();
   });
 
-  it('091b: the result action is the coral variant', () => {
+  it('096: the result action is a pinned coral glass button, with the page scrolling behind it', () => {
     setQuizMock({ data: { ...mockResult, nextLessonId: 'lesson-2' } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    const btn = must(screen.getByText('Next lesson').parent?.parent, 'button');
-    expect(StyleSheet.flatten(btn.props.style)).toMatchObject({ backgroundColor: colors.coral });
+    expect(within(screen.getByTestId('pinned-action')).getByTestId('result-action-btn')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByTestId('result-action-btn-wash').props.style).backgroundColor).toBe(colors.coral);
+  });
+
+  it.each([
+    ['the retry offer', { ...mockResult, correct: false, retakeAvailable: true, lessonFinalized: false }, 'Try again'],
+    ['a capstone question\'s feedback', { ...mockResult, lessonFinalized: false }, 'Next question'],
+  ])('096: %s pins its one button at the foot too', (_label, data, label) => {
+    setQuizMock({ data });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    expect(within(screen.getByTestId('pinned-action')).getByText(new RegExp(label, 'i'))).toBeTruthy();
   });
 
   it('"Next Lesson" in terminal view calls onClose and navigates to that lesson', () => {
@@ -516,12 +525,13 @@ describe('QuizModal', () => {
       expect(within(screen.getByTestId('quiz-frame-content')).queryByTestId('rating-stub')).toBeNull();
     });
 
-    it('091b: the result and question bodies clear the bottom inset by spacing.md', () => {
+    it('096: the result and question bodies leave room under their last line for the pinned button', () => {
       const { useSafeAreaInsets } = require('react-native-safe-area-context');
       (useSafeAreaInsets as jest.Mock).mockReturnValue({ top: 44, bottom: 34, left: 0, right: 0 });
       setQuizMock({ data: mockResult });
       const { unmount } = render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(StyleSheet.flatten(screen.getByTestId('quiz-frame-content').props.contentContainerStyle).paddingBottom).toBe(34 + spacing.md);
+      // The result body leaves room under its last line for the pinned Next lesson (096).
+      expect(StyleSheet.flatten(screen.getByTestId('quiz-frame-content').props.contentContainerStyle).paddingBottom).toBe(PINNED_ACTION_CLEARANCE + 34);
       unmount();
       setQuizMock({ data: undefined });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
@@ -765,11 +775,23 @@ describe('QuizModal', () => {
       ],
     };
 
-    it('shows key takeaway card in terminal view when lesson.keyTakeaway is set', () => {
+    it('shows the key takeaway card in terminal view when lesson.keyTakeaway is set, closed until it is opened', () => {
       setQuizMock({ data: mockResult });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(screen.getByTestId('quiz-key-takeaway')).toBeTruthy();
+      expect(screen.getByText('KEY TAKEAWAY')).toBeTruthy();
+      expect(screen.queryByText('Fit beats features.')).toBeNull();
+      expect(screen.getByTestId('quiz-key-takeaway-toggle').props.accessibilityState).toEqual({ expanded: false });
+    });
+
+    it('opens the key takeaway when its header is tapped, and closes it when tapped again', () => {
+      setQuizMock({ data: mockResult });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      fireEvent.press(screen.getByTestId('quiz-key-takeaway-toggle'));
       expect(screen.getByText('Fit beats features.')).toBeTruthy();
+      expect(screen.getByTestId('quiz-key-takeaway-toggle').props.accessibilityState).toEqual({ expanded: true });
+      fireEvent.press(screen.getByTestId('quiz-key-takeaway-toggle'));
+      expect(screen.queryByText('Fit beats features.')).toBeNull();
     });
 
     it('does not show key takeaway card in terminal view when lesson.keyTakeaway is null', () => {
@@ -900,7 +922,7 @@ describe('QuizModal', () => {
 
       const tree = JSON.stringify(toJSON());
       const explanationBodyIdx = tree.indexOf('Because it matches market needs');
-      const takeawayIdx = tree.indexOf('Fit beats features');
+      const takeawayIdx = tree.indexOf('KEY TAKEAWAY');
       expect(takeawayIdx).toBeGreaterThan(explanationBodyIdx);
     });
 
@@ -951,21 +973,11 @@ describe('QuizModal', () => {
   });
 
   describe('096 — result screen layout', () => {
-    it('shows the day streak as a number in the header, and not in the body', () => {
+    it('has no streak calendar in the header, whatever the streak', () => {
       setQuizMock({ data: { ...mockResult, streak: 4 } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      const calendar = within(screen.getByTestId('quiz-frame-header')).getByTestId('streak-calendar');
-      expect(within(calendar).getByText('4')).toBeTruthy();
+      expect(screen.queryByTestId('streak-calendar')).toBeNull();
       expect(screen.queryByText('4-day streak')).toBeNull();
-    });
-
-    it('draws the streak as a calendar a little smaller than Home\'s, with a blue count', () => {
-      setQuizMock({ data: { ...mockResult, streak: 4 } });
-      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      const count = StyleSheet.flatten(screen.getByTestId('streak-calendar-count').props.style);
-      expect(count.color).toBe(colors.brand);
-      const calendar = StyleSheet.flatten(screen.getByTestId('streak-calendar').props.style);
-      expect(calendar).toMatchObject({ width: 40, height: 40 });
     });
 
     it('puts the thumbs in their own bubble in the header', () => {
@@ -992,17 +1004,11 @@ describe('QuizModal', () => {
       expect(bookmark).toMatchObject({ width: close.width, height: close.height, borderRadius: radius.pill });
     });
 
-    it('anchors the XP animation on the header row, where the streak calendar is', () => {
+    it('anchors the XP animation on the header row', () => {
       setQuizMock({ data: { ...mockResult, streak: 4, xpAwarded: 20, achievementsUnlocked: [] } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       const { top, height } = headerRowBox(44); // the mocked top inset
       expect(StyleSheet.flatten(screen.getByTestId('xp-chip-overlay').props.style)).toMatchObject({ top, height });
-    });
-
-    it('shows no streak calendar when the streak is 0', () => {
-      setQuizMock({ data: { ...mockResult, streak: 0 } });
-      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.queryByTestId('streak-calendar')).toBeNull();
     });
 
     it('puts the track average and the XP award on either side of the heading', () => {
@@ -1014,10 +1020,34 @@ describe('QuizModal', () => {
       expect(headline.getByTestId('xp-chip')).toBeTruthy();
     });
 
+    it('lifts the heading 6px so it does not look lower than the figures beside it', () => {
+      setQuizMock({ data: { ...mockResult, xpAwarded: 20 } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      // The heading's own column is the one beside the two side columns, so it is the headline's second child.
+      const headline = screen.getByTestId('result-headline');
+      const column = headline.children[1];
+      expect(typeof column === 'string' ? undefined : StyleSheet.flatten(column?.props.style).transform).toEqual([{ translateY: -6 }]);
+    });
+
     it('keeps the heading in the headline row when there is no XP award', () => {
       setQuizMock({ data: { ...mockResult, xpAwarded: null } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(within(screen.getByTestId('result-headline')).getByText('Correct!')).toBeTruthy();
+    });
+
+    it('has no streak on the result page: not in the header and not beside the heading', () => {
+      setQuizMock({ data: { ...mockResult, streak: 4, xpAwarded: 20 } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.queryByTestId('streak-calendar')).toBeNull();
+      expect(within(screen.getByTestId('result-headline')).queryByText(/streak/i)).toBeNull();
+    });
+
+    it('brings the feedback, the takeaway and the button in block by block, after the heading', () => {
+      setQuizMock({ data: { ...mockResult, xpAwarded: 20 } });
+      render(<QuizModal visible={true} lesson={{ ...mockLesson, keyTakeaway: 'Match effort to the tier.' }} onClose={onClose} />);
+      const reveals = screen.getAllByTestId('reveal');
+      expect(reveals.length).toBeGreaterThanOrEqual(3); // the feedback card, the takeaway, the button
+      expect(within(screen.getByTestId('result-headline')).queryByTestId('reveal')).toBeNull();
     });
   });
 

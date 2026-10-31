@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, PATHS_LOAD_ERROR, type AlbertPathActions, type UserPath } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Button } from '@/components/ui/Button';
@@ -135,8 +136,8 @@ function CompleteBody(props: BuildPathCardProps) {
       {props.path && <PathRow path={props.path} onOpen={onViewMyPath} />}
       <Text style={styles.buildBody}>
         {offer === null
-          ? 'Great work — your custom path is complete. View it on your Tracks.'
-          : 'Great work — your custom path is complete. View it on your Tracks, or build a new one.'}
+          ? 'Great work. Your custom path is complete. View it on your Tracks.'
+          : 'Great work. Your custom path is complete. View it on your Tracks, or build a new one.'}
       </Text>
       {actions.trialOver && <TrialOver />}
       {showsAllowanceUsed(props) && <AllowanceUsed />}

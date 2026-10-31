@@ -5,7 +5,8 @@
  * Used for level labels in lesson cards and list rows.
  */
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 
 export type TagVariant = 'beginner' | 'intermediate' | 'advanced';

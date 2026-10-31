@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { colors, font, fontSize, radius, shadow, spacing, tracking } from '@/theme';
 import type { TrackEntryIds } from '@/components/tracks/TrackRow';
 

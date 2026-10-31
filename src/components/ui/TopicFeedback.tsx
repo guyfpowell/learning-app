@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
-import { LayoutAnimation, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { LayoutAnimation, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import {
   TOPIC_FEEDBACK_ACKNOWLEDGEMENT,

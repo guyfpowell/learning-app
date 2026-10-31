@@ -3,6 +3,11 @@ import { errorCode, extractError } from '../errors';
 const failed = (data: unknown) => ({ response: { data } });
 
 describe('extractError', () => {
+  it('shows no em dash in the server\'s message, wherever the message is shown', () => {
+    const err = { response: { data: { message: "That name isn't allowed — pick another." } } };
+    expect(extractError(err)).toBe("That name isn't allowed. Pick another.");
+  });
+
   it('says a timed-out request timed out', () => {
     expect(extractError({ code: 'ECONNABORTED' })).toBe('Request timed out. Please try again.');
   });

@@ -97,7 +97,7 @@ async function tryRefresh(): Promise<string | null> {
 function signOutAndRedirect() {
   Sentry.addBreadcrumb({
     category: 'auth',
-    message: 'Session expired — signing out',
+    message: 'Session expired, signing out',
     level: 'warning',
   });
   useAuthStore.getState().clearAuth();

@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import type { SkillLevel } from '@learning/shared';
 import { colors, font, fontSize, radius, shadow, spacing, tracking } from '@/theme';
 import { Badge, LEVEL_BADGE_VARIANT } from '@/components/ui/Badge';

@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import { colors } from '@/theme';
-import { CelebrationOverlay, XpChipOverlay } from '../CelebrationOverlay';
+import { CelebrationOverlay, XpChipOverlay, xpFlight } from '../CelebrationOverlay';
 
 jest.useFakeTimers();
 
@@ -106,5 +106,63 @@ describe('XpChipOverlay', () => {
     act(() => jest.advanceTimersByTime(2000));
     act(() => jest.runAllTimers());
     expect(baseProps.onDismiss).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('xpFlight', () => {
+  const anchor = { top: 50, height: 44 }; // the chip's centre is at y 72
+  it('goes from the middle of the chip to the middle of the score', () => {
+    const f = xpFlight({ anchor, returnTo: { x: 300, y: 200, width: 60, height: 24 }, chipWidth: 90, windowWidth: 400 });
+    expect(f.dx).toBe(300 + 30 - 200); // the score's centre x, less the middle of the screen
+    expect(f.dy).toBe(200 + 12 - 72);
+  });
+
+  it('shrinks the chip to the score\'s width', () => {
+    const f = xpFlight({ anchor, returnTo: { x: 0, y: 0, width: 45, height: 24 }, chipWidth: 90, windowWidth: 400 });
+    expect(f.endScale).toBe(0.5);
+  });
+
+  it('never shrinks the chip to nothing on the way', () => {
+    const f = xpFlight({ anchor, returnTo: { x: 0, y: 0, width: 1, height: 1 }, chipWidth: 90, windowWidth: 400 });
+    expect(f.endScale).toBeGreaterThan(0);
+    expect(f.endScale).toBeGreaterThanOrEqual(0.3);
+  });
+});
+
+describe('XpChipOverlay returning to the score', () => {
+  const props = { visible: true, xp: 50, onDismiss: jest.fn(), anchor: { top: 50, height: 44 }, returnTo: { x: 300, y: 200, width: 60, height: 24 } };
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('flies back onto the score when tapped, then dismisses', () => {
+    render(<XpChipOverlay {...props} />);
+    fireEvent(screen.getByTestId('xp-chip-animated'), 'layout', { nativeEvent: { layout: { width: 90, height: 28, x: 0, y: 0 } } });
+    fireEvent.press(screen.getByTestId('xp-chip-overlay'));
+    expect(props.onDismiss).not.toHaveBeenCalled();
+    act(() => jest.runAllTimers());
+    expect(props.onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('still dismisses when the score has not been found, fading where it stands', () => {
+    render(<XpChipOverlay {...props} returnTo={null} />);
+    fireEvent.press(screen.getByTestId('xp-chip-overlay'));
+    act(() => jest.runAllTimers());
+    expect(props.onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('collapses onto the score when it goes by itself after the delay, not only when tapped', () => {
+    const timing = jest.spyOn(Animated, 'timing').mockImplementation(() => ({
+      start: (done) => done?.({ finished: true }),
+      stop: jest.fn(),
+      reset: jest.fn(),
+    }));
+    render(<XpChipOverlay {...props} autoDismissMs={2000} />);
+    // The chip and the score are measured after the first render, which is when the timer was set.
+    fireEvent(screen.getByTestId('xp-chip-animated'), 'layout', { nativeEvent: { layout: { width: 90, height: 28, x: 0, y: 0 } } });
+    act(() => jest.advanceTimersByTime(2000));
+    const leave = timing.mock.calls.map(([, config]) => config).find((config) => config.toValue === 1);
+    expect(leave).toMatchObject({ toValue: 1, duration: 480 });
+    expect(timing.mock.calls.map(([, config]) => config.duration)).not.toContain(200);
+    timing.mockRestore();
   });
 });

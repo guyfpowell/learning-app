@@ -64,10 +64,27 @@ describe('MomentumCard', () => {
     setData(xp, undefined);
     render(<MomentumCard streak={1} />);
     const row = within(screen.getByTestId('momentum-xp'));
-    expect(row.getByText('Base Camp I')).toBeTruthy();
+    expect(row.getByText('Base Camp')).toBeTruthy();
+    expect(row.queryByText('Base Camp I')).toBeNull();
     expect(row.getByText('1,170 XP')).toBeTruthy();
     expect(row.getByText('430 XP to the next level')).toBeTruthy();
     expect(screen.getByTestId('momentum-xp-bar')).toBeTruthy();
+  });
+
+  it('shows the step in a level as cairns: step 3 is three filled and two outlined', () => {
+    setData({ ...xp, tier: { key: 'base-camp', name: 'Base Camp', level: 3, label: 'Base Camp III', floor: 2200, ceiling: 2800 } }, undefined);
+    render(<MomentumCard streak={1} />);
+    const row = within(screen.getByTestId('momentum-xp'));
+    expect(row.getByLabelText('Level 3 of 5')).toBeTruthy();
+    expect(row.getAllByTestId(/^cairn-\d-filled$/)).toHaveLength(3);
+    expect(row.getAllByTestId(/^cairn-\d-outline$/)).toHaveLength(2);
+  });
+
+  it('shows no cairns before the first level (under 150 XP): the next milestone only', () => {
+    setData({ totalXp: 40, nextMilestone: { key: 'foothills', name: 'Foothills', xpRequired: 150, xpRemaining: 110 }, tier: null }, undefined);
+    render(<MomentumCard streak={1} />);
+    expect(screen.getByText('Foothills')).toBeTruthy();
+    expect(screen.queryByLabelText(/^Level \d of 5$/)).toBeNull();
   });
 
   it('leaves the XP row out until XP has loaded', () => {
@@ -92,11 +109,13 @@ describe('MomentumCard', () => {
     expect(slot.marginVertical).toBe(-(fontSize.xl - fontSize.md) / 2);
   });
 
-  it('shows the next achievement when nothing is new, without the highlight', () => {
+  it('shows the next achievement when nothing is new: its name only, on the same gold as a new one', () => {
     setData(xp, achievements(20));
     render(<MomentumCard streak={1} />);
-    expect(within(screen.getByTestId('momentum-achievement')).getByText('Next up: Warm Up · Completed 3 lessons')).toBeTruthy();
-    expect(StyleSheet.flatten(screen.getByTestId('momentum-achievement').props.style).backgroundColor).toBeUndefined();
+    const line = screen.getByTestId('momentum-achievement');
+    expect(within(line).getByText('Next up: Warm Up')).toBeTruthy();
+    expect(within(line).queryByText(/Completed 3 lessons/)).toBeNull();
+    expect(StyleSheet.flatten(line.props.style).backgroundColor).toBe(colors.xpSoft);
   });
 
   it('leaves the achievement line out until achievements have loaded', () => {

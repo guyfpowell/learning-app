@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, Pressable, Share } from 'react-native';
+import { View, StyleSheet, Pressable, Share } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';

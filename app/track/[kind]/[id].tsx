@@ -7,7 +7,8 @@
  * A full-screen push in the root Stack (ADR-016), with a native header.
  */
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';

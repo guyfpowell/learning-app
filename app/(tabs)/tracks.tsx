@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
@@ -138,6 +139,26 @@ export default function TracksScreen() {
     );
   }
 
+  // Only for a learner with no Albert path: once they have one, it is already above.
+  const showAlbertCta = customPaths.length === 0;
+
+  /** Points someone browsing the catalogue to Albert, in the same card as a track. */
+  function albertRow() {
+    const openAlbert = () => router.push('/(tabs)/albert');
+    return (
+      <TrackRow
+        ids={{ tap: 'albert-cta', card: 'albert-cta-card', name: 'albert-cta-name', headline: 'albert-cta-headline' }}
+        tapLabel="Ask Albert to build a path around your goals"
+        onOpen={openAlbert}
+        eyebrow="Albert"
+        eyebrowMark={<AlbertMark />}
+        name="Want something built around your goals?"
+        headline={null}
+        action={<Button testID="albert-cta-btn" label="Ask Albert" inline onPress={openAlbert} />}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]}>
@@ -188,32 +209,15 @@ export default function TracksScreen() {
                 headline={activeSkill?.headline ?? activeTrack.description}
               />
             )}
-            {otherCustomPaths.length + otherEnrolledSkills.length > 0 && (
-              <>
-                <Text style={styles.sectionHeading}>Your tracks</Text>
-                {otherCustomPaths.map(customRow)}
-                {otherEnrolledSkills.map(skillRow)}
-              </>
-            )}
+            {otherCustomPaths.map(customRow)}
+            {otherEnrolledSkills.map(skillRow)}
           </View>
         )}
 
-        {!isLoading && (
-          <Pressable
-            testID="albert-cta"
-            accessibilityRole="link"
-            onPress={() => router.push('/(tabs)/albert')}
-            style={styles.albertCta}
-          >
-            <Text style={styles.albertCtaText}>
-              Want something built around your goals? <Text style={styles.albertCtaLink}>Ask Albert.</Text>
-            </Text>
-          </Pressable>
-        )}
-
-        {!isLoading && exploreSkills.length > 0 && (
+        {!isLoading && (exploreSkills.length > 0 || showAlbertCta) && (
           <View testID="explore-section">
-            <Text style={styles.sectionHeading}>Explore</Text>
+            {showAlbertCta && albertRow()}
+            {exploreSkills.length > 0 && <Text style={styles.sectionHeading}>Explore</Text>}
             {exploreSkills.map(skillRow)}
           </View>
         )}
@@ -244,15 +248,5 @@ const styles = StyleSheet.create({
     fontSize:     fontSize.base,
     color:        colors.textStrong,
     marginBottom: spacing.sm,
-  },
-  albertCta: { marginBottom: spacing.lg },
-  albertCtaText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-  },
-  albertCtaLink: {
-    fontFamily: font.semibold,
-    color:      colors.brand,
   },
 });

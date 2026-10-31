@@ -18,10 +18,10 @@ import {
   PressableProps,
   StyleProp,
   StyleSheet,
-  Text,
   View,
   ViewStyle,
 } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Feather } from '@expo/vector-icons';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 

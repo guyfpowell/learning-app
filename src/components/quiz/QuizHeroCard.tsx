@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { colors, font, fontSize, spacing, tracking } from '@/theme';
 import { FittedText } from '@/components/ui/FittedText';
 import type { SizeRange } from '@/lib/fitTakeaway';

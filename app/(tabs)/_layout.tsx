@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Tabs } from 'expo-router';
-import { View, Text, Pressable, AppState, StyleSheet, type ColorValue, type PressableProps } from 'react-native';
+import { View, Pressable, AppState, StyleSheet, type ColorValue, type PressableProps } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { BlurView } from 'expo-blur';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

@@ -1,5 +1,8 @@
-import React from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import React, { useRef, useState, type ComponentRef } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Text } from '@/components/ui/Text';
+import type { ScreenRect } from '@/components/ui/CelebrationOverlay';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 
 /** The milestone card's subtitle: a warm off-white on coral, not a theme token. */
@@ -23,7 +26,7 @@ export function TrackAverageBadge({ average, previous, retakeUsed }: { average: 
   return (
     <View accessibilityLabel={`Track average ${average !== null ? average + ' percent' : 'unavailable'}`}>
       <View style={styles.trackAverageValueRow}>
-        <Text style={styles.scorePercent}>{average !== null ? `${average}%` : '—'}</Text>
+        <Text style={styles.scorePercent}>{average !== null ? `${average}%` : 'n/a'}</Text>
         {arrow && <Text style={[styles.trackAverageBadge, styles[ARROW_STYLE[arrow]]]}>{arrow}</Text>}
       </View>
       <Text style={styles.scoreFraction}>Track Average</Text>
@@ -31,9 +34,17 @@ export function TrackAverageBadge({ average, previous, retakeUsed }: { average: 
   );
 }
 
-export function XpAward({ xp }: { xp: number }) {
+/** The XP award chip. It reports where it sits on the screen, so the XP animation can fly back onto it. */
+export function XpAward({ xp, onMeasure }: { xp: number; onMeasure?: (rect: ScreenRect) => void }) {
+  const ref = useRef<ComponentRef<typeof View>>(null);
   return (
-    <View testID="xp-chip" style={styles.xpChip}>
+    <View
+      ref={ref}
+      collapsable={false}
+      testID="xp-chip"
+      style={styles.xpChip}
+      onLayout={() => ref.current?.measureInWindow((x, y, width, height) => onMeasure?.({ x, y, width, height }))}
+    >
       <Text style={styles.xpChipText}>+{xp} XP</Text>
     </View>
   );
@@ -61,12 +72,23 @@ export function CoachingCard({ coaching }: { coaching: string }) {
   );
 }
 
-/** Recessive on purpose: a summary to glance at, so the Explanation block leads. */
+/** Recessive on purpose, and closed until asked for: the explanation leads, this is a summary to open if wanted. */
 export function KeyTakeawayCard({ takeaway }: { takeaway: string }) {
+  const [open, setOpen] = useState(false);
   return (
     <View testID="quiz-key-takeaway" style={styles.quizKeyTakeawayCard}>
-      <Text style={styles.quizKeyTakeawayLabel}>KEY TAKEAWAY</Text>
-      <Text style={styles.quizKeyTakeawayText}>{takeaway}</Text>
+      <Pressable
+        testID="quiz-key-takeaway-toggle"
+        onPress={() => setOpen((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel="Key takeaway"
+        accessibilityState={{ expanded: open }}
+        style={styles.quizKeyTakeawayHeader}
+      >
+        <Text style={styles.quizKeyTakeawayLabel}>KEY TAKEAWAY</Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
+      </Pressable>
+      {open && <Text testID="quiz-key-takeaway-text" style={styles.quizKeyTakeawayText}>{takeaway}</Text>}
     </View>
   );
 }
@@ -134,6 +156,12 @@ const styles = StyleSheet.create({
     padding:         spacing.md,
     marginBottom:    spacing.md,
     gap:             spacing.xs,
+  },
+  quizKeyTakeawayHeader: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+    minHeight:      32,
   },
   quizKeyTakeawayLabel: {
     fontFamily:    font.semibold,

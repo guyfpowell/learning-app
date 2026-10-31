@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { KeyTakeawayBlock } from '@/components/ui/KeyTakeawayBlock';
 import { TabBar } from '@/components/ui/TabBar';

@@ -235,7 +235,7 @@ describe('LessonsScreen', () => {
       setProgressMock({ ...mockProgress, currentStreak: 4 });
       render(<LessonsScreen />);
       expect(screen.getByTestId('streak-banner')).toBeTruthy();
-      expect(screen.getByText(/keep it alive/)).toBeTruthy();
+      expect(screen.getByText(/Keep it alive/)).toBeTruthy();
     });
 
     it('does not show streak banner when streak <= 3', () => {
@@ -267,7 +267,7 @@ describe('LessonsScreen', () => {
     it('shows motivation text on enrollment card', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.getByText("You're 50% through Product Foundations — keep going!")).toBeTruthy();
+      expect(screen.getByText("You're 50% through Product Foundations. Keep going!")).toBeTruthy();
     });
 
     it('shows next lesson title on enrollment card', () => {

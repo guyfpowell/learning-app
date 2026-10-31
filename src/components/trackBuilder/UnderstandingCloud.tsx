@@ -19,7 +19,8 @@
  * Kept in step with the web component of the same name deliberately: the two
  * clients have diverged before, and a rule only one of them obeys is not a rule.
  */
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { colors, font, fontSize, spacing } from '@/theme';
 import type { CloudTerm } from '@learning/shared';
 
@@ -40,7 +41,7 @@ export function UnderstandingCloud({ terms }: { terms: CloudTerm[] }) {
   return (
     <View testID="understanding-cloud" style={styles.wrap}>
       <Text style={styles.lead}>
-        Here’s what I’ve got so far — tell me if I’ve read any of it wrong.
+        Here’s what I’ve got so far. Tell me if I’ve read any of it wrong.
       </Text>
       <View style={styles.cloud}>
         {sorted.map((t) => (

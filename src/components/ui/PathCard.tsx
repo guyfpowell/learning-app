@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from 'react';
-import { Pressable, StyleSheet, Text, View, type DimensionValue } from 'react-native';
+import { Pressable, StyleSheet, View, type DimensionValue } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { colors, font, fontSize, shadow, spacing, tracking } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { AlbertMark } from '@/components/albert/AlbertMark';
@@ -13,9 +14,6 @@ export function flooredPct(path: Pick<UserPath, 'completedLessons' | 'percentCom
   return path.completedLessons > 0 ? Math.max(1, Math.round(path.percentComplete)) : 0;
 }
 
-/** Gap between the text blocks of the cobalt hero card (096); other next-lesson cards keep spacing.sm. */
-const HERO_BLOCK_GAP = spacing.sm3;
-
 /**
  * Space between the cobalt hero card and the skip controls under it (096). Negative: the skip button's
  * own 44pt-high box pads its label, so the box pulls up under the card and the label sits closer.
@@ -25,7 +23,7 @@ const HERO_SKIPS_GAP = -spacing.xs;
 function motivation(path: UserPath, pct: number): string {
   const lessonsLeft = path.totalLessons - path.completedLessons;
   if (lessonsLeft <= 20) return `Only ${lessonsLeft} lessons to complete ${path.name}!`;
-  return `You're ${pct}% through ${path.name} — keep going!`;
+  return `You're ${pct}% through ${path.name}. Keep going!`;
 }
 
 function ctaLabel(isRevisit: boolean, resumePhase: boolean): string {
@@ -177,7 +175,7 @@ export function PathCard({
             style={[styles.nextLessonCard, hero && styles.heroCard]}
           >
             {nextLesson.topicName && (
-              <Text style={[styles.positionLabel, hero && styles.heroEyebrow]}>{nextLesson.topicName}</Text>
+              <Text style={[styles.positionLabel, hero && styles.heroTopic]}>{nextLesson.topicName}</Text>
             )}
             <View testID={`next-lesson-meta-${path.id}`} style={styles.nextLessonMeta}>
               {level && (
@@ -187,7 +185,7 @@ export function PathCard({
                 />
               )}
               {nextLesson.topicName && (
-                <Text style={[styles.positionLabel, hero && styles.heroEyebrow]}>
+                <Text style={[styles.positionLabel, hero && styles.heroPosition]}>
                   Lesson {nextLesson.lessonIndex} of {nextLesson.totalLessons}
                 </Text>
               )}
@@ -313,7 +311,6 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     marginTop:       spacing.md,
-    gap:             HERO_BLOCK_GAP,
     backgroundColor: colors.brand,
     ...shadow.brand,
   },
@@ -326,6 +323,17 @@ const styles = StyleSheet.create({
     color:         colors.brandSoft,
     letterSpacing: tracking.caps,
     textTransform: 'uppercase',
+  },
+  // The hero's topic and position: sentence case, so a long topic name is one line, not two lines of wide capitals.
+  heroTopic: {
+    fontFamily: font.medium,
+    fontSize:   fontSize.sm,
+    color:      colors.brandSoft,
+  },
+  heroPosition: {
+    fontFamily: font.medium,
+    fontSize:   fontSize.xs,
+    color:      colors.brandSoft,
   },
   heroTitle: {
     fontFamily:    font.display,

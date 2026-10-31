@@ -4,16 +4,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { circleButtonStyle, CIRCLE_BUTTON_SIZE } from '@/components/ui/circleButtonStyle';
-import { StreakCalendar } from '@/components/ui/StreakCalendar';
+import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
 import { colors, radius, shadow, spacing } from '@/theme';
 
 /** The header's controls row: tall enough for a 44pt touch target. */
 const HEADER_ROW_HEIGHT = CIRCLE_BUTTON_SIZE;
 
-/** The header's streak calendar: a little smaller than Home's, in the same shape. */
-const HEADER_CALENDAR_SIZE = 40;
-
-/** Where the header row sits on screen, so an overlay (the XP chip) can land on the streak flame. */
+/** Where the header row sits on screen, so an overlay (the XP chip) can land in the middle of it. */
 export function headerRowBox(topInset: number) {
   return { top: topInset + spacing.sm, height: HEADER_ROW_HEIGHT };
 }
@@ -25,15 +22,16 @@ export function frameContentStyle(bottomInset: number) {
 
 /**
  * The frame every non-question quiz view shares: an inset-aware header with the
- * bookmark (left), the optional day `streak`, `rating` and close (right), and a scrolling body.
+ * bookmark (left), `rating` and close (right), and a scrolling body.
+ * `action` is the view's one main button, pinned to the foot of the screen over the body (096).
  * `overlay` renders above the body (celebrations).
  */
-export function QuizResultFrame({ onClose, saved, onToggleSave, streak, rating, overlay, children }: {
+export function QuizResultFrame({ onClose, saved, onToggleSave, rating, action, overlay, children }: {
   onClose: () => void;
   saved: boolean;
   onToggleSave: () => void;
-  streak?: number;
   rating?: ReactNode;
+  action?: ReactNode;
   overlay?: ReactNode;
   children: ReactNode;
 }) {
@@ -43,11 +41,6 @@ export function QuizResultFrame({ onClose, saved, onToggleSave, streak, rating, 
         <View testID="quiz-frame-header" style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
           <View style={styles.headerRow}>
             <BookmarkButton saved={saved} onToggle={onToggleSave} style={styles.circleBtn} />
-            {streak !== undefined && streak > 0 && (
-              <View pointerEvents="none" style={styles.headerCentre}>
-                <StreakCalendar streak={streak} size={HEADER_CALENDAR_SIZE} />
-              </View>
-            )}
             <View style={styles.headerRight}>
               {rating && <View testID="header-rating-bubble" style={styles.bubble}>{rating}</View>}
               <Pressable onPress={onClose} style={styles.circleBtn} accessibilityLabel="Close quiz results">
@@ -56,7 +49,13 @@ export function QuizResultFrame({ onClose, saved, onToggleSave, streak, rating, 
             </View>
           </View>
         </View>
-        <ScrollView testID="quiz-frame-content" contentContainerStyle={frameContentStyle(insets.bottom)}>{children}</ScrollView>
+        <ScrollView
+          testID="quiz-frame-content"
+          contentContainerStyle={[...frameContentStyle(insets.bottom), action !== undefined && { paddingBottom: PINNED_ACTION_CLEARANCE + insets.bottom }]}
+        >
+          {children}
+        </ScrollView>
+        {action !== undefined && <PinnedAction>{action}</PinnedAction>}
         {overlay}
     </View>
   );
@@ -77,7 +76,7 @@ export const quizFrameStyles = StyleSheet.create({
     justifyContent: 'space-between',
     height:         HEADER_ROW_HEIGHT,
   },
-  // Spans the row so the streak sits in the true centre, whatever the sides hold.
+  // Spans the row so a title sits in the true centre, whatever the sides hold (the question view's "Test my knowledge").
   headerCentre: {
     position:       'absolute',
     top:            0,

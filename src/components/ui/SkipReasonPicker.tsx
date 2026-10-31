@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { SKIP_REASONS, SKIP_REASON_LABELS, SKIP_REASON_QUESTION, type SkipReason } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Button } from '@/components/ui/Button';

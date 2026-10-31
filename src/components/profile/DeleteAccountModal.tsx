@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Switch } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Modal, Switch } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { DELETE_ACCOUNT_CONFIRM_WORD, type TeamOwnershipInfo } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing } from '@/theme';

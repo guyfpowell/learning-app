@@ -15,7 +15,8 @@ import * as Notifications from 'expo-notifications';
 import { Component, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ScrollView, Text } from 'react-native';
+import { ScrollView } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { StatusBar } from 'expo-status-bar';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { useAuthStore } from '@/store/auth.store';
@@ -39,7 +40,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
       return (
         <ScrollView style={{ flex: 1, backgroundColor: '#fff', padding: 24, paddingTop: 60 }}>
           <Text style={{ fontWeight: 'bold', fontSize: 16, color: 'red', marginBottom: 8 }}>
-            App crashed — error details:
+            App crashed. Error details:
           </Text>
           <Text style={{ fontFamily: 'Courier', fontSize: 12, color: '#333' }}>
             {String(this.state.error)}

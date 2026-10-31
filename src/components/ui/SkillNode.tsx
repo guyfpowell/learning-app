@@ -14,7 +14,8 @@
  * the full container width equally regardless of label length.
  */
 import React from 'react';
-import { StyleSheet, Text, View, ViewProps } from 'react-native';
+import { StyleSheet, View, ViewProps } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 
 export type SkillNodeState = 'done' | 'active' | 'locked';

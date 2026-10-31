@@ -172,7 +172,7 @@ describe('TracksScreen', () => {
   it('shows the headline field whole under the name (093c)', () => {
     setMocks({ skills: [{ ...baseSkill, headline: 'Run a job search like a product — from breaking in to the top.' }] });
     render(<TracksScreen />);
-    expect(screen.getByTestId('skill-headline-skill-1').props.children).toBe('Run a job search like a product — from breaking in to the top.');
+    expect(screen.getByTestId('skill-headline-skill-1').props.children).toBe('Run a job search like a product: from breaking in to the top.');
   });
 
   it('shows no headline line when the headline is empty (093c)', () => {
@@ -216,7 +216,7 @@ describe('TracksScreen', () => {
     setMocks({ enrollments: [mockEnrollment] });
     render(<TracksScreen />);
     expect(within(screen.getByTestId('your-tracks-section')).getByTestId('skill-card-skill-1')).toBeTruthy();
-    expect(screen.queryByTestId('explore-section')).toBeNull();
+    expect(screen.queryByText('Explore')).toBeNull();
     expect(screen.queryByText(/enrolled/i)).toBeNull();
   });
 
@@ -328,7 +328,7 @@ describe('TracksScreen', () => {
     it('shows the active track as the hero, labelled Active', () => {
       setMocks({ skills: [baseSkill], enrollments: [activeEnrollment] });
       render(<TracksScreen />);
-      expect(screen.queryByTestId('albert-mark')).toBeNull();
+      expect(within(screen.getByTestId('skill-card-skill-1')).queryByTestId('albert-mark')).toBeNull();
       expect(screen.getByTestId('active-badge-skill-1')).toBeTruthy();
       expect(screen.getByText('Active')).toBeTruthy();
       expect(StyleSheet.flatten(screen.getByTestId('skill-card-skill-1').props.style).backgroundColor).toBe(colors.brand);
@@ -400,18 +400,55 @@ describe('TracksScreen', () => {
     it('lists custom paths in Your tracks, apart from the catalogue', () => {
       setMocks({ enrollments: [mockEnrollment, customPath] });
       render(<TracksScreen />);
-      expect(screen.getByText('Your tracks')).toBeTruthy();
+      expect(screen.queryByText('Your tracks')).toBeNull();
       expect(within(screen.getByTestId('your-tracks-section')).getByTestId('custom-path-card-plan-1')).toBeTruthy();
       // a track-kind path is a skill row, not a custom-path row
       expect(screen.queryByTestId('custom-path-card-skill-1')).toBeNull();
     });
 
-    it('puts Your tracks (with the hero) above the Albert link, and Explore after it', () => {
-      setMocks({ skills: [baseSkill, premiumSkill], enrollments: [customPath] });
+    it('puts the learner\'s tracks first, then the Albert card, then Explore and the catalogue', () => {
+      setMocks({ skills: [baseSkill, premiumSkill], enrollments: [activeEnrollment] });
       const { toJSON } = render(<TracksScreen />);
       const json = JSON.stringify(toJSON());
-      expect(json.indexOf('Your tracks')).toBeLessThan(json.indexOf('Ask Albert.'));
-      expect(json.indexOf('Ask Albert.')).toBeLessThan(json.indexOf('Explore'));
+      expect(json.indexOf('your-tracks-section')).toBeLessThan(json.indexOf('albert-cta-card'));
+      expect(json.indexOf('albert-cta-card')).toBeLessThan(json.indexOf('Explore'));
+      expect(json.indexOf('Explore')).toBeLessThan(json.indexOf('skill-card-skill-2'));
+    });
+
+    it('has no "Your tracks" heading above the learner\'s tracks', () => {
+      setMocks({ skills: [baseSkill, premiumSkill], enrollments: [activeEnrollment, { ...mockEnrollment, id: 'skill-2' }] });
+      render(<TracksScreen />);
+      expect(screen.queryByText('Your tracks')).toBeNull();
+    });
+
+    it('offers Albert, as a track-style card with the Albert mark and a button, to a learner with no Albert path, even one with tracks', () => {
+      setMocks({ skills: [baseSkill], enrollments: [activeEnrollment] });
+      render(<TracksScreen />);
+      const card = within(screen.getByTestId('albert-cta-card'));
+      expect(card.getByText('Want something built around your goals?')).toBeTruthy();
+      expect(card.getByText('Albert')).toBeTruthy();
+      expect(card.getByTestId('albert-mark')).toBeTruthy();
+      expect(card.getByText('Ask Albert')).toBeTruthy();
+    });
+
+    it('opens the Albert tab from the card\'s button too', () => {
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('albert-cta-btn'));
+      expect(mockPush).toHaveBeenCalledWith('/(tabs)/albert');
+    });
+
+    it('still offers Albert when every track is already joined and there is nothing to explore', () => {
+      setMocks({ skills: [baseSkill], enrollments: [activeEnrollment] });
+      render(<TracksScreen />);
+      expect(screen.getByTestId('albert-cta-card')).toBeTruthy();
+      expect(screen.queryByText('Explore')).toBeNull();
+    });
+
+    it('leaves the Albert link out once the learner has an Albert path, active or not', () => {
+      setMocks({ enrollments: [customPath] });
+      render(<TracksScreen />);
+      expect(screen.queryByTestId('albert-cta')).toBeNull();
+      expect(screen.queryByText('Want something built around your goals?')).toBeNull();
     });
 
     it('marks an Albert path in Your tracks with the Albert mark and the word Albert', () => {

@@ -1,3 +1,5 @@
+import { withoutEmDashes } from '@/lib/emDash';
+
 type BodyField = 'code' | 'message' | 'error';
 
 /** The body of a failed request's response, when the error carries one. */
@@ -20,7 +22,7 @@ export function extractError(err: unknown): string {
   if (transportCode === 'ECONNABORTED') return 'Request timed out. Please try again.';
   if (transportCode === 'ERR_NETWORK') return 'Network error. Please check your connection.';
   const data = responseData(err);
-  return stringField(data, 'message') || stringField(data, 'error') || 'Something went wrong. Please try again.';
+  return withoutEmDashes(stringField(data, 'message') || stringField(data, 'error') || 'Something went wrong. Please try again.');
 }
 
 /**

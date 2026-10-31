@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput } from 'react-native';
+import { StyleSheet, TextInput } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { TRACK_STATEMENT_MAX, type BuiltPlan, type BuiltPlanTopic, type RefinePlanRequest, type RefinedPlan } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';

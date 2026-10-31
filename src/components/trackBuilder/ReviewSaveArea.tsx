@@ -1,4 +1,5 @@
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import { ERROR_CODES, ERROR_MESSAGES, SAVE_LOCK, type SaveLock } from '@learning/shared';
 import { colors, font, fontSize } from '@/theme';
 import { Button } from '@/components/ui/Button';

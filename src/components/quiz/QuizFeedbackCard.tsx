@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/ui/Text';
 import type { QuizFeedback } from '@learning/shared';
 import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
 
@@ -95,7 +96,8 @@ const styles = StyleSheet.create({
   },
   explanationText: {
     fontFamily: font.regular,
-    fontSize:   fontSize.sm,
+    fontSize:   fontSize.base,
+    lineHeight: fontSize.base * 1.45,
     color:      colors.textOnBrand,
   },
   correctAnswerText: {
