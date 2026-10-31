@@ -233,7 +233,25 @@ describe('LessonDetailScreen', () => {
     expect(screen.queryByTestId('continue-btn')).toBeNull();
     expect(screen.queryByTestId('key-takeaway-btn')).toBeNull();
     expect(screen.getByTestId('lesson-completed-banner')).toHaveTextContent(LESSON_COMPLETED_BANNER);
-    expect(screen.getByTestId('lesson-quiz-btn')).toBeTruthy();
+  });
+
+  it('a completed lesson is looked over, not read through: tabs for summary, lesson and quiz, and no pinned action', () => {
+    (useLesson as jest.Mock).mockReturnValue({
+      isLoading: false, isError: false,
+      data: { ...mockLesson, quizCompleted: true },
+      error: null,
+    });
+    render(<LessonDetailScreen />);
+    expect(screen.getByTestId('completed-lesson-view')).toBeTruthy();
+    ['summary', 'lesson', 'quiz'].forEach((tab) => expect(screen.getByTestId(`lesson-tab-${tab}`)).toBeTruthy());
+    expect(screen.queryByTestId('lesson-quiz-btn')).toBeNull();
+    expect(screen.queryByTestId('key-takeaway-btn')).toBeNull();
+  });
+
+  it('a lesson that is not completed has no tabs', () => {
+    (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
+    render(<LessonDetailScreen />);
+    expect(screen.queryByTestId('completed-lesson-view')).toBeNull();
   });
 
   it('085a: no completed banner while a retake is in progress', () => {
@@ -435,11 +453,17 @@ describe('LessonDetailScreen', () => {
       expect(bg('key-takeaway-btn-wash')).toBe(colors.coral);
     });
 
-    it('Test My Knowledge is coral glass and Retake is not coral (096)', async () => {
+    it('Test My Knowledge is coral glass (096)', () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
+      render(<LessonDetailScreen />);
+      fireEvent.press(screen.getByTestId('key-takeaway-btn'));
+      expect(bg('lesson-quiz-btn-wash')).toBe(colors.coral);
+    });
+
+    it('Retake is not coral (096)', async () => {
       (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: completedLesson, error: null });
       render(<LessonDetailScreen />);
       await waitFor(() => expect(screen.getByTestId('lesson-retake-btn')).toBeTruthy());
-      expect(bg('lesson-quiz-btn-wash')).toBe(colors.coral);
       expect(bg('lesson-retake-btn')).not.toBe(colors.coral);
     });
   });
@@ -550,10 +574,15 @@ describe('LessonDetailScreen', () => {
 
     it('shows on a completed lesson, starts a pass and returns to the start of the lesson', async () => {
       (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: completed, error: null });
-      mutate.mockImplementation((_id, opts) => opts.onSuccess());
-      render(<LessonDetailScreen />);
+      // The hook puts the new pass in the cache on success (`lessonRetakeInProgress`), which ends the look-back view.
+      mutate.mockImplementation((_id, opts) => {
+        (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: { ...completed, lessonRetakeInProgress: true, resolvedQuizIds: [] }, error: null });
+        opts.onSuccess();
+      });
+      const { rerender } = render(<LessonDetailScreen />);
       await waitFor(() => expect(screen.getByTestId('lesson-retake-btn')).toBeTruthy());
       fireEvent.press(screen.getByTestId('lesson-retake-btn'));
+      rerender(<LessonDetailScreen />);
       expect(mutate).toHaveBeenCalledWith('lesson-1', expect.anything());
       expect(screen.getByTestId('key-takeaway-btn')).toBeTruthy();
       expect(lessonService.updatePosition).toHaveBeenCalledWith('lesson-1', 'expanded');

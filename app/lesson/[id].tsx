@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { isAxiosError } from 'axios';
@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/Button';
 import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
 import { KeyTakeawayBlock } from '@/components/ui/KeyTakeawayBlock';
 import { LessonPathHeader } from '@/components/learning/LessonPathHeader';
+import { LessonReading } from '@/components/learning/LessonReading';
+import { CompletedLessonView } from '@/components/learning/CompletedLessonView';
 import { Spinner } from '@/components/ui/Spinner';
 import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizModal } from '@/components/QuizModal';
@@ -21,7 +23,7 @@ import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import type { LessonPhase, UserPath } from '@learning/shared';
-import { LESSON_COMPLETED_BANNER, PREMIUM_LESSON_BUDGET, RETAKE_START_ERROR, lessonOpeningPhase } from '@learning/shared';
+import { PREMIUM_LESSON_BUDGET, lessonOpeningPhase } from '@learning/shared';
 import { extractError } from '@/lib/errors';
 
 /**
@@ -52,21 +54,6 @@ function flooredPct(path: UserPath): number {
   return path.completedLessons > 0
     ? Math.max(1, Math.round(path.percentComplete))
     : 0;
-}
-
-// Paragraphs are separated by a gap, not by the blank lines in the stored text.
-function paragraphsOf(raw: string): string[] {
-  return raw.split(/\n{2,}/).map((p) => p.trim()).filter((p) => p.length > 0);
-}
-
-function LessonBody({ raw }: { raw: string }) {
-  return (
-    <View testID="lesson-content" style={styles.contentBlock}>
-      {paragraphsOf(raw).map((paragraph, i) => (
-        <Text key={i} testID="lesson-paragraph" style={styles.contentText}>{paragraph}</Text>
-      ))}
-    </View>
-  );
 }
 
 function PremiumModal({
@@ -165,6 +152,8 @@ export default function LessonDetailScreen() {
   const lessonError = extractError(error);
 
   const retakeInProgress = !!lesson?.lessonRetakeInProgress;
+  // A completed lesson (and not mid-retake) is looked back over, not read through: summary, lesson and quiz, one tap apart.
+  const viewing = !!lesson?.quizCompleted && !retakeInProgress;
 
   // A new pass: POST /retake, restart the clock, and read the lesson again from the top.
   function handleRetake() {
@@ -186,7 +175,7 @@ export default function LessonDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <Stack.Screen options={header} />
-      <ScrollView contentContainerStyle={[styles.content, lesson && styles.contentPinned]}>
+      <ScrollView contentContainerStyle={[styles.content, lesson && !viewing && styles.contentPinned]}>
 
         {isLoading && (
           <View testID="loading-indicator">
@@ -228,48 +217,26 @@ export default function LessonDetailScreen() {
             />
 
             <View testID="lesson-card" style={styles.card}>
-              {(phase !== 'takeaway' || lesson.quizCompleted) && (
-                <View testID="lesson-title-row" style={[styles.titleRow, phase === 'takeaway' && styles.titleRowEnd]}>
-                  {phase !== 'takeaway' && <Text testID="lesson-title" style={styles.title}>{lesson.title}</Text>}
+              {(viewing || phase !== 'takeaway' || lesson.quizCompleted) && (
+                <View testID="lesson-title-row" style={[styles.titleRow, !viewing && phase === 'takeaway' && styles.titleRowEnd]}>
+                  {(viewing || phase !== 'takeaway') && <Text testID="lesson-title" style={styles.title}>{lesson.title}</Text>}
                   {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} />}
                 </View>
               )}
 
-              {phase === 'expanded' && !!lesson.mediaUrl && (
-                <Image
-                  testID="lesson-media"
-                  source={{ uri: lesson.mediaUrl }}
-                  style={styles.media}
-                  resizeMode="cover"
-                  accessibilityLabel="Lesson media"
+              {viewing && (
+                <CompletedLessonView
+                  lesson={lesson}
+                  onRetake={handleRetake}
+                  retaking={startRetake.isPending}
+                  retakeFailed={retakeFailed}
                 />
               )}
 
-              {phase === 'expanded' && <LessonBody raw={lesson.content} />}
+              {!viewing && phase === 'expanded' && <LessonReading content={lesson.content} mediaUrl={lesson.mediaUrl} />}
 
-              {phase === 'takeaway' && lesson.quizCompleted && !retakeInProgress && (
-                <View testID="lesson-completed-banner" style={styles.completedBanner}>
-                  <Text style={styles.completedBannerText}>{LESSON_COMPLETED_BANNER}</Text>
-                </View>
-              )}
-
-              {phase === 'takeaway' && !!lesson.keyTakeaway && (
+              {!viewing && phase === 'takeaway' && !!lesson.keyTakeaway && (
                 <KeyTakeawayBlock testID="key-takeaway" takeaway={lesson.keyTakeaway} />
-              )}
-
-              {phase === 'takeaway' && lesson.quizCompleted && !retakeInProgress && (
-                <Button
-                  testID="lesson-retake-btn"
-                  label="Retake lesson"
-                  variant="secondary"
-                  loading={startRetake.isPending}
-                  style={styles.quizBtn}
-                  onPress={handleRetake}
-                />
-              )}
-
-              {retakeFailed && (
-                <Text testID="retake-error" style={styles.error}>{RETAKE_START_ERROR}</Text>
               )}
             </View>
           </>
@@ -278,7 +245,7 @@ export default function LessonDetailScreen() {
       </ScrollView>
 
       {/* The lesson's main action floats over the copy, which scrolls behind its glass (096). */}
-      {lesson && (
+      {lesson && !viewing && (
         <PinnedAction>
           {phase === 'expanded' && (
             <Button
@@ -348,20 +315,6 @@ const styles = StyleSheet.create({
   },
   // The takeaway page has no title, so the rating control stays at the right edge on its own.
   titleRowEnd: { justifyContent: 'flex-end' },
-  media: {
-    width:        '100%',
-    height:       180,
-    borderRadius: 8,
-  },
-  contentBlock: {
-    gap: spacing.sm3,
-  },
-  contentText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.base,
-    color:      colors.textDark,
-    lineHeight: fontSize.base * 1.6,
-  },
   quizBtn:     { marginTop: spacing.sm },
   error: {
     fontFamily: font.regular,
@@ -415,17 +368,6 @@ const styles = StyleSheet.create({
     fontSize:   fontSize.sm,
     color:      colors.textMuted,
     textAlign:  'center',
-  },
-  completedBanner: {
-    backgroundColor: '#F0FDF4',
-    borderRadius:    8,
-    padding:         spacing.sm,
-    alignItems:      'center',
-  },
-  completedBannerText: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.base,
-    color:      '#16A34A',
   },
   teasersRemaining: {
     fontFamily: font.regular,

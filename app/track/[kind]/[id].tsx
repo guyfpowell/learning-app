@@ -1,8 +1,10 @@
 /**
  * Track detail screen — `/track/:kind/:id`
  *
- * Shows the track name, overall progress, a primary lesson action, and the
- * TrackContentsTree. A full-screen push in the root Stack (ADR-016), with a native header.
+ * For looking a path over, one step at a time: the levels (with the name and overall progress),
+ * a level's topics, a topic's lessons, a lesson's summary. The step is in the route's query
+ * (`?group=&topic=&lesson=`), so each is its own page and Back goes up one.
+ * A full-screen push in the root Stack (ADR-016), with a native header.
  */
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -13,18 +15,24 @@ import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Progress } from '@/components/ui/Progress';
 import { PremiumModal } from '@/components/ui/PremiumModal';
-import { TrackContentsTree } from '@/components/learning/TrackContentsTree';
+import { TrackContentsList } from '@/components/learning/TrackContentsList';
+import { LessonSummary } from '@/components/learning/LessonSummary';
+import { RenamableHeading } from '@/components/learning/RenamableHeading';
 import { useTrackContents, usePaths, useEnroll } from '@/hooks/useTrack';
+import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
 import { useDetailHeader } from '@/hooks/useDetailHeader';
 import { extractError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import type { TrackContentsLesson, UserPathKind } from '@learning/shared';
-import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
+import { HOME_ROUTE, lessonRoute, trackRoute } from '@/lib/routes';
+import { capitalize } from '@/lib/capitalize';
+import { resolveTrackView, trackViewOfParams, type ResolvedTrackView, type TrackView } from '@/lib/trackView';
 
 export default function TrackDetailScreen() {
   const router = useRouter();
   const header = useDetailHeader('Track');
-  const { kind, id } = useLocalSearchParams<{ kind: string; id: string }>();
+  const params = useLocalSearchParams<{ kind: string; id: string; group?: string; topic?: string; lesson?: string }>();
+  const { kind, id } = params;
   const pathKind = kind as UserPathKind;
 
   const {
@@ -36,12 +44,17 @@ export default function TrackDetailScreen() {
 
   const { data: paths } = usePaths();
   const enroll = useEnroll();
+  const updatePlan = useUpdateTrackPlan();
+
+  /** A custom path's id is its plan's id. */
+  async function renamePath(name: string) {
+    await updatePlan.mutateAsync({ id, name });
+  }
 
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
 
-  // Find this path's live progress data (needed for nextLesson + percent).
+  // Find this path's live progress data (needed for the percent).
   const matchingPath = paths?.find((p) => p.kind === pathKind && p.id === id) ?? null;
-  const nextLesson = matchingPath?.nextLesson ?? null;
   const percentComplete = matchingPath?.percentComplete ?? 0;
   const isEnrolled = contents?.enrolled ?? false;
 
@@ -52,6 +65,10 @@ export default function TrackDetailScreen() {
       return;
     }
     router.push(lessonRoute(lesson.id));
+  }
+
+  function openView(next: TrackView) {
+    router.push(trackRoute(pathKind, id, next));
   }
 
   // ── Loading / error ──────────────────────────────────────────────────────
@@ -78,58 +95,56 @@ export default function TrackDetailScreen() {
     );
   }
 
-  // ── Primary action ────────────────────────────────────────────────────────
+  // ── The step asked for ────────────────────────────────────────────────────
 
-  const lessonLabel = nextLesson?.resumePhase ? 'Continue lesson' : 'Start lesson';
+  const view = resolveTrackView(contents, trackViewOfParams(params));
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <Stack.Screen options={header} />
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Heading */}
-        <Text style={styles.heading}>{contents.name}</Text>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {view.level === 'levels' ? (
+          <>
+            <RenamableHeading name={contents.name} onSave={pathKind === 'custom' ? renamePath : null} />
 
-        {/* Overall progress */}
-        {matchingPath && (
-          <View testID="track-detail-progress" style={styles.progressBlock}>
-            <Text style={styles.progressLabel}>
-              {matchingPath.completedLessons} of {matchingPath.totalLessons} lessons
-            </Text>
-            <Progress value={percentComplete} tone="brand" height={6} />
-          </View>
+            {matchingPath && (
+              <View testID="track-detail-progress" style={styles.progressBlock}>
+                <Text style={styles.progressLabel}>
+                  {matchingPath.completedLessons} of {matchingPath.totalLessons} lessons
+                </Text>
+                <Progress value={percentComplete} tone="brand" height={6} />
+              </View>
+            )}
+
+            {/* Enrol: the one action here, for a curated track you have not started */}
+            {!isEnrolled && pathKind === 'track' && (
+              <Button
+                testID="track-detail-enrol-btn"
+                label="Enrol"
+                loading={enroll.isPending}
+                onPress={() =>
+                  enroll.mutate(id, {
+                    onSuccess: () => router.push(HOME_ROUTE),
+                  })
+                }
+                style={styles.actionBtn}
+              />
+            )}
+          </>
+        ) : (
+          <Text testID="track-detail-subheading" style={styles.subHeading}>{subHeadingOf(view)}</Text>
         )}
 
-        {/* Primary action */}
-        {isEnrolled && nextLesson && (
-          <Button
-            testID="track-detail-start-btn"
-            label={lessonLabel}
-            onPress={() => router.push(lessonRoute(nextLesson.id))}
-            style={styles.actionBtn}
-          />
-        )}
-
-        {!isEnrolled && pathKind === 'track' && (
-          <Button
-            testID="track-detail-enrol-btn"
-            label="Enrol"
-            loading={enroll.isPending}
-            onPress={() =>
-              enroll.mutate(id, {
-                onSuccess: () => router.push(HOME_ROUTE),
-              })
-            }
-            style={styles.actionBtn}
-          />
-        )}
-
-        {/* Contents tree */}
-        <View style={styles.treeContainer}>
-          <TrackContentsTree
+        {view.level === 'summary' ? (
+          <LessonSummary lesson={view.lesson} />
+        ) : (
+          <TrackContentsList
             contents={contents}
+            view={view}
+            onOpen={openView}
             onLessonPress={handleLessonPress}
           />
-        </View>
+        )}
       </ScrollView>
 
       <PremiumModal
@@ -144,17 +159,19 @@ export default function TrackDetailScreen() {
   );
 }
 
+/** The heading of a step inside the path: the level, the topic, or the lesson. */
+function subHeadingOf(view: Exclude<ResolvedTrackView, { level: 'levels' }>): string {
+  switch (view.level) {
+    case 'topics':  return capitalize(view.group.label);
+    case 'lessons': return view.topic.name;
+    case 'summary': return view.lesson.title;
+  }
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
   content:   { padding: spacing.md, flexGrow: 1 },
   centred:   { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-
-  heading: {
-    fontFamily: font.display,
-    fontSize: fontSize.xl,
-    color: colors.textStrong,
-    marginBottom: spacing.md,
-  },
 
   progressBlock: {
     gap: spacing.xs,
@@ -170,8 +187,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
 
-  treeContainer: {
-    gap: spacing.sm,
+  // Smaller than the path's name: a level can be a whole sentence.
+  subHeading: {
+    fontFamily: font.display,
+    fontSize: fontSize.lg,
+    color: colors.textStrong,
+    marginBottom: spacing.md,
   },
 
   errorText: {

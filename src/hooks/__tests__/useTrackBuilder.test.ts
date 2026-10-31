@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { useCreateTrackPlan, useUpdateTrackPlan } from '../useTrackBuilder';
-import { CURRENT_USER_QUERY_KEY, TRACK_PLANS_QUERY_KEY } from '@/lib/queryKeys';
+import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, TRACK_PLANS_QUERY_KEY } from '@/lib/queryKeys';
 import { trackBuilderService } from '@/services/trackBuilder.service';
 import { ERROR_CODES } from '@learning/shared';
 
@@ -64,5 +64,16 @@ describe('useUpdateTrackPlan', () => {
     act(() => result.current.mutate({ id: 'p1', status: 'archived' }));
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: CURRENT_USER_QUERY_KEY });
+  });
+
+  it('renames a path and refreshes everywhere the name shows: plans, paths and the track screen', async () => {
+    (trackBuilderService.updateTrackPlan as jest.Mock).mockResolvedValue({ id: 'p1', name: 'Director path' });
+    const { result, invalidate } = setup();
+    act(() => result.current.mutate({ id: 'p1', name: 'Director path' }));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(trackBuilderService.updateTrackPlan).toHaveBeenCalledWith('p1', { name: 'Director path' });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: TRACK_PLANS_QUERY_KEY });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: PATHS_QUERY_KEY });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: TRACK_CONTENTS_QUERY_KEY });
   });
 });

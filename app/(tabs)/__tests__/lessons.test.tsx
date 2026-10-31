@@ -8,7 +8,7 @@ import { useCurrentUser } from '@/hooks/useEmailVerification';
 import type { SessionUser } from '@learning/shared';
 import { makeCustomPath } from '@/test-utils/paths';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
-import { TRACKS_ROUTE } from '@/lib/routes';
+import { TRACKS_ROUTE, trackRoute } from '@/lib/routes';
 import { TAB_BAR_CLEARANCE } from '@/lib/safeArea';
 import { ScrollView, StyleSheet } from 'react-native';
 
@@ -338,6 +338,13 @@ describe('LessonsScreen', () => {
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('next-lesson-btn-skill-1'));
       expect(mockPush).toHaveBeenCalledWith('/lesson/lesson-1');
+    });
+
+    it('opens the track page when the progress card is pressed, as the Tracks cards do', () => {
+      setEnrollmentsMock([mockEnrollment]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByLabelText(/^Open /));
+      expect(mockPush).toHaveBeenCalledWith(trackRoute('track', 'skill-1'));
     });
 
     it('shows "No lessons available yet." when nextLesson is null', () => {

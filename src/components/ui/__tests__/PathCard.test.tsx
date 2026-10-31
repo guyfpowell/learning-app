@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { TrackLevelProgress } from '@learning/shared';
 import { PathCard, type PathCardVariant } from '../PathCard';
 import { makeTrackPath } from '@/test-utils/paths';
@@ -34,5 +34,21 @@ describe('PathCard progress card text (091d)', () => {
     expect(screen.getByText('30% complete')).toBeTruthy();
     expect(screen.getByText('Beginner')).toBeTruthy();
     expect(screen.getByTestId('enrollment-card-skill-1')).toBeTruthy();
+  });
+});
+
+describe('PathCard opening the track', () => {
+  const path = makeTrackPath({ id: 'skill-1', name: 'Product Strategy' });
+
+  it('opens the path when the progress card is pressed', () => {
+    const onOpen = jest.fn();
+    render(<PathCard path={path} onStartLesson={jest.fn()} onSkip={jest.fn()} onOpen={onOpen} />);
+    fireEvent.press(screen.getByLabelText('Open Product Strategy'));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not pressable when the caller gives nothing to open', () => {
+    render(<PathCard path={path} onStartLesson={jest.fn()} onSkip={jest.fn()} />);
+    expect(screen.queryByLabelText('Open Product Strategy')).toBeNull();
   });
 });

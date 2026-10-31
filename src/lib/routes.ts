@@ -1,4 +1,5 @@
 import type { UserPathKind } from '@learning/shared';
+import { trackViewQuery, type TrackView } from './trackView';
 
 /** Screens more than one place navigates to. The paywall's route is `PAYWALL_ROUTE` in `subscriptions.ts`. */
 export const HOME_ROUTE = '/(tabs)/lessons';
@@ -11,7 +12,7 @@ export function lessonRoute(lessonId: string) {
   return `/lesson/${lessonId}` as const;
 }
 
-/** One path's detail screen; `kind` is `track` (curated) or `custom`. */
-export function trackRoute(kind: UserPathKind, id: string) {
-  return `/track/${kind}/${id}` as const;
+/** One path's detail screen; `kind` is `track` (curated) or `custom`. A `view` opens a level, topic or lesson inside it. */
+export function trackRoute(kind: UserPathKind, id: string, view: TrackView = {}) {
+  return `/track/${kind}/${id}${trackViewQuery(view)}` as const;
 }

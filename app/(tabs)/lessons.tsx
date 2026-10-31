@@ -15,7 +15,7 @@ import { PathEndSection } from '@/components/albert/PathEndSection';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { PATHS_LOAD_ERROR } from '@learning/shared';
-import { TRACKS_ROUTE, lessonRoute } from '@/lib/routes';
+import { TRACKS_ROUTE, lessonRoute, trackRoute } from '@/lib/routes';
 
 /** The streak banner shows from this many days on. */
 const STREAK_BANNER_AFTER_DAYS = 3;
@@ -91,6 +91,7 @@ export default function LessonsScreen() {
           <PathCard
             variant="hero"
             path={activePath}
+            onOpen={() => router.push(trackRoute(activePath.kind, activePath.id))}
             onStartLesson={id => router.push(lessonRoute(id))}
             onSkip={skip.skip}
             skipPending={skip.pendingScope(activePath)}
@@ -103,6 +104,7 @@ export default function LessonsScreen() {
           <>
             <PathCard
               path={lastPath}
+              onOpen={() => router.push(trackRoute(lastPath.kind, lastPath.id))}
               onStartLesson={id => router.push(lessonRoute(id))}
               onSkip={skip.skip}
               skipPending={skip.pendingScope(lastPath)}

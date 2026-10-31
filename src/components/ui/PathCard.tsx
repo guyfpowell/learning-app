@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { StyleSheet, Text, View, type DimensionValue } from 'react-native';
+import { useState, type ReactElement } from 'react';
+import { Pressable, StyleSheet, Text, View, type DimensionValue } from 'react-native';
 import { colors, font, fontSize, shadow, spacing, tracking } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { AlbertMark } from '@/components/albert/AlbertMark';
@@ -63,6 +63,8 @@ interface PathCardProps {
   skipPending?: SkipScope | null;
   /** `hero` draws the next-lesson card as a cobalt brand moment (Home's active path). */
   variant?: PathCardVariant;
+  /** Makes the progress card open the path's track page. */
+  onOpen?: () => void;
 }
 
 /**
@@ -76,7 +78,7 @@ interface PathCardProps {
  * the unresolved-topics note, which only a plan can have.
  */
 export function PathCard({
-  path, onStartLesson, onSkip, skipPending, variant = 'default',
+  path, onStartLesson, onSkip, skipPending, variant = 'default', onOpen,
 }: PathCardProps) {
   const [choosing, setChoosing] = useState<SkipScope | null>(null);
   const pct = flooredPct(path);
@@ -115,10 +117,15 @@ export function PathCard({
     </>
   );
 
+  /** The progress card opens the path when the caller says where it goes. */
+  const wrapOpen = (card: ReactElement) => (onOpen ? (
+    <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`Open ${path.name}`}>{card}</Pressable>
+  ) : card);
+
   return (
     <>
       {/* Progress card — renders first (076g card order: streak → path progress → next lesson). */}
-      <Card testID={`enrollment-card-${path.id}`} style={[styles.enrollmentCard, hero && styles.heroProgressCard]}>
+      {wrapOpen(<Card testID={`enrollment-card-${path.id}`} style={[styles.enrollmentCard, hero && styles.heroProgressCard]}>
         <View style={styles.enrollmentHeader}>
           {/* An Albert path is marked by Albert's mark before its name, not a chip (096). */}
           <View style={styles.titleGroup}>
@@ -159,7 +166,7 @@ export function PathCard({
             No lessons available yet.
           </Text>
         )}
-      </Card>
+      </Card>)}
 
       {/* Next-lesson card — renders second. Path identity lives in the progress card above (076g §3).
           The hero is cobalt, so its skip controls sit on paper beneath it (no brand button on brand). */}

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { trackBuilderService } from '@/services/trackBuilder.service';
 import { errorCode } from '@/lib/errors';
-import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_PLANS_QUERY_KEY } from '@/lib/queryKeys';
+import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, TRACK_PLANS_QUERY_KEY } from '@/lib/queryKeys';
 import { ERROR_CODES, type BuildPlanRequest, type CreateTrackPlanRequest, type RefinePlanRequest, type UpdateTrackPlanRequest } from '@learning/shared';
 
 /**
@@ -53,18 +53,21 @@ export function useTrackPlans() {
   });
 }
 
-/** Archive a custom plan via `PUT /track-plans/:id`. Invalidates the same plan
- *  and enrollment keys as `useCreateTrackPlan` so Paths, Home and Tracks all refresh.
- *  Not /me on success: archiving does not give back the Albert allowance (079a). The trial-over 409
+/** Archive or rename a custom plan via `PUT /track-plans/:id`. Invalidates the same plan
+ *  and enrollment keys as `useCreateTrackPlan` so Paths, Home and Tracks all refresh, and
+ *  the track screens, which show the name.
+ *  Not /me on success: neither archiving nor renaming gives back the Albert allowance (079a). The trial-over 409
  *  (079i3) means the cached session was stale, so /me is read again and never retried. */
 export function useUpdateTrackPlan() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...patch }: { id: string } & Required<Pick<UpdateTrackPlanRequest, 'status'>>) =>
-      trackBuilderService.updateTrackPlan(id, patch),
+    mutationFn: ({ id, ...patch }: { id: string } & (
+      Required<Pick<UpdateTrackPlanRequest, 'status'>> | Required<Pick<UpdateTrackPlanRequest, 'name'>>
+    )) => trackBuilderService.updateTrackPlan(id, patch),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: TRACK_PLANS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: TRACK_CONTENTS_QUERY_KEY });
     },
     onError: err => {
       if (errorCode(err) === ERROR_CODES.FRESH_PATH_TRIAL_OVER) void queryClient.invalidateQueries({ queryKey: CURRENT_USER_QUERY_KEY });

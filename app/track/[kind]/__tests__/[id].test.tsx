@@ -1,14 +1,17 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import TrackDetailScreen from '../[id]';
 import { useTrackContents, usePaths, useEnroll } from '@/hooks/useTrack';
+import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
+import { trackRoute } from '@/lib/routes';
 import type { TrackContents, UserPath } from '@learning/shared';
 
 const mockPush = jest.fn();
+let mockParams: Record<string, string> = { kind: 'track', id: 'skill-1' };
 jest.mock('expo-router', () => ({
   Stack:               { Screen: () => null },
   useRouter:           () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), canGoBack: () => true }),
-  useLocalSearchParams: () => ({ kind: 'track', id: 'skill-1' }),
+  useLocalSearchParams: () => mockParams,
 }));
 
 jest.mock('@/hooks/useTrack', () => ({
@@ -17,16 +20,12 @@ jest.mock('@/hooks/useTrack', () => ({
   useEnroll:        jest.fn(),
 }));
 
-// Stub the tree — its own tests cover it; here we just confirm it renders.
-jest.mock('@/components/learning/TrackContentsTree', () => ({
-  TrackContentsTree: ({ contents }: { contents: TrackContents }) => {
-    const { View, Text } = require('react-native');
-    return (
-      <View testID="track-contents-tree">
-        <Text testID="tree-kind">{contents.kind}</Text>
-      </View>
-    );
-  },
+jest.mock('@/hooks/useTrackBuilder', () => ({
+  useUpdateTrackPlan: jest.fn(),
+}));
+
+jest.mock('@/hooks/useLesson', () => ({
+  useLesson: () => ({ data: { id: 'l-2', summary: 'What the PM owns in a launch.' }, isLoading: false, isError: false }),
 }));
 
 jest.mock('@/components/ui/PremiumModal', () => ({
@@ -80,6 +79,20 @@ const mockPath: UserPath = {
 };
 
 const mockEnroll = { mutate: jest.fn(), isPending: false };
+const mockUpdatePlan = { mutateAsync: jest.fn() };
+
+const doneLesson = { id: 'l-1', title: 'Done lesson', lessonNumber: 1, status: 'complete' as const, locked: false };
+const nextLesson = { id: 'l-2', title: 'Next lesson', lessonNumber: 2, status: 'not-started' as const, locked: false };
+
+function withGroups(): TrackContents {
+  return {
+    ...mockContents,
+    groups: [{
+      key: 'beginner', label: 'beginner', completedLessons: 1, totalLessons: 2, isCurrent: true,
+      topics: [{ key: 'topic-1', name: 'Introduction', completedLessons: 1, totalLessons: 2, isCurrent: true, unresolved: false, lessons: [doneLesson, nextLesson] }],
+    }],
+  };
+}
 
 function setMocks({
   contents       = mockContents as TrackContents | undefined,
@@ -94,12 +107,33 @@ function setMocks({
   });
   (usePaths as jest.Mock).mockReturnValue({ data: paths, isLoading: pathsLoading });
   (useEnroll as jest.Mock).mockReturnValue(enroll);
+  (useUpdateTrackPlan as jest.Mock).mockReturnValue(mockUpdatePlan);
 }
 
 describe('TrackDetailScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockParams = { kind: 'track', id: 'skill-1' };
+    mockUpdatePlan.mutateAsync.mockResolvedValue({});
     setMocks();
+  });
+
+  // ── Rename ─────────────────────────────────────────────────────────────────
+
+  it('lets the learner rename their own (custom) path by tapping its name', async () => {
+    mockParams = { kind: 'custom', id: 'plan-1' };
+    setMocks({ contents: { ...mockContents, kind: 'custom', id: 'plan-1', name: 'Head of refresher' } });
+    render(<TrackDetailScreen />);
+    fireEvent.press(screen.getByTestId('track-detail-heading'));
+    fireEvent.changeText(screen.getByTestId('rename-input'), 'Director path');
+    await act(async () => { fireEvent(screen.getByTestId('rename-input'), 'submitEditing'); });
+    expect(mockUpdatePlan.mutateAsync).toHaveBeenCalledWith({ id: 'plan-1', name: 'Director path' });
+  });
+
+  it('leaves a curated track\'s name alone: tapping it does nothing', () => {
+    render(<TrackDetailScreen />);
+    fireEvent.press(screen.getByTestId('track-detail-heading'));
+    expect(screen.queryByTestId('rename-input')).toBeNull();
   });
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -109,10 +143,81 @@ describe('TrackDetailScreen', () => {
     expect(screen.getByText('Product Strategy')).toBeTruthy();
   });
 
-  it('renders the TrackContentsTree with contents', () => {
+  it('lists the levels, with no topics or lessons on the same page', () => {
+    setMocks({ contents: withGroups() });
     render(<TrackDetailScreen />);
-    expect(screen.getByTestId('track-contents-tree')).toBeTruthy();
-    expect(screen.getByTestId('tree-kind')).toBeTruthy();
+    expect(screen.getByText('Beginner')).toBeTruthy();
+    expect(screen.queryByText('Introduction')).toBeNull();
+    expect(screen.queryByText('Done lesson')).toBeNull();
+  });
+
+  // ── One step at a time ─────────────────────────────────────────────────────
+
+  it('opens a level as its own page when it is tapped', () => {
+    setMocks({ contents: withGroups() });
+    render(<TrackDetailScreen />);
+    fireEvent.press(screen.getByTestId('group-row-beginner'));
+    expect(mockPush).toHaveBeenCalledWith(trackRoute('track', 'skill-1', { group: 'beginner' }));
+  });
+
+  it('shows a level\'s topics, under the level\'s name and without the path\'s progress', () => {
+    mockParams = { kind: 'track', id: 'skill-1', group: 'beginner' };
+    setMocks({ contents: withGroups() });
+    render(<TrackDetailScreen />);
+    expect(screen.getByTestId('track-detail-subheading').props.children).toBe('Beginner');
+    expect(screen.getByText('Introduction')).toBeTruthy();
+    expect(screen.queryByTestId('track-detail-progress')).toBeNull();
+  });
+
+  it('shows a topic\'s lessons', () => {
+    mockParams = { kind: 'track', id: 'skill-1', group: 'beginner', topic: 'topic-1' };
+    setMocks({ contents: withGroups() });
+    render(<TrackDetailScreen />);
+    expect(screen.getByTestId('track-detail-subheading').props.children).toBe('Introduction');
+    expect(screen.getByText('Done lesson')).toBeTruthy();
+    expect(screen.getByText('Next lesson')).toBeTruthy();
+  });
+
+  it('opens a completed lesson itself', () => {
+    mockParams = { kind: 'track', id: 'skill-1', group: 'beginner', topic: 'topic-1' };
+    setMocks({ contents: withGroups() });
+    render(<TrackDetailScreen />);
+    fireEvent.press(screen.getByTestId('lesson-row-l-1'));
+    expect(mockPush).toHaveBeenCalledWith('/lesson/l-1');
+  });
+
+  it('opens the upgrade, not the lesson, for a completed lesson that is locked', () => {
+    mockParams = { kind: 'track', id: 'skill-1', group: 'beginner', topic: 'topic-1' };
+    const base = withGroups();
+    const gated: TrackContents = {
+      ...base,
+      groups: base.groups.map((g) => ({
+        ...g,
+        topics: g.topics.map((t) => ({ ...t, lessons: t.lessons.map((l) => (l.id === 'l-1' ? { ...l, locked: true } : l)) })),
+      })),
+    };
+    setMocks({ contents: gated });
+    render(<TrackDetailScreen />);
+    fireEvent.press(screen.getByTestId('lesson-row-l-1'));
+    expect(screen.getByTestId('premium-modal')).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('opens the summary page for a lesson not yet done, and never the lesson', () => {
+    mockParams = { kind: 'track', id: 'skill-1', group: 'beginner', topic: 'topic-1' };
+    setMocks({ contents: withGroups() });
+    render(<TrackDetailScreen />);
+    fireEvent.press(screen.getByTestId('lesson-row-l-2'));
+    expect(mockPush).toHaveBeenCalledWith(trackRoute('track', 'skill-1', { group: 'beginner', topic: 'topic-1', lesson: 'l-2' }));
+  });
+
+  it('shows a lesson\'s summary, with nothing to start it', () => {
+    mockParams = { kind: 'track', id: 'skill-1', group: 'beginner', topic: 'topic-1', lesson: 'l-2' };
+    setMocks({ contents: withGroups() });
+    render(<TrackDetailScreen />);
+    expect(screen.getByTestId('track-detail-subheading').props.children).toBe('Next lesson');
+    expect(screen.getByText('What the PM owns in a launch.')).toBeTruthy();
+    expect(screen.queryByText(/start lesson|continue lesson/i)).toBeNull();
   });
 
   it('shows overall progress', () => {
@@ -134,44 +239,12 @@ describe('TrackDetailScreen', () => {
     expect(screen.getByTestId('track-detail-error')).toBeTruthy();
   });
 
-  // ── Primary action — enrolled with next lesson ─────────────────────────────
+  // ── No primary action when enrolled ────────────────────────────────────────
 
-  const nextLessonBase = {
-    id: 'lesson-1', skillPathId: 'sp-1', title: 'Test', content: 'x',
-    durationMinutes: 5, difficulty: 'beginner' as const, lessonNumber: 1, isTeaser: false,
-    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-  };
-
-  it('shows Start lesson when nextLesson.resumePhase is null', () => {
-    const pathWithLesson: UserPath = {
-      ...mockPath,
-      nextLesson: { ...nextLessonBase, resumePhase: null },
-    };
-    setMocks({ paths: [pathWithLesson] });
+  it('has no Start or Continue lesson button: the page is for looking over the path', () => {
     render(<TrackDetailScreen />);
-    // Button renders label.toUpperCase()
-    expect(screen.getByText('Start lesson')).toBeTruthy();
-  });
-
-  it('shows Continue lesson when nextLesson.resumePhase is set', () => {
-    const pathWithLesson: UserPath = {
-      ...mockPath,
-      nextLesson: { ...nextLessonBase, resumePhase: 'expanded' },
-    };
-    setMocks({ paths: [pathWithLesson] });
-    render(<TrackDetailScreen />);
-    expect(screen.getByText('Continue lesson')).toBeTruthy();
-  });
-
-  it('navigates to lesson screen when Start lesson is tapped', () => {
-    const pathWithLesson: UserPath = {
-      ...mockPath,
-      nextLesson: { ...nextLessonBase, resumePhase: null },
-    };
-    setMocks({ paths: [pathWithLesson] });
-    render(<TrackDetailScreen />);
-    fireEvent.press(screen.getByTestId('track-detail-start-btn'));
-    expect(mockPush).toHaveBeenCalledWith('/lesson/lesson-1');
+    expect(screen.queryByTestId('track-detail-start-btn')).toBeNull();
+    expect(screen.queryByText(/start lesson|continue lesson/i)).toBeNull();
   });
 
   // ── Primary action — not enrolled ─────────────────────────────────────────
