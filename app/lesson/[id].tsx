@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { isAxiosError } from 'axios';
 import * as Sentry from '@sentry/react-native';
 import type { ApiErrorResponse, PremiumRequiredDetails } from '@learning/shared';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize, lineHeight, press, spacing, trackingEm } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
+import { EdgeButton } from '@/components/ui/EdgeButton';
+import { HeroBackground } from '@/components/ui/HeroBackground';
 import { KeyTakeawayBlock } from '@/components/ui/KeyTakeawayBlock';
-import { LessonPathHeader } from '@/components/learning/LessonPathHeader';
+import { LessonPositionHeader } from '@/components/learning/LessonPositionHeader';
 import { LessonReading } from '@/components/learning/LessonReading';
 import { CompletedLessonView } from '@/components/learning/CompletedLessonView';
 import { Spinner } from '@/components/ui/Spinner';
@@ -23,9 +26,15 @@ import { useDetailHeader } from '@/hooks/useDetailHeader';
 import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
-import type { LessonPhase, UserPath } from '@learning/shared';
+import type { LessonPhase } from '@learning/shared';
 import { PREMIUM_LESSON_BUDGET, lessonOpeningPhase } from '@learning/shared';
 import { extractError } from '@/lib/errors';
+
+/** The takeaway block is centred between the header and the button, then dropped this far below the centre. */
+const TAKEAWAY_DROP = spacing.lg;
+
+/** How far the takeaway page's text starts below the status bar: the transparent header's height. */
+const TAKEAWAY_HEADER_CLEARANCE = 56;
 
 /**
  * The lesson opens on the full text, never the summary-only step (096): the Home hero already shows the
@@ -49,12 +58,6 @@ function isTeaserLimitError(error: unknown): boolean {
 
 function isNotFoundError(error: unknown): boolean {
   return isAxiosError(error) && error.response?.status === 404;
-}
-
-function flooredPct(path: UserPath): number {
-  return path.completedLessons > 0
-    ? Math.max(1, Math.round(path.percentComplete))
-    : 0;
 }
 
 function PremiumModal({
@@ -110,11 +113,24 @@ export default function LessonDetailScreen() {
   const [quizVisible, setQuizVisible] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [phase, setPhase] = useState<LessonPhase>('expanded');
+  const insets = useSafeAreaInsets();
+  const retakeInProgress = !!lesson?.lessonRetakeInProgress;
+  // A completed lesson (and not mid-retake) is looked back over, not read through: summary, lesson and quiz, one tap apart.
+  const viewing = !!lesson?.quizCompleted && !retakeInProgress;
+  // The takeaway page turns the whole screen cobalt (the 2026-11 design); without a takeaway it stays plain.
+  const takeawayPage = !viewing && phase === 'takeaway' && !!lesson?.keyTakeaway;
+  const position = lesson?.topicName && lesson.lessonIndex != null && lesson.totalLessons != null && lesson.totalLessons > 0
+    ? { index: lesson.lessonIndex, total: lesson.totalLessons }
+    : null;
   // No header title on the lesson page: the screen's own heading carries the lesson's name.
-  // On the takeaway page the header says "Key takeaway", small and muted (096).
+  // On the takeaway page the screen is named "Key takeaway"; over the colour the header shows where the lesson sits.
   const header = {
-    ...useDetailHeader(phase === 'takeaway' ? 'Key takeaway' : ''),
-    headerTitleStyle: { fontFamily: font.regular, fontSize: fontSize.md, color: colors.textMuted },
+    // The header's centre says where the lesson sits: plain text over the takeaway's colour, with its segments on the page.
+    ...(position ? { headerTitle: takeawayPage ? `Lesson ${position.index} of ${position.total}` : () => <LessonPositionHeader index={position.index} total={position.total} level={lesson?.skillPath?.level ?? 'intermediate'} /> } : {}),
+    ...useDetailHeader(phase === 'takeaway' ? 'Key takeaway' : '', takeawayPage),
+    headerTitleStyle: takeawayPage
+      ? { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.brandSoft }
+      : { fontFamily: font.regular, fontSize: fontSize.md, color: colors.textMuted },
   };
   const startRetake = useStartRetake();
   const clock = useLessonClock();
@@ -140,21 +156,10 @@ export default function LessonDetailScreen() {
     updatePosition(lesson.id, initial);
   }, [lesson?.id, lesson?.quizCompleted, paths]);
 
-  // The progress bar belongs to the track this lesson sits in. A custom path can
-  // contain the same lesson, but the lesson's own skill is what it is a part of.
-  const enrollment = lesson?.skillPath?.skillId
-    ? paths?.find(p => p.kind === 'track' && p.id === lesson.skillPath?.skillId)
-    : undefined;
-  const pct = enrollment ? flooredPct(enrollment) : null;
-
   const showPremiumError = isError && isPremiumError(error);
   const showNotFound = isError && isNotFoundError(error);
   // The server's message or fixed copy, never the transport's own text ("Network Error").
   const lessonError = extractError(error);
-
-  const retakeInProgress = !!lesson?.lessonRetakeInProgress;
-  // A completed lesson (and not mid-retake) is looked back over, not read through: summary, lesson and quiz, one tap apart.
-  const viewing = !!lesson?.quizCompleted && !retakeInProgress;
 
   // A new pass: POST /retake, restart the clock, and read the lesson again from the top.
   function handleRetake() {
@@ -174,9 +179,15 @@ export default function LessonDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={[styles.container, takeawayPage && styles.onColour]} edges={['left', 'right', 'bottom']}>
       <Stack.Screen options={header} />
-      <ScrollView contentContainerStyle={[styles.content, lesson && !viewing && styles.contentPinned]}>
+      {takeawayPage && (
+        <>
+          <StatusBar style="light" />
+          <HeroBackground level="intermediate" testID="takeaway-colour" />
+        </>
+      )}
+      <ScrollView contentContainerStyle={[styles.content, lesson && !viewing && styles.contentPinned, takeawayPage && [styles.contentOnColour, { paddingTop: insets.top + TAKEAWAY_HEADER_CLEARANCE + 2 * TAKEAWAY_DROP }]]}>
 
         {isLoading && (
           <View testID="loading-indicator">
@@ -208,20 +219,11 @@ export default function LessonDetailScreen() {
 
         {lesson && (
           <>
-            <LessonPathHeader
-              level={lesson.skillPath?.level}
-              levelLabel={lesson.skillPath?.levelLabel}
-              topicName={lesson.topicName}
-              lessonIndex={lesson.lessonIndex}
-              totalLessons={lesson.totalLessons}
-              path={enrollment && pct !== null ? { name: enrollment.name, percentComplete: pct } : undefined}
-            />
-
             <View testID="lesson-card" style={styles.card}>
               {(viewing || phase !== 'takeaway' || lesson.quizCompleted) && (
                 <View testID="lesson-title-row" style={[styles.titleRow, !viewing && phase === 'takeaway' && styles.titleRowEnd]}>
                   {(viewing || phase !== 'takeaway') && <Text testID="lesson-title" style={styles.title}>{lesson.title}</Text>}
-                  {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} />}
+                  {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} color={takeawayPage ? colors.white : undefined} />}
                 </View>
               )}
 
@@ -236,10 +238,20 @@ export default function LessonDetailScreen() {
 
               {!viewing && phase === 'expanded' && <LessonReading content={lesson.content} mediaUrl={lesson.mediaUrl} />}
 
-              {!viewing && phase === 'takeaway' && !!lesson.keyTakeaway && (
-                <KeyTakeawayBlock testID="key-takeaway" takeaway={lesson.keyTakeaway} />
+              {takeawayPage && lesson.keyTakeaway && (
+                <>
+                  <Text style={styles.takeawayLabel}>KEY TAKEAWAY</Text>
+                  <KeyTakeawayBlock testID="key-takeaway" takeaway={lesson.keyTakeaway} onColour />
+                  {!!lesson.topicName && (
+                    <>
+                      <View style={styles.takeawayRule} />
+                      <Text testID="takeaway-topic" style={styles.takeawayTopic}>{lesson.topicName}</Text>
+                    </>
+                  )}
+                </>
               )}
             </View>
+
           </>
         )}
 
@@ -249,23 +261,32 @@ export default function LessonDetailScreen() {
       {lesson && !viewing && (
         <PinnedAction>
           {phase === 'expanded' && (
-            <Button
+            <EdgeButton
               testID="key-takeaway-btn"
-              label="Key Takeaway"
-              variant="glass"
-              size="lg"
+              look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+              label="Key takeaway"
+              icon="next"
               onPress={() => {
                 setPhase('takeaway');
                 updatePosition(lesson.id, 'takeaway');
               }}
             />
           )}
-          {phase === 'takeaway' && (
+          {phase === 'takeaway' && !takeawayPage && (
             <Button
               testID="lesson-quiz-btn"
               label="Test My Knowledge"
               variant="glass"
               size="lg"
+              onPress={() => setQuizVisible(true)}
+            />
+          )}
+          {takeawayPage && (
+            <EdgeButton
+              testID="lesson-quiz-btn"
+              look={{ face: colors.white, label: colors.brand, edge: press.onCobaltEdge }}
+              label="Test my knowledge"
+              icon="next"
               onPress={() => setQuizVisible(true)}
             />
           )}
@@ -296,7 +317,11 @@ export default function LessonDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
+  // The takeaway page: the colour behind it is drawn by `HeroBackground`.
+  onColour:  { backgroundColor: 'transparent' },
   content:   { padding: spacing.md, flexGrow: 1 },
+  // The takeaway is large and centred on the page, a little below the middle.
+  contentOnColour: { justifyContent: 'center', paddingHorizontal: spacing.lg, paddingBottom: PINNED_ACTION_CLEARANCE },
   // Leaves room under the last line for the pinned button (096).
   contentPinned: { paddingBottom: PINNED_ACTION_CLEARANCE },
 
@@ -309,11 +334,16 @@ const styles = StyleSheet.create({
     gap:            spacing.sm,
   },
   title: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.lg,
-    color:      colors.textDark,
-    flex:       1,
+    fontFamily:    font.extrabold,
+    fontSize:      fontSize.xl,
+    lineHeight:    fontSize.xl * lineHeight.snug,
+    letterSpacing: trackingEm.title * fontSize.xl,
+    color:         colors.textStrong,
+    flex:          1,
   },
+  takeawayLabel: { fontFamily: font.extrabold, fontSize: fontSize.xs + 1, letterSpacing: trackingEm.caps * (fontSize.xs + 1), color: colors.brandSoft },
+  takeawayRule:  { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.3)', marginTop: spacing.sm },
+  takeawayTopic: { fontFamily: font.medium, fontSize: fontSize.base - 1, color: colors.brandSoft },
   // The takeaway page has no title, so the rating control stays at the right edge on its own.
   titleRowEnd: { justifyContent: 'flex-end' },
   quizBtn:     { marginTop: spacing.sm },

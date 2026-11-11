@@ -1,8 +1,13 @@
 import { DAY_MS, type AchievementDefinition, type AchievementsResponse, type UserAchievement } from '@learning/shared';
 import {
   NEW_ACHIEVEMENT_DAYS,
+  STREAK_COPY,
   achievementLineOf,
+  nextStreakCopy,
+  resetStreakCopy,
+  streakStageOf,
   xpLineOf,
+  type StreakStage,
 } from '../momentum';
 
 const NOW = Date.parse('2026-10-30T12:00:00Z');
@@ -66,5 +71,55 @@ describe('xpLineOf', () => {
 
   it('says so when every milestone is reached', () => {
     expect(xpLineOf({ kind: 'done' })).toEqual({ title: 'Every milestone reached', caption: '', percent: 100 });
+  });
+});
+
+describe('streakStageOf', () => {
+  it.each([
+    [0, 'start'], [1, 'early'], [2, 'early'], [3, 'building'], [6, 'building'],
+    [7, 'steady'], [29, 'steady'], [30, 'long'], [400, 'long'],
+  ] as const)('puts a streak of %i in the %s stage', (streak, stage) => {
+    expect(streakStageOf(streak)).toBe(stage);
+  });
+});
+
+describe('STREAK_COPY', () => {
+  const stages = Object.keys(STREAK_COPY) as StreakStage[];
+
+  it('never repeats a number or mentions a habit, "today" or lessons, except the zero-streak line', () => {
+    stages.filter(stage => stage !== 'start').forEach(stage => {
+      STREAK_COPY[stage].forEach(line => {
+        expect(line).not.toMatch(/\d|habit|today|lesson/i);
+      });
+    });
+  });
+
+  it('keeps every line but the zero-streak one short enough for one line', () => {
+    stages.filter(stage => stage !== 'start').forEach(stage => {
+      STREAK_COPY[stage].forEach(line => expect(line.length).toBeLessThanOrEqual(34));
+    });
+  });
+
+  it('asks a new user to complete a lesson, with no "today"', () => {
+    expect(STREAK_COPY.start).toEqual(['Complete a lesson to start your streak']);
+  });
+});
+
+describe('nextStreakCopy', () => {
+  beforeEach(() => resetStreakCopy());
+
+  it('walks a stage in order on the first pass', () => {
+    const shown = STREAK_COPY.building.map(() => nextStreakCopy('building'));
+    expect(shown).toEqual([...STREAK_COPY.building]);
+  });
+
+  it('keeps each stage on its own place', () => {
+    nextStreakCopy('early');
+    expect(nextStreakCopy('building')).toBe(STREAK_COPY.building[0]);
+  });
+
+  it('gives the single start line every time', () => {
+    expect(nextStreakCopy('start')).toBe('Complete a lesson to start your streak');
+    expect(nextStreakCopy('start')).toBe('Complete a lesson to start your streak');
   });
 });

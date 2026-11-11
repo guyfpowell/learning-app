@@ -33,12 +33,12 @@ describe('useDetailHeader', () => {
     expect(result.current.title).toBe('Lesson');
   });
 
-  it('the back control is a 44pt circle, not a text glyph', () => {
+  it('the back control is a 44pt rounded square, not a text glyph', () => {
     const { result } = renderHook(() => useDetailHeader('Lesson'));
     const headerLeft = result.current.headerLeft as () => React.ReactElement;
     const { getByTestId, queryByText } = render(headerLeft());
     const style = StyleSheet.flatten(getByTestId('detail-back').props.style);
-    expect(style).toMatchObject({ width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' });
+    expect(style).toMatchObject({ width: 44, height: 44, borderRadius: radius.md - 2, alignItems: 'center', justifyContent: 'center' });
     expect(queryByText('‹')).toBeNull();
   });
 

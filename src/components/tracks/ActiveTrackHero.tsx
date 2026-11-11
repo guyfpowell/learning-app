@@ -1,14 +1,16 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { colors, font, fontSize, radius, shadow, spacing, tracking } from '@/theme';
+import { Icon } from '@/components/ui/Icon';
+import { HeroBackground } from '@/components/ui/HeroBackground';
+import { colors, font, fontSize, radius, shadow, spacing, trackingEm } from '@/theme';
 import type { TrackEntryIds } from '@/components/tracks/TrackRow';
 
 interface ActiveTrackHeroProps {
   ids: TrackEntryIds;
   /** The testID of the "Active" label. */
   activeTestID: string;
-  /** Sits at the top right: Albert's mark on an Albert path. */
+  /** Sits before the label: Albert's mark on an Albert path, which also adds "Albert path" to the label. */
   mark?: ReactNode;
   tapLabel: string;
   onOpen: () => void;
@@ -21,9 +23,13 @@ export function ActiveTrackHero({ ids, activeTestID, mark, tapLabel, onOpen, nam
   return (
     <Pressable testID={ids.tap} onPress={onOpen} accessibilityRole="button" accessibilityLabel={tapLabel}>
       <View testID={ids.card} style={styles.hero}>
+        <HeroBackground level="intermediate" />
         <View style={styles.eyebrows}>
-          <Text testID={activeTestID} style={styles.eyebrow}>Active</Text>
-          {mark}
+          <View style={styles.label}>
+            {mark}
+            <Text testID={activeTestID} style={styles.eyebrow}>{mark ? 'Active · Albert path' : 'Active'}</Text>
+          </View>
+          <Icon name="forward" size={fontSize.lg} color={colors.onBrand} strokeWidth={2.4} />
         </View>
         <Text testID={ids.name} style={styles.name}>{name}</Text>
         {!!headline && (
@@ -36,30 +42,31 @@ export function ActiveTrackHero({ ids, activeTestID, mark, tapLabel, onOpen, nam
 
 const styles = StyleSheet.create({
   hero: {
-    backgroundColor: colors.brand,
-    borderRadius:    radius.card,
-    padding:         spacing.lg,
-    gap:             spacing.sm,
-    marginBottom:    spacing.lg,
+    overflow:     'hidden',
+    borderRadius: radius.xl,
+    padding:      spacing.lg,
+    gap:          spacing.sm,
+    marginBottom: spacing.md,
     ...shadow.brand,
   },
   eyebrows: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  label:    { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   eyebrow: {
-    fontFamily:    font.bold,
-    fontSize:      fontSize.xs,
-    letterSpacing: tracking.caps,
+    fontFamily:    font.extrabold,
+    fontSize:      fontSize.sm,
+    letterSpacing: trackingEm.caps * fontSize.sm,
     textTransform: 'uppercase',
-    color:         colors.onBrand,
+    color:         colors.brandSoft,
   },
   name: {
-    fontFamily:    font.display,
-    fontSize:      fontSize.lg,
-    letterSpacing: tracking.tight,
+    fontFamily:    font.black,
+    fontSize:      fontSize.xl + 6,
+    letterSpacing: trackingEm.display * (fontSize.xl + 6),
     color:         colors.onBrand,
   },
   headline: {
     fontFamily: font.regular,
-    fontSize:   fontSize.sm,
+    fontSize:   fontSize.md,
     color:      colors.brandSoft,
   },
 });

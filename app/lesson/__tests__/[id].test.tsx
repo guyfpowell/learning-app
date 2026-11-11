@@ -122,13 +122,17 @@ describe('LessonDetailScreen', () => {
     expect(screen.queryByTestId('continue-btn')).toBeNull();
   });
 
-  it('085a: the card carries no level badge and no duration; the header badge stays', () => {
+  it('shows no level tag, no duration, no topic line and no path line on the lesson page', () => {
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: false, data: mockLesson, error: null,
     });
+    (usePaths as jest.Mock).mockReturnValue({ data: [mockEnrollment] });
     render(<LessonDetailScreen />);
-    expect(screen.getAllByText('BEGINNER')).toHaveLength(1);
+    expect(screen.queryByText('BEGINNER')).toBeNull();
     expect(screen.queryByText('10 minutes')).toBeNull();
+    expect(screen.queryByText('Topic One')).toBeNull();
+    expect(screen.queryByText('Product Management')).toBeNull();
+    expect(screen.queryByText(/% complete/)).toBeNull();
   });
 
   // 073b Chunk 2: isTeaser is deprecated and no longer read by any client.
@@ -163,7 +167,7 @@ describe('LessonDetailScreen', () => {
     expect(screen.getByTestId('lesson-quiz-btn')).toBeTruthy();
   });
 
-  it('the main action floats over the copy, outside the lesson card, as glass (096)', () => {
+  it('the main action floats over the copy, outside the lesson card', () => {
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: false, data: mockLesson, error: null,
     });
@@ -171,7 +175,6 @@ describe('LessonDetailScreen', () => {
     const card = screen.getByTestId('lesson-card');
     expect(within(card).queryByTestId('key-takeaway-btn')).toBeNull();
     expect(within(screen.getByTestId('pinned-action')).getByTestId('key-takeaway-btn')).toBeTruthy();
-    expect(screen.getByTestId('key-takeaway-btn-wash')).toBeTruthy();
     fireEvent.press(screen.getByTestId('key-takeaway-btn'));
     expect(within(card).queryByTestId('lesson-quiz-btn')).toBeNull();
     expect(within(screen.getByTestId('pinned-action')).getByTestId('lesson-quiz-btn')).toBeTruthy();
@@ -187,7 +190,7 @@ describe('LessonDetailScreen', () => {
     expect(screen.getByText('Test Lesson')).toBeTruthy();
   });
 
-  it('takeaway page: "Key takeaway" in the header, small and muted; no title on the lesson page (096)', () => {
+  it('takeaway page: the screen is named "Key takeaway", the header shows the lesson position over the colour; no title on the lesson page', () => {
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: false, data: mockLesson, error: null,
     });
@@ -196,7 +199,39 @@ describe('LessonDetailScreen', () => {
     expect(last().title).toBe('');
     fireEvent.press(screen.getByTestId('key-takeaway-btn'));
     expect(last().title).toBe('Key takeaway');
-    expect(last().headerTitleStyle).toEqual(expect.objectContaining({ color: colors.textMuted, fontSize: fontSize.md }));
+    expect(last().headerTitle).toBe('Lesson 1 of 5');
+    expect(last().headerTransparent).toBe(true);
+    expect(last().headerTitleStyle).toEqual(expect.objectContaining({ color: colors.brandSoft, fontSize: fontSize.sm }));
+  });
+
+  describe('the full-colour takeaway page', () => {
+    const open = () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: { ...mockLesson, quizzes: [{ id: 'q1' }] }, error: null });
+      render(<LessonDetailScreen />);
+      fireEvent.press(screen.getByTestId('key-takeaway-btn'));
+    };
+
+    it('turns the whole screen cobalt, with a label, the takeaway and the topic, and no question count', () => {
+      open();
+      expect(screen.getByTestId('takeaway-colour')).toBeTruthy();
+      expect(screen.getByText('KEY TAKEAWAY')).toBeTruthy();
+      expect(screen.getByTestId('key-takeaway')).toBeTruthy();
+      expect(screen.getByTestId('takeaway-topic').props.children).toBe('Topic One');
+      expect(screen.queryByText('One question')).toBeNull();
+      expect(screen.getByTestId('takeaway-topic')).toBeTruthy();
+    });
+
+    it('starts the quiz from a white button', () => {
+      open();
+      expect(StyleSheet.flatten(screen.getByTestId('lesson-quiz-btn').props.style).backgroundColor).toBe(colors.white);
+      expect(screen.getByText('Test my knowledge')).toBeTruthy();
+    });
+
+    it('leaves the reading page on plain paper', () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
+      render(<LessonDetailScreen />);
+      expect(screen.queryByTestId('takeaway-colour')).toBeNull();
+    });
   });
 
   it('an empty media URL or takeaway renders no bare string outside a Text (096)', () => {
@@ -411,53 +446,43 @@ describe('LessonDetailScreen', () => {
       expect(screen.getAllByTestId('lesson-paragraph').map((p) => p.props.children)).toEqual([
         'First paragraph.', 'Second paragraph.', 'Third paragraph.',
       ]);
-      expect(style('lesson-content').gap).toBe(spacing.sm3);
+      expect(style('lesson-content').gap).toBe(spacing.md);
     });
 
 
     it('sets the title larger than the body copy', () => {
       open();
-      expect(style('lesson-title').fontSize).toBe(fontSize.lg);
+      expect(style('lesson-title').fontSize).toBe(fontSize.xl);
       expect(style('lesson-title').fontSize).toBeGreaterThan(style('lesson-paragraph').fontSize);
     });
   });
 
-  it('renders track header with enrollment name and progress', () => {
-    (useLesson as jest.Mock).mockReturnValue({
-      isLoading: false, isError: false, data: mockLesson, error: null,
-    });
-    (usePaths as jest.Mock).mockReturnValue({ data: [mockEnrollment] });
-    render(<LessonDetailScreen />);
-    expect(screen.getByTestId('track-header')).toBeTruthy();
-    expect(screen.getByText('Product Management')).toBeTruthy();
-    expect(screen.getByText('40% complete')).toBeTruthy();
-  });
-
-  it('renders topic name and lesson counter as separate elements in track meta', () => {
+  it('shows where the lesson sits in the header', () => {
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: false, data: mockLesson, error: null,
     });
     render(<LessonDetailScreen />);
-    expect(screen.getByText('Topic One')).toBeTruthy();
-    expect(screen.getByText('Lesson 1 of 5')).toBeTruthy();
-    expect(screen.queryByText(/·/)).toBeNull();
+    const headerTitle = mockHeaderOptions.mock.calls[mockHeaderOptions.mock.calls.length - 1][0].headerTitle as () => React.ReactElement;
+    const { getByText, getByTestId } = render(headerTitle());
+    expect(getByText('Lesson 1 of 5')).toBeTruthy();
+    expect(getByTestId('lesson-position-segments').children).toHaveLength(5);
   });
 
   describe('091a: coral actions', () => {
     const bg = (testID: string) => StyleSheet.flatten(screen.getByTestId(testID).props.style).backgroundColor;
     const completedLesson = { ...mockLesson, quizCompleted: true, quizzes: [{ id: 'q1' }], resolvedQuizIds: ['q1'] };
 
-    it('Key Takeaway is coral glass (096)', () => {
+    it('Key takeaway is a cobalt button, not coral', () => {
       (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
       render(<LessonDetailScreen />);
-      expect(bg('key-takeaway-btn-wash')).toBe(colors.coral);
+      expect(bg('key-takeaway-btn')).toBe(colors.brand);
     });
 
-    it('Test My Knowledge is coral glass (096)', () => {
+    it('Test my knowledge is white on the colour, not coral', () => {
       (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
       render(<LessonDetailScreen />);
       fireEvent.press(screen.getByTestId('key-takeaway-btn'));
-      expect(bg('lesson-quiz-btn-wash')).toBe(colors.coral);
+      expect(bg('lesson-quiz-btn')).toBe(colors.white);
     });
 
     it('Retake is not coral (096)', async () => {
@@ -481,34 +506,6 @@ describe('LessonDetailScreen', () => {
     fireEvent.press(screen.getByText('Learn more'));
     fireEvent.press(screen.getByText('Upgrade now'));
     expect(mockRouter.push).toHaveBeenCalledWith('/paywall');
-  });
-
-  describe('Chunk 5 — levelLabel display', () => {
-    it('shows levelLabel in level badge when set', () => {
-      (useLesson as jest.Mock).mockReturnValue({
-        isLoading: false, isError: false,
-        data: {
-          ...mockLesson,
-          skillPath: { level: 'beginner', skillId: 'skill-1', levelLabel: 'Breaking into product' },
-        },
-        error: null,
-      });
-      render(<LessonDetailScreen />);
-      expect(screen.getAllByText('BREAKING INTO PRODUCT').length).toBeGreaterThan(0);
-    });
-
-    it('falls back to canonical level name when levelLabel is null', () => {
-      (useLesson as jest.Mock).mockReturnValue({
-        isLoading: false, isError: false,
-        data: {
-          ...mockLesson,
-          skillPath: { level: 'beginner', skillId: 'skill-1', levelLabel: null },
-        },
-        error: null,
-      });
-      render(<LessonDetailScreen />);
-      expect(screen.getAllByText('BEGINNER').length).toBeGreaterThan(0);
-    });
   });
 
   describe('Chunk A5 — lesson body', () => {

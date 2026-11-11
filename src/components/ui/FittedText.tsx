@@ -19,6 +19,8 @@ interface FittedTextProps {
   lineHeight?: number;
   /** The sizes it may move within; the takeaway's by default. */
   range?: SizeRange;
+  /** The text's colour; strong ink by default. */
+  color?: string;
 }
 
 /**
@@ -26,7 +28,7 @@ interface FittedTextProps {
  * the window's height (`fitTakeaway.ts`, 096). Used by the key takeaway and the quiz question.
  * It is hidden until the size settles.
  */
-export function FittedText({ text, testID, fontFamily, lineHeight = TAKEAWAY_LINE_HEIGHT, range = TAKEAWAY_RANGE }: FittedTextProps) {
+export function FittedText({ text, testID, fontFamily, lineHeight = TAKEAWAY_LINE_HEIGHT, range = TAKEAWAY_RANGE, color }: FittedTextProps) {
   const startFit: TakeawayFit = { size: range.max, settled: false };
   const { height: windowHeight } = useWindowDimensions();
   const [width, setWidth] = useState(0);
@@ -51,7 +53,7 @@ export function FittedText({ text, testID, fontFamily, lineHeight = TAKEAWAY_LIN
         key={width}
         testID={`${testID}-text`}
         onTextLayout={handleTextLayout}
-        style={[styles.text, { fontFamily, fontSize: fit.size, lineHeight: fit.size * lineHeight }, !fit.settled && styles.measuring]}
+        style={[styles.text, color !== undefined && { color }, { fontFamily, fontSize: fit.size, lineHeight: fit.size * lineHeight }, !fit.settled && styles.measuring]}
       >
         {text}
       </Text>

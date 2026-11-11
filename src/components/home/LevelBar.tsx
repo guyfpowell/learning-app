@@ -4,9 +4,14 @@ import { Text } from '@/components/ui/Text';
 import type { TrackLevelProgress } from '@learning/shared';
 import { levelState } from '@/components/ui/TrackMap';
 import { capitalize } from '@/lib/capitalize';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, levelCard } from '@/theme';
+
+/** Hex alpha for the current segment's empty part: the level's colour at 12%. */
+const TINT_ALPHA = '1F';
 
 const SEGMENT_HEIGHT = 7;
+const LABEL_SIZE = 11;
+const GAP = 6;
 
 /** The level being worked on: the one in progress, else the first not finished. */
 function currentLevelOf(levels: TrackLevelProgress[]): TrackLevelProgress | undefined {
@@ -29,8 +34,8 @@ export function LevelBar({ levels }: { levels: TrackLevelProgress[] }) {
         const fill = fillOf(l, isCurrent);
         return (
           <View key={l.level} testID="track-map-level" style={styles.level}>
-            <View style={[styles.track, isCurrent && styles.trackCurrent]}>
-              <View style={[styles.fill, { width: `${Math.min(100, Math.max(0, fill))}%` }]} />
+            <View style={[styles.track, isCurrent && { backgroundColor: `${levelCard[l.level].base}${TINT_ALPHA}` }]}>
+              <View testID="level-fill" style={[styles.fill, { width: `${Math.min(100, Math.max(0, fill))}%`, backgroundColor: levelCard[l.level].base }]} />
             </View>
             <Text style={[styles.label, isCurrent && styles.labelCurrent]} numberOfLines={1}>
               {l.levelLabel ?? capitalize(l.level)}
@@ -43,11 +48,10 @@ export function LevelBar({ levels }: { levels: TrackLevelProgress[] }) {
 }
 
 const styles = StyleSheet.create({
-  row:          { flexDirection: 'row', gap: spacing.sm },
-  level:        { flex: 1, gap: spacing.sm },
+  row:          { flexDirection: 'row', gap: GAP },
+  level:        { flex: 1, gap: GAP },
   track:        { height: SEGMENT_HEIGHT, borderRadius: SEGMENT_HEIGHT / 2, backgroundColor: colors.borderSubtle, overflow: 'hidden' },
-  trackCurrent: { backgroundColor: colors.brandSoft },
-  fill:         { height: SEGMENT_HEIGHT, borderRadius: SEGMENT_HEIGHT / 2, backgroundColor: colors.brand },
-  label:        { fontFamily: font.medium, fontSize: fontSize.xs + 1, color: colors.textSubtle },
+  fill:         { height: SEGMENT_HEIGHT, borderRadius: SEGMENT_HEIGHT / 2 },
+  label:        { fontFamily: font.semibold, fontSize: LABEL_SIZE, color: colors.textSubtle },
   labelCurrent: { fontFamily: font.extrabold, color: colors.textStrong },
 });

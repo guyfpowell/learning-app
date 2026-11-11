@@ -2,8 +2,8 @@ import { Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { NativeStackNavigationOptions } from 'expo-router';
-import { colors, font, fontSize } from '@/theme';
-import { circleButtonStyle } from '@/components/ui/circleButtonStyle';
+import { colors, font, fontSize, radius } from '@/theme';
+import { circleButtonStyle, headerButtonStyle } from '@/components/ui/circleButtonStyle';
 import { HOME_ROUTE } from '@/lib/routes';
 
 /**
@@ -11,7 +11,14 @@ import { HOME_ROUTE } from '@/lib/routes';
  * Back pops the stack; opened with nothing to go back to (a fresh launch or a deep link),
  * it lands on Home.
  */
-export function useDetailHeader(title: string): NativeStackNavigationOptions {
+/** Over a coloured screen the back button is a translucent rounded square (the design's 14 at 44pt). */
+const ON_COLOUR_BUTTON = { backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: radius.md - 2, shadowOpacity: 0, elevation: 0 };
+
+/**
+ * `onColour` is for a screen that washes itself in a colour: the header goes transparent over it,
+ * and the back button is drawn for it.
+ */
+export function useDetailHeader(title: string, onColour = false): NativeStackNavigationOptions {
   const router = useRouter();
 
   const handleBack = () => {
@@ -25,9 +32,9 @@ export function useDetailHeader(title: string): NativeStackNavigationOptions {
       onPress={handleBack}
       accessibilityRole="button"
       accessibilityLabel="Go back"
-      style={circleButtonStyle}
+      style={onColour ? [circleButtonStyle, ON_COLOUR_BUTTON] : headerButtonStyle}
     >
-      <Ionicons name="chevron-back" size={fontSize.lg} color={colors.textMuted} />
+      <Ionicons name="chevron-back" size={fontSize.lg} color={onColour ? colors.white : colors.textMuted} />
     </Pressable>
   );
 
@@ -35,9 +42,9 @@ export function useDetailHeader(title: string): NativeStackNavigationOptions {
     headerShown: true,
     // SDK 58 on iOS 26+ defaults Stack headers to transparent (Liquid Glass), which would
     // lay the header over this screen's content.
-    headerTransparent: false,
+    headerTransparent: onColour,
     title,
-    headerStyle: { backgroundColor: colors.paper },
+    headerStyle: { backgroundColor: onColour ? 'transparent' : colors.paper },
     headerTitleStyle: { fontFamily: font.semibold, fontSize: fontSize.md, color: colors.textStrong },
     headerBackVisible: false,
     headerLeft: () => backButton,

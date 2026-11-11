@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { View, StyleSheet, Switch, Pressable } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
+import { settingsRow, CHEVRON_SIZE } from '@/components/profile/settingsRow';
 import DateTimePicker, { type DateTimePickerChangeEvent } from '@react-native-community/datetimepicker';
 import {
   NOTIFICATION_SETTINGS_LOAD_ERROR, NOTIFICATION_TOGGLE_LABELS, formatPreferredTime, NOTIFICATION_TOGGLES_BELOW_REMINDER,
@@ -21,22 +22,25 @@ function PreferenceToggle({
   field,
   value,
   onToggle,
+  first = false,
 }: {
   field: NotificationToggleKey;
+  first?: boolean;
   value: boolean;
   onToggle: (field: NotificationToggleKey, on: boolean) => void;
 }) {
   const label = NOTIFICATION_TOGGLE_LABELS[field];
   return (
-    <View style={[styles.row, styles.rowSpread]}>
-      <Text style={styles.toggleLabel}>{label}</Text>
+    <View style={[settingsRow.row, first && settingsRow.first]}>
+      <Text style={settingsRow.label}>{label}</Text>
       <Switch
         testID={`toggle-${field}`}
         accessibilityLabel={label}
         value={value}
         onValueChange={(on) => onToggle(field, on)}
-        trackColor={{ true: colors.brand }}
-        thumbColor={colors.surface}
+        trackColor={{ true: colors.brand, false: colors.border }}
+        ios_backgroundColor={colors.border}
+        thumbColor={colors.white}
       />
     </View>
   );
@@ -75,22 +79,22 @@ export function NotificationSettings({
 
   return (
     <>
-      <PreferenceToggle field="enableDailyReminder" value={toggles.enableDailyReminder} onToggle={onToggle} />
+      <PreferenceToggle first field="enableDailyReminder" value={toggles.enableDailyReminder} onToggle={onToggle} />
 
       {toggles.enableDailyReminder && (
         <>
           <Pressable
             testID="reminder-time-row"
             onPress={() => setTimeOpen(open => !open)}
-            style={[styles.row, styles.rowSpread]}
+            style={settingsRow.row}
             accessibilityRole="button"
             accessibilityLabel="Reminder time"
             accessibilityState={{ expanded: timeOpen }}
           >
-            <Text style={styles.toggleLabel}>Reminder time</Text>
+            <Text style={settingsRow.label}>Reminder time</Text>
             <View style={styles.timeValue}>
               <Text testID="reminder-time-value" style={styles.timeText}>{formatPreferredTime(reminder)}</Text>
-              <Ionicons name={timeOpen ? 'chevron-up' : 'chevron-forward'} size={16} color={colors.textMuted} />
+              <Icon name={timeOpen ? 'expand' : 'forward'} size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
             </View>
           </Pressable>
           {timeOpen && (
@@ -122,28 +126,10 @@ const styles = StyleSheet.create({
     color:      colors.error,
     textAlign:  'center',
   },
-  // Hairline rows, no card around them (096).
-  row: {
-    paddingVertical:   spacing.xs,
-    minHeight:         48,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  rowSpread: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'space-between',
-  },
-  timeValue: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  timeValue: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   timeText: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
-  },
-  toggleLabel: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
-    flex:       1,
+    fontFamily: font.extrabold,
+    fontSize:   16,
+    color:      colors.textBody,
   },
 });

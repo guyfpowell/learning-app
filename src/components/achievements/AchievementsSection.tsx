@@ -4,8 +4,10 @@ import { Text } from '@/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import type { AchievementAxis, AchievementDefinition, AchievementKey, UserAchievement } from '@learning/shared';
 import { ACHIEVEMENTS_BY_KEY } from '@learning/shared';
-import { colors, font, fontSize, radius, spacing, shadow } from '@/theme';
+import { colors, font, fontSize, radius, spacing } from '@/theme';
+import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
 import { Spinner } from '@/components/ui/Spinner';
+import { Medal } from '@/components/ui/Medal';
 import { useAchievements } from '@/hooks/useAchievements';
 
 /** Icon name by achievement axis — badge artwork is uncommissioned; axis determines the placeholder. */
@@ -97,27 +99,17 @@ export function AchievementsSection() {
 
       {!isLoading && all.length > 0 && (
         <View style={styles.achievementGrid}>
-          {all.map(a => {
-            const iconName = AXIS_ICON[a.axis] ?? 'star-outline';
-            const earned = a.earned;
-            return (
-              <Pressable
-                key={a.key}
-                testID={`achievement-${a.key}`}
-                onPress={() => setSelectedKey(a.key)}
-                style={[styles.achievementCard, shadow.card, { opacity: earned ? 1 : 0.45 }]}
-              >
-                <View style={[styles.iconCircle, { backgroundColor: earned ? colors.xpSoft : colors.surfaceSunken }]}>
-                  <Ionicons
-                    name={iconName}
-                    size={22}
-                    color={earned ? '#BE7C1C' : colors.textSubtle}
-                  />
-                </View>
-                <Text style={styles.achievementName} numberOfLines={2}>{a.name}</Text>
-              </Pressable>
-            );
-          })}
+          {all.map(a => (
+            <Pressable
+              key={a.key}
+              testID={`achievement-${a.key}`}
+              onPress={() => setSelectedKey(a.key)}
+              style={styles.achievement}
+            >
+              <Medal achievement={a.key} locked={!a.earned} size={MEDAL_SIZE} />
+              <Text style={[styles.achievementName, !a.earned && styles.achievementLocked]} numberOfLines={2}>{a.name}</Text>
+            </Pressable>
+          ))}
         </View>
       )}
 
@@ -128,56 +120,38 @@ export function AchievementsSection() {
   );
 }
 
-const GRID_GAP = 10;
-const GRID_COLS = 3;
+const GRID_COLS = 4;
+const MEDAL_SIZE = 56;
 
 const styles = StyleSheet.create({
-  headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  sectionHeading: {
-    fontFamily:    font.semibold,
-    fontSize:      fontSize.sm,
-    color:         colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop:     spacing.lg,
-    marginBottom:  spacing.sm,
-  },
+  headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: spacing.md },
+  sectionHeading: sectionHeadingStyle,
   count: {
-    fontFamily: font.medium,
+    fontFamily: font.extrabold,
     fontSize:   fontSize.sm,
-    color:      colors.textMuted,
+    color:      colors.textLink,
   },
 
-  // Achievements
+  // Achievements: medals on the page, four to a row
   achievementGrid: {
-    flexDirection:  'row',
-    flexWrap:       'wrap',
-    gap:            GRID_GAP,
-    marginBottom:   spacing.lg,
+    flexDirection: 'row',
+    flexWrap:      'wrap',
+    rowGap:        spacing.md,
   },
-  achievementCard: {
-    flexBasis:       `${100 / GRID_COLS - (GRID_GAP * (GRID_COLS - 1)) / GRID_COLS}%`,
-    flex:            1,
-    backgroundColor: colors.surface,
-    borderRadius:    radius.card,
-    padding:         spacing.sm,
-    alignItems:      'center',
-    minWidth:        90,
-  },
-  iconCircle: {
-    width:          44,
-    height:         44,
-    borderRadius:   22,
-    alignItems:     'center',
-    justifyContent: 'center',
-    marginBottom:   spacing.xs,
+  achievement: {
+    width:             `${100 / GRID_COLS}%`,
+    paddingHorizontal: spacing.xs,
+    alignItems:        'center',
+    gap:               7,
   },
   achievementName: {
-    fontFamily: font.semibold,
-    fontSize:   10,
-    color:      colors.textMuted,
+    fontFamily: font.extrabold,
+    fontSize:   11,
+    lineHeight: 11 * 1.2,
+    color:      colors.textStrong,
     textAlign:  'center',
   },
+  achievementLocked: { color: colors.textMuted },
 
   // Achievement detail modal
   modalOverlay: {

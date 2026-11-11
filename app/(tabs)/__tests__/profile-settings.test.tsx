@@ -1,7 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
-import { Linking, StyleSheet } from 'react-native';
-import { must } from '@/test-utils/must';
+import { render, screen, fireEvent, act } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 import ProfileScreen from '../profile';
 import { useAuthStore } from '@/store/auth.store';
 import {
@@ -271,14 +270,14 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
 
   it('096: Save changes is disabled until something changes, and it is the only blue button', () => {
     render(<ProfileScreen />);
-    const save = () => StyleSheet.flatten(must(screen.getByText('Save changes').parent?.parent?.parent, 'button').props.style);
-    expect(save().opacity).toBeLessThan(1);
+    const save = () => screen.getByTestId('save-settings-btn').props.accessibilityState.disabled;
+    expect(save()).toBe(true);
     fireEvent.press(screen.getByText('Save changes'));
     expect(mockMutate).not.toHaveBeenCalled();
     fireEvent(screen.getByTestId('toggle-enableStreak'), 'valueChange', false);
-    expect(save().opacity).toBeUndefined();
+    expect(save()).toBe(false);
     fireEvent(screen.getByTestId('toggle-enableStreak'), 'valueChange', true);
-    expect(save().opacity).toBeLessThan(1);
+    expect(save()).toBe(true);
   });
 
   it('096: a person who has never saved a reminder time can save the one shown', () => {
@@ -367,6 +366,17 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     setProfileMutationMock({ isSuccess: true });
     render(<ProfileScreen />);
     expect(screen.getByText('Settings saved')).toBeTruthy();
+  });
+
+  it('clears the saved toast after a few seconds', () => {
+    jest.useFakeTimers();
+    setMutationMock({ isSuccess: true });
+    setProfileMutationMock({ isSuccess: true });
+    render(<ProfileScreen />);
+    expect(screen.getByText('Settings saved')).toBeTruthy();
+    act(() => { jest.advanceTimersByTime(3000); });
+    expect(screen.queryByText('Settings saved')).toBeNull();
+    jest.useRealTimers();
   });
 
   it('shows fallback error message when save fails with no API message', () => {

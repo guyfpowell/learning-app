@@ -1,26 +1,21 @@
 /**
- * Toast — transient notification banner — ticket 069 A3.
+ * Toast — a transient notification banner.
  *
- * A fixed-position overlay panel that appears at the bottom of the screen.
- * Dismissed by tapping the × button or by setting `visible={false}`.
- * Animation is intentionally omitted here — the visual shell is the A3
- * deliverable. Entrance/exit animation is a later enhancement.
+ * An ink panel with white text and a coloured icon for its variant. Dismissed by tapping the
+ * × button (shown only when `onDismiss` is given) or by setting `visible={false}`. The caller
+ * places it and times it.
  *
- * Variants:
- *   info     — brand cobalt
+ * Variants (the icon's colour):
+ *   info     — light cobalt
  *   success  — green
- *   warning  — amber
+ *   warning  — gold
  *   error    — red
  */
 import React from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { Feather } from '@expo/vector-icons';
-import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
+import { Icon, type IconName } from '@/components/ui/Icon';
+import { colors, font, shadow } from '@/theme';
 
 export type ToastVariant = 'info' | 'success' | 'warning' | 'error';
 
@@ -31,49 +26,48 @@ interface ToastProps {
   onDismiss?: () => void;
 }
 
-const palette: Record<ToastVariant, { bg: string; text: string; icon: keyof typeof Feather.glyphMap }> = {
-  info:    { bg: colors.brandSoft,    text: colors.brand,       icon: 'info' },
-  success: { bg: colors.successSoft,  text: '#217943',          icon: 'check-circle' },  // success700
-  warning: { bg: colors.warningSoft,  text: '#BE7C1C',          icon: 'alert-triangle' }, // amber700
-  error:   { bg: colors.errorSoft,    text: colors.error,       icon: 'alert-circle' },
+const palette: Record<ToastVariant, { icon: IconName; color: string }> = {
+  info:    { icon: 'info',      color: colors.brandSoft },
+  success: { icon: 'correct',   color: colors.success },
+  warning: { icon: 'warning',   color: colors.warning },
+  error:   { icon: 'incorrect', color: colors.error },
 };
 
 export function Toast({ message, variant = 'info', visible, onDismiss }: ToastProps) {
   if (!visible) return null;
 
-  const { bg, text, icon } = palette[variant];
+  const { icon, color } = palette[variant];
 
   return (
-    <View style={[styles.container, shadow.md as object, { backgroundColor: bg }]}>
-      <Feather name={icon} size={18} color={text} />
-      <Text style={[styles.message, { color: text }]} numberOfLines={2}>
+    <View style={[styles.container, shadow.md as object]}>
+      <Icon name={icon} size={20} color={color} strokeWidth={2.2} />
+      <Text style={styles.message} numberOfLines={2}>
         {message}
       </Text>
-      <Pressable
-        testID="toast-dismiss"
-        onPress={onDismiss}
-        style={styles.dismiss}
-        hitSlop={8}
-      >
-        <Feather name="x" size={18} color={text} />
-      </Pressable>
+      {onDismiss && (
+        <Pressable testID="toast-dismiss" onPress={onDismiss} style={styles.dismiss} hitSlop={8}>
+          <Icon name="close" size={18} color={colors.white} />
+        </Pressable>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    gap:            spacing.sm,
-    padding:        spacing.md,
-    borderRadius:   radius.md,
-    margin:         spacing.md,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               12,
+    paddingVertical:   13,
+    paddingHorizontal: 16,
+    borderRadius:      18,
+    backgroundColor:   colors.surfaceInverse,
   },
   message: {
     flex:       1,
-    fontFamily: font.medium,
-    fontSize:   fontSize.sm,
+    fontFamily: font.bold,
+    fontSize:   15,
+    color:      colors.white,
   },
   dismiss: {
     padding: 2,

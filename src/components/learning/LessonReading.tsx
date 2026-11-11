@@ -1,6 +1,6 @@
 import { Image, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize, lineHeight, spacing } from '@/theme';
 
 // Paragraphs are separated by a gap, not by the blank lines in the stored text.
 function paragraphsOf(raw: string): string[] {
@@ -36,12 +36,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   contentBlock: {
-    gap: spacing.sm3,
+    gap: spacing.md,
   },
   contentText: {
     fontFamily: font.regular,
-    fontSize:   fontSize.base,
-    color:      colors.textDark,
-    lineHeight: fontSize.base * 1.6,
+    fontSize:   fontSize.md,
+    color:      colors.textBody,
+    lineHeight: fontSize.md * lineHeight.relaxed,
   },
 });

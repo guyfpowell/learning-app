@@ -13,14 +13,17 @@ import { useRefreshPaths, useTopicFeedback } from '@/hooks/useTrack';
 import { TopicFeedback } from '@/components/ui/TopicFeedback';
 import { errorCode, extractError } from '@/lib/errors';
 import { Button } from '@/components/ui/Button';
+import { EdgeButton } from '@/components/ui/EdgeButton';
+import { Icon } from '@/components/ui/Icon';
 import { Input } from '@/components/ui/Input';
 import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizOpt } from '@/components/ui/QuizOpt';
 import type { QuizOptState } from '@/components/ui/QuizOpt';
-import { colors, font, fontSize, lineHeight, results, spacing, trackingEm } from '@/theme';
+import { colors, font, fontSize, lineHeight, press, results, spacing, trackingEm } from '@/theme';
 import { CelebrationOverlay, XpChipOverlay, type ScreenRect } from '@/components/ui/CelebrationOverlay';
 import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
 import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
+import { CIRCLE_BUTTON_SIZE } from '@/components/ui/circleButtonStyle';
 import { QuizHeroCard } from '@/components/quiz/QuizHeroCard';
 import { QuizResultFrame, quizFrameStyles, frameContentStyle, headerRowBox } from '@/components/quiz/QuizResultFrame';
 import { HintSection, VerdictMark } from '@/components/quiz/ResultSections';
@@ -58,6 +61,9 @@ export function QuizModal(props: QuizModalProps) {
 
 // A correct heading bursts in from far behind the screen, overshoots, then a springy pull settles it.
 // It is left-aligned at rest: it expands from the left into the centre of the screen, then back to the left.
+/** Extra room under the last answer, so a picked one (cobalt) does not sit tight against the cobalt Submit at the end of the scroll. */
+const QUESTION_BOTTOM_AIR = spacing.md;
+
 const HEADING_START_SCALE = 0.05;
 const HEADING_BURST_SCALE = 1.7;
 const HEADING_BURST_MS = 260;
@@ -242,18 +248,18 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   const current = quizzes[currentQuizIndex];
 
   function renderOptions(options: string[]) {
+    // On the second try the ruled-out answer drops to the bottom. Its testID keeps its original place.
+    const shown = options.filter(option => option !== wrongAnswer).concat(options.filter(option => option === wrongAnswer));
     return (
       <View style={styles.options}>
-        {options.map((option, idx) => {
-          const optKey = String.fromCharCode(65 + idx); // A, B, C, D…
+        {shown.map(option => {
           let state: QuizOptState = 'idle';
-          if (wrongAnswer === option) state = 'incorrect';
+          if (wrongAnswer === option) state = 'ruledOut';
           else if (selectedAnswer === option) state = 'selected';
           return (
             <QuizOpt
               key={option}
-              testID={`quiz-opt-${idx}`}
-              optKey={optKey}
+              testID={`quiz-opt-${options.indexOf(option)}`}
               label={option}
               state={state}
               onPress={() => handleSelectOption(option)}
@@ -337,6 +343,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
       <QuizResultFrame
         {...frame}
         tone="retry"
+        closable={false}
         action={<ResultButton testID="result-action-btn" tone="retry" label="Try again" icon="retake" onPress={handleTryAgain} />}
       >
         <ResultHeading tone="retry">
@@ -475,17 +482,23 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
             <View style={styles.headerCentre} pointerEvents="none">
               <Text style={styles.headerTitle}>Test my knowledge</Text>
             </View>
-            <Pressable onPress={onClose} style={styles.circleBtn} accessibilityLabel="Close quiz">
-              <Ionicons name="close" size={22} color={colors.textMuted} />
+            <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close quiz">
+              <Ionicons name="close" size={22} color={colors.textStrong} />
             </Pressable>
           </View>
         </View>
 
-        <ScrollView testID="quiz-question-content" contentContainerStyle={[...frameContentStyle(insets.bottom), quizzes.length > 0 && { paddingBottom: PINNED_ACTION_CLEARANCE + insets.bottom }]}>
+        <ScrollView testID="quiz-question-content" contentContainerStyle={[...frameContentStyle(insets.bottom), quizzes.length > 0 && { paddingBottom: PINNED_ACTION_CLEARANCE + QUESTION_BOTTOM_AIR + insets.bottom }]}>
           {quizzes.length === 0 ? (
             <Text style={styles.empty}>No quiz available for this lesson.</Text>
           ) : (
             <>
+              {wrongAnswer !== undefined && current.type === 'multiple-choice' && (
+                <View testID="second-try-note" style={styles.secondTry}>
+                  <Icon name="retake" size={fontSize.md} color={colors.xpText} />
+                  <Text style={styles.secondTryText}>Retry</Text>
+                </View>
+              )}
               <QuizHeroCard
                 question={current.question}
                 progress={quizzes.length > 1 ? { index: currentQuizIndex, total: quizzes.length } : undefined}
@@ -510,16 +523,17 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
           )}
         </ScrollView>
 
-        {/* Submit floats over the question, which scrolls behind its glass (096). */}
+        {/* Submit floats over the question, which scrolls behind it. Flat and grey until an answer is picked. */}
         {quizzes.length > 0 && (
           <PinnedAction>
-            <Button
+            <EdgeButton
+              testID="submit-btn"
+              look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+              disabledLook={{ face: colors.border, label: colors.textSubtle }}
               label="Submit"
               onPress={handleSubmit}
               loading={submit.isPending}
               disabled={!selectedAnswer}
-              variant="glass"
-              size="lg"
             />
           </PinnedAction>
         )}
@@ -530,9 +544,12 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
 const styles = StyleSheet.create({
   ...quizFrameStyles,
   spacer:    { width: 32 },
-  // Small and muted, as the lesson screen's "Key takeaway" header title (096).
-  headerTitle: { fontFamily: font.regular, fontSize: fontSize.md, color: colors.textMuted },
-  options:  { gap: spacing.sm, marginBottom: spacing.lg },
+  headerTitle: { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.textMuted },
+  // Over the plain page the close button is a bare cross, not a box.
+  closeBtn: { width: CIRCLE_BUTTON_SIZE, height: CIRCLE_BUTTON_SIZE, alignItems: 'center', justifyContent: 'center' },
+  secondTry: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+  secondTryText: { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.xpText },
+  options:  { gap: spacing.sm3, marginBottom: spacing.lg },
   shortAnswerInput:   { marginBottom: spacing.lg },
   error: {
     fontFamily:   font.regular,

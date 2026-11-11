@@ -3,15 +3,17 @@ import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
+import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
+import { settingsRow, CHEVRON_SIZE } from '@/components/profile/settingsRow';
 import type { ClockTime, NotificationToggleKey, NotificationToggles } from '@learning/shared';
 import {
   DEFAULT_REMINDER_TIME, formatPreferredTime, notificationTogglesOf,
   parsePreferredTime,
 } from '@learning/shared';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize, press, spacing } from '@/theme';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
-import { Button } from '@/components/ui/Button';
+import { EdgeButton } from '@/components/ui/EdgeButton';
 import { useAuthStore } from '@/store/auth.store';
 import { useLogout } from '@/hooks/useAuth';
 import { useSavedLessons } from '@/hooks/useLesson';
@@ -23,6 +25,7 @@ import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { usePushStatus } from '@/hooks/usePushStatus';
 import { extractError } from '@/lib/errors';
 import { openManageSubscriptions } from '@/lib/subscriptions';
+import { Toast } from '@/components/ui/Toast';
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal';
 import { NotificationSettings } from '@/components/profile/NotificationSettings';
 import { lessonRoute } from '@/lib/routes';
@@ -55,8 +58,9 @@ function PushPermissionStatus({
     );
   }
   return (
-    <Pressable testID="push-status-prompt" onPress={onRegister} style={[styles.row, styles.rowSpread]} accessibilityRole="button">
-      <Text style={styles.rowText}>Notifications are off on this phone</Text>
+    <Pressable testID="push-status-prompt" onPress={onRegister} style={styles.notice} accessibilityRole="button">
+      <Icon name="reminder" size={20} color={colors.xpDark} />
+      <Text style={styles.noticeText}>Notifications are off on this phone</Text>
       <Text style={styles.turnOn}>Turn on</Text>
     </Pressable>
   );
@@ -82,6 +86,7 @@ export default function ProfileScreen() {
 
   const [toggles, setToggles] = useState<NotificationToggles | null>(null);
   const [reminder, setReminder] = useState<ClockTime>(DEFAULT_REMINDER_TIME);
+  const [savedToastHidden, setSavedToastHidden] = useState(false);
 
   useEffect(() => {
     if (prefs) setToggles(notificationTogglesOf(prefs));
@@ -97,6 +102,7 @@ export default function ProfileScreen() {
   }
 
   function handleSaveSettings() {
+    setSavedToastHidden(false);
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     updateProfile.mutate({ preferredTime: formatPreferredTime(reminder), timezone });
     // Never after a failed load: that would write defaults over what the person chose.
@@ -119,6 +125,13 @@ export default function ProfileScreen() {
   const isSaveError = updatePrefs.isError || updateProfile.isError;
   const saveError = updatePrefs.error ?? updateProfile.error;
 
+  // The saved toast clears itself.
+  useEffect(() => {
+    if (!isSaveSuccess) return;
+    const timer = setTimeout(() => setSavedToastHidden(true), SAVED_TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [isSaveSuccess]);
+
   const savedLessons = savedData ?? [];
 
   return (
@@ -127,8 +140,10 @@ export default function ProfileScreen() {
 
         {/* ── Avatar + header ──────────────────────────────────────────────── */}
         <View style={styles.header}>
-          <View style={styles.avatarRing} testID="avatar-initials">
-            <Text style={styles.avatarText}>{user ? initials(user.name) : '?'}</Text>
+          <View style={styles.avatarEdge}>
+            <View style={styles.avatar} testID="avatar-initials">
+              <Text style={styles.avatarText}>{user ? initials(user.name) : '?'}</Text>
+            </View>
           </View>
           {user && (
             <View style={styles.headerText}>
@@ -139,6 +154,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* ── Saved lessons ─────────────────────────────────────────────────── */}
+        <View style={styles.section}>
         <Text style={styles.sectionHeading}>Saved</Text>
 
         {savedLessons.length === 0 ? (
@@ -154,14 +170,20 @@ export default function ProfileScreen() {
                 onPress={() => router.push(lessonRoute(lesson.id))}
                 style={styles.savedRow}
               >
-                <Text style={styles.savedTitle} numberOfLines={2}>{lesson.title}</Text>
-                <Text style={styles.savedMeta}>{lesson.skillName}{lesson.topicName ? ` · ${lesson.topicName}` : ''}</Text>
+                <Icon name="saved" size={20} fill={colors.brand} color={colors.brand} />
+                <View style={styles.savedText}>
+                  <Text style={styles.savedTitle} numberOfLines={2}>{lesson.title}</Text>
+                  <Text style={styles.savedMeta}>{lesson.skillName}{lesson.topicName ? ` · ${lesson.topicName}` : ''}</Text>
+                </View>
+                <Icon name="forward" size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
               </Pressable>
             ))}
           </View>
         )}
+        </View>
 
         {/* ── Reminders ─────────────────────────────────────────────────────── */}
+        <View style={styles.section}>
         <Text style={styles.sectionHeading}>Reminders</Text>
 
         <PushPermissionStatus status={permissionStatus} onRegister={register} />
@@ -178,42 +200,45 @@ export default function ProfileScreen() {
         />
 
         {/* The one blue button on the page; nothing to save until something changes (096). */}
-        <Button
-          label="Save changes"
-          onPress={handleSaveSettings}
-          loading={isSaving}
-          disabled={!hasChanges}
-          style={styles.saveBtn}
-        />
+        <View style={styles.saveBtn}>
+          <EdgeButton
+            testID="save-settings-btn"
+            look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+            disabledLook={{ face: colors.border, label: colors.textSubtle }}
+            label="Save changes"
+            onPress={handleSaveSettings}
+            loading={isSaving}
+            disabled={!hasChanges}
+          />
+        </View>
 
-        {isSaveSuccess && (
-          <Text style={styles.successMsg}>Settings saved</Text>
-        )}
         {isSaveError && (
           <Text testID="settings-error" style={styles.errorMsg}>{extractError(saveError)}</Text>
         )}
+        </View>
 
         {/* ── Account ───────────────────────────────────────────────────────── */}
+        <View style={styles.section}>
         <Text style={styles.sectionHeading}>Account</Text>
 
         <Pressable
           testID="manage-subscription-btn"
           onPress={openManageSubscriptions}
-          style={[styles.row, styles.rowSpread]}
+          style={[settingsRow.row, settingsRow.first]}
         >
-          <Text style={styles.rowText}>Manage subscription</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          <Text style={settingsRow.label}>Manage subscription</Text>
+          <Icon name="forward" size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
         </Pressable>
 
         {__DEV__ && (
           <Pressable
             testID="topic-feedback-preview-btn"
             onPress={() => router.push('/topic-feedback-preview')}
-            style={[styles.row, styles.rowSpread]}
+            style={settingsRow.row}
             accessibilityRole="button"
           >
-            <Text style={styles.rowText}>Preview topic feedback (dev)</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            <Text style={settingsRow.label}>Preview topic feedback (dev)</Text>
+            <Icon name="forward" size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
           </Pressable>
         )}
 
@@ -221,22 +246,29 @@ export default function ProfileScreen() {
           testID="logout-btn"
           onPress={() => logout.mutate()}
           disabled={logout.isPending}
-          style={styles.row}
+          style={settingsRow.row}
           accessibilityRole="button"
         >
-          <Text style={styles.rowText}>Log out</Text>
+          <Text style={settingsRow.label}>Log out</Text>
         </Pressable>
 
         <Pressable
           testID="delete-account-btn"
           onPress={() => setDeleteModalOpen(true)}
-          style={styles.row}
+          style={[settingsRow.row, styles.deleteRow]}
           accessibilityRole="button"
         >
-          <Text style={styles.deleteAccountText}>Delete account</Text>
+          <Text style={[settingsRow.label, styles.deleteAccountText]}>Delete account</Text>
         </Pressable>
+        </View>
 
       </ScrollView>
+
+      {isSaveSuccess && (
+        <View style={styles.toast} pointerEvents="box-none">
+          <Toast message="Settings saved" variant="success" visible={!savedToastHidden} />
+        </View>
+      )}
 
       {deleteModalOpen && (
         <DeleteAccountModal onClose={() => setDeleteModalOpen(false)} />
@@ -246,41 +278,48 @@ export default function ProfileScreen() {
   );
 }
 
+/** The gap between the page's blocks (the board's 22). */
+const BLOCK_GAP = 22;
+const SAVED_TOAST_MS = 3000;
+
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
-  content:   { padding: spacing.lg, paddingBottom: spacing.xl2 },
+  content:   { paddingHorizontal: spacing.lg, paddingTop: 10, gap: BLOCK_GAP },
+  // A heading with its list under it.
+  section:   { gap: 6 },
 
   // Header: avatar left, name and email beside it
   header: {
     flexDirection: 'row',
     alignItems:    'center',
     gap:           spacing.md,
-    marginBottom:  spacing.md,
-    paddingTop:    spacing.md,
   },
-  avatarRing: {
-    width:           60,
-    height:          60,
-    borderRadius:    30,
+  avatarEdge: {
+    backgroundColor: press.onCobaltEdge,
+    borderRadius:    22,
+    paddingBottom:   press.edge,
+  },
+  avatar: {
+    width:           64,
+    height:          64,
+    borderRadius:    22,
     backgroundColor: colors.brand,
-    borderWidth:     2,
-    borderColor:     colors.brandSoft,
     alignItems:      'center',
     justifyContent:  'center',
   },
   avatarText: {
-    fontFamily: font.display,
-    fontSize:   fontSize.md,
+    fontFamily: font.black,
+    fontSize:   23,
     color:      colors.onBrand,
   },
-  headerText: { flex: 1 },
+  headerText: { flex: 1, gap: 2 },
   name: {
-    fontFamily:   font.semibold,
-    fontSize:     fontSize.md,
-    color:        colors.textStrong,
-    marginBottom: 2,
+    fontFamily:    font.black,
+    fontSize:      24,
+    letterSpacing: -0.03 * 24,
+    color:         colors.textStrong,
   },
   email: {
     fontFamily: font.regular,
@@ -288,49 +327,42 @@ const styles = StyleSheet.create({
     color:      colors.textMuted,
   },
 
-  // One heading style: small grey caps, as on Progress
-  sectionHeading: {
-    fontFamily:    font.semibold,
-    fontSize:      fontSize.sm,
-    color:         colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop:     spacing.lg,
-    marginBottom:  spacing.sm,
-  },
+  sectionHeading: sectionHeadingStyle,
 
-  // Hairline rows, no cards
-  row: {
-    paddingVertical:   spacing.sm3,
+  // The notifications-off notice: one line with Turn on
+  notice: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               10,
+    paddingTop:        10,
+    paddingBottom:     12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
+    borderBottomColor: colors.border,
   },
-  rowSpread: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'space-between',
-  },
-  rowText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.base,
+  noticeText: {
+    flex:       1,
+    fontFamily: font.bold,
+    fontSize:   15,
     color:      colors.textStrong,
   },
   turnOn: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.base,
-    color:      colors.brand,
+    fontFamily: font.extrabold,
+    fontSize:   15,
+    color:      colors.textLink,
   },
 
   // Saved lessons
   savedRow: {
-    paddingVertical:   spacing.sm3,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-    gap:               2,
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             12,
+    paddingVertical: 10,
   },
+  savedText: { flex: 1, gap: 2 },
   savedTitle: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.sm,
+    fontFamily: font.bold,
+    fontSize:   15,
+    lineHeight: 15 * 1.3,
     color:      colors.textStrong,
   },
   savedMeta: {
@@ -352,13 +384,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   saveBtn: { marginTop: spacing.lg },
-  successMsg: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.success,
-    textAlign:  'center',
-    marginTop:  spacing.sm,
-  },
+  // The saved toast floats over the top of the page.
+  toast: { position: 'absolute', top: spacing.sm, left: 20, right: 20 },
   errorMsg: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
@@ -368,9 +395,7 @@ const styles = StyleSheet.create({
   },
 
   // Account
-  deleteAccountText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.error,
-  },
+  // Delete account is red and set apart from the rest.
+  deleteRow:         { marginTop: spacing.md },
+  deleteAccountText: { color: colors.error },
 });

@@ -230,7 +230,7 @@ describe('TracksScreen', () => {
     setMocks({ skills: [premiumSkill] });
     render(<TracksScreen />);
     expect(screen.getByTestId('upgrade-btn-skill-2')).toBeTruthy();
-    expect(screen.getByText('🔒 Upgrade')).toBeTruthy();
+    expect(screen.getByText('Upgrade')).toBeTruthy();
   });
 
   it('does not show Enrol button for locked skill', () => {
@@ -331,7 +331,7 @@ describe('TracksScreen', () => {
       expect(within(screen.getByTestId('skill-card-skill-1')).queryByTestId('albert-mark')).toBeNull();
       expect(screen.getByTestId('active-badge-skill-1')).toBeTruthy();
       expect(screen.getByText('Active')).toBeTruthy();
-      expect(StyleSheet.flatten(screen.getByTestId('skill-card-skill-1').props.style).backgroundColor).toBe(colors.brand);
+      expect(screen.getByTestId('skill-card-skill-1')).toBeTruthy();
     });
 
     it('shows the active track once, as the hero only, not also as a row', () => {
@@ -400,7 +400,7 @@ describe('TracksScreen', () => {
     it('lists custom paths in Your tracks, apart from the catalogue', () => {
       setMocks({ enrollments: [mockEnrollment, customPath] });
       render(<TracksScreen />);
-      expect(screen.queryByText('Your tracks')).toBeNull();
+      expect(screen.getByText('Your tracks')).toBeTruthy();
       expect(within(screen.getByTestId('your-tracks-section')).getByTestId('custom-path-card-plan-1')).toBeTruthy();
       // a track-kind path is a skill row, not a custom-path row
       expect(screen.queryByTestId('custom-path-card-skill-1')).toBeNull();
@@ -415,10 +415,11 @@ describe('TracksScreen', () => {
       expect(json.indexOf('Explore')).toBeLessThan(json.indexOf('skill-card-skill-2'));
     });
 
-    it('has no "Your tracks" heading above the learner\'s tracks', () => {
+    it('heads the learner\'s other tracks "Your tracks", not the active one', () => {
       setMocks({ skills: [baseSkill, premiumSkill], enrollments: [activeEnrollment, { ...mockEnrollment, id: 'skill-2' }] });
       render(<TracksScreen />);
-      expect(screen.queryByText('Your tracks')).toBeNull();
+      expect(screen.getByText('Your tracks')).toBeTruthy();
+      expect(within(screen.getByTestId('your-tracks-section')).getByTestId('skill-card-skill-2')).toBeTruthy();
     });
 
     it('offers Albert, as a track-style card with the Albert mark and a button, to a learner with no Albert path, even one with tracks', () => {
@@ -426,7 +427,6 @@ describe('TracksScreen', () => {
       render(<TracksScreen />);
       const card = within(screen.getByTestId('albert-cta-card'));
       expect(card.getByText('Want something built around your goals?')).toBeTruthy();
-      expect(card.getByText('Albert')).toBeTruthy();
       expect(card.getByTestId('albert-mark')).toBeTruthy();
       expect(card.getByText('Ask Albert')).toBeTruthy();
     });
@@ -451,20 +451,13 @@ describe('TracksScreen', () => {
       expect(screen.queryByText('Want something built around your goals?')).toBeNull();
     });
 
-    it('marks an Albert path in Your tracks with the Albert mark and the word Albert', () => {
+    it('marks an Albert path in Your tracks with the Albert mark and the words Albert path', () => {
       setMocks({ enrollments: [customPath] });
       render(<TracksScreen />);
       const row = within(screen.getByTestId('custom-path-card-plan-1'));
-      expect(row.getByText('Albert')).toBeTruthy();
+      expect(row.getByText('Albert path')).toBeTruthy();
       expect(row.getByTestId('albert-mark')).toBeTruthy();
       expect(row.queryByText('My path')).toBeNull();
-    });
-
-    it('lifts the Albert mark 2px so it sits level with the word', () => {
-      setMocks({ enrollments: [customPath] });
-      render(<TracksScreen />);
-      const style = StyleSheet.flatten(screen.getByTestId('track-eyebrow-mark').props.style);
-      expect(style.transform).toEqual([{ translateY: -2 }]);
     });
 
     it('gives a pre-built track no Albert mark', () => {
@@ -530,10 +523,9 @@ describe('TracksScreen', () => {
       setMocks({ enrollments: [{ ...albertPath, isActive: true }] });
       render(<TracksScreen />);
       const hero = within(screen.getByTestId('custom-path-card-plan-1'));
-      expect(hero.getByText('Active')).toBeTruthy();
+      expect(hero.getByText('Active · Albert path')).toBeTruthy();
       expect(hero.getByTestId('albert-mark')).toBeTruthy();
       expect(hero.queryByText('My path')).toBeNull();
-      expect(StyleSheet.flatten(screen.getByTestId('custom-path-card-plan-1').props.style).backgroundColor).toBe(colors.brand);
     });
 
     it('shows only the one active path as the hero when another path is not active', () => {

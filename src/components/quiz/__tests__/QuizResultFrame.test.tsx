@@ -22,4 +22,11 @@ describe('QuizResultFrame', () => {
     expect(getByTestId('quiz-frame-contours', { includeHiddenElements: true })).toBeTruthy();
     expect(getByText('body')).toBeTruthy();
   });
+
+  it('has a close button, unless it is told it is not closable', () => {
+    const { queryByLabelText, rerender } = render(<QuizResultFrame {...frame}><Text>body</Text></QuizResultFrame>);
+    expect(queryByLabelText('Close quiz results')).toBeTruthy();
+    rerender(<QuizResultFrame {...frame} closable={false}><Text>body</Text></QuizResultFrame>);
+    expect(queryByLabelText('Close quiz results')).toBeNull();
+  });
 });

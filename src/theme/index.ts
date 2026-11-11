@@ -118,9 +118,22 @@ export const colors = {
   successBg: '#E6F8EC',
 } as const;
 
-/** The cobalt hero card's radial gradient (use an SVG), and its contour lines. */
+/**
+ * The next-lesson card takes its colour from the lesson's level, deeper as the levels climb:
+ * petrol, cobalt, violet, plum. `base` is the level's colour (its button label and its level-bar
+ * segment), `light` and `dark` are the radial gradient's ends, and `edge` is the solid edge under
+ * the card's white button (the dark end, deepened).
+ */
+export const levelCard = {
+  beginner:     { base: '#17708A', light: '#2A8BA6', dark: '#105A70', edge: '#0B3B49' },
+  intermediate: { base: '#1C4FD8', light: '#3D6EF5', dark: '#1840B8', edge: '#0F2E8C' },
+  advanced:     { base: '#4B32C0', light: '#6A4FE0', dark: '#3A249E', edge: '#261767' },
+  expert:       { base: '#74226F', light: '#9A3A93', dark: '#5A1656', edge: '#3A0E38' },
+} as const;
+
+/** The card's gradient starts at the top right; the contour lines are white at this opacity. */
 export const gradients = {
-  cobaltHero: { at: { x: 1, y: 0 }, stops: [{ offset: 0, color: '#3D6EF5' }, { offset: 0.5, color: '#1C4FD8' }, { offset: 1, color: '#1840B8' }] },
+  heroAt: { x: 1, y: 0 },
   contourOpacity: 0.13,
 } as const;
 

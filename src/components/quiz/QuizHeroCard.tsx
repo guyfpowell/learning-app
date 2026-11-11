@@ -28,14 +28,14 @@ export function QuizHeroCard({ question, progress }: QuizHeroCardProps) {
           </View>
         </View>
       ) : null}
-      <FittedText text={question} testID="quiz-question" fontFamily={font.displayMedium} lineHeight={QUESTION_LINE_HEIGHT} range={QUESTION_RANGE} />
+      <FittedText text={question} testID="quiz-question" fontFamily={font.extrabold} lineHeight={QUESTION_LINE_HEIGHT} range={QUESTION_RANGE} />
     </View>
   );
 }
 
-const QUESTION_LINE_HEIGHT = 1.3;
-/** The question has more room than the takeaway, so it may go a little larger: 20 to 26pt (no 20 or 26 token) (096). */
-export const QUESTION_RANGE: SizeRange = { min: fontSize.md + 2, max: fontSize.lg + 4 };
+const QUESTION_LINE_HEIGHT = 1.15;
+/** The question has more room than the takeaway, so it may go larger: 22 to 28pt. */
+export const QUESTION_RANGE: SizeRange = { min: fontSize.lg, max: fontSize.xl };
 
 const styles = StyleSheet.create({
   card: {

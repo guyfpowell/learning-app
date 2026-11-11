@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react-native';
 import { DAY_MS, type AchievementsResponse, type XpResponse } from '@learning/shared';
 import { useXp } from '@/hooks/useXp';
 import { useAchievements } from '@/hooks/useAchievements';
+import { STREAK_COPY } from '@/lib/momentum';
 import { MomentumCard } from '../MomentumCard';
 
 jest.mock('@/hooks/useXp', () => ({ useXp: jest.fn() }));
@@ -30,19 +31,22 @@ function setData(x: XpResponse | undefined, a: AchievementsResponse | undefined)
 }
 
 describe('MomentumCard', () => {
-  it('shows the motto and the streak as a flame with its count', () => {
+  it('shows the streak as a flame with its count, and one line for its stage', () => {
     setData(undefined, undefined);
     render(<MomentumCard streak={4} />);
-    expect(screen.getByText('Small steps, real progress.')).toBeTruthy();
     expect(within(screen.getByTestId('streak-chip')).getByText('4')).toBeTruthy();
     expect(screen.getByLabelText('4 day streak')).toBeTruthy();
+    expect(STREAK_COPY.building.filter(line => screen.queryByText(line) !== null)).toHaveLength(1);
   });
 
-  it('shows the same motto at any streak, including none', () => {
+  it('keeps the same line when the card re-renders, and changes stage with the streak', () => {
     setData(undefined, undefined);
-    render(<MomentumCard streak={0} />);
-    expect(screen.getByText('Small steps, real progress.')).toBeTruthy();
-    expect(within(screen.getByTestId('streak-chip')).getByText('0')).toBeTruthy();
+    const { rerender } = render(<MomentumCard streak={4} />);
+    const shown = STREAK_COPY.building.find(line => screen.queryByText(line) !== null);
+    rerender(<MomentumCard streak={5} />);
+    expect(screen.getByText(shown ?? '')).toBeTruthy();
+    rerender(<MomentumCard streak={0} />);
+    expect(screen.getByText('Complete a lesson to start your streak')).toBeTruthy();
   });
 
   it('shows the XP level, total and what is left, with a bar', () => {

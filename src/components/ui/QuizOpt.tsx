@@ -1,95 +1,59 @@
 /**
- * QuizOpt — quiz option button — ticket 069 A3.
- *
- * Maps .asc-quizopt (__key, __mark, data-state) from the design system.
- * Used in QuizModal (A4) for both question-time selection and the result
- * feedback blocks. States:
- *   idle      — default, pressable
- *   selected  — user tapped it, waiting for submit (not in current quiz flow
- *               but included so the primitive is complete)
- *   correct   — right answer (green)
- *   incorrect — wrong answer (red)
- *
- * After answering (correct / incorrect) the button is not pressable.
+ * QuizOpt: a quiz answer tile. A white tile with a solid edge and a radio mark on the right.
+ * States:
+ *   idle     — pressable
+ *   selected — picked, waiting for submit: cobalt, with a white tick
+ *   ruledOut — the wrong first pick on the second try: struck through and not pressable
  */
 import React from 'react';
-import {
-  Pressable,
-  PressableProps,
-  StyleProp,
-  StyleSheet,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { Pressable, PressableProps, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { Feather } from '@expo/vector-icons';
-import { colors, font, fontSize, radius, spacing } from '@/theme';
+import { Icon } from '@/components/ui/Icon';
+import { colors, font, fontSize, press, radius, spacing } from '@/theme';
 
-export type QuizOptState = 'idle' | 'selected' | 'correct' | 'incorrect';
+export type QuizOptState = 'idle' | 'selected' | 'ruledOut';
 
 interface QuizOptProps extends Omit<PressableProps, 'children' | 'style'> {
-  optKey: string;   // A, B, C, D
   label: string;
   state?: QuizOptState;
   style?: StyleProp<ViewStyle>;
 }
 
-export function QuizOpt({
-  optKey,
-  label,
-  state = 'idle',
-  onPress,
-  testID,
-  style,
-  ...rest
-}: QuizOptProps) {
-  const isAnswered = state === 'correct' || state === 'incorrect';
+const TILE_MIN_HEIGHT = 60;
+const MARK_SIZE = 26;
+const MARK_RING = 2;
+const TICK_SIZE = 14;
+/** The tile's ring, and the solid edge under it. */
+const RING = 1.5;
+const EDGE = RING + press.edge / 2 + 1;
 
+export function QuizOpt({ label, state = 'idle', onPress, testID, style, ...rest }: QuizOptProps) {
+  const ruledOut = state === 'ruledOut';
   return (
     <Pressable
       testID={testID}
       onPress={onPress}
-      disabled={isAnswered}
-      accessibilityState={{ selected: state === 'selected' }}
-      style={({ pressed }) => [
-        quizOptTileStyle(state),
-        pressed && !isAnswered && styles.optPressed,
-        style,
-      ]}
+      disabled={ruledOut}
+      accessibilityRole="button"
+      accessibilityState={{ selected: state === 'selected', disabled: ruledOut }}
+      style={[quizOptTileStyle(state), style]}
       {...rest}
     >
-      {/* Key letter */}
-      <View style={[styles.key, quizOptKeyStyle(state)]}>
-        <Text style={[styles.keyText, quizOptKeyTextStyle(state)]}>{optKey}</Text>
-      </View>
-
-      {/* Option text */}
-      <Text style={[styles.label, state !== 'idle' && styles.labelAnswered]}>
-        {label}
-      </Text>
-
-      {/* Mark icon — only shown after answering */}
-      {isAnswered && (
-        <View style={styles.mark}>
-          <Feather
-            name={state === 'correct' ? 'check' : 'x'}
-            size={18}
-            color={state === 'correct' ? colors.success : colors.error}
-          />
+      <Text style={[styles.label, state === 'selected' && styles.labelSelected, ruledOut && styles.labelRuledOut]}>{label}</Text>
+      {!ruledOut && (
+        <View style={[styles.mark, state === 'selected' && styles.markSelected]}>
+          {state === 'selected' && <Icon name="check" size={TICK_SIZE} color={colors.brand} strokeWidth={3.2} />}
         </View>
       )}
     </Pressable>
   );
 }
 
-// ── Per-state styles ─────────────────────────────────────────────────────────
-
 function stateStyle(s: QuizOptState) {
   switch (s) {
-    case 'selected':  return styles.optSelected;
-    case 'correct':   return styles.optCorrect;
-    case 'incorrect': return styles.optIncorrect;
-    default:          return null;
+    case 'selected': return styles.optSelected;
+    case 'ruledOut': return styles.optRuledOut;
+    default:         return null;
   }
 }
 
@@ -98,103 +62,48 @@ export function quizOptTileStyle(s: QuizOptState) {
   return StyleSheet.flatten([styles.opt, stateStyle(s)]);
 }
 
-export function quizOptKeyStyle(s: QuizOptState) {
-  switch (s) {
-    case 'correct':   return styles.keyCorrect;
-    case 'incorrect': return styles.keyIncorrect;
-    case 'selected':  return styles.keySelected;
-    default:          return null;
-  }
-}
-
-export function quizOptKeyTextStyle(s: QuizOptState) {
-  switch (s) {
-    case 'correct':
-    case 'incorrect':
-    case 'selected':  return styles.keyTextOnColor;
-    default:          return null;
-  }
-}
-
-// ── StyleSheet ───────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   opt: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    gap:            spacing.sm,
-    padding:        spacing.sm3,
-    borderRadius:   radius.md,
-    borderWidth:    1,
-    borderColor:    colors.borderSubtle,
-    backgroundColor: colors.surface,
-  },
-  optPressed: {
-    backgroundColor: colors.surfaceSunken,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               spacing.sm3,
+    minHeight:         TILE_MIN_HEIGHT,
+    paddingHorizontal: spacing.md,
+    paddingVertical:   spacing.sm3,
+    borderRadius:      radius.md,
+    borderWidth:       RING,
+    borderBottomWidth: EDGE,
+    borderColor:       colors.borderSubtle,
+    borderBottomColor: colors.border,
+    backgroundColor:   colors.surface,
   },
   optSelected: {
-    borderColor:     colors.brand,
-    backgroundColor: colors.brandSoft,
+    borderColor:       colors.brand,
+    borderBottomColor: press.primaryEdge,
+    backgroundColor:   colors.brand,
   },
-  optCorrect: {
-    borderColor:     colors.success,
-    backgroundColor: colors.successSoft,
+  optRuledOut: {
+    borderBottomWidth: RING,
+    borderBottomColor: colors.borderSubtle,
+    backgroundColor:   colors.surfaceSunken,
   },
-  optIncorrect: {
-    borderColor:     colors.error,
-    backgroundColor: colors.errorSoft,
-  },
-
-  // ── Key circle ───────────────────────────────────────────────────────────
-  key: {
-    width:          32,
-    height:         32,
-    borderRadius:   radius.pill,
-    borderWidth:    1.5,
-    borderColor:    colors.border,
-    backgroundColor: colors.surfaceSunken,
-    alignItems:     'center',
-    justifyContent: 'center',
-    flex:           0,
-  },
-  keySelected: {
-    borderColor:     colors.brand,
-    backgroundColor: colors.brand,
-  },
-  keyCorrect: {
-    borderColor:     colors.success,
-    backgroundColor: colors.success,
-  },
-  keyIncorrect: {
-    borderColor:     colors.error,
-    backgroundColor: colors.error,
-  },
-  keyText: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-  },
-  keyTextOnColor: {
-    color: colors.onBrand,
-  },
-
-  // ── Option label ─────────────────────────────────────────────────────────
   label: {
     flex:       1,
-    fontFamily: font.regular,
-    fontSize:   fontSize.base,
-    color:      colors.textBody,
+    fontFamily: font.semibold,
+    fontSize:   fontSize.md,
+    lineHeight: fontSize.md * 1.25,
+    color:      colors.textStrong,
   },
-  labelAnswered: {
-    fontFamily: font.medium,
-  },
-
-  // ── Check / cross mark ───────────────────────────────────────────────────
+  labelSelected: { fontFamily: font.bold, color: colors.white },
+  labelRuledOut: { fontFamily: font.medium, color: colors.textSubtle, textDecorationLine: 'line-through' },
   mark: {
-    width:          26,
-    height:         26,
+    width:          MARK_SIZE,
+    height:         MARK_SIZE,
+    borderRadius:   MARK_SIZE / 2,
+    borderWidth:    MARK_RING,
+    borderColor:    colors.border,
     alignItems:     'center',
     justifyContent: 'center',
-    flex:           0,
   },
+  markSelected: { borderColor: colors.white, backgroundColor: colors.white },
 });

@@ -3,13 +3,16 @@ import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { PATHS_LOAD_ERROR, isProgressComplete, xpProgressOf, type UserPath } from '@learning/shared';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize, spacing, trackingEm } from '@/theme';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Spinner } from '@/components/ui/Spinner';
 import { useProgress } from '@/hooks/useProgress';
 import { usePaths } from '@/hooks/useTrack';
 import { useXp } from '@/hooks/useXp';
 import { Progress } from '@/components/ui/Progress';
+import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
+import { SubLevel } from '@/components/ui/SubLevel';
+import { FlameIcon } from '@/components/ui/Streak';
 import { PathProgress } from '@/components/ui/PathProgress';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { AchievementsSection } from '@/components/achievements/AchievementsSection';
@@ -29,6 +32,13 @@ function PathCardLink({ path, onOpen, onFindNext }: { path: UserPath; onOpen: ()
     </Pressable>
   );
 }
+
+// Side gutters (the board's 24).
+const PROGRESS_GUTTER = spacing.lg;
+const XP_BAR_HEIGHT = 12;
+const TRAIL_WIDTH = 92;
+/** The gap between the page's blocks. */
+const BLOCK_GAP = 22;
 
 // ── Screen ───────────────────────────────────────────────────────────────────
 
@@ -69,13 +79,24 @@ export default function ProgressScreen() {
             {xpProgress && xpData && (
               <View testID="xp-card" style={styles.xp}>
                 <View style={styles.xpHeader}>
-                  {xpProgress.kind === 'tier' ? (
-                    <Text testID="xp-tier-label" style={styles.xpLevel}>{xpProgress.label}</Text>
-                  ) : (
-                    <Text style={styles.xpLevel}>XP</Text>
-                  )}
-                  <Text testID="xp-total" style={styles.xpTotal}>{xpData.totalXp.toLocaleString()} XP</Text>
+                  <View style={styles.xpName}>
+                    {xpProgress.kind === 'tier' ? (
+                      <Text testID="xp-tier-label" style={styles.xpLevel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                        {xpProgress.label}
+                      </Text>
+                    ) : (
+                      <Text style={styles.xpLevel}>XP</Text>
+                    )}
+                    {xpData.tier && <SubLevel level={xpData.tier.level} width={TRAIL_WIDTH} />}
+                  </View>
+                  <Text testID="xp-total" style={styles.xpTotal}>
+                    {xpData.totalXp.toLocaleString()}
+                    <Text style={styles.xpUnit}> XP</Text>
+                  </Text>
                 </View>
+                {xpProgress.kind !== 'done' && (
+                  <Progress testID="xp-progress-bar" value={xpProgress.percent} tone="xp" height={XP_BAR_HEIGHT} trackColor={colors.xpTrack} />
+                )}
                 {xpProgress.kind === 'milestone' && (
                   <Text testID="xp-next-label" style={styles.xpNextLabel}>
                     {xpProgress.name} in {xpProgress.xpRemaining.toLocaleString()} XP
@@ -86,9 +107,6 @@ export default function ProgressScreen() {
                     {xpProgress.xpToNext.toLocaleString()} XP to next level
                   </Text>
                 )}
-                {xpProgress.kind !== 'done' && (
-                  <Progress testID="xp-progress-bar" value={xpProgress.percent} tone="xp" />
-                )}
               </View>
             )}
 
@@ -98,12 +116,15 @@ export default function ProgressScreen() {
                 <Text testID="progress-lessons-count" style={styles.statValue}>{data.totalLessonsCompleted}</Text>
                 <Text style={styles.statLabel}>Lessons</Text>
               </View>
-              <View style={styles.stat}>
+              <View style={[styles.stat, styles.statDivided]}>
                 <Text testID="progress-avg-score" style={styles.statValue}>{Math.round(data.averageScore)}%</Text>
-                <Text style={styles.statLabel}>Average quiz score</Text>
+                <Text style={styles.statLabel}>Avg quiz score</Text>
               </View>
-              <View style={styles.stat}>
-                <Text testID="progress-streak" style={styles.statValue}>{data.currentStreak}</Text>
+              <View style={[styles.stat, styles.statDivided]}>
+                <View style={styles.statValueRow}>
+                  <FlameIcon size={fontSize.lg} />
+                  <Text testID="progress-streak" style={styles.statValue}>{data.currentStreak}</Text>
+                </View>
                 <Text style={styles.statLabel}>Day streak</Text>
               </View>
             </View>
@@ -112,7 +133,7 @@ export default function ProgressScreen() {
 
         {inProgress.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionHeading}>Your path</Text>
+            <Text style={styles.sectionHeading}>{inProgress.length === 1 ? 'Your path' : 'Your paths'}</Text>
             {inProgress.map(path => (
               <PathCardLink
                 key={`${path.kind}-${path.id}`}
@@ -152,76 +173,75 @@ export default function ProgressScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
-  content:   { padding: spacing.md, flexGrow: 1 },
+  content:   { paddingHorizontal: PROGRESS_GUTTER, paddingTop: spacing.sm, gap: BLOCK_GAP, flexGrow: 1 },
 
   // ── XP hero ───────────────────────────────────────────────────────────────
-  xp: {
-    gap:          spacing.sm,
-    marginBottom: spacing.lg,
-  },
+  xp: { gap: spacing.sm3 },
   xpHeader: {
     flexDirection:  'row',
     justifyContent: 'space-between',
-    alignItems:     'baseline',
+    alignItems:     'flex-end',
     gap:            spacing.sm,
   },
+  xpName: { flex: 1, gap: 10 },
   xpLevel: {
-    fontFamily: font.display,
-    fontSize:   fontSize.xl,
-    color:      colors.textStrong,
+    fontFamily:    font.black,
+    fontSize:      fontSize.xxl,
+    letterSpacing: trackingEm.display * fontSize.xxl,
+    color:         colors.textStrong,
   },
   xpTotal: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.lg,
-    color:      colors.xp,
+    fontFamily:    font.black,
+    fontSize:      fontSize.xl + 2,
+    letterSpacing: -0.03 * (fontSize.xl + 2),
+    color:         colors.xpDark,
+  },
+  xpUnit: {
+    fontFamily: font.extrabold,
+    fontSize:   13,
+    color:      colors.xpDark,
   },
   xpNextLabel: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
+    fontFamily: font.semibold,
+    fontSize:   13,
     color:      colors.textMuted,
   },
 
   // ── Quiet stats row ───────────────────────────────────────────────────────
   statsRow: {
     flexDirection:     'row',
-    paddingVertical:   spacing.md,
     borderTopWidth:    1,
     borderBottomWidth: 1,
-    borderColor:       colors.borderSubtle,
+    borderColor:       colors.border,
   },
   stat: {
-    flex:       1,
-    alignItems: 'center',
-    gap:        spacing.xs,
+    flex:            1,
+    paddingVertical: 14,
+    gap:             spacing.xs,
   },
+  statDivided: {
+    paddingLeft:     14,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border,
+  },
+  statValueRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   statValue: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.lg,
-    color:      colors.textStrong,
+    fontFamily:    font.black,
+    fontSize:      fontSize.xl + 2,
+    letterSpacing: -0.035 * (fontSize.xl + 2),
+    color:         colors.textStrong,
   },
   statLabel: {
-    fontFamily: font.regular,
+    fontFamily: font.semibold,
     fontSize:   fontSize.xs,
     color:      colors.textMuted,
-    textAlign:  'center',
   },
 
   // ── Section headings ──────────────────────────────────────────────────────
-  sectionHeading: {
-    fontFamily:    font.semibold,
-    fontSize:      fontSize.sm,
-    color:         colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop:     spacing.lg,
-    marginBottom:  spacing.sm,
-  },
+  sectionHeading: sectionHeadingStyle,
 
   // ── Path sections ─────────────────────────────────────────────────────────
-  section: {
-    gap:          spacing.sm,
-    marginBottom: spacing.md,
-  },
+  section: { gap: spacing.sm3 },
 
   // ── Error / empty ─────────────────────────────────────────────────────────
   error: {

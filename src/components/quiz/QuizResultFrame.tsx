@@ -37,7 +37,7 @@ export function frameContentStyle(bottomInset: number) {
  * `overlay` renders above the body (celebrations).
  * `tone` washes the frame in that verdict's gradient, with contour lines; with none the frame is plain paper.
  */
-export function QuizResultFrame({ onClose, saved, onToggleSave, rating, action, overlay, tone, children }: {
+export function QuizResultFrame({ onClose, saved, onToggleSave, rating, action, overlay, tone, closable = true, children }: {
   onClose: () => void;
   saved: boolean;
   onToggleSave: () => void;
@@ -45,6 +45,8 @@ export function QuizResultFrame({ onClose, saved, onToggleSave, rating, action, 
   action?: ReactNode;
   overlay?: ReactNode;
   tone?: ResultTone;
+  /** False on the retry offer: the way on is "Try again", not leaving. */
+  closable?: boolean;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -71,9 +73,11 @@ export function QuizResultFrame({ onClose, saved, onToggleSave, rating, action, 
             <BookmarkButton saved={saved} onToggle={onToggleSave} style={[styles.circleBtn, tonedButton]} color={tone && results[tone].fg} />
             <View style={styles.headerRight}>
               {rating && <View testID="header-rating-bubble" style={[styles.bubble, tonedButton]}>{rating}</View>}
-              <Pressable onPress={onClose} style={[styles.circleBtn, tonedButton]} accessibilityLabel="Close quiz results">
-                <Ionicons name="close" size={22} color={tone ? results[tone].fg : colors.textMuted} />
-              </Pressable>
+              {closable && (
+                <Pressable onPress={onClose} style={[styles.circleBtn, tonedButton]} accessibilityLabel="Close quiz results">
+                  <Ionicons name="close" size={22} color={tone ? results[tone].fg : colors.textMuted} />
+                </Pressable>
+              )}
             </View>
           </View>
         </View>

@@ -144,14 +144,14 @@ describe('ProgressScreen', () => {
     expect(screen.queryByText(/Last lesson/i)).toBeNull();
   });
 
-  it('096: the three numbers are one quiet row, with no boxes and no flame', () => {
+  it('096: the three numbers are one quiet row, with no boxes', () => {
     setMock({ data: mockStats });
     render(<ProgressScreen />);
     const row = within(screen.getByTestId('progress-stats'));
     expect(row.getByTestId('progress-lessons-count')).toBeTruthy();
     expect(row.getByTestId('progress-avg-score')).toBeTruthy();
     expect(row.getByTestId('progress-streak')).toBeTruthy();
-    expect(row.getByText('Average quiz score')).toBeTruthy();
+    expect(row.getByText('Avg quiz score')).toBeTruthy();
     expect(screen.queryByTestId('progress-streak-card')).toBeNull();
   });
 
@@ -169,17 +169,17 @@ describe('ProgressScreen — enrollment cards', () => {
     (useXp as jest.Mock).mockReturnValue({ data: undefined });
   });
 
-  it('shows active enrollment card with track name and % complete', () => {
+  it('shows active enrollment card with the track name, no percentage', () => {
     (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
     render(<ProgressScreen />);
     expect(screen.getByText('JavaScript Fundamentals')).toBeTruthy();
-    expect(screen.getByText('30% complete')).toBeTruthy();
+    expect(screen.queryByText('30% complete')).toBeNull();
   });
 
   it('shows lessons count on active enrollment card', () => {
     (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment] });
     render(<ProgressScreen />);
-    expect(screen.getByText('3 of 10 lessons complete')).toBeTruthy();
+    expect(screen.getByText(/3 of 10 lessons/)).toBeTruthy();
   });
 
   it('096: no motivation line that repeats the path name; the next lesson shows instead', () => {
@@ -188,7 +188,7 @@ describe('ProgressScreen — enrollment cards', () => {
     });
     render(<ProgressScreen />);
     expect(screen.queryByText(/Only 7 lessons to complete|keep going/i)).toBeNull();
-    expect(screen.getByText('Next: Closures')).toBeTruthy();
+    expect(screen.getByTestId('path-next-lesson-' + mockActiveEnrollment.id).props.children).toContain('Closures');
   });
 
   it('shows completed track with Terminus achievement badge', () => {
@@ -231,6 +231,15 @@ describe('ProgressScreen — enrollment cards', () => {
     render(<ProgressScreen />);
     fireEvent.press(screen.getByTestId('completed-next-track-skill-2'));
     expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
+  });
+
+  it('heads several paths in progress "Your paths"', () => {
+    (usePaths as jest.Mock).mockReturnValue({
+      data: [mockActiveEnrollment, { ...mockActiveEnrollment, id: 'other' }],
+    });
+    render(<ProgressScreen />);
+    expect(screen.getByText('Your paths')).toBeTruthy();
+    expect(screen.queryByText('Your path')).toBeNull();
   });
 
   it('shows both active and completed sections when both present', () => {

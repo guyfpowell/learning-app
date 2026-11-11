@@ -3,9 +3,12 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize, press, spacing, trackingEm } from '@/theme';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
-import { Button } from '@/components/ui/Button';
+import { EdgeButton } from '@/components/ui/EdgeButton';
+import { Icon } from '@/components/ui/Icon';
+import { TextAction } from '@/components/tracks/TextAction';
+import { TrackIcon } from '@/components/ui/TrackIcon';
 import { Spinner } from '@/components/ui/Spinner';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { ActiveTrackHero } from '@/components/tracks/ActiveTrackHero';
@@ -20,6 +23,10 @@ import { HOME_ROUTE, trackRoute } from '@/lib/routes';
 
 // Display-only labels. `category` is free text (web admin can create others), so
 // callers must fall back to the raw value for anything not listed here.
+const GLYPH_SIZE = 24;
+// Side gutters, the same as Home's.
+const TRACKS_GUTTER = spacing.md + spacing.xs;
+
 const categoryLabel: Record<string, string> = {
   'product-management': 'Product',
   'ai-engineering':     'AI Eng',
@@ -54,7 +61,8 @@ export default function TracksScreen() {
   const otherCustomPaths = customPaths.filter((p) => !p.isActive);
   const otherEnrolledSkills = skills?.filter((s) => enrolledSkillIds.has(s.id) && s.id !== activeTrack?.id) ?? [];
   const exploreSkills = skills?.filter((s) => !enrolledSkillIds.has(s.id)) ?? [];
-  const hasYourTracks = !!activeCustom || !!activeTrack || otherCustomPaths.length + otherEnrolledSkills.length > 0;
+  const hasOtherTracks = otherCustomPaths.length + otherEnrolledSkills.length > 0;
+  const hasYourTracks = !!activeCustom || !!activeTrack || hasOtherTracks;
   const isSwitchingTo = (ref: ActivePathRef) =>
     setActive.isPending && setActive.variables?.kind === ref.kind && setActive.variables.id === ref.id;
 
@@ -65,6 +73,20 @@ export default function TracksScreen() {
     tap: `custom-path-tap-${id}`, card: `custom-path-card-${id}`, headline: `custom-path-description-${id}`,
   });
 
+  /** The compact white button that switches the active path. */
+  function makeActiveButton(id: string, ref: ActivePathRef) {
+    return (
+      <EdgeButton
+        testID={`make-active-btn-${id}`}
+        look={{ face: colors.white, label: colors.textStrong, edge: press.secondaryEdge }}
+        label="Make active"
+        compact
+        loading={isSwitchingTo(ref)}
+        onPress={() => setActive.mutate(ref)}
+      />
+    );
+  }
+
   function skillRow(skill: SkillWithAccess) {
     const isLocked = !skill.userHasAccess;
     const action = skillAction(enrolledSkillIds.has(skill.id), isLocked);
@@ -74,36 +96,27 @@ export default function TracksScreen() {
         ids={skillIds(skill.id)}
         tapLabel={`View ${skill.name} track details`}
         onOpen={() => router.push(trackRoute('track', skill.id))}
+        glyph={<TrackIcon trackId={skill.trackId} size={GLYPH_SIZE} color={isLocked ? colors.textMuted : colors.textStrong} />}
         eyebrow={categoryLabel[skill.category] ?? skill.category}
         name={skill.name}
         headline={skill.headline}
         dimmed={isLocked}
         action={
           <>
-            {action === 'make-active' && (
-              <Button
-                testID={`make-active-btn-${skill.id}`}
-                label="Make active"
-                variant="outline"
-                inline
-                loading={isSwitchingTo({ kind: 'track', id: skill.id })}
-                onPress={() => setActive.mutate({ kind: 'track', id: skill.id })}
-              />
-            )}
+            {action === 'make-active' && makeActiveButton(skill.id, { kind: 'track', id: skill.id })}
             {action === 'upgrade' && (
-              <Button
+              <TextAction
                 testID={`upgrade-btn-${skill.id}`}
-                label="🔒 Upgrade"
-                variant="outline"
-                inline
+                label="Upgrade"
+                icon={<Icon name="locked" size={fontSize.md} color={colors.textStrong} strokeWidth={2.2} />}
+                color={colors.textStrong}
                 onPress={() => setPremiumModalVisible(true)}
               />
             )}
             {action === 'enrol' && (
-              <Button
+              <TextAction
                 testID={`enrol-btn-${skill.id}`}
                 label="Enrol"
-                inline
                 loading={enroll.isPending && enroll.variables === skill.id}
                 onPress={() => enroll.mutate(skill.id, { onSuccess: () => router.push(HOME_ROUTE) })}
               />
@@ -121,20 +134,12 @@ export default function TracksScreen() {
         ids={customIds(path.id)}
         tapLabel={`View ${path.name} details`}
         onOpen={() => router.push(trackRoute(path.kind, path.id))}
-        eyebrow="Albert"
-        eyebrowMark={<AlbertMark />}
+        glyph={<AlbertMark size={GLYPH_SIZE} />}
+        eyebrow="Albert path"
+        eyebrowAccent
         name={capitalize(path.name)}
         headline={path.description ? capitalize(path.description) : null}
-        action={
-          <Button
-            testID={`make-active-btn-${path.id}`}
-            label="Make active"
-            variant="outline"
-            inline
-            loading={isSwitchingTo({ kind: path.kind, id: path.id })}
-            onPress={() => setActive.mutate({ kind: path.kind, id: path.id })}
-          />
-        }
+        action={makeActiveButton(path.id, { kind: path.kind, id: path.id })}
       />
     );
   }
@@ -150,11 +155,10 @@ export default function TracksScreen() {
         ids={{ tap: 'albert-cta', card: 'albert-cta-card', name: 'albert-cta-name', headline: 'albert-cta-headline' }}
         tapLabel="Ask Albert to build a path around your goals"
         onOpen={openAlbert}
-        eyebrow="Albert"
-        eyebrowMark={<AlbertMark />}
+        glyph={<AlbertMark size={GLYPH_SIZE} />}
         name="Want something built around your goals?"
         headline={null}
-        action={<Button testID="albert-cta-btn" label="Ask Albert" inline onPress={openAlbert} />}
+        action={<TextAction testID="albert-cta-btn" label="Ask Albert" onPress={openAlbert} />}
       />
     );
   }
@@ -209,14 +213,16 @@ export default function TracksScreen() {
                 headline={activeSkill?.headline ?? activeTrack.description}
               />
             )}
+            {showAlbertCta && albertRow()}
+            {hasOtherTracks && <Text style={styles.sectionHeading}>Your tracks</Text>}
             {otherCustomPaths.map(customRow)}
             {otherEnrolledSkills.map(skillRow)}
           </View>
         )}
 
-        {!isLoading && (exploreSkills.length > 0 || showAlbertCta) && (
+        {!isLoading && (exploreSkills.length > 0 || (showAlbertCta && !hasYourTracks)) && (
           <View testID="explore-section">
-            {showAlbertCta && albertRow()}
+            {showAlbertCta && !hasYourTracks && albertRow()}
             {exploreSkills.length > 0 && <Text style={styles.sectionHeading}>Explore</Text>}
             {exploreSkills.map(skillRow)}
           </View>
@@ -235,7 +241,7 @@ export default function TracksScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
-  content:   { padding: spacing.md, flexGrow: 1 },
+  content:   { paddingHorizontal: TRACKS_GUTTER, paddingTop: spacing.md, flexGrow: 1 },
   errorText: {
     fontFamily: font.regular,
     fontSize: fontSize.sm,
@@ -244,9 +250,11 @@ const styles = StyleSheet.create({
   },
   section: { marginBottom: spacing.sm },
   sectionHeading: {
-    fontFamily:   font.semibold,
-    fontSize:     fontSize.base,
-    color:        colors.textStrong,
-    marginBottom: spacing.sm,
+    fontFamily:    font.black,
+    fontSize:      fontSize.xl,
+    letterSpacing: trackingEm.display * fontSize.xl,
+    color:         colors.textStrong,
+    marginTop:     spacing.lg,
+    marginBottom:  spacing.xs,
   },
 });

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { xpProgressOf } from '@learning/shared';
@@ -8,10 +9,7 @@ import { Progress } from '@/components/ui/Progress';
 import { SubLevel } from '@/components/ui/SubLevel';
 import { useXp } from '@/hooks/useXp';
 import { useAchievements } from '@/hooks/useAchievements';
-import { achievementLineOf, xpLineOf, type AchievementLine } from '@/lib/momentum';
-
-/** Home's one line of encouragement, in place of a streak message. */
-const MOTTO = 'Small steps, real progress.';
+import { achievementLineOf, nextStreakCopy, streakStageOf, xpLineOf, type AchievementLine } from '@/lib/momentum';
 
 const XP_BAR_HEIGHT = 12;
 const MEDAL_SIZE = 26;
@@ -21,17 +19,20 @@ function achievementText(line: AchievementLine): string {
   return line.kind === 'new' ? `New: ${line.name}` : `Next up: ${line.name}`;
 }
 
-/** Home's top: the motto and the streak, then the level, its XP and one achievement. */
+/** Home's top: a line about the streak and the streak itself, then the level, its XP and one achievement. */
 export function MomentumCard({ streak }: { streak: number }) {
   const { data: xp } = useXp();
   const { data: achievements } = useAchievements();
+  // One line per stage, picked when the stage is first shown, so a re-render never changes the words.
+  const stage = streakStageOf(streak);
+  const copy = useMemo(() => nextStreakCopy(stage), [stage]);
   const xpLine = xp ? xpLineOf(xpProgressOf(xp)) : null;
   const achievementLine = achievements ? achievementLineOf(achievements, Date.now()) : null;
 
   return (
     <View testID="momentum-card" style={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.motto}>{MOTTO}</Text>
+        <Text style={styles.motto}>{copy}</Text>
         <View testID="streak-chip" style={styles.streak} accessibilityLabel={`${streak} day streak`}>
           <Icon name="streak" size={FLAME_SIZE} color={colors.coral} fill={colors.coral} />
           <Text style={styles.streakCount}>{streak}</Text>

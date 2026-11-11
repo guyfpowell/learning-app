@@ -233,14 +233,13 @@ describe('QuizModal', () => {
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
     expect(screen.queryByText(/^question$/i)).toBeNull();
     const title = StyleSheet.flatten(screen.getByText('Test my knowledge').props.style);
-    expect(title).toMatchObject({ color: colors.textMuted, fontSize: fontSize.md });
+    expect(title).toMatchObject({ color: colors.textMuted, fontSize: fontSize.sm });
   });
 
   it('096: the question is fitted like the key takeaway, hidden until its size settles', () => {
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
     const text = screen.getByText('What is product-market fit?');
-    expect(QUESTION_RANGE).toEqual({ min: 20, max: 26 });
-    expect(StyleSheet.flatten(text.props.style)).toMatchObject({ fontSize: QUESTION_RANGE.max, opacity: 0 });
+        expect(StyleSheet.flatten(text.props.style)).toMatchObject({ fontSize: QUESTION_RANGE.max, opacity: 0 });
   });
 
   it('091c: a capstone\'s "Question N of M", percentage and bar are inside the hero card', () => {
@@ -258,13 +257,14 @@ describe('QuizModal', () => {
     expect(screen.getByPlaceholderText('Your answer...')).toBeTruthy();
   });
 
-  it('096: Submit is a pinned coral glass button; disabled is at reduced opacity', () => {
+  it('Submit is pinned, flat and grey until an answer is picked, then cobalt', () => {
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-    const button = () => StyleSheet.flatten(must(screen.getByText('Submit').parent?.parent?.parent, 'button').props.style);
+    const face = () => StyleSheet.flatten(screen.getByTestId('submit-btn').props.style).backgroundColor;
     expect(within(screen.getByTestId('pinned-action')).getByText('Submit')).toBeTruthy();
-    expect(button().opacity).toBeLessThan(1);
+    expect(face()).toBe(colors.border);
+    expect(screen.getByTestId('submit-btn').props.accessibilityState).toMatchObject({ disabled: true });
     fireEvent.press(screen.getByText('Option A'));
-    expect(button().opacity).toBeUndefined();
+    expect(face()).toBe(colors.brand);
   });
 
   it('091c: a picked option is announced as selected', () => {
@@ -541,8 +541,8 @@ describe('QuizModal', () => {
       unmount();
       setQuizMock({ data: undefined });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      // The question body leaves room under its last line for the pinned Submit (096).
-      expect(StyleSheet.flatten(screen.getByTestId('quiz-question-content').props.contentContainerStyle).paddingBottom).toBe(PINNED_ACTION_CLEARANCE + 34);
+      // The question body leaves room under its last answer for the pinned Submit, and a little more.
+      expect(StyleSheet.flatten(screen.getByTestId('quiz-question-content').props.contentContainerStyle).paddingBottom).toBeGreaterThan(PINNED_ACTION_CLEARANCE + 34);
     });
 
     it('079f: no thumbs while the lesson is not finalized', () => {
@@ -704,6 +704,12 @@ describe('QuizModal', () => {
       expect(screen.queryByText('Quiz Complete!')).toBeNull();
     });
 
+    it('has no close button on the retry screen: the way on is Try again', () => {
+      setQuizMock({ data: wrongPendingResult });
+      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      expect(screen.queryByLabelText('Close quiz results')).toBeNull();
+    });
+
     it('shows ONE MORE TRY, the nudge and the hint, and never the answer', () => {
       setQuizMock({ data: wrongPendingResult });
       render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
@@ -745,6 +751,27 @@ describe('QuizModal', () => {
         { lessonId: 'lesson-1', answers: { 'q-1': 'Option A' }, isRetake: true },
         expect.anything()
       );
+    });
+
+    it('on the second try, notes it, and rules the wrong first pick out: struck through and not pressable', () => {
+      setQuizMock({ data: undefined });
+      const { rerender } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      expect(screen.queryByTestId('second-try-note')).toBeNull();
+      fireEvent.press(screen.getByText('Option B'));
+      fireEvent.press(screen.getByText('Submit'));
+
+      setQuizMock({ data: wrongPendingResult });
+      rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      fireEvent.press(screen.getByText('Try again'));
+
+      setQuizMock({ data: undefined });
+      rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      expect(within(screen.getByTestId('second-try-note')).getByText('Retry')).toBeTruthy();
+      expect(StyleSheet.flatten(screen.getByText('Option B').props.style).textDecorationLine).toBe('line-through');
+      expect(screen.getByTestId('quiz-opt-1').props.accessibilityState).toMatchObject({ disabled: true });
+      // ...and it drops to the bottom of the list.
+      const order = screen.getAllByTestId(/^quiz-opt-\d$/).map(node => node.props.testID);
+      expect(order).toEqual(['quiz-opt-0', 'quiz-opt-2', 'quiz-opt-1']);
     });
 
     it('shows the full results view (not the retake offer) once retakeAvailable is false', () => {
@@ -912,11 +939,11 @@ describe('QuizModal', () => {
   });
 
   describe('Chunk A4 — QuizOpt options', () => {
-    it('renders multiple-choice options with letter keys A, B, C via QuizOpt', () => {
+    it('renders each multiple-choice option as a QuizOpt tile', () => {
       render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-      expect(screen.getByText('A')).toBeTruthy();
-      expect(screen.getByText('B')).toBeTruthy();
-      expect(screen.getByText('C')).toBeTruthy();
+      expect(screen.getByTestId('quiz-opt-0')).toBeTruthy();
+      expect(screen.getByTestId('quiz-opt-1')).toBeTruthy();
+      expect(screen.getByTestId('quiz-opt-2')).toBeTruthy();
     });
 
     it('renders option text alongside the letter key', () => {

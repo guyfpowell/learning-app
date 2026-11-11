@@ -3,13 +3,12 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { AlbertMark } from '@/components/albert/AlbertMark';
 import { EdgeButton } from '@/components/ui/EdgeButton';
-import { LevelTag } from '@/components/ui/LevelTag';
 import { Progress } from '@/components/ui/Progress';
 import { SkipReasonPicker } from '@/components/ui/SkipReasonPicker';
-import { CobaltHero } from '@/components/home/CobaltHero';
+import { LevelHero } from '@/components/home/LevelHero';
 import { LevelBar } from '@/components/home/LevelBar';
 import { flooredPct } from '@/components/ui/PathCard';
-import { colors, font, fontSize, lineHeight, press, spacing, trackingEm } from '@/theme';
+import { colors, font, fontSize, levelCard, lineHeight, spacing, trackingEm } from '@/theme';
 import { revisitingLabel, type SkipReason, type SkipScope, type UserPath } from '@learning/shared';
 
 /** The lesson bar's segments: the lessons done are solid, the current one is part-lit, the rest are faint. */
@@ -70,7 +69,8 @@ export function HomePath({ path, onStartLesson, onSkip, skipPending, onOpen }: H
   // its own lesson, and the skip links (which act on the forward position) are not offered.
   const revisit = path.kind === 'custom' ? path.revisit : null;
   const nextLesson = revisit ? revisit.nextLesson : path.nextLesson;
-  const level = nextLesson?.skillPath?.level;
+  // A lesson with no level takes the middle one's colour.
+  const cardLevel = nextLesson?.skillPath?.level ?? 'intermediate';
   const position = nextLesson?.topicName && nextLesson.lessonIndex != null && nextLesson.totalLessons != null
     ? { index: nextLesson.lessonIndex, total: nextLesson.totalLessons }
     : null;
@@ -107,30 +107,24 @@ export function HomePath({ path, onStartLesson, onSkip, skipPending, onOpen }: H
 
       {nextLesson && (
         <>
-          <CobaltHero testID={`next-lesson-card-${path.id}`}>
+          <LevelHero level={cardLevel} testID={`next-lesson-card-${path.id}`}>
             {revisit && (
               <Text testID={`revisit-label-${path.id}`} style={styles.eyebrow}>{revisitingLabel(revisit.topicTitle)}</Text>
             )}
             <View testID={`next-lesson-meta-${path.id}`} style={styles.metaRow}>
               <Text style={styles.topic} numberOfLines={2}>{nextLesson.topicName ?? ''}</Text>
-              {level && <LevelTag level={level} label={nextLesson.skillPath?.levelLabel ?? level} />}
             </View>
-            {position && (
-              <>
-                <LessonSegments index={position.index} total={position.total} />
-                <Text style={styles.position}>Lesson {position.index} of {position.total}</Text>
-              </>
-            )}
+            {position && <LessonSegments index={position.index} total={position.total} />}
             <Text style={styles.title}>{nextLesson.title}</Text>
             {nextLesson.summary && <Text style={styles.summary}>{nextLesson.summary}</Text>}
             <EdgeButton
               testID={`next-lesson-btn-${path.id}`}
-              look={{ face: colors.white, label: colors.brand, edge: press.onCobaltEdge }}
+              look={{ face: colors.white, label: levelCard[cardLevel].base, edge: levelCard[cardLevel].edge }}
               label={ctaLabel(Boolean(revisit), Boolean(nextLesson.resumePhase))}
               icon="next"
               onPress={() => onStartLesson(nextLesson.id)}
             />
-          </CobaltHero>
+          </LevelHero>
 
           {/* Skips act on the forward position, so none is offered on a revisit, an open picker included. */}
           {!revisit && (
@@ -178,7 +172,6 @@ const styles = StyleSheet.create({
   topic:    { flex: 1, fontFamily: font.bold, fontSize: fontSize.base - 1, lineHeight: (fontSize.base - 1) * lineHeight.normal, color: colors.brandSoft },
   segments: { flexDirection: 'row', gap: spacing.xs },
   segment:  { flex: 1, height: SEGMENT_HEIGHT, borderRadius: SEGMENT_HEIGHT / 2 },
-  position: { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.brandSoft },
   title:    { fontFamily: font.extrabold, fontSize: fontSize.xl, lineHeight: fontSize.xl * lineHeight.snug, letterSpacing: trackingEm.title * fontSize.xl, color: colors.onBrand },
   summary:  { fontFamily: font.regular, fontSize: fontSize.base, lineHeight: fontSize.base * lineHeight.normal, color: colors.brandSoft },
 

@@ -4,7 +4,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import { revisitingLabel, type PathNextLesson, type TrackLevelProgress, type UserPath } from '@learning/shared';
 import { HomePath } from '../HomePath';
 import { makeCustomPath, makeTrackPath } from '@/test-utils/paths';
-import { colors } from '@/theme';
+import { colors, levelCard } from '@/theme';
 
 const nextLesson: PathNextLesson = {
   id: 'lesson-1', skillPathId: 'sp-1', lessonNumber: 3, content: 'x', durationMinutes: 5, difficulty: 'beginner', isTeaser: false,
@@ -45,13 +45,13 @@ describe('HomePath', () => {
     expect(StyleSheet.flatten(bar.getByText('Beginner').props.style).fontFamily).not.toBe(StyleSheet.flatten(bar.getByText('Intermediate').props.style).fontFamily);
   });
 
-  it('shows the topic, the level tag, one segment per lesson in it, and where the lesson is', () => {
+  it('shows the topic and one segment per lesson in it, with no level tag or lesson count', () => {
     renderPath();
     const card = within(screen.getByTestId('next-lesson-card-skill-1'));
     expect(card.getByText('CPO and VP Product: responsibilities compared')).toBeTruthy();
-    expect(card.getByText('BEGINNER')).toBeTruthy();
+    expect(card.queryByText('BEGINNER')).toBeNull();
     expect(card.getByTestId('lesson-segments').children).toHaveLength(8);
-    expect(card.getByText('Lesson 3 of 8')).toBeTruthy();
+    expect(card.queryByText('Lesson 3 of 8')).toBeNull();
   });
 
   it('lights the segments: lessons done solid, the current part-lit, the rest faint', () => {
@@ -80,6 +80,19 @@ describe('HomePath', () => {
     expect(within(screen.getByTestId('next-lesson-card-skill-1')).getByText('Start lesson')).toBeTruthy();
     fireEvent.press(screen.getByTestId('next-lesson-btn-skill-1'));
     expect(onStartLesson).toHaveBeenCalledWith('lesson-1');
+  });
+
+  it.each(['beginner', 'intermediate', 'advanced', 'expert'] as const)('takes the %s colours for the button label and its edge', (level) => {
+    renderPath(makeTrackPath({ id: 'skill-1', nextLesson: { ...nextLesson, skillPath: { level, levelLabel: null } }, levels }));
+    const label = within(screen.getByTestId('next-lesson-btn-skill-1')).getByText('Start lesson');
+    expect(StyleSheet.flatten(label.props.style).color).toBe(levelCard[level].base);
+    expect(StyleSheet.flatten(screen.getByTestId('next-lesson-card-skill-1').props.style).backgroundColor).toBe(levelCard[level].base);
+  });
+
+  it('colours each level-bar segment in its own level colour', () => {
+    renderPath();
+    const fills = screen.getAllByTestId('level-fill').map(node => StyleSheet.flatten(node.props.style).backgroundColor);
+    expect(fills).toEqual([levelCard.beginner.base, levelCard.intermediate.base]);
   });
 
   it('keeps the skip link off the cobalt card, and asks for a reason before skipping', () => {

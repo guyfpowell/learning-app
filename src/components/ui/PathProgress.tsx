@@ -4,7 +4,7 @@ import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Progress } from '@/components/ui/Progress';
-import { TrackMap } from '@/components/ui/TrackMap';
+import { LevelBar } from '@/components/home/LevelBar';
 import { formatPathDuration, isProgressComplete, type UserPath } from '@learning/shared';
 
 function flooredPct(path: UserPath): number {
@@ -37,26 +37,23 @@ export function PathProgress({ path, onFindNext }: PathProgressProps) {
   if (!isComplete) {
     const pct = flooredPct(path);
     return (
-      <Card testID={`enrollment-card-${path.id}`} style={styles.enrollmentCard}>
-        <View style={styles.enrollmentHeader}>
+      <View testID={`enrollment-card-${path.id}`} style={styles.enrollment}>
+        <View style={styles.enrollmentText}>
           <Text style={styles.enrollmentTitle}>{path.name}</Text>
-          <Text style={styles.pctText}>{pct}% complete</Text>
-        </View>
-        <Text style={styles.lessonsCount}>
-          {path.completedLessons} of {path.totalLessons} lessons complete
-        </Text>
-        {path.nextLesson && (
-          <Text testID={`path-next-lesson-${path.id}`} style={styles.lessonsCount} numberOfLines={1}>
-            Next: {path.nextLesson.title}
+          <Text style={styles.lessonsCount}>
+            {path.completedLessons} of {path.totalLessons} lessons
+            {path.nextLesson && (
+              <Text testID={`path-next-lesson-${path.id}`}>{' · '}Next: {path.nextLesson.title}</Text>
+            )}
           </Text>
-        )}
-        {/* Curated tracks show level strip; custom paths (levels=[]) show a progress bar (C10). */}
+        </View>
+        {/* Curated tracks show the level bar; custom paths (levels=[]) show a progress bar (C10). */}
         {path.levels.length > 0 ? (
-          <TrackMap levels={path.levels} showStatus={false} />
+          <LevelBar levels={path.levels} />
         ) : (
           <Progress value={pct} tone="brand" testID={`path-progress-bar-${path.id}`} />
         )}
-      </Card>
+      </View>
     );
   }
 
@@ -111,10 +108,9 @@ export function PathProgress({ path, onFindNext }: PathProgressProps) {
 }
 
 const styles = StyleSheet.create({
-  enrollmentCard:    { gap: spacing.sm },
-  enrollmentHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  enrollmentTitle:   { fontFamily: font.semibold, fontSize: fontSize.base, color: colors.textStrong, flex: 1 },
-  pctText:           { fontFamily: font.medium, fontSize: fontSize.sm, color: colors.brand },
+  enrollment:        { gap: spacing.sm3 },
+  enrollmentText:    { gap: 3 },
+  enrollmentTitle:   { fontFamily: font.extrabold, fontSize: fontSize.base, color: colors.textStrong },
   lessonsCount:      { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
 
   completedCard:     { gap: spacing.sm },

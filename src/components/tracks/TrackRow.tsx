@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { colors, font, fontSize, radius, shadow, spacing, tracking } from '@/theme';
+import { colors, font, fontSize, spacing, tracking, trackingEm } from '@/theme';
 
 /** The testIDs a track entry carries, so each kind of entry keeps its own. */
 export interface TrackEntryIds {
@@ -16,35 +16,31 @@ interface TrackRowProps {
   /** Accessible name of the whole tappable row. */
   tapLabel: string;
   onOpen: () => void;
-  /** A small caps line above the name (the category, or "Albert"). */
+  /** The track's glyph, in its own column before the text. */
+  glyph: ReactNode;
+  /** A small caps line above the name (the category, or "Albert path"). */
   eyebrow?: string;
-  /** Sits before the eyebrow text: Albert's mark on an Albert path. */
-  eyebrowMark?: ReactNode;
+  /** Draws the eyebrow in cobalt: an Albert path. */
+  eyebrowAccent?: boolean;
   name: string;
   headline?: string | null;
   /** Muted text, for a track the learner can't open yet. */
   dimmed?: boolean;
-  /** The one button on the right. A button inside wins its own tap, so the row doesn't open. */
+  /** The one action on the right. A button inside wins its own tap, so the row doesn't open. */
   action: ReactNode;
 }
 
-/** A compact catalogue entry: name and headline on the left, one action on the right. */
-export function TrackRow({ ids, tapLabel, onOpen, eyebrow, eyebrowMark, name, headline, dimmed, action }: TrackRowProps) {
+/** A list entry with a rule under it: glyph, name and headline, one action on the right. */
+export function TrackRow({ ids, tapLabel, onOpen, glyph, eyebrow, eyebrowAccent, name, headline, dimmed, action }: TrackRowProps) {
   return (
     <Pressable testID={ids.tap} onPress={onOpen} accessibilityRole="button" accessibilityLabel={tapLabel}>
       <View testID={ids.card} style={styles.row}>
+        <View style={styles.glyph}>{glyph}</View>
         <View style={styles.text}>
-          {!!eyebrow && (
-            <View style={styles.eyebrowRow}>
-              {!!eyebrowMark && <View testID="track-eyebrow-mark" style={styles.eyebrowMark}>{eyebrowMark}</View>}
-              <Text style={styles.eyebrow}>{eyebrow}</Text>
-            </View>
-          )}
-          <Text testID={ids.name} style={styles.name}>{name}</Text>
+          {!!eyebrow && <Text style={[styles.eyebrow, eyebrowAccent && styles.accent]}>{eyebrow}</Text>}
+          <Text testID={ids.name} style={[styles.name, dimmed && styles.dimmedName]}>{name}</Text>
           {!!headline && (
-            <Text testID={ids.headline} numberOfLines={2} style={[styles.headline, dimmed && styles.dimmed]}>
-              {headline}
-            </Text>
+            <Text testID={ids.headline} numberOfLines={2} style={styles.headline}>{headline}</Text>
           )}
         </View>
         <View style={styles.action}>{action}</View>
@@ -55,38 +51,34 @@ export function TrackRow({ ids, tapLabel, onOpen, eyebrow, eyebrowMark, name, he
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    gap:             spacing.md,
-    padding:         spacing.md,
-    marginBottom:    spacing.sm,
-    backgroundColor: colors.surface,
-    borderWidth:     1,
-    borderColor:     colors.borderSubtle,
-    borderRadius:    radius.md,
-    ...shadow.xs,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               spacing.md,
+    paddingVertical:   spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
-  text:     { flex: 1, gap: spacing.xs },
-  // The icon's box sits low against the caps text, so it is lifted 2px.
-  eyebrowMark: { transform: [{ translateY: -spacing.xs / 2 }] },
-  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  glyph: { width: 28, alignItems: 'center' },
+  text:  { flex: 1, gap: spacing.xs / 2 },
   eyebrow: {
-    fontFamily:    font.bold,
+    fontFamily:    font.extrabold,
     fontSize:      fontSize.xs,
     letterSpacing: tracking.caps,
     textTransform: 'uppercase',
     color:         colors.textMuted,
   },
+  accent: { color: colors.textLink },
   name: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
+    fontFamily:    font.extrabold,
+    fontSize:      fontSize.md + 2,
+    letterSpacing: trackingEm.heading * (fontSize.md + 2),
+    color:         colors.textStrong,
   },
+  dimmedName: { color: colors.textMuted },
   headline: {
     fontFamily: font.regular,
-    fontSize:   fontSize.sm,
+    fontSize:   fontSize.base,
     color:      colors.textMuted,
   },
-  dimmed: { color: colors.textMuted },
   action: { alignItems: 'flex-end' },
 });
