@@ -1,213 +1,216 @@
 import { Platform } from 'react-native';
 
-// ─── Colour palette ─────────────────────────────────────────────────────────
+// ─── Ascent theme: Light (Altitude) ──────────────────────────────────────────
 //
-// All values precomputed from the design system's oklch tokens.
-// Format: hex  // oklch(L C H) — provenance from learning-design-system/tokens/colors.css
+// From the 2026-11-11 design handoff (learning-project/docs/design_handoff_nov11).
+// A Dark theme (Night Climb) will follow in its own ticket; it is not here.
 //
-// Use the semantic aliases below in product code; only reach for
-// the scale tokens when building new primitives.
+// Rules: cobalt is the ONLY action colour. Gold = XP only. Coral = streak only.
+// Green and red = correct and incorrect only.
+//
+// Use the semantic aliases in product code; reach for the scale tokens only when
+// building new primitives.
 
-const brand = {
-  50:  '#EEF6FF',  // oklch(0.971 0.018 256)
-  100: '#DBEDFF',  // oklch(0.940 0.038 257)
-  200: '#BFDEFF',  // oklch(0.892 0.066 256)
-  300: '#94C5FF',  // oklch(0.815 0.108 256)
-  400: '#5D9FFB',  // oklch(0.700 0.152 257)
-  500: '#307BE6',  // oklch(0.595 0.178 258)
-  600: '#1C66D2',  // oklch(0.530 0.182 259) — primary
-  700: '#1752B0',  // oklch(0.460 0.162 260)
-  800: '#17418B',  // oklch(0.392 0.132 261)
-  900: '#173268',  // oklch(0.330 0.100 262)
+const cobalt = {
+  50:  '#EEF2FF',
+  100: '#E3EAFE',
+  300: '#9DB6F7',
+  400: '#3D6EF5',
+  500: '#2A5BE6',
+  600: '#1C4FD8',  // action
+  700: '#123A9E',
+  800: '#0F2E8C',
 } as const;
 
-const coral = {
-  50:  '#FFF1EC',  // oklch(0.969 0.018 38)
-  100: '#FFE1D6',  // oklch(0.935 0.040 39)
-  200: '#FFC8B5',  // oklch(0.882 0.073 39)
-  300: '#FFA588',  // oklch(0.806 0.116 38)
-  400: '#F97E5D',  // oklch(0.726 0.158 36)
-  500: '#EF6445',  // oklch(0.672 0.178 34) — accent
-  600: '#D84F38',  // oklch(0.610 0.176 32)
-  700: '#AF3E30',  // oklch(0.520 0.150 30)
+const ink = {
+  900: '#121522',
+  700: '#2A2D3A',
+  600: '#4A4E5C',
+  500: '#6A6E7C',
+  400: '#8A8E9C',
+  300: '#A09C93',
 } as const;
 
-const neutral = {
-  0:   '#FEFDFB',  // oklch(0.994 0.003 85) — pure paper / cards
-  50:  '#FBF9F5',  // oklch(0.982 0.006 83) — app background
-  100: '#F5F2ED',  // oklch(0.962 0.008 82)
-  150: '#EEEBE5',  // oklch(0.940 0.009 80)
-  200: '#E6E1DB',  // oklch(0.912 0.010 78)
-  300: '#D6D1CA',  // oklch(0.862 0.011 76)
-  400: '#B0AAA3',  // oklch(0.742 0.012 72)
-  500: '#8C857E',  // oklch(0.620 0.013 68)
-  600: '#6C655F',  // oklch(0.512 0.013 64)
-  700: '#504944',  // oklch(0.412 0.013 62)
-  800: '#37312C',  // oklch(0.318 0.013 60)
-  900: '#26201C',  // oklch(0.248 0.012 58)
-  950: '#17120F',  // oklch(0.188 0.011 56)
-} as const;
-
-const semantic = {
-  success100: '#D6F4DD',  // oklch(0.940 0.045 152)
-  success500: '#3AA460',  // oklch(0.640 0.140 152)
-  success700: '#217943',  // oklch(0.510 0.118 152)
-  amber100:   '#FFEECF',  // oklch(0.955 0.045 84)
-  amber500:   '#EDB345',  // oklch(0.800 0.140 80)  XP / badges gold
-  amber700:   '#BE7C1C',  // oklch(0.640 0.130 70)
-  danger100:  '#FFE3DF',  // oklch(0.940 0.035 25)
-  danger500:  '#D83938',  // oklch(0.585 0.196 26)
-  danger700:  '#AC2724',  // oklch(0.490 0.170 27)
-  violet100:  '#EDE5FB',  // expert level tag background
-  violet700:  '#6A3DC0',  // expert level tag text
+const paper = {
+  0:   '#FFFFFF',
+  50:  '#F3F1EC',  // app background
+  100: '#F1EEE8',
+  150: '#EFEBE3',
+  200: '#E2DDD3',
+  300: '#D6D0C5',
 } as const;
 
 export const colors = {
-  // ── Semantic aliases (use these in product code) ────────────────────
   // Surfaces
-  paper:          neutral[50],   // app / page background
-  surface:        neutral[0],    // cards, panels
-  surfaceSunken:  neutral[100],  // wells, insets
-  surfaceInverse: neutral[950],
+  paper:          paper[50],    // app background
+  surface:        paper[0],     // the one card per screen, sheets, tiles
+  surfaceSunken:  paper[100],
+  surfaceInverse: ink[900],
 
   // Text
-  textStrong:  neutral[950],
-  textBody:    neutral[800],
-  textMuted:   neutral[600],
-  textSubtle:  neutral[500],
-  textOnBrand: neutral[0],
-  textInverse: neutral[50],
-  textLink:    brand[600],
+  textStrong:  ink[900],
+  textBody:    ink[700],
+  textMuted:   ink[500],
+  textSubtle:  ink[400],
+  textOnBrand: '#FFFFFF',
+  textInverse: paper[50],
+  textLink:    cobalt[600],
 
-  // Borders
-  borderSubtle: neutral[200],
-  border:       neutral[300],
-  borderStrong: neutral[400],
+  // Lines (cards have no border: these are for rules, dividers, tracks, button edges)
+  borderSubtle: paper[150],
+  border:       paper[200],
+  borderStrong: paper[300],
 
-  // Brand actions
-  brand:       brand[600],  // primary CTA
-  brandDark:   brand[700],
-  brandPress:  brand[800],
-  brandSoft:   brand[50],
-  onBrand:     neutral[0],
+  // Action
+  brand:      cobalt[600],
+  brandDark:  cobalt[700],
+  brandPress: cobalt[800],
+  brandSoft:  cobalt[100],
+  onBrand:    '#FFFFFF',
 
-  // Energy / gamification
-  coral:       coral[500],  // streak, momentum
-  coralDark:   coral[600],
-  coralSoft:   coral[50],
-  xp:          semantic.amber500,
-  xpSoft:      semantic.amber100,
+  // Gamification
+  xp:        '#F2B52F',
+  xpDark:    '#C98A0C',
+  xpEdge:    '#E3A11B',  // the rim of a gold waypoint
+  xpText:    '#7A5000',
+  xpSoft:    '#FFF3D3',
+  xpTrack:   '#F1ECE1',
+  coral:     '#FF6B3D',  // streak only
+  coralDark: '#D84B20',
+  coralSoft: '#FFE9E0',
 
-  // Semantic feedback
-  success:     semantic.success500,
-  successSoft: semantic.success100,
-  warning:     semantic.amber500,
-  warningSoft: semantic.amber100,
-  error:       semantic.danger500,
-  errorSoft:   semantic.danger100,
-  expert:      semantic.violet700,
-  expertSoft:  semantic.violet100,
+  // Feedback
+  success:     '#22A45D',
+  successDark: '#16824A',
+  successSoft: '#E6F8EC',
+  successText: '#0D4F2B',
+  error:       '#E5484D',
+  errorDark:   '#C2373B',
+  errorSoft:   '#FDECEC',
+  errorText:   '#6E1A1C',
+  warning:     '#F2B52F',
+  warningSoft: '#FFF3D3',
+
+  // Level tags
+  levelBeginner:     { bg: '#D9F5E2', fg: '#106B36' },
+  levelIntermediate: { bg: cobalt[100], fg: cobalt[700] },
+  levelAdvanced:     { bg: '#EEE8FD', fg: '#5532B8' },
+  levelExpert:       { bg: ink[900], fg: '#FFFFFF' },
+  expert:     '#5532B8',
+  expertSoft: '#EEE8FD',
 
   // Pure white / utility
   white: '#FFFFFF',
 
-  // ── Legacy tokens — kept for backward compatibility ─────────────────
-  // Delete once every reference in src/ and app/ is repointed.
+  // ── Legacy tokens: kept so nothing breaks. Repoint and delete. ──────
   // grep: colors\.teal|colors\.tealDark|colors\.tealLight|colors\.blue\b
   //       |colors\.blueLight|colors\.vivid\b|colors\.vividDark|colors\.bg\b
-  teal:      '#4F46E5',
-  tealDark:  '#3730A3',
-  tealLight: '#6366F1',
-  blue:      '#7DD8E8',
-  blueLight: '#BAE6FD',
-  vivid:     '#0EA5E9',
-  vividDark: '#0284C7',
-  bg:        '#F8FAFC',
-  textDark:  '#1E293B',
-  errorBg:   '#FEE2E2',
-  successBg: '#DCFCE7',
+  teal:      cobalt[600],
+  tealDark:  cobalt[700],
+  tealLight: cobalt[400],
+  blue:      cobalt[300],
+  blueLight: cobalt[100],
+  vivid:     cobalt[600],
+  vividDark: cobalt[700],
+  bg:        paper[50],
+  textDark:  ink[900],
+  errorBg:   '#FDECEC',
+  successBg: '#E6F8EC',
+} as const;
+
+/** The cobalt hero card's radial gradient (use an SVG), and its contour lines. */
+export const gradients = {
+  cobaltHero: { at: { x: 1, y: 0 }, stops: [{ offset: 0, color: '#3D6EF5' }, { offset: 0.5, color: '#1C4FD8' }, { offset: 1, color: '#1840B8' }] },
+  contourOpacity: 0.13,
 } as const;
 
 // ─── Spacing (8 px rhythm) ────────────────────────────────────────────────────
 export const spacing = {
-  xs:   4,   // --space-1
-  sm:   8,   // --space-2
-  sm3:  12,  // --space-3  (gap / tight padding)
-  md:   16,  // --space-4
-  lg:   24,  // --space-5
-  xl:   32,  // --space-6
-  xl2:  40,  // --space-7
-  xxl:  48,  // --space-8
-  xl4:  64,  // --space-9
-  xl6:  96,  // --space-10
+  xs:   4,
+  sm:   8,
+  sm3:  12,
+  md:   16,
+  lg:   24,
+  xl:   32,
+  xl2:  40,
+  xxl:  48,
+  xl4:  64,
+  xl6:  96,
 } as const;
 
 // ─── Border radius ───────────────────────────────────────────────────────────
 export const radius = {
-  xs:   4,    // --radius-xs  (tags, badges)
-  sm:   8,    // --radius-sm  (buttons, inputs)
-  md:   12,   // --radius-md  (controls)
-  card: 16,   // --radius-lg  (cards, panels) — was 12, now correct
-  xl:   24,   // --radius-xl  (feature panels, modals)
-  pill: 999,  // --radius-pill
-  // legacy aliases kept for backward compat
-  btn:   8,
-  input: 8,
+  xs:   8,    // tags
+  sm:   12,   // chips, icon tiles
+  md:   16,   // buttons, inputs, choice tiles (header buttons are 14 at 44pt)
+  card: 24,   // cards, sheets
+  xl:   28,   // feature / hero card
+  pill: 999,
+  // legacy aliases
+  btn:   16,
+  input: 16,
 } as const;
 
-// ─── Shadows (warm-tinted, collapsed from layered CSS to single RN shadow) ───
+/** Pressable depth: a solid bottom edge that collapses when held. */
+export const press = {
+  edge: 4,          // edge height at rest
+  edgePressed: 1,   // and translateY 3 while pressed
+  primaryEdge: cobalt[700],
+  secondaryEdge: paper[200],
+  onCobaltEdge: cobalt[800],  // white button on cobalt
+} as const;
+
+// ─── Shadows ─────────────────────────────────────────────────────────────────
 export const shadow = {
   xs: Platform.select({
-    ios:     { shadowColor: neutral[900], shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2 },
+    ios:     { shadowColor: ink[900], shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 2 },
     android: { elevation: 1 },
     default: {},
   }),
   card: Platform.select({
-    ios:     { shadowColor: neutral[900], shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.09, shadowRadius: 12 },
+    ios:     { shadowColor: ink[900], shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.07, shadowRadius: 14 },
     android: { elevation: 4 },
     default: {},
   }),
   md: Platform.select({
-    ios:     { shadowColor: neutral[900], shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.10, shadowRadius: 16 },
+    ios:     { shadowColor: ink[900], shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 16 },
     android: { elevation: 6 },
     default: {},
   }),
   brand: Platform.select({
-    ios:     { shadowColor: brand[600], shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 20 },
-    android: { elevation: 8 },
+    ios:     { shadowColor: cobalt[600], shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.32, shadowRadius: 20 },
+    android: { elevation: 10 },
     default: {},
   }),
   coral: Platform.select({
-    ios:     { shadowColor: coral[500], shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.30, shadowRadius: 20 },
+    ios:     { shadowColor: colors.coral, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 20 },
     android: { elevation: 8 },
     default: {},
   }),
 } as const;
 
-// ─── Typography ──────────────────────────────────────────────────────────────
-//
-// Display — Bricolage Grotesque  (headings, hero, numeric display)
-// UI/body — Hanken Grotesk       (everything else)
+// ─── Typography: Schibsted Grotesk only ──────────────────────────────────────
 export const font = {
-  // Hanken Grotesk — UI / body
-  regular:  'HankenGrotesk_400Regular',
-  medium:   'HankenGrotesk_500Medium',
-  semibold: 'HankenGrotesk_600SemiBold',
-  bold:     'HankenGrotesk_700Bold',
-  // Bricolage Grotesque — display
-  display:       'BricolageGrotesque_700Bold',
-  displayMedium: 'BricolageGrotesque_600SemiBold',
+  regular:   'SchibstedGrotesk_400Regular',
+  medium:    'SchibstedGrotesk_500Medium',
+  semibold:  'SchibstedGrotesk_600SemiBold',
+  bold:      'SchibstedGrotesk_700Bold',
+  extrabold: 'SchibstedGrotesk_800ExtraBold',
+  black:     'SchibstedGrotesk_900Black',
+  display:       'SchibstedGrotesk_900Black',
+  displayMedium: 'SchibstedGrotesk_800ExtraBold',
+  cta:           'SchibstedGrotesk_800ExtraBold',  // replaces the Georgia CTA font
 } as const;
 
-// Font size scale — aligns to --text-* (1.25 major-third, rem×16 → pt)
 export const fontSize = {
-  xs:   12,  // --text-xs   (labels, captions)
-  sm:   14,  // --text-sm   (secondary body)
-  base: 16,  // --text-base (body)
-  md:   18,  // --text-md   (lead / prominent body)
-  lg:   22,  // --text-lg   (section headings)
-  xl:   28,  // --text-xl   (screen headings)
-  xxl:  36,  // --text-2xl  (hero / display)
+  xs:   12,
+  sm:   14,
+  base: 16,
+  md:   18,
+  lg:   22,
+  xl:   28,
+  xxl:  40,
+  hero: 54,
 } as const;
 
 // Font weight numbers (for StyleSheet fontWeight or Animated)
@@ -217,23 +220,58 @@ export const fontWeight = {
   semibold: '600',
   bold:     '700',
   extra:    '800',
+  black:    '900',
 } as const;
 
-// Line height multipliers — multiply by the font size: lineHeight = fontSize.base * lineHeight.normal
+// Line height multipliers: lineHeight = fontSize.base * lineHeight.normal
 export const lineHeight = {
-  tight:   1.08,  // --leading-tight   (hero / display)
-  snug:    1.22,  // --leading-snug    (headings)
-  normal:  1.5,   // --leading-normal  (body)
-  relaxed: 1.65,  // --leading-relaxed (long-form prose)
+  tight:   0.95,
+  snug:    1.1,
+  normal:  1.45,
+  relaxed: 1.6,
 } as const;
 
 // ─── Letter spacing ──────────────────────────────────────────────────────────
+// `tracking` is in points, at a 16pt size (the app's existing values).
 export const tracking = {
-  tighter: -0.48,  // --tracking-tighter (-0.03em @ 16px)
-  tight:   -0.24,  // --tracking-tight   (-0.015em @ 16px)
-  normal:   0,     // --tracking-normal
-  wide:     0.64,  // --tracking-wide    (0.04em @ 16px)
-  caps:     1.28,  // --tracking-caps    (0.08em @ 16px) — eyebrows / overlines
-  // legacy alias kept for backward compat
+  tighter: -0.48,
+  tight:   -0.24,
+  normal:   0,
+  wide:     0.64,
+  caps:     1.28,
+  // legacy alias
   heading:  1.2,
+} as const;
+
+/** The design's letter spacing in em: multiply by the font size (`trackingEm.display * fontSize.hero`). */
+export const trackingEm = {
+  display: -0.045,
+  title:   -0.03,
+  heading: -0.015,
+  caps:     0.08,
+} as const;
+
+// ─── Quiz results: full-colour screens ───────────────────────────────────────
+export const results = {
+  correct: {  // full green
+    gradient: ['#1C9654', '#16824A', '#0E6A3A', '#0B5C32'],  // top to bottom, deepest under the copy
+    glow: 'rgba(80,220,140,0.35)', edge: '#073F22', tint: '#C6F2D7', text: '#F4FFF8', fg: '#FFFFFF',
+  },
+  retry: {    // sand, light
+    gradient: ['#F1E6CF', '#EADBBE', '#E2D0AD'], edge: '#B8A27A', tint: '#4A3D25', text: ink[900], fg: ink[900],
+    contour: '#8A7550',
+  },
+  incorrect: {  // ink, with a red accent
+    gradient: ['#1E2335', '#171B2C', '#10131F', '#0C0E18'],
+    glow: 'rgba(90,110,200,0.28)', edge: '#04050A', tint: '#C2C8DE', text: '#F5F6FB', fg: '#FFFFFF', accent: '#E5484D',
+  },
+} as const;
+
+// ─── Achievement medals ──────────────────────────────────────────────────────
+export const medal = {
+  cobalt: cobalt[600], gold: '#F2B52F', locked: '#E6E1D8',
+  // Medal finish: the dark glyph on a gold (XP) medal, a locked medal's glyph and lower tone, and the shade mixed into edges.
+  xpGlyph: '#5A3A00', lockedGlyph: '#A9A59C', lockedBottom: '#E2DCD2', shade: '#000000',
+  tiered: { trail: '#3A6CF2', ridge: cobalt[600], summit: '#1840B8', xpTrail: '#F6C453', xpRidge: '#F2B52F', xpSummit: '#E3A11B' },
+  jewel: { milestones: '#1C4FD8', session: '#127A84', accuracy: '#5B3CC4', improvement: '#A1336F', depth: '#2C3192', breadth: '#3E5872', curation: '#6E2A5C', return: '#1D6FA3', social: '#B8456B' },
 } as const;

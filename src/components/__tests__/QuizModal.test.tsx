@@ -6,7 +6,7 @@ import { headerRowBox } from '@/components/quiz/QuizResultFrame';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react-native';
 import { PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
 import { QUESTION_RANGE } from '@/components/quiz/QuizHeroCard';
-import { QuizModal } from '../QuizModal';
+import { QuizModal, burstShift } from '../QuizModal';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
 import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { useRouter } from 'expo-router';
@@ -319,10 +319,10 @@ describe('QuizModal', () => {
     expect(screen.queryByText('Correct!')).toBeNull();
   });
 
-  it('shows the Track Average label in results', () => {
+  it('shows the track average label in results', () => {
     setQuizMock({ data: mockResult });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('Track Average')).toBeTruthy();
+    expect(screen.getByText('track average')).toBeTruthy();
   });
 
   it('shows an up arrow when the average improved on a non-retake result', () => {
@@ -400,11 +400,17 @@ describe('QuizModal', () => {
     expect(screen.queryByText('DONE')).toBeNull();
   });
 
-  it('096: the result action is a pinned coral glass button, with the page scrolling behind it', () => {
+  it('the result action is a pinned white button on the colour, with the page scrolling behind it', () => {
     setQuizMock({ data: { ...mockResult, nextLessonId: 'lesson-2' } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
     expect(within(screen.getByTestId('pinned-action')).getByTestId('result-action-btn')).toBeTruthy();
-    expect(StyleSheet.flatten(screen.getByTestId('result-action-btn-wash').props.style).backgroundColor).toBe(colors.coral);
+    expect(StyleSheet.flatten(screen.getByTestId('result-action-btn').props.style).backgroundColor).toBe(colors.white);
+  });
+
+  it('the retry offer\'s button is ink on the sand', () => {
+    setQuizMock({ data: { ...mockResult, correct: false, retakeAvailable: true, lessonFinalized: false } });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    expect(StyleSheet.flatten(screen.getByTestId('result-action-btn').props.style).backgroundColor).toBe(colors.surfaceInverse);
   });
 
   it.each([
@@ -469,7 +475,7 @@ describe('QuizModal', () => {
       setQuizMock({ data: q1CorrectNotFinalized });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(screen.queryByText('Quiz Complete!')).toBeNull();
-      expect(screen.queryByText('Track Average')).toBeNull();
+      expect(screen.queryByText('track average')).toBeNull();
       expect(screen.queryByText('DONE')).toBeNull();
     });
 
@@ -513,7 +519,7 @@ describe('QuizModal', () => {
       setQuizMock({ data: { ...mockResult, lessonFinalized: true } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(screen.getByText('Correct!')).toBeTruthy();
-      expect(screen.getByText('Track Average')).toBeTruthy();
+      expect(screen.getByText('track average')).toBeTruthy();
       expect(screen.queryByText('Next question')).toBeNull();
     });
 
@@ -698,6 +704,15 @@ describe('QuizModal', () => {
       expect(screen.queryByText('Quiz Complete!')).toBeNull();
     });
 
+    it('shows ONE MORE TRY, the nudge and the hint, and never the answer', () => {
+      setQuizMock({ data: wrongPendingResult });
+      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      expect(within(screen.getByTestId('verdict-mark')).getByText('ONE MORE TRY')).toBeTruthy();
+      expect(screen.getByText("Have another go. Here's a nudge.")).toBeTruthy();
+      expect(within(screen.getByTestId('hint-section')).getByText('HINT')).toBeTruthy();
+      expect(screen.queryByText('THE ANSWER')).toBeNull();
+    });
+
     it('Try again calls reset on the mutation', () => {
       const reset = jest.fn();
       setQuizMock({ data: wrongPendingResult, reset });
@@ -775,43 +790,24 @@ describe('QuizModal', () => {
       ],
     };
 
-    it('shows the key takeaway card in terminal view when lesson.keyTakeaway is set, closed until it is opened', () => {
+    it('shows no key takeaway in a correct or incorrect terminal view', () => {
       setQuizMock({ data: mockResult });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByTestId('quiz-key-takeaway')).toBeTruthy();
-      expect(screen.getByText('KEY TAKEAWAY')).toBeTruthy();
+      expect(screen.queryByText('KEY TAKEAWAY')).toBeNull();
       expect(screen.queryByText('Fit beats features.')).toBeNull();
-      expect(screen.getByTestId('quiz-key-takeaway-toggle').props.accessibilityState).toEqual({ expanded: false });
-    });
-
-    it('opens the key takeaway when its header is tapped, and closes it when tapped again', () => {
-      setQuizMock({ data: mockResult });
-      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      fireEvent.press(screen.getByTestId('quiz-key-takeaway-toggle'));
-      expect(screen.getByText('Fit beats features.')).toBeTruthy();
-      expect(screen.getByTestId('quiz-key-takeaway-toggle').props.accessibilityState).toEqual({ expanded: true });
-      fireEvent.press(screen.getByTestId('quiz-key-takeaway-toggle'));
-      expect(screen.queryByText('Fit beats features.')).toBeNull();
-    });
-
-    it('does not show key takeaway card in terminal view when lesson.keyTakeaway is null', () => {
-      setQuizMock({ data: mockResult });
-      render(<QuizModal visible={true} lesson={{ ...mockLesson, keyTakeaway: undefined }} onClose={onClose} />);
-      expect(screen.queryByTestId('quiz-key-takeaway')).toBeNull();
     });
 
     it('shows correct answer text prominently for incorrect feedback in terminal view', () => {
       setQuizMock({ data: resultWithIncorrectFeedback });
       render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-      // label is "Correct answer" (not "Correct:")
-      expect(screen.getByText('Correct answer')).toBeTruthy();
+      expect(screen.getByText('THE ANSWER')).toBeTruthy();
       expect(screen.getByText('Option A')).toBeTruthy();
     });
 
-    it('does not show key takeaway card in per-question feedback view (mid-capstone)', () => {
+    it('does not show the key takeaway in per-question feedback view (mid-capstone)', () => {
       setQuizMock({ data: q1CorrectNotFinalized });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.queryByTestId('quiz-key-takeaway')).toBeNull();
+      expect(screen.queryByText('Fit beats features.')).toBeNull();
     });
   });
 
@@ -881,55 +877,37 @@ describe('QuizModal', () => {
       explanation: 'Because it matches market needs.',
     };
 
-    it('correct: shows question + your answer as one reference block, before Explanation', () => {
+    it('correct: shows your answer, then Why with the explanation', () => {
       setQuizMock({ data: { ...mockResult, feedbacks: [correctFeedback] } });
       const { toJSON } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-      expect(screen.getAllByText('Explanation').length).toBeGreaterThan(0);
-      expect(screen.getByText('What is product-market fit?')).toBeTruthy();
-      expect(screen.getByText('✓ Your answer: Option A')).toBeTruthy();
+      expect(screen.getByText('YOUR ANSWER')).toBeTruthy();
+      expect(screen.getByText('Option A')).toBeTruthy();
+      expect(screen.queryByText('THE ANSWER')).toBeNull();
+      expect(screen.queryByText('What is product-market fit?')).toBeNull();
 
       const tree = JSON.stringify(toJSON());
-      const yourAnswerIdx = tree.indexOf('Your answer:');
-      const explanationBodyIdx = tree.indexOf('Because it matches market needs');
-      expect(yourAnswerIdx).toBeGreaterThan(-1);
-      expect(explanationBodyIdx).toBeGreaterThan(yourAnswerIdx);
+      expect(tree.indexOf('Option A')).toBeGreaterThan(-1);
+      expect(tree.indexOf('WHY')).toBeGreaterThan(tree.indexOf('Option A'));
+      expect(tree.indexOf('Because it matches market needs')).toBeGreaterThan(tree.indexOf('WHY'));
     });
 
-    it('incorrect: groups question, your answer and the correct answer in one block, before Explanation', () => {
-      setQuizMock({ data: { ...mockResult, feedbacks: [incorrectFeedback] } });
+    it('incorrect: shows your answer struck through, the answer, then Why', () => {
+      setQuizMock({ data: { ...mockResult, correct: false, retakeAvailable: false, feedbacks: [incorrectFeedback] } });
       const { toJSON } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-      expect(screen.getByText('Correct answer')).toBeTruthy();
-      expect(screen.getAllByText('Explanation').length).toBeGreaterThan(0);
-      expect(screen.getByText('✗ Your answer: Option B')).toBeTruthy();
-      expect(screen.getByText('What is product-market fit?')).toBeTruthy();
+      expect(screen.getByText('YOUR ANSWER')).toBeTruthy();
+      expect(screen.getByText('THE ANSWER')).toBeTruthy();
+      expect(StyleSheet.flatten(screen.getByText('Option B').props.style).textDecorationLine).toBe('line-through');
 
       const tree = JSON.stringify(toJSON());
-      const yourAnswerIdx = tree.indexOf('Your answer:');
-      const correctAnswerLabelIdx = tree.indexOf('Correct answer');
-      const explanationBodyIdx = tree.indexOf('Because it matches market needs');
-      expect(yourAnswerIdx).toBeGreaterThan(-1);
-      expect(correctAnswerLabelIdx).toBeGreaterThan(yourAnswerIdx);
-      expect(explanationBodyIdx).toBeGreaterThan(correctAnswerLabelIdx);
+      expect(tree.indexOf('THE ANSWER')).toBeGreaterThan(tree.indexOf('YOUR ANSWER'));
+      expect(tree.indexOf('WHY')).toBeGreaterThan(tree.indexOf('THE ANSWER'));
+      expect(tree.indexOf('Because it matches market needs')).toBeGreaterThan(tree.indexOf('WHY'));
     });
 
-    it('terminal view: key takeaway renders after feedback cards (not before)', () => {
-      setQuizMock({ data: { ...mockResult, feedbacks: [correctFeedback] } });
-      const { toJSON } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-      const takeaway = screen.getByTestId('quiz-key-takeaway');
-      const feedbackCard = screen.getByTestId('feedback-card-q-1');
-      expect(takeaway).toBeTruthy();
-      expect(feedbackCard).toBeTruthy();
-
-      const tree = JSON.stringify(toJSON());
-      const explanationBodyIdx = tree.indexOf('Because it matches market needs');
-      const takeawayIdx = tree.indexOf('KEY TAKEAWAY');
-      expect(takeawayIdx).toBeGreaterThan(explanationBodyIdx);
-    });
-
-    it('mid-capstone feedback uses QuizFeedbackCard (Explanation heading present)', () => {
+    it('mid-capstone feedback uses QuizFeedbackCard (Why heading present)', () => {
       setQuizMock({ data: q1CorrectNotFinalized });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getAllByText('Explanation').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('WHY').length).toBeGreaterThan(0);
     });
   });
 
@@ -956,19 +934,47 @@ describe('QuizModal', () => {
     });
   });
 
+  describe('burstShift', () => {
+    it('centres a heading scaled from its left edge', () => {
+      expect(burstShift(350, 200, 1)).toBe(75);
+      expect(burstShift(350, 200, 1.7)).toBe(5);
+    });
+
+    it('puts a tiny heading at the centre of the box', () => {
+      expect(burstShift(350, 200, 0)).toBe(175);
+    });
+  });
+
   describe('096 — heading animation', () => {
     const headingStyle = () => StyleSheet.flatten(screen.getByTestId('result-heading').props.style);
 
-    it('scales a correct heading in from behind the screen', () => {
+    it('scales a correct heading in from behind the screen and slides it from the centre back to the left', () => {
       setQuizMock({ data: { ...mockResult, correct: true } });
       render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-      expect(headingStyle().transform).toHaveLength(1);
+      expect(headingStyle().transform).toHaveLength(2);
     });
 
     it('leaves an incorrect heading still', () => {
       setQuizMock({ data: { ...mockResult, correct: false, retakeAvailable: false } });
       render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       expect(headingStyle().transform).toBeUndefined();
+    });
+  });
+
+  describe('verdict screens', () => {
+    it.each([
+      ['a correct result', { ...mockResult, correct: true }, 'CORRECT'],
+      ['an incorrect result', { ...mockResult, correct: false, retakeAvailable: false }, 'INCORRECT'],
+    ])('%s is marked %s', (_label, data, word) => {
+      setQuizMock({ data });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(within(screen.getByTestId('verdict-mark')).getByText(word)).toBeTruthy();
+    });
+
+    it('an incorrect result\'s button is white on the ink', () => {
+      setQuizMock({ data: { ...mockResult, correct: false, retakeAvailable: false } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(StyleSheet.flatten(screen.getByTestId('result-action-btn').props.style).backgroundColor).toBe(colors.white);
     });
   });
 
@@ -988,20 +994,14 @@ describe('QuizModal', () => {
       expect(bubble.queryByLabelText('Close quiz results')).toBeNull();
     });
 
-    it('draws the close button as a circle', () => {
-      setQuizMock({ data: { ...mockResult } });
-      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      const close = StyleSheet.flatten(screen.getByLabelText('Close quiz results').props.style);
-      expect(close.width).toBe(close.height);
-      expect(close.borderRadius).toBe(radius.pill);
-    });
-
-    it('draws the bookmark as a circle matching the close button', () => {
+    it('draws the close button and the bookmark as matching rounded squares over the colour', () => {
       setQuizMock({ data: { ...mockResult } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       const bookmark = StyleSheet.flatten(screen.getByLabelText('Save lesson').props.style);
       const close = StyleSheet.flatten(screen.getByLabelText('Close quiz results').props.style);
-      expect(bookmark).toMatchObject({ width: close.width, height: close.height, borderRadius: radius.pill });
+      expect(close.width).toBe(close.height);
+      expect(close.borderRadius).toBeLessThan(radius.pill);
+      expect(bookmark).toMatchObject({ width: close.width, height: close.height, borderRadius: close.borderRadius });
     });
 
     it('anchors the XP animation on the header row', () => {
@@ -1011,22 +1011,13 @@ describe('QuizModal', () => {
       expect(StyleSheet.flatten(screen.getByTestId('xp-chip-overlay').props.style)).toMatchObject({ top, height });
     });
 
-    it('puts the track average and the XP award on either side of the heading', () => {
+    it('puts the XP award and the track average under the heading', () => {
       setQuizMock({ data: { ...mockResult, xpAwarded: 20 } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       const headline = within(screen.getByTestId('result-headline'));
-      expect(headline.getByText('Track Average')).toBeTruthy();
+      expect(headline.getByText('track average')).toBeTruthy();
       expect(headline.getByText('Correct!')).toBeTruthy();
       expect(headline.getByTestId('xp-chip')).toBeTruthy();
-    });
-
-    it('lifts the heading 6px so it does not look lower than the figures beside it', () => {
-      setQuizMock({ data: { ...mockResult, xpAwarded: 20 } });
-      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      // The heading's own column is the one beside the two side columns, so it is the headline's second child.
-      const headline = screen.getByTestId('result-headline');
-      const column = headline.children[1];
-      expect(typeof column === 'string' ? undefined : StyleSheet.flatten(column?.props.style).transform).toEqual([{ translateY: -6 }]);
     });
 
     it('keeps the heading in the headline row when there is no XP award', () => {

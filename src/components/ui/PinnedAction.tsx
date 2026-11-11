@@ -3,8 +3,8 @@ import { Keyboard, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing } from '@/theme';
 
-/** The tallest action it holds: a `size="lg"` Button. */
-const ACTION_HEIGHT = 52;
+/** The tallest action it holds: a verdict screen's button (56pt face and its 4pt edge). */
+const ACTION_HEIGHT = 60;
 
 /** Space a scrolling page leaves at its foot so its last line clears the pinned action (096). */
 export const PINNED_ACTION_CLEARANCE = ACTION_HEIGHT + spacing.md * 2;

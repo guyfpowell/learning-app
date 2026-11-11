@@ -10,6 +10,8 @@ interface LessonRatingControlProps {
   lessonId: string;
   /** The stored verdict from the server. */
   rating: LessonRating | null;
+  /** Draws both thumbs in this colour (a header over a coloured screen); a pick is still filled. */
+  color?: string;
 }
 
 const ICON: Record<LessonRating, { on: 'thumbs-up' | 'thumbs-down'; off: 'thumbs-up-outline' | 'thumbs-down-outline' }> = {
@@ -24,7 +26,7 @@ export function ratingColor(r: LessonRating, selected: boolean) {
 }
 
 /** Thumbs on a completed lesson. Tapping the selected thumb clears it; the other replaces it. */
-export function LessonRatingControl({ lessonId, rating }: LessonRatingControlProps) {
+export function LessonRatingControl({ lessonId, rating, color }: LessonRatingControlProps) {
   const [current, setCurrent] = useState<LessonRating | null>(rating);
   const setRating = useSetLessonRating();
 
@@ -56,7 +58,7 @@ export function LessonRatingControl({ lessonId, rating }: LessonRatingControlPro
             accessibilityState={{ selected }}
             style={styles.button}
           >
-            <Ionicons name={selected ? ICON[r].on : ICON[r].off} size={22} color={ratingColor(r, selected)} />
+            <Ionicons name={selected ? ICON[r].on : ICON[r].off} size={22} color={color ?? ratingColor(r, selected)} />
           </Pressable>
         );
       })}

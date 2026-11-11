@@ -1,11 +1,8 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
 import { render, screen, within } from '@testing-library/react-native';
 import { DAY_MS, type AchievementsResponse, type XpResponse } from '@learning/shared';
 import { useXp } from '@/hooks/useXp';
 import { useAchievements } from '@/hooks/useAchievements';
-import { colors, font, fontSize } from '@/theme';
-import { STREAK_COPY } from '@/lib/momentum';
 import { MomentumCard } from '../MomentumCard';
 
 jest.mock('@/hooks/useXp', () => ({ useXp: jest.fn() }));
@@ -19,7 +16,7 @@ const xp: XpResponse = {
 
 const achievements = (unlockedDaysAgo: number | null): AchievementsResponse => ({
   unlocked: unlockedDaysAgo === null ? [] : [{
-    key: 'first-light', name: 'First Light', description: 'Completed your first lesson', axis: 'milestone',
+    key: 'clean-sheet', name: 'Clean Sheet', description: 'Got 10 quizzes right first time', axis: 'accuracy',
     unlockedAt: new Date(Date.now() - unlockedDaysAgo * DAY_MS).toISOString(),
   }],
   locked: [{ key: 'warm-up', name: 'Warm Up', description: 'Completed 3 lessons', axis: 'session', ladder: 'session-volume' }],
@@ -33,31 +30,19 @@ function setData(x: XpResponse | undefined, a: AchievementsResponse | undefined)
 }
 
 describe('MomentumCard', () => {
-  it('shows one streak calendar with the count on it, with no label, and the copy', () => {
+  it('shows the motto and the streak as a flame with its count', () => {
     setData(undefined, undefined);
     render(<MomentumCard streak={4} />);
-    expect(within(screen.getByTestId('streak-calendar')).getByText('4')).toBeTruthy();
-    expect(screen.getAllByTestId('streak-calendar')).toHaveLength(1);
-    expect(screen.queryByText('Calendar')).toBeNull();
-    expect(screen.queryByText(/^Day \d/)).toBeNull();
-    const shown = STREAK_COPY.building.filter((line) => screen.queryByText(line) !== null);
-    expect(shown).toHaveLength(1);
+    expect(screen.getByText('Small steps, real progress.')).toBeTruthy();
+    expect(within(screen.getByTestId('streak-chip')).getByText('4')).toBeTruthy();
+    expect(screen.getByLabelText('4 day streak')).toBeTruthy();
   });
 
-  it('keeps the same line when the card re-renders, and changes stage with the streak', () => {
-    setData(undefined, undefined);
-    const { rerender } = render(<MomentumCard streak={4} />);
-    const shown = STREAK_COPY.building.find((line) => screen.queryByText(line) !== null);
-    rerender(<MomentumCard streak={5} />);
-    expect(screen.getByText(shown ?? '')).toBeTruthy();
-    rerender(<MomentumCard streak={0} />);
-    expect(screen.getByText('Complete a lesson to start your streak')).toBeTruthy();
-  });
-
-  it('shows the zero-streak copy', () => {
+  it('shows the same motto at any streak, including none', () => {
     setData(undefined, undefined);
     render(<MomentumCard streak={0} />);
-    expect(screen.getByText('Complete a lesson to start your streak')).toBeTruthy();
+    expect(screen.getByText('Small steps, real progress.')).toBeTruthy();
+    expect(within(screen.getByTestId('streak-chip')).getByText('0')).toBeTruthy();
   });
 
   it('shows the XP level, total and what is left, with a bar', () => {
@@ -66,21 +51,18 @@ describe('MomentumCard', () => {
     const row = within(screen.getByTestId('momentum-xp'));
     expect(row.getByText('Base Camp')).toBeTruthy();
     expect(row.queryByText('Base Camp I')).toBeNull();
-    expect(row.getByText('1,170 XP')).toBeTruthy();
     expect(row.getByText('430 XP to the next level')).toBeTruthy();
+    expect(row.getByText(/1,170/)).toBeTruthy();
     expect(screen.getByTestId('momentum-xp-bar')).toBeTruthy();
   });
 
-  it('shows the step in a level as cairns: step 3 is three filled and two outlined', () => {
+  it('shows the step in a level as the trail beside the name', () => {
     setData({ ...xp, tier: { key: 'base-camp', name: 'Base Camp', level: 3, label: 'Base Camp III', floor: 2200, ceiling: 2800 } }, undefined);
     render(<MomentumCard streak={1} />);
-    const row = within(screen.getByTestId('momentum-xp'));
-    expect(row.getByLabelText('Level 3 of 5')).toBeTruthy();
-    expect(row.getAllByTestId(/^cairn-\d-filled$/)).toHaveLength(3);
-    expect(row.getAllByTestId(/^cairn-\d-outline$/)).toHaveLength(2);
+    expect(within(screen.getByTestId('momentum-xp')).getByLabelText('Level 3 of 5')).toBeTruthy();
   });
 
-  it('shows no cairns before the first level (under 150 XP): the next milestone only', () => {
+  it('shows no trail before the first level (under 150 XP): the next milestone only', () => {
     setData({ totalXp: 40, nextMilestone: { key: 'foothills', name: 'Foothills', xpRequired: 150, xpRemaining: 110 }, tier: null }, undefined);
     render(<MomentumCard streak={1} />);
     expect(screen.getByText('Foothills')).toBeTruthy();
@@ -93,29 +75,21 @@ describe('MomentumCard', () => {
     expect(screen.queryByTestId('momentum-xp')).toBeNull();
   });
 
-  it('celebrates a recent unlock', () => {
+  it('celebrates a recent unlock with its medal', () => {
     setData(xp, achievements(1));
     render(<MomentumCard streak={1} />);
     const line = within(screen.getByTestId('momentum-achievement'));
-    expect(line.getByText('New: First Light')).toBeTruthy();
-    expect(StyleSheet.flatten(screen.getByTestId('momentum-achievement').props.style).backgroundColor).toBe(colors.xpSoft);
+    expect(line.getByText('New: Clean Sheet')).toBeTruthy();
+    expect(line.getByTestId('medal-clean-sheet')).toBeTruthy();
   });
 
-  it('gives the achievement icon its full size, with negative margins so the row stays text-sized', () => {
-    setData(xp, achievements(1));
-    render(<MomentumCard streak={1} />);
-    const slot = StyleSheet.flatten(screen.getByTestId('momentum-achievement-icon').props.style);
-    expect(slot).toMatchObject({ width: fontSize.xl, height: fontSize.xl });
-    expect(slot.marginVertical).toBe(-(fontSize.xl - fontSize.md) / 2);
-  });
-
-  it('shows the next achievement when nothing is new: its name only, on the same gold as a new one', () => {
+  it('shows the next achievement when nothing is new: its name only, with its medal', () => {
     setData(xp, achievements(20));
     render(<MomentumCard streak={1} />);
-    const line = screen.getByTestId('momentum-achievement');
-    expect(within(line).getByText('Next up: Warm Up')).toBeTruthy();
-    expect(within(line).queryByText(/Completed 3 lessons/)).toBeNull();
-    expect(StyleSheet.flatten(line.props.style).backgroundColor).toBe(colors.xpSoft);
+    const line = within(screen.getByTestId('momentum-achievement'));
+    expect(line.getByText('Next up: Warm Up')).toBeTruthy();
+    expect(line.queryByText(/Completed 3 lessons/)).toBeNull();
+    expect(line.getByTestId('medal-warm-up')).toBeTruthy();
   });
 
   it('leaves the achievement line out until achievements have loaded', () => {

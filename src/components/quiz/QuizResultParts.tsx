@@ -1,9 +1,10 @@
-import React, { useRef, useState, type ComponentRef } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useRef, type ComponentRef } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import type { ScreenRect } from '@/components/ui/CelebrationOverlay';
-import { colors, font, fontSize, radius, spacing } from '@/theme';
+import { Icon } from '@/components/ui/Icon';
+import type { ResultTone } from '@/components/quiz/resultTone';
+import { colors, font, fontSize, press, radius, results, spacing } from '@/theme';
 
 /** The milestone card's subtitle: a warm off-white on coral, not a theme token. */
 const MILESTONE_SUBTEXT = '#fff7ed';
@@ -19,32 +20,33 @@ function arrowOf(average: number | null, previous: number | null, retakeUsed: bo
   return average !== null && average >= previous ? '↑' : '↓';
 }
 
-const ARROW_STYLE = { '↑': 'trackAverageUp', '↓': 'trackAverageDown', '=': 'trackAverageFlat' } as const;
+/** Share of the pill's height the gem takes. */
+const GEM_SIZE = 18;
 
-export function TrackAverageBadge({ average, previous, retakeUsed }: { average: number | null; previous: number | null; retakeUsed: boolean }) {
+/** "76% ↑ track average", on the verdict colour. */
+export function TrackAverageBadge({ average, previous, retakeUsed, tone }: { average: number | null; previous: number | null; retakeUsed: boolean; tone: ResultTone }) {
   const arrow = arrowOf(average, previous, retakeUsed);
   return (
-    <View accessibilityLabel={`Track average ${average !== null ? average + ' percent' : 'unavailable'}`}>
-      <View style={styles.trackAverageValueRow}>
-        <Text style={styles.scorePercent}>{average !== null ? `${average}%` : 'n/a'}</Text>
-        {arrow && <Text style={[styles.trackAverageBadge, styles[ARROW_STYLE[arrow]]]}>{arrow}</Text>}
-      </View>
-      <Text style={styles.scoreFraction}>Track Average</Text>
+    <View style={styles.trackAverage} accessibilityLabel={`Track average ${average !== null ? average + ' percent' : 'unavailable'}`}>
+      <Text style={[styles.scorePercent, { color: results[tone].fg }]}>{average !== null ? `${average}%` : 'n/a'}</Text>
+      {arrow && <Text style={[styles.scorePercent, { color: results[tone].fg }]}>{arrow}</Text>}
+      <Text style={[styles.scoreLabel, { color: results[tone].tint }]}>track average</Text>
     </View>
   );
 }
 
 /** The XP award chip. It reports where it sits on the screen, so the XP animation can fly back onto it. */
-export function XpAward({ xp, onMeasure }: { xp: number; onMeasure?: (rect: ScreenRect) => void }) {
+export function XpAward({ xp, tone, onMeasure }: { xp: number; tone: ResultTone; onMeasure?: (rect: ScreenRect) => void }) {
   const ref = useRef<ComponentRef<typeof View>>(null);
   return (
     <View
       ref={ref}
       collapsable={false}
       testID="xp-chip"
-      style={styles.xpChip}
+      style={[styles.xpChip, { shadowColor: results[tone].edge }]}
       onLayout={() => ref.current?.measureInWindow((x, y, width, height) => onMeasure?.({ x, y, width, height }))}
     >
+      <Icon name="xp" size={GEM_SIZE} color={colors.xpDark} fill={colors.xp} />
       <Text style={styles.xpChipText}>+{xp} XP</Text>
     </View>
   );
@@ -72,63 +74,33 @@ export function CoachingCard({ coaching }: { coaching: string }) {
   );
 }
 
-/** Recessive on purpose, and closed until asked for: the explanation leads, this is a summary to open if wanted. */
-export function KeyTakeawayCard({ takeaway }: { takeaway: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <View testID="quiz-key-takeaway" style={styles.quizKeyTakeawayCard}>
-      <Pressable
-        testID="quiz-key-takeaway-toggle"
-        onPress={() => setOpen((v) => !v)}
-        accessibilityRole="button"
-        accessibilityLabel="Key takeaway"
-        accessibilityState={{ expanded: open }}
-        style={styles.quizKeyTakeawayHeader}
-      >
-        <Text style={styles.quizKeyTakeawayLabel}>KEY TAKEAWAY</Text>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
-      </Pressable>
-      {open && <Text testID="quiz-key-takeaway-text" style={styles.quizKeyTakeawayText}>{takeaway}</Text>}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
+  trackAverage: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs },
   scorePercent: {
-    fontFamily:   font.semibold,
-    fontSize:     fontSize.lg,
-    color:        colors.brand,
-    textAlign:    'center',
+    fontFamily: font.extrabold,
+    fontSize:   fontSize.md,
   },
-  scoreFraction: {
-    fontFamily:   font.regular,
-    fontSize:     fontSize.xs,
-    color:        colors.textMuted,
-    textAlign:    'center',
+  scoreLabel: {
+    fontFamily: font.medium,
+    fontSize:   fontSize.sm,
   },
-  trackAverageValueRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    justifyContent: 'center',
-    gap:           spacing.xs,
-  },
-  trackAverageBadge: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-  },
-  trackAverageUp:   { color: colors.success },
-  trackAverageDown: { color: colors.error },
-  trackAverageFlat: { color: colors.success },
   xpChip: {
-    backgroundColor:   colors.xpSoft,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               spacing.sm,
+    backgroundColor:   colors.white,
     borderRadius:      radius.pill,
-    paddingHorizontal: spacing.sm3,
-    paddingVertical:   spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical:   spacing.sm,
+    shadowOffset:      { width: 0, height: press.edge - 1 },
+    shadowOpacity:     1,
+    shadowRadius:      0,
+    elevation:         press.edge,
   },
   xpChipText: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.sm,
-    color:      colors.xp,
+    fontFamily: font.extrabold,
+    fontSize:   fontSize.md,
+    color:      colors.xpText,
   },
   milestoneCard: {
     backgroundColor: colors.coral,
@@ -149,31 +121,6 @@ const styles = StyleSheet.create({
     color:      MILESTONE_SUBTEXT,
     marginTop:  spacing.xs,
     textAlign:  'center',
-  },
-  quizKeyTakeawayCard: {
-    backgroundColor: colors.surface,
-    borderRadius:    radius.card,
-    padding:         spacing.md,
-    marginBottom:    spacing.md,
-    gap:             spacing.xs,
-  },
-  quizKeyTakeawayHeader: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    justifyContent: 'space-between',
-    minHeight:      32,
-  },
-  quizKeyTakeawayLabel: {
-    fontFamily:    font.semibold,
-    fontSize:      fontSize.xs,
-    color:         colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  quizKeyTakeawayText: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.sm,
-    color:      colors.textBody,
   },
   coachingCard: {
     backgroundColor: colors.brandSoft,

@@ -17,13 +17,16 @@ import { Input } from '@/components/ui/Input';
 import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizOpt } from '@/components/ui/QuizOpt';
 import type { QuizOptState } from '@/components/ui/QuizOpt';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize, lineHeight, results, spacing, trackingEm } from '@/theme';
 import { CelebrationOverlay, XpChipOverlay, type ScreenRect } from '@/components/ui/CelebrationOverlay';
 import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
 import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
 import { QuizHeroCard } from '@/components/quiz/QuizHeroCard';
 import { QuizResultFrame, quizFrameStyles, frameContentStyle, headerRowBox } from '@/components/quiz/QuizResultFrame';
-import { CoachingCard, KeyTakeawayCard, MilestoneCard, TrackAverageBadge, XpAward } from '@/components/quiz/QuizResultParts';
+import { HintSection, VerdictMark } from '@/components/quiz/ResultSections';
+import { ResultButton } from '@/components/quiz/ResultButton';
+import type { ResultTone } from '@/components/quiz/resultTone';
+import { CoachingCard, MilestoneCard, TrackAverageBadge, XpAward } from '@/components/quiz/QuizResultParts';
 import { Reveal, revealDelay } from '@/components/ui/Reveal';
 import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
 import { nextFeedbackPhrase } from '@/lib/quizFeedbackPhrase';
@@ -54,16 +57,27 @@ export function QuizModal(props: QuizModalProps) {
 }
 
 // A correct heading bursts in from far behind the screen, overshoots, then a springy pull settles it.
+// It is left-aligned at rest: it expands from the left into the centre of the screen, then back to the left.
 const HEADING_START_SCALE = 0.05;
 const HEADING_BURST_SCALE = 1.7;
 const HEADING_BURST_MS = 260;
 const HEADING_FADE_MS = 120;
+const HEADING_SETTLE_MS = 400;
 
-function useHeadingBurst(enabled: boolean) {
+/** How far right of the left edge a heading of `textWidth`, scaled from its left edge, sits centred in `boxWidth`. */
+export function burstShift(boxWidth: number, textWidth: number, scale: number): number {
+  return (boxWidth - scale * textWidth) / 2;
+}
+
+function useHeadingBurst(enabled: boolean, boxWidth: number, textWidth: number) {
   const scale = useRef(new Animated.Value(enabled ? HEADING_START_SCALE : 1)).current;
+  const settle = useRef(new Animated.Value(enabled ? 0 : 1)).current;
   const opacity = useRef(new Animated.Value(enabled ? 0 : 1)).current;
+  const started = useRef(false);
+  const measured = boxWidth > 0 && textWidth > 0;
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !measured || started.current) return;
+    started.current = true;
     const burst = Animated.sequence([
       Animated.timing(scale, {
         toValue: HEADING_BURST_SCALE,
@@ -71,37 +85,45 @@ function useHeadingBurst(enabled: boolean) {
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.spring(scale, { toValue: 1, friction: 5, tension: 90, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.spring(scale, { toValue: 1, friction: 5, tension: 90, useNativeDriver: true }),
+        Animated.timing(settle, { toValue: 1, duration: HEADING_SETTLE_MS, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]),
     ]);
     const fade = Animated.timing(opacity, { toValue: 1, duration: HEADING_FADE_MS, useNativeDriver: true });
     Animated.parallel([burst, fade]).start();
-  }, [enabled, scale, opacity]);
-  return enabled ? { opacity, transform: [{ scale }] } : undefined;
+  }, [enabled, measured, scale, settle, opacity]);
+  if (!enabled) return undefined;
+  // While bursting the text is centred; `settle` carries it back to the left edge as the scale returns to 1.
+  const centred = scale.interpolate({
+    inputRange: [0, 2],
+    outputRange: [burstShift(boxWidth, textWidth, 0), burstShift(boxWidth, textWidth, 2)],
+  });
+  const left = settle.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+  return { opacity, transformOrigin: 'left center', transform: [{ translateX: Animated.multiply(left, centred) }, { scale }] };
 }
 
-// The phrase is picked once when a result screen appears, so a re-render never changes the word.
-function ResultHeading({ correct, left, right }: { correct: boolean; left?: React.ReactNode; right?: React.ReactNode }) {
+/** The verdict screen's top: the verdict mark, the headline, then whatever sits under it (XP, average, a nudge). */
+function ResultHeading({ tone, children }: { tone: ResultTone; children?: React.ReactNode }) {
+  const correct = tone === 'correct';
+  // The phrase is picked once when a result screen appears, so a re-render never changes the word.
   const [phrase] = useState(() => nextFeedbackPhrase(correct));
-  const burst = useHeadingBurst(correct);
-  const heading = (
-    <Animated.Text
-      testID="result-heading"
-      style={[styles.resultHeading, correct && styles.resultHeadingCorrect, burst]}
-      numberOfLines={1}
-      adjustsFontSizeToFit
-    >
-      {phrase}
-    </Animated.Text>
-  );
-  if (!left && !right) {
-    return <View style={styles.headline}><View style={styles.headlineCentre}>{heading}</View></View>;
-  }
-  // Equal side columns keep the heading centred whether or not there is an XP award.
+  const [boxWidth, setBoxWidth] = useState(0);
+  const [textWidth, setTextWidth] = useState(0);
+  const burst = useHeadingBurst(correct, boxWidth, textWidth);
   return (
-    <View testID="result-headline" style={styles.headline}>
-      <View style={[styles.headlineSide, styles.headlineLeft]}>{left}</View>
-      <View style={styles.headlineCentre}>{heading}</View>
-      <View style={[styles.headlineSide, styles.headlineRight]}>{right}</View>
+    <View testID="result-headline" style={styles.verdictTop} onLayout={e => setBoxWidth(e.nativeEvent.layout.width)}>
+      <VerdictMark tone={tone} />
+      <Animated.Text
+        testID="result-heading"
+        style={[styles.verdictHeading, { color: results[tone].fg }, burst]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        onLayout={e => setTextWidth(prev => prev || e.nativeEvent.layout.width)}
+      >
+        {phrase}
+      </Animated.Text>
+      {children}
     </View>
   );
 }
@@ -314,10 +336,13 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
     return (
       <QuizResultFrame
         {...frame}
-        action={<Button testID="result-action-btn" label="Try again" onPress={handleTryAgain} variant="glass" size="lg" />}
+        tone="retry"
+        action={<ResultButton testID="result-action-btn" tone="retry" label="Try again" icon="retake" onPress={handleTryAgain} />}
       >
-        <ResultHeading correct={false} />
-        {lesson.keyTakeaway && <Reveal delay={revealDelay(0)}><Text style={styles.keyTakeaway}>{lesson.keyTakeaway}</Text></Reveal>}
+        <ResultHeading tone="retry">
+          <Text style={[styles.nudge, { color: results.retry.tint }]}>Have another go. Here's a nudge.</Text>
+        </ResultHeading>
+        {lesson.keyTakeaway && <Reveal delay={revealDelay(0)}><HintSection tone="retry" text={lesson.keyTakeaway} /></Reveal>}
       </QuizResultFrame>
     );
   }
@@ -325,22 +350,15 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   // ─── Per-question feedback — mid-capstone, lesson not yet finalized ───────────
   if (submit.data && !submit.data.lessonFinalized) {
     const fb = submit.data.feedbacks.find((f: QuizFeedback) => f.quizId === current?.id) ?? submit.data.feedbacks[0];
+    const tone: ResultTone = fb?.isCorrect === true ? 'correct' : 'incorrect';
     return (
       <QuizResultFrame
         {...frame}
-        action={
-          <Button
-            testID="result-action-btn"
-            label="Next Question"
-            onPress={() => advanceToNextUnresolved(current?.id)}
-            variant="glass"
-            size="lg"
-            accessibilityLabel="Next question"
-          />
-        }
+        tone={tone}
+        action={<ResultButton testID="result-action-btn" tone={tone} label="Next question" icon="next" onPress={() => advanceToNextUnresolved(current?.id)} />}
       >
-        <ResultHeading correct={fb?.isCorrect === true} />
-        {fb && <Reveal delay={revealDelay(0)}><QuizFeedbackCard fb={fb} /></Reveal>}
+        <ResultHeading tone={tone} />
+        {fb && <Reveal delay={revealDelay(0)}><QuizFeedbackCard fb={fb} tone={tone} /></Reveal>}
       </QuizResultFrame>
     );
   }
@@ -349,9 +367,10 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   if (submit.data) {
     const { feedbacks, coaching, streak, milestone, trackAverage, previousAverage, xpAwarded, nextLessonId } = submit.data;
     const retakeUsed = wrongAnswer !== undefined;
+    const tone: ResultTone = submit.data.correct ? 'correct' : 'incorrect';
     const topicEnd = topicFeedbackClosed ? null : submit.data.topicEnd;
     // Where the page's tail (topic feedback and the button) comes in: after every block above it.
-    const tailStep = feedbacks.length + (coaching ? 1 : 0) + (lesson.keyTakeaway ? 1 : 0);
+    const tailStep = feedbacks.length + (coaching ? 1 : 0);
     const celebration = (
       <>
         {currentCelebration?.type === 'achievement' && (
@@ -381,37 +400,33 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
         {...frame}
         onClose={handleLeaveLesson}
         overlay={celebration}
+        tone={tone}
         action={
-          <Button
+          <ResultButton
             testID="result-action-btn"
-            label={nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
+            tone={tone}
+            label={nextLessonId ? 'Next lesson' : 'Back to dashboard'}
+            icon="next"
             onPress={() => handleNavigateAfterQuiz(nextLessonId)}
-            variant="glass"
-            size="lg"
           />
         }
         /* 079f: the result's lesson carries the stored verdict, so no refetch. */
-        rating={<LessonRatingControl lessonId={lesson.id} rating={submit.data.lesson.rating ?? null} />}
+        rating={<LessonRatingControl lessonId={lesson.id} rating={submit.data.lesson.rating ?? null} color={results[tone].fg} />}
       >
-        <ResultHeading
-          correct={submit.data.correct}
-          left={
+        <ResultHeading tone={tone}>
+          <View style={styles.statsRow}>
+            {xpAwarded != null && xpAwarded > 0 && <XpAward xp={xpAwarded} tone={tone} onMeasure={setXpRect} />}
             <Animated.View style={{ transform: [{ scale: scoreAnim }] }}>
-              <TrackAverageBadge average={trackAverage} previous={previousAverage} retakeUsed={retakeUsed} />
+              <TrackAverageBadge average={trackAverage} previous={previousAverage} retakeUsed={retakeUsed} tone={tone} />
             </Animated.View>
-          }
-          right={xpAwarded != null && xpAwarded > 0 ? <XpAward xp={xpAwarded} onMeasure={setXpRect} /> : null}
-        />
+          </View>
+        </ResultHeading>
         {milestone && <MilestoneCard milestone={milestone} streak={streak} scale={milestoneAnim} />}
         {/* The rest arrives block by block, after the heading (096, experiment 53). */}
         {feedbacks.map((fb: QuizFeedback, i: number) => (
-          <Reveal key={fb.quizId} delay={revealDelay(i)}><QuizFeedbackCard fb={fb} /></Reveal>
+          <Reveal key={fb.quizId} delay={revealDelay(i)}><QuizFeedbackCard fb={fb} tone={tone} showQuestion={feedbacks.length > 1} /></Reveal>
         ))}
         {coaching && <Reveal delay={revealDelay(feedbacks.length)}><CoachingCard coaching={coaching} /></Reveal>}
-        {/* Key takeaway: last, per item 6 */}
-        {lesson.keyTakeaway && (
-          <Reveal delay={revealDelay(feedbacks.length + (coaching ? 1 : 0))}><KeyTakeawayCard takeaway={lesson.keyTakeaway} /></Reveal>
-        )}
         {/* End-of-topic feedback (079d). Closing hides it here only: the write already
             happened, so Home will not show it again; one never written comes back on Home. */}
         <Reveal delay={revealDelay(tailStep)}>
@@ -512,9 +527,6 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   );
 }
 
-// How far the track average and XP chip sit in from the content edges (no 20pt token).
-const HEADLINE_INSET = spacing.md + spacing.xs;
-
 const styles = StyleSheet.create({
   ...quizFrameStyles,
   spacer:    { width: 32 },
@@ -542,32 +554,21 @@ const styles = StyleSheet.create({
     textAlign:    'center',
     marginBottom: spacing.xl,
   },
-  keyTakeaway: {
-    fontFamily:   font.regular,
-    fontSize:     fontSize.base,
-    color:        colors.textBody,
-    textAlign:    'center',
-    marginBottom: spacing.xl,
+  verdictTop:     { gap: spacing.sm3, marginTop: spacing.lg, marginBottom: spacing.md },
+  verdictHeading: {
+    alignSelf:     'flex-start',
+    maxWidth:      '100%',
+    fontFamily:    font.display,
+    fontSize:      fontSize.hero,
+    lineHeight:    fontSize.hero * lineHeight.tight,
+    letterSpacing: trackingEm.display * fontSize.hero,
   },
-  headline: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    paddingHorizontal: HEADLINE_INSET,
-    marginTop:         spacing.md,
-    marginBottom:  spacing.md,
-    gap:           spacing.sm,
-  },
-  headlineSide:   { flex: 1 },
-  headlineLeft:   { alignItems: 'flex-start' },
-  headlineRight:  { alignItems: 'flex-end' },
-  // Above the side chips, so the burst passes over them.
-  // Lifted 6px (a token and a half): the heading's big letters look lower than the figures beside it.
-  headlineCentre: { flex: 1.6, zIndex: 1, transform: [{ translateY: -(spacing.xs + spacing.xs / 2) }] },
+  statsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm3 },
+  nudge:    { fontFamily: font.medium, fontSize: fontSize.md, marginTop: spacing.xs },
   resultHeading: {
     fontFamily: font.semibold,
     fontSize:   fontSize.xl,
     color:      colors.textStrong,
     textAlign:  'center',
   },
-  resultHeadingCorrect: { fontSize: fontSize.xxl },
 });

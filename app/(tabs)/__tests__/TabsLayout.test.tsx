@@ -150,17 +150,14 @@ describe('(tabs) layout', () => {
       expect(getByTestId('tab-bar-blur')).toBeTruthy();
     });
 
-    it('highlights only the selected tab with a fully rounded soft fill', () => {
+    it('does not highlight the selected tab: its filled icon marks it', () => {
       const TabsLayout = require('../_layout').default;
       render(<TabsLayout />);
       const tabBarButton = capturedTabsProps?.screenOptions?.tabBarButton;
       if (!tabBarButton) throw new Error('Tabs was not given a tabBarButton');
       const selected = render(<>{tabBarButton({ children: null, accessibilityState: { selected: true }, testID: 'sel' })}</>);
       const idle = render(<>{tabBarButton({ children: null, accessibilityState: { selected: false }, testID: 'idle' })}</>);
-      expect(StyleSheet.flatten(selected.getByTestId('sel').props.style)).toMatchObject({
-        backgroundColor: '#E8F0FC',
-        borderRadius: 999,
-      });
+      expect(StyleSheet.flatten(selected.getByTestId('sel').props.style).backgroundColor).toBeUndefined();
       expect(StyleSheet.flatten(idle.getByTestId('idle').props.style).backgroundColor).toBeUndefined();
     });
 

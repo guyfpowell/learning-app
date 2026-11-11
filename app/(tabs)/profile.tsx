@@ -205,6 +205,18 @@ export default function ProfileScreen() {
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </Pressable>
 
+        {__DEV__ && (
+          <Pressable
+            testID="topic-feedback-preview-btn"
+            onPress={() => router.push('/topic-feedback-preview')}
+            style={[styles.row, styles.rowSpread]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.rowText}>Preview topic feedback (dev)</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          </Pressable>
+        )}
+
         <Pressable
           testID="logout-btn"
           onPress={() => logout.mutate()}

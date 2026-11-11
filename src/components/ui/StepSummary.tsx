@@ -34,7 +34,14 @@ export function StepSummary({ testID, label, value, onPress, disabled = false }:
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44 },
-  label: { flexShrink: 1, fontFamily: font.semibold, fontSize: fontSize.sm, color: colors.textStrong },
-  value: { flex: 1, textAlign: 'right', fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 52,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderSubtle,
+  },
+  label: { flexShrink: 1, fontFamily: font.semibold, fontSize: fontSize.base, color: colors.textStrong },
+  value: { flex: 1, textAlign: 'right', fontFamily: font.medium, fontSize: fontSize.sm, color: colors.brand },
 });

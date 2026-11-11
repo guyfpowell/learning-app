@@ -16,9 +16,9 @@ import {
   type TopicFeedbackRequest,
   type TopicFeedbackUseful,
 } from '@learning/shared';
-import { colors, font, fontSize, radius, shadow, spacing, tracking } from '@/theme';
+import { colors, font, fontSize, lineHeight, radius, shadow, spacing, tracking } from '@/theme';
 import { Button } from '@/components/ui/Button';
-import { SegmentedControl, type SegmentTone } from '@/components/ui/SegmentedControl';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { StepSummary } from '@/components/ui/StepSummary';
 import { extractError } from '@/lib/errors';
 
@@ -33,9 +33,7 @@ type Step = 'level' | 'useful' | 'words';
 const WORDS_LABEL = 'Anything else Albert should know?';
 
 const LEVEL_ICONS = { knew_most: 'arrow-down-circle-outline', about_right: 'locate-outline', lost_me: 'arrow-up-circle-outline' } satisfies Record<TopicFeedbackLevel, IconName>;
-const LEVEL_TONES = { knew_most: 'amber', about_right: 'success', lost_me: 'coral' } satisfies Record<TopicFeedbackLevel, SegmentTone>;
 const USEFUL_ICONS = { not_for_me: 'thumbs-down-outline', useful: 'thumbs-up-outline', want_more: 'add-circle-outline' } satisfies Record<TopicFeedbackUseful, IconName>;
-const USEFUL_TONES = { not_for_me: 'neutral', useful: 'brand', want_more: 'violet' } satisfies Record<TopicFeedbackUseful, SegmentTone>;
 
 interface TopicFeedbackProps {
   topicEnd: TopicEnd;
@@ -115,9 +113,6 @@ export function TopicFeedback({ topicEnd, onSubmit, onClose }: TopicFeedbackProp
   return (
     <View testID="topic-feedback" accessibilityLabel="Topic feedback" style={styles.card}>
       <View style={styles.header}>
-        <View style={styles.iconTile}>
-          <Ionicons name="flag-outline" size={20} color={colors.brand} />
-        </View>
         <View style={styles.headerText}>
           <Text style={styles.eyebrow}>End of topic</Text>
           <Text testID="topic-feedback-title" numberOfLines={2} style={styles.heading}>
@@ -137,8 +132,8 @@ export function TopicFeedback({ topicEnd, onSubmit, onClose }: TopicFeedbackProp
         </Pressable>
       </View>
 
-      <SegmentedControl label="Level" testIDPrefix="topic-feedback-level" options={TOPIC_FEEDBACK_LEVELS} labels={TOPIC_FEEDBACK_LEVEL_LABELS} icons={LEVEL_ICONS} tones={LEVEL_TONES} picked={level} open={openStep === 'level'} onOpen={() => open('level')} disabled={sending} onPick={pickLevel} />
-      <SegmentedControl label="Useful" testIDPrefix="topic-feedback-useful" options={TOPIC_FEEDBACK_USEFUL} labels={TOPIC_FEEDBACK_USEFUL_LABELS} icons={USEFUL_ICONS} tones={USEFUL_TONES} picked={useful} open={openStep === 'useful'} onOpen={() => open('useful')} disabled={sending} onPick={pickUseful} />
+      <SegmentedControl label="Level" testIDPrefix="topic-feedback-level" options={TOPIC_FEEDBACK_LEVELS} labels={TOPIC_FEEDBACK_LEVEL_LABELS} icons={LEVEL_ICONS} picked={level} open={openStep === 'level'} onOpen={() => open('level')} disabled={sending} onPick={pickLevel} />
+      <SegmentedControl label="Useful" testIDPrefix="topic-feedback-useful" options={TOPIC_FEEDBACK_USEFUL} labels={TOPIC_FEEDBACK_USEFUL_LABELS} icons={USEFUL_ICONS} picked={useful} open={openStep === 'useful'} onOpen={() => open('useful')} disabled={sending} onPick={pickUseful} />
 
       {openStep === 'words' ? (
         <TextInput
@@ -189,28 +184,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
-    borderRadius: radius.card,
+    borderRadius: radius.xl,
     ...shadow.card,
   },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm3 },
-  iconTile: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    backgroundColor: colors.brandSoft,
-  },
+  header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm3, marginBottom: spacing.xs },
   headerText: { flex: 1, gap: spacing.xs },
   eyebrow: {
     fontFamily: font.bold,
     fontSize: fontSize.xs,
     letterSpacing: tracking.caps,
     textTransform: 'uppercase',
-    color: colors.coral,
+    color: colors.textSubtle,
   },
-  heading: { fontFamily: font.display, fontSize: fontSize.md, letterSpacing: tracking.tight, color: colors.textStrong },
-  headingTopic: { fontStyle: 'italic' },
+  heading: { fontFamily: font.display, fontSize: fontSize.lg, lineHeight: fontSize.lg * lineHeight.snug, letterSpacing: tracking.tight, color: colors.textStrong },
+  headingTopic: { color: colors.brand },
   skipTouch: { minWidth: 44, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
   skip: { fontFamily: font.medium, fontSize: fontSize.sm, color: colors.textMuted },
   words: {

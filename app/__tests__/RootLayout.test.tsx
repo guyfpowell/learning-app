@@ -41,6 +41,15 @@ jest.mock('@expo-google-fonts/bricolage-grotesque', () => ({
   BricolageGrotesque_700Bold: undefined,
 }));
 
+jest.mock('@expo-google-fonts/schibsted-grotesk', () => ({
+  SchibstedGrotesk_400Regular: undefined,
+  SchibstedGrotesk_500Medium: undefined,
+  SchibstedGrotesk_600SemiBold: undefined,
+  SchibstedGrotesk_700Bold: undefined,
+  SchibstedGrotesk_800ExtraBold: undefined,
+  SchibstedGrotesk_900Black: undefined,
+}));
+
 jest.mock('expo-splash-screen', () => ({
   preventAutoHideAsync: jest.fn(() => Promise.resolve(true)),
   hideAsync: jest.fn(() => Promise.resolve(true)),

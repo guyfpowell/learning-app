@@ -2,24 +2,12 @@ import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
+import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { StepSummary } from '@/components/ui/StepSummary';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-/** The hue of one segment: what its icon circle, picked fill and picked border use. */
-export type SegmentTone = 'amber' | 'success' | 'coral' | 'brand' | 'violet' | 'neutral';
-
-const TONE_COLOURS = {
-  amber: { soft: colors.xpSoft, strong: colors.xp },
-  success: { soft: colors.successSoft, strong: colors.success },
-  coral: { soft: colors.coralSoft, strong: colors.coral },
-  brand: { soft: colors.brandSoft, strong: colors.brand },
-  violet: { soft: colors.expertSoft, strong: colors.expert },
-  neutral: { soft: colors.surfaceSunken, strong: colors.textMuted },
-} satisfies Record<SegmentTone, { soft: string; strong: string }>;
-
-const ICON_SIZE = 18;
+const ICON_SIZE = 22;
 
 interface SegmentedControlProps<T extends string> {
   /** The visible heading above the segments; also the group's accessible name. */
@@ -29,7 +17,6 @@ interface SegmentedControlProps<T extends string> {
   options: readonly T[];
   labels: Record<T, string>;
   icons: Record<T, IconName>;
-  tones: Record<T, SegmentTone>;
   picked: T | null;
   /** Open shows the tiles; closed shows a one-line summary that calls `onOpen` when pressed. */
   open: boolean;
@@ -39,18 +26,13 @@ interface SegmentedControlProps<T extends string> {
   onPick: (value: T | null) => void;
 }
 
-/** The look of one segment. Exported so tests can check the style without `toHaveStyle`. */
-export function segmentStyle(tone: SegmentTone, selected: boolean, disabled: boolean) {
+/** The look of one segment: a soft brand tint and border when picked, white with a hairline otherwise. */
+export function segmentStyle(selected: boolean, disabled: boolean) {
   return {
-    backgroundColor: selected ? TONE_COLOURS[tone].soft : colors.surface,
-    borderColor: selected ? TONE_COLOURS[tone].strong : colors.borderSubtle,
+    backgroundColor: selected ? colors.brandSoft : colors.surface,
+    borderColor: selected ? colors.brand : colors.borderSubtle,
     opacity: disabled ? 0.5 : 1,
   };
-}
-
-/** The circle behind a segment's icon: the soft tint, or the strong colour when picked. */
-export function iconCircleStyle(tone: SegmentTone, selected: boolean) {
-  return { backgroundColor: selected ? TONE_COLOURS[tone].strong : TONE_COLOURS[tone].soft };
 }
 
 /** One optional pick from N options in a single row of equal-width segments. */
@@ -60,7 +42,6 @@ export function SegmentedControl<T extends string>({
   options,
   labels,
   icons,
-  tones,
   picked,
   open,
   onOpen,
@@ -84,7 +65,6 @@ export function SegmentedControl<T extends string>({
       <View style={styles.row}>
         {options.map(option => {
           const selected = picked === option;
-          const tone = tones[option];
           return (
             <Pressable
               key={option}
@@ -93,10 +73,10 @@ export function SegmentedControl<T extends string>({
               accessibilityState={{ selected, disabled }}
               disabled={disabled}
               onPress={() => onPick(selected ? null : option)}
-              style={[styles.segment, shadow.xs, segmentStyle(tone, selected, disabled)]}
+              style={[styles.segment, segmentStyle(selected, disabled)]}
             >
-              <View testID={`${testIDPrefix}-${option}-icon`} style={[styles.iconCircle, iconCircleStyle(tone, selected)]}>
-                <Ionicons name={icons[option]} size={ICON_SIZE} color={selected ? colors.onBrand : TONE_COLOURS[tone].strong} />
+              <View testID={`${testIDPrefix}-${option}-icon`}>
+                <Ionicons name={icons[option]} size={ICON_SIZE} color={selected ? colors.brand : colors.textSubtle} />
               </View>
               <Text numberOfLines={2} style={[styles.text, selected && styles.textSelected]}>
                 {labels[option]}
@@ -110,20 +90,20 @@ export function SegmentedControl<T extends string>({
 }
 
 const styles = StyleSheet.create({
-  group: { gap: spacing.xs },
-  heading: { fontFamily: font.semibold, fontSize: fontSize.sm, color: colors.textStrong },
+  group: { gap: spacing.sm3 },
+  heading: { fontFamily: font.semibold, fontSize: fontSize.base, color: colors.textStrong },
   row: { flexDirection: 'row', gap: spacing.sm },
   segment: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.sm3,
+    gap: spacing.sm,
+    minHeight: 96,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.md,
     borderWidth: 1.5,
-    borderRadius: radius.md,
+    borderRadius: radius.card,
   },
-  iconCircle: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill },
-  text: { fontFamily: font.medium, fontSize: fontSize.xs, color: colors.textStrong, textAlign: 'center' },
-  textSelected: { fontFamily: font.bold },
+  text: { fontFamily: font.medium, fontSize: fontSize.sm, lineHeight: fontSize.sm * 1.25, color: colors.textBody, textAlign: 'center' },
+  textSelected: { fontFamily: font.semibold, color: colors.textStrong },
 });

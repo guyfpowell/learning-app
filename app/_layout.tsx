@@ -9,6 +9,14 @@ import {
   HankenGrotesk_700Bold,
   useFonts,
 } from '@expo-google-fonts/hanken-grotesk';
+import {
+  SchibstedGrotesk_400Regular,
+  SchibstedGrotesk_500Medium,
+  SchibstedGrotesk_600SemiBold,
+  SchibstedGrotesk_700Bold,
+  SchibstedGrotesk_800ExtraBold,
+  SchibstedGrotesk_900Black,
+} from '@expo-google-fonts/schibsted-grotesk';
 import { Stack, useSegments, useRouter, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
@@ -119,6 +127,12 @@ function RootLayout() {
     HankenGrotesk_500Medium,
     HankenGrotesk_600SemiBold,
     HankenGrotesk_700Bold,
+    SchibstedGrotesk_400Regular,
+    SchibstedGrotesk_500Medium,
+    SchibstedGrotesk_600SemiBold,
+    SchibstedGrotesk_700Bold,
+    SchibstedGrotesk_800ExtraBold,
+    SchibstedGrotesk_900Black,
   });
   const router = useRouter();
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
@@ -162,6 +176,7 @@ function RootLayout() {
           <Stack.Screen name="lesson/[id]" />
           <Stack.Screen name="track/[kind]/[id]" />
           <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="topic-feedback-preview" />
         </Stack>
       </QueryProvider>
     </GestureHandlerRootView>

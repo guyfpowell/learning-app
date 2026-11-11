@@ -1,11 +1,21 @@
 import React, { type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { circleButtonStyle, CIRCLE_BUTTON_SIZE } from '@/components/ui/circleButtonStyle';
 import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
-import { colors, radius, shadow, spacing } from '@/theme';
+import { Contours } from '@/components/ui/Contours';
+import { StatusBar } from 'expo-status-bar';
+import { colors, gradients, radius, results, shadow, spacing } from '@/theme';
+import { TONE_LOOK, type ResultTone } from '@/components/quiz/resultTone';
+
+/** Header buttons over a colour are rounded squares, not circles (the design's 14 at 44pt). */
+const TONED_BUTTON_RADIUS = radius.md - 2;
+
+/** How far down the screen the contour lines reach: they stay up top, away from the text. */
+const CONTOUR_HEIGHT = 420;
 
 /** The header's controls row: tall enough for a 44pt touch target. */
 const HEADER_ROW_HEIGHT = CIRCLE_BUTTON_SIZE;
@@ -25,26 +35,44 @@ export function frameContentStyle(bottomInset: number) {
  * bookmark (left), `rating` and close (right), and a scrolling body.
  * `action` is the view's one main button, pinned to the foot of the screen over the body (096).
  * `overlay` renders above the body (celebrations).
+ * `tone` washes the frame in that verdict's gradient, with contour lines; with none the frame is plain paper.
  */
-export function QuizResultFrame({ onClose, saved, onToggleSave, rating, action, overlay, children }: {
+export function QuizResultFrame({ onClose, saved, onToggleSave, rating, action, overlay, tone, children }: {
   onClose: () => void;
   saved: boolean;
   onToggleSave: () => void;
   rating?: ReactNode;
   action?: ReactNode;
   overlay?: ReactNode;
+  tone?: ResultTone;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  // Over a colour the header buttons are translucent rounded squares with no shadow.
+  const tonedButton = tone && { backgroundColor: TONE_LOOK[tone].buttonBg, borderRadius: TONED_BUTTON_RADIUS, shadowOpacity: 0, elevation: 0 };
   return (
-    <View style={styles.container}>
-        <View testID="quiz-frame-header" style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+    <View style={[styles.container, tone !== undefined && styles.toned]}>
+        {tone !== undefined && (
+          <>
+            <StatusBar style={TONE_LOOK[tone].statusBar} />
+            <LinearGradient testID="quiz-frame-gradient" colors={results[tone].gradient} style={StyleSheet.absoluteFill} />
+            <Contours
+              testID="quiz-frame-contours"
+              color={tone === 'retry' ? results.retry.contour : colors.white}
+              opacity={gradients.contourOpacity}
+              width={width}
+              height={CONTOUR_HEIGHT}
+            />
+          </>
+        )}
+        <View testID="quiz-frame-header" style={[styles.header, tone !== undefined && styles.headerToned, { paddingTop: insets.top + spacing.sm }]}>
           <View style={styles.headerRow}>
-            <BookmarkButton saved={saved} onToggle={onToggleSave} style={styles.circleBtn} />
+            <BookmarkButton saved={saved} onToggle={onToggleSave} style={[styles.circleBtn, tonedButton]} color={tone && results[tone].fg} />
             <View style={styles.headerRight}>
-              {rating && <View testID="header-rating-bubble" style={styles.bubble}>{rating}</View>}
-              <Pressable onPress={onClose} style={styles.circleBtn} accessibilityLabel="Close quiz results">
-                <Ionicons name="close" size={22} color={colors.textMuted} />
+              {rating && <View testID="header-rating-bubble" style={[styles.bubble, tonedButton]}>{rating}</View>}
+              <Pressable onPress={onClose} style={[styles.circleBtn, tonedButton]} accessibilityLabel="Close quiz results">
+                <Ionicons name="close" size={22} color={tone ? results[tone].fg : colors.textMuted} />
               </Pressable>
             </View>
           </View>
@@ -63,6 +91,7 @@ export function QuizResultFrame({ onClose, saved, onToggleSave, rating, action, 
 
 export const quizFrameStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
+  toned:     { backgroundColor: 'transparent' },
   header: {
     paddingHorizontal: spacing.md,
     // paddingTop is applied inline via useSafeAreaInsets() — not hardcoded here
@@ -70,6 +99,7 @@ export const quizFrameStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSubtle,
   },
+  headerToned: { borderBottomWidth: 0 },
   headerRow: {
     flexDirection:  'row',
     alignItems:     'center',

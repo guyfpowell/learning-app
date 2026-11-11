@@ -11,12 +11,16 @@ import { extractError } from '@/lib/errors';
 import { useProgress } from '@/hooks/useProgress';
 import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { PathCard } from '@/components/ui/PathCard';
+import { HomePath } from '@/components/home/HomePath';
 import { MomentumCard } from '@/components/home/MomentumCard';
 import { PathEndSection } from '@/components/albert/PathEndSection';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { PATHS_LOAD_ERROR } from '@learning/shared';
 import { TRACKS_ROUTE, lessonRoute, trackRoute } from '@/lib/routes';
+
+/** Home's side gutters (the design's 20: there is no 20 token). */
+const HOME_GUTTER = spacing.md + spacing.xs;
 
 /** The streak banner shows from this many days on. */
 const STREAK_BANNER_AFTER_DAYS = 3;
@@ -89,8 +93,7 @@ export default function LessonsScreen() {
 
         {/* Active path — the one path card Home shows (076g §1). */}
         {activePath && (
-          <PathCard
-            variant="hero"
+          <HomePath
             path={activePath}
             onOpen={() => router.push(trackRoute(activePath.kind, activePath.id))}
             onStartLesson={id => router.push(lessonRoute(id))}
@@ -133,7 +136,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.lg,
   },
-  content:   { padding: spacing.md, flexGrow: 1 },
+  content:   { padding: HOME_GUTTER, flexGrow: 1 },
 
   // ── Streak banner ────────────────────────────────────────────────────────
   streakBanner: {

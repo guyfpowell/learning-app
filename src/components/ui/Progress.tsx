@@ -17,6 +17,8 @@ interface ProgressProps extends Omit<ViewProps, 'children'> {
   tone?: ProgressTone;
   /** Track height in points. Defaults to 6. */
   height?: number;
+  /** The empty part of the bar, where the default sunken grey does not suit the page. */
+  trackColor?: string;
 }
 
 const fillColor: Record<ProgressTone, string> = {
@@ -30,12 +32,13 @@ export function Progress({
   value,
   tone = 'brand',
   height = 6,
+  trackColor,
   style,
   ...rest
 }: ProgressProps) {
   const clamped = Math.min(100, Math.max(0, value));
   return (
-    <View style={[styles.track, { height, borderRadius: height / 2 }, style as object]} {...rest}>
+    <View style={[styles.track, { height, borderRadius: height / 2 }, trackColor !== undefined && { backgroundColor: trackColor }, style as object]} {...rest}>
       <View
         style={[
           styles.fill,

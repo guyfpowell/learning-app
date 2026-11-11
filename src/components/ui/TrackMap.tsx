@@ -18,7 +18,7 @@ import { colors, font, fontSize, spacing } from '@/theme';
 import { SkillNode } from '@/components/ui/SkillNode';
 import { capitalize } from '@/lib/capitalize';
 
-function levelState(lvl: TrackLevelProgress): 'done' | 'active' | 'locked' {
+export function levelState(lvl: TrackLevelProgress): 'done' | 'active' | 'locked' {
   if (isProgressComplete(lvl)) return 'done';
   if (lvl.completedLessons > 0) return 'active';
   return 'locked';

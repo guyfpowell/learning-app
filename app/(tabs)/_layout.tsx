@@ -5,7 +5,7 @@ import { Text } from '@/components/ui/Text';
 import { BlurView } from 'expo-blur';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
 import { TEAM_FEATURE_ENABLED } from '@/config/features';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -15,8 +15,6 @@ import { TAB_BAR_HEIGHT } from '@/lib/safeArea';
 import { iapService } from '@/services/iap.service';
 import { useAuthStore } from '@/store/auth.store';
 import * as Sentry from '@sentry/react-native';
-
-type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 // Verification banner colours — not in the design system's amber scale (that's
 // #FFEECF/#EDB345/#BE7C1C); these are a distinct, deliberately lighter shade.
@@ -32,15 +30,14 @@ type TabButtonProps = Pick<PressableProps, 'onPress' | 'onLongPress' | 'testID' 
   accessibilityState?: { selected?: boolean };
 };
 
-// The selected tab sits in a fully rounded soft pill, as in the floating bar references.
+// The selected tab is told apart by its filled cobalt icon, not a highlight.
 function TabButton({ children, accessibilityState, ...pressable }: TabButtonProps) {
-  const selected = accessibilityState?.selected === true;
   return (
     <Pressable
       {...pressable}
       accessibilityRole="tab"
       accessibilityState={accessibilityState}
-      style={[styles.tabButton, selected && styles.tabButtonSelected]}
+      style={styles.tabButton}
     >
       {children}
     </Pressable>
@@ -50,12 +47,12 @@ function TabButton({ children, accessibilityState, ...pressable }: TabButtonProp
 const styles = StyleSheet.create({
   tabButton: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill },
   tabBarBlur: { borderRadius: radius.pill },
-  tabButtonSelected: { backgroundColor: colors.brandSoft },
 });
 
-function tabIcon(name: IoniconName, focusedName: IoniconName) {
+/** The active tab's icon is filled in its colour. */
+function tabIcon(name: IconName) {
   return ({ color, focused }: { color: ColorValue; focused: boolean }) => (
-    <Ionicons name={focused ? focusedName : name} size={24} color={typeof color === 'string' ? color : undefined} />
+    <Icon name={name} size={24} color={typeof color === 'string' ? color : undefined} fill={focused && typeof color === 'string' ? color : 'none'} />
   );
 }
 
@@ -156,7 +153,7 @@ export default function TabsLayout() {
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: colors.brand,
-          tabBarInactiveTintColor: colors.textMuted,
+          tabBarInactiveTintColor: colors.textSubtle,
           tabBarButton: (props) => <TabButton {...props} />,
           tabBarStyle: {
             position: 'absolute',
@@ -187,31 +184,31 @@ export default function TabsLayout() {
       >
         <Tabs.Screen
           name="lessons"
-          options={{ title: 'Home', tabBarIcon: tabIcon('book-outline', 'book') }}
+          options={{ title: 'Home', tabBarIcon: tabIcon('home') }}
         />
         <Tabs.Screen
           name="progress"
-          options={{ title: 'Progress', tabBarIcon: tabIcon('bar-chart-outline', 'bar-chart') }}
+          options={{ title: 'Progress', tabBarIcon: tabIcon('progress') }}
         />
         <Tabs.Screen
           name="profile"
-          options={{ title: 'Profile', tabBarIcon: tabIcon('person-outline', 'person') }}
+          options={{ title: 'Profile', tabBarIcon: tabIcon('profile') }}
         />
         <Tabs.Screen
           name="tracks"
-          options={{ title: 'Tracks', tabBarIcon: tabIcon('library-outline', 'library') }}
+          options={{ title: 'Tracks', tabBarIcon: tabIcon('tracks') }}
         />
         <Tabs.Screen
           name="team"
           options={{
             title: 'Team',
-            tabBarIcon: tabIcon('people-outline', 'people'),
+            tabBarIcon: tabIcon('team'),
             href: TEAM_FEATURE_ENABLED ? undefined : null,
           }}
         />
         <Tabs.Screen
           name="albert"
-          options={{ title: 'Albert', tabBarIcon: tabIcon('sparkles-outline', 'sparkles') }}
+          options={{ title: 'Albert', tabBarIcon: tabIcon('albert') }}
         />
       </Tabs>
     </View>

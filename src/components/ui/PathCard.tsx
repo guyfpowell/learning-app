@@ -1,7 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import { Pressable, StyleSheet, View, type DimensionValue } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { colors, font, fontSize, shadow, spacing, tracking } from '@/theme';
+import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { AlbertMark } from '@/components/albert/AlbertMark';
 import { Button } from '@/components/ui/Button';
@@ -13,12 +13,6 @@ import { revisitingLabel, type SkipReason, type SkipScope, type UserPath } from 
 export function flooredPct(path: Pick<UserPath, 'completedLessons' | 'percentComplete'>): number {
   return path.completedLessons > 0 ? Math.max(1, Math.round(path.percentComplete)) : 0;
 }
-
-/**
- * Space between the cobalt hero card and the skip controls under it (096). Negative: the skip button's
- * own 44pt-high box pads its label, so the box pulls up under the card and the label sits closer.
- */
-const HERO_SKIPS_GAP = -spacing.xs;
 
 function motivation(path: UserPath, pct: number): string {
   const lessonsLeft = path.totalLessons - path.completedLessons;
@@ -50,8 +44,6 @@ function ProgressBar({ value }: { value: number }) {
   );
 }
 
-export type PathCardVariant = 'default' | 'hero';
-
 interface PathCardProps {
   path: UserPath;
   onStartLesson: (lessonId: string) => void;
@@ -59,8 +51,6 @@ interface PathCardProps {
   onSkip: (path: UserPath, scope: SkipScope, reason: SkipReason) => void;
   /** The skip in flight on this path, if any: its button shows the spinner. */
   skipPending?: SkipScope | null;
-  /** `hero` draws the next-lesson card as a cobalt brand moment (Home's active path). */
-  variant?: PathCardVariant;
   /** Makes the progress card open the path's track page. */
   onOpen?: () => void;
 }
@@ -76,7 +66,7 @@ interface PathCardProps {
  * the unresolved-topics note, which only a plan can have.
  */
 export function PathCard({
-  path, onStartLesson, onSkip, skipPending, variant = 'default', onOpen,
+  path, onStartLesson, onSkip, skipPending, onOpen,
 }: PathCardProps) {
   const [choosing, setChoosing] = useState<SkipScope | null>(null);
   const pct = flooredPct(path);
@@ -86,7 +76,6 @@ export function PathCard({
   const nextLesson = revisit ? revisit.nextLesson : path.nextLesson;
   const level = nextLesson?.skillPath?.level;
   const levelLabel = nextLesson?.skillPath?.levelLabel;
-  const hero = variant === 'hero';
 
   // Skips act on the forward position, so none is offered on a revisit, an open picker included.
   const skipControls = !revisit && (
@@ -96,7 +85,7 @@ export function PathCard({
           key={b.scope}
           testID={`skip-${b.scope}-btn-${path.id}`}
           label={b.label}
-          variant={hero ? 'ghost' : 'outline'}
+          variant="outline"
           style={styles.skipBtn}
           loading={skipPending === b.scope}
           onPress={() => setChoosing(b.scope)}
@@ -123,7 +112,7 @@ export function PathCard({
   return (
     <>
       {/* Progress card — renders first (076g card order: streak → path progress → next lesson). */}
-      {wrapOpen(<Card testID={`enrollment-card-${path.id}`} style={[styles.enrollmentCard, hero && styles.heroProgressCard]}>
+      {wrapOpen(<Card testID={`enrollment-card-${path.id}`} style={styles.enrollmentCard}>
         <View style={styles.enrollmentHeader}>
           {/* An Albert path is marked by Albert's mark before its name, not a chip (096). */}
           <View style={styles.titleGroup}>
@@ -141,17 +130,12 @@ export function PathCard({
         <ProgressBar value={pct} />
 
         {/* Only a level-ordered path has a level strip; a custom path's levels is [] (C10). */}
-        {path.levels.length > 0 && <TrackMap levels={path.levels} showStatus={!hero} />}
+        {path.levels.length > 0 && <TrackMap levels={path.levels} />}
 
-        {/* Home's hero card omits these two lines and TrackMap's status line above (091d); other cards keep them. */}
-        {!hero && (
-          <>
-            <Text style={styles.motivationText}>{motivation(path, pct)}</Text>
-            <Text style={styles.lessonsCount}>
-              {path.completedLessons} of {path.totalLessons} lessons complete
-            </Text>
-          </>
-        )}
+        <Text style={styles.motivationText}>{motivation(path, pct)}</Text>
+        <Text style={styles.lessonsCount}>
+          {path.completedLessons} of {path.totalLessons} lessons complete
+        </Text>
 
         {path.kind === 'custom' && path.unresolvedTopics > 0 && (
           <Text testID={`plan-unresolved-${path.id}`} style={styles.noNextLesson}>
@@ -166,16 +150,11 @@ export function PathCard({
         )}
       </Card>)}
 
-      {/* Next-lesson card — renders second. Path identity lives in the progress card above (076g §3).
-          The hero is cobalt, so its skip controls sit on paper beneath it (no brand button on brand). */}
+      {/* Next-lesson card — renders second. Path identity lives in the progress card above (076g §3). */}
       {nextLesson && (
-        <>
-          <Card
-            testID={`next-lesson-card-${path.id}`}
-            style={[styles.nextLessonCard, hero && styles.heroCard]}
-          >
+        <Card testID={`next-lesson-card-${path.id}`} style={styles.nextLessonCard}>
             {nextLesson.topicName && (
-              <Text style={[styles.positionLabel, hero && styles.heroTopic]}>{nextLesson.topicName}</Text>
+              <Text style={styles.positionLabel}>{nextLesson.topicName}</Text>
             )}
             <View testID={`next-lesson-meta-${path.id}`} style={styles.nextLessonMeta}>
               {level && (
@@ -185,34 +164,32 @@ export function PathCard({
                 />
               )}
               {nextLesson.topicName && (
-                <Text style={[styles.positionLabel, hero && styles.heroPosition]}>
+                <Text style={styles.positionLabel}>
                   Lesson {nextLesson.lessonIndex} of {nextLesson.totalLessons}
                 </Text>
               )}
             </View>
 
             {revisit && (
-              <Text testID={`revisit-label-${path.id}`} style={[styles.revisitLabel, hero && styles.heroEyebrow]}>
+              <Text testID={`revisit-label-${path.id}`} style={styles.revisitLabel}>
                 {revisitingLabel(revisit.topicTitle)}
               </Text>
             )}
-            <Text style={[styles.nextLessonTitle, hero && styles.heroTitle]}>{nextLesson.title}</Text>
+            <Text style={styles.nextLessonTitle}>{nextLesson.title}</Text>
             {nextLesson.summary && (
-              <Text style={[styles.nextLessonSummary, hero && styles.heroSummary]}>{nextLesson.summary}</Text>
+              <Text style={styles.nextLessonSummary}>{nextLesson.summary}</Text>
             )}
 
             <Button
               testID={`next-lesson-btn-${path.id}`}
               label={ctaLabel(Boolean(revisit), Boolean(nextLesson.resumePhase))}
-              variant={hero ? 'coral' : 'primary'}
+              variant="primary"
               style={styles.continueBtn}
               onPress={() => onStartLesson(nextLesson.id)}
             />
 
-            {!hero && skipControls}
-          </Card>
-          {hero && <View style={styles.heroSkips}>{skipControls}</View>}
-        </>
+            {skipControls}
+        </Card>
       )}
     </>
   );
@@ -304,46 +281,6 @@ const styles = StyleSheet.create({
     fontSize:   fontSize.sm,
     color:      colors.textMuted,
     fontStyle:  'italic',
-  },
-  heroProgressCard: {
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-  },
-  heroCard: {
-    marginTop:       spacing.md,
-    backgroundColor: colors.brand,
-    ...shadow.brand,
-  },
-  heroSkips: {
-    marginTop: HERO_SKIPS_GAP,
-    gap:       spacing.sm,
-  },
-  heroEyebrow: {
-    fontFamily:    font.bold,
-    color:         colors.brandSoft,
-    letterSpacing: tracking.caps,
-    textTransform: 'uppercase',
-  },
-  // The hero's topic and position: sentence case, so a long topic name is one line, not two lines of wide capitals.
-  heroTopic: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.sm,
-    color:      colors.brandSoft,
-  },
-  heroPosition: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.xs,
-    color:      colors.brandSoft,
-  },
-  heroTitle: {
-    fontFamily:    font.display,
-    fontSize:      fontSize.md,
-    letterSpacing: tracking.tight,
-    color:         colors.onBrand,
-  },
-  heroSummary: {
-    color:     colors.brandSoft,
-    fontStyle: 'normal',
   },
   continueBtn: {
     marginTop: spacing.xs,

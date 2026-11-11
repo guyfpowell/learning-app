@@ -1,13 +1,12 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { SegmentedControl, iconCircleStyle, segmentStyle, type SegmentTone } from '../SegmentedControl';
+import { SegmentedControl, segmentStyle } from '../SegmentedControl';
 import { colors } from '@/theme';
 
 type Pick = 'a' | 'b' | 'c';
 const LABELS: Record<Pick, string> = { a: 'First one', b: 'Second', c: 'Third' };
 const OPTIONS: readonly Pick[] = ['a', 'b', 'c'];
 const ICONS: Record<Pick, 'thumbs-up-outline'> = { a: 'thumbs-up-outline', b: 'thumbs-up-outline', c: 'thumbs-up-outline' };
-const TONES: Record<Pick, SegmentTone> = { a: 'amber', b: 'success', c: 'violet' };
 
 function setup(picked: Pick | null = null, disabled = false, open = true) {
   const onPick = jest.fn();
@@ -19,7 +18,6 @@ function setup(picked: Pick | null = null, disabled = false, open = true) {
       options={OPTIONS}
       labels={LABELS}
       icons={ICONS}
-      tones={TONES}
       picked={picked}
       open={open}
       onOpen={onOpen}
@@ -64,29 +62,16 @@ describe('SegmentedControl', () => {
     expect(screen.getByTestId('seg-c').props.accessibilityState).toEqual({ selected: false, disabled: false });
   });
 
-  it('tints the picked segment with its tone and leaves the others white with the hairline border', () => {
-    expect(segmentStyle('success', true, false)).toEqual({ backgroundColor: colors.successSoft, borderColor: colors.success, opacity: 1 });
-    expect(segmentStyle('success', false, false)).toEqual({ backgroundColor: colors.surface, borderColor: colors.borderSubtle, opacity: 1 });
-  });
-
-  it('gives every tone its own pair of colours', () => {
-    expect(segmentStyle('amber', true, false)).toEqual(expect.objectContaining({ backgroundColor: colors.xpSoft, borderColor: colors.xp }));
-    expect(segmentStyle('coral', true, false)).toEqual(expect.objectContaining({ backgroundColor: colors.coralSoft, borderColor: colors.coral }));
-    expect(segmentStyle('brand', true, false)).toEqual(expect.objectContaining({ backgroundColor: colors.brandSoft, borderColor: colors.brand }));
-    expect(segmentStyle('violet', true, false)).toEqual(expect.objectContaining({ backgroundColor: colors.expertSoft, borderColor: colors.expert }));
-    expect(segmentStyle('neutral', true, false)).toEqual(expect.objectContaining({ backgroundColor: colors.surfaceSunken, borderColor: colors.textMuted }));
+  it('fills the picked segment with the soft brand tint and leaves the others white with the hairline border', () => {
+    expect(segmentStyle(true, false)).toEqual({ backgroundColor: colors.brandSoft, borderColor: colors.brand, opacity: 1 });
+    expect(segmentStyle(false, false)).toEqual({ backgroundColor: colors.surface, borderColor: colors.borderSubtle, opacity: 1 });
   });
 
   it('dims a disabled segment', () => {
-    expect(segmentStyle('amber', false, true).opacity).toBe(0.5);
+    expect(segmentStyle(false, true).opacity).toBe(0.5);
   });
 
-  it('the icon circle is the soft tint when unpicked and the strong colour when picked', () => {
-    expect(iconCircleStyle('violet', false)).toEqual({ backgroundColor: colors.expertSoft });
-    expect(iconCircleStyle('violet', true)).toEqual({ backgroundColor: colors.expert });
-  });
-
-  it('shows an icon circle on every segment and no check badge', () => {
+  it('shows an icon on every segment and no check badge', () => {
     setup('b');
     expect(screen.getByTestId('seg-a-icon')).toBeTruthy();
     expect(screen.getByTestId('seg-b-icon')).toBeTruthy();
