@@ -7,8 +7,6 @@ import LessonDetailScreen from '../[id]';
 import { useLesson } from '@/hooks/useLesson';
 import { usePaths } from '@/hooks/useTrack';
 import { lessonService } from '@/services/lesson.service';
-import { useStartRetake } from '@/hooks/useLesson';
-import { LESSON_COMPLETED_BANNER, RETAKE_START_ERROR } from '@learning/shared';
 import { extractError } from '@/lib/errors';
 import * as Sentry from '@sentry/react-native';
 
@@ -86,7 +84,6 @@ beforeEach(() => {
   (useLocalSearchParams as jest.Mock).mockReturnValue({ id: 'lesson-1' });
   (useRouter as jest.Mock).mockReturnValue(mockRouter);
   (usePaths as jest.Mock).mockReturnValue({ data: [] });
-  (useStartRetake as jest.Mock).mockReturnValue({ mutate: jest.fn(), isPending: false });
 });
 
 describe('LessonDetailScreen', () => {
@@ -267,7 +264,7 @@ describe('LessonDetailScreen', () => {
     render(<LessonDetailScreen />);
     expect(screen.queryByTestId('continue-btn')).toBeNull();
     expect(screen.queryByTestId('key-takeaway-btn')).toBeNull();
-    expect(screen.getByTestId('lesson-completed-banner')).toHaveTextContent(LESSON_COMPLETED_BANNER);
+    expect(screen.getByTestId('lesson-completed-banner')).toHaveTextContent(/Completed/);
   });
 
   it('a completed lesson is looked over, not read through: tabs for summary, lesson and quiz, and no pinned action', () => {
@@ -484,13 +481,6 @@ describe('LessonDetailScreen', () => {
       fireEvent.press(screen.getByTestId('key-takeaway-btn'));
       expect(bg('lesson-quiz-btn')).toBe(colors.white);
     });
-
-    it('Retake is not coral (096)', async () => {
-      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: completedLesson, error: null });
-      render(<LessonDetailScreen />);
-      await waitFor(() => expect(screen.getByTestId('lesson-retake-btn')).toBeTruthy());
-      expect(bg('lesson-retake-btn')).not.toBe(colors.coral);
-    });
   });
 
   it('navigates to settings when upgrade is pressed in premium modal', () => {
@@ -553,53 +543,12 @@ describe('LessonDetailScreen', () => {
     });
   });
 
-  describe('079e — Retake lesson', () => {
-    const completed = { ...mockLesson, quizCompleted: true, quizzes: [{ id: 'q1' }, { id: 'q2' }], resolvedQuizIds: ['q1', 'q2'] };
-    const mutate = jest.fn();
-
-    beforeEach(() => {
-      mutate.mockReset();
-      (useStartRetake as jest.Mock).mockReturnValue({ mutate, isPending: false });
-    });
-
-    it('is hidden on a lesson that is not completed', () => {
-      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: mockLesson, error: null });
+  describe('a completed lesson has no retake', () => {
+    it('shows no Retake lesson button on the review page', async () => {
+      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: { ...mockLesson, quizCompleted: true }, error: null });
       render(<LessonDetailScreen />);
-      fireEvent.press(screen.getByTestId('key-takeaway-btn'));
+      await waitFor(() => expect(screen.getByTestId('completed-lesson-view')).toBeTruthy());
       expect(screen.queryByTestId('lesson-retake-btn')).toBeNull();
-    });
-
-    it('shows on a completed lesson, starts a pass and returns to the start of the lesson', async () => {
-      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: completed, error: null });
-      // The hook puts the new pass in the cache on success (`lessonRetakeInProgress`), which ends the look-back view.
-      mutate.mockImplementation((_id, opts) => {
-        (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: { ...completed, lessonRetakeInProgress: true, resolvedQuizIds: [] }, error: null });
-        opts.onSuccess();
-      });
-      const { rerender } = render(<LessonDetailScreen />);
-      await waitFor(() => expect(screen.getByTestId('lesson-retake-btn')).toBeTruthy());
-      fireEvent.press(screen.getByTestId('lesson-retake-btn'));
-      rerender(<LessonDetailScreen />);
-      expect(mutate).toHaveBeenCalledWith('lesson-1', expect.anything());
-      expect(screen.getByTestId('key-takeaway-btn')).toBeTruthy();
-      expect(lessonService.updatePosition).toHaveBeenCalledWith('lesson-1', 'expanded');
-    });
-
-    it('is hidden while a retake is in progress, including one started in an earlier visit', async () => {
-      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: { ...completed, lessonRetakeInProgress: true, resolvedQuizIds: [] }, error: null });
-      render(<LessonDetailScreen />);
-      await waitFor(() => expect(screen.getByTestId('lesson-quiz-btn')).toBeTruthy());
-      expect(screen.queryByTestId('lesson-retake-btn')).toBeNull();
-    });
-
-    it('shows an error and stays put when the retake fails to start', async () => {
-      (useLesson as jest.Mock).mockReturnValue({ isLoading: false, isError: false, data: completed, error: null });
-      mutate.mockImplementation((_id, opts) => opts.onError(new Error('x')));
-      render(<LessonDetailScreen />);
-      await waitFor(() => expect(screen.getByTestId('lesson-retake-btn')).toBeTruthy());
-      fireEvent.press(screen.getByTestId('lesson-retake-btn'));
-      expect(screen.getByTestId('retake-error')).toHaveTextContent(RETAKE_START_ERROR);
-      expect(screen.queryByTestId('continue-btn')).toBeNull();
     });
   });
 });

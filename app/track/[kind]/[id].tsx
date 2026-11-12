@@ -11,22 +11,24 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { colors, font, fontSize, spacing } from '@/theme';
-import { Button } from '@/components/ui/Button';
+import { colors, font, fontSize, levelCard, press, radius, spacing } from '@/theme';
+import { levelOfGroup } from '@/lib/groupLevel';
+import { EdgeButton } from '@/components/ui/EdgeButton';
 import { Spinner } from '@/components/ui/Spinner';
-import { Progress } from '@/components/ui/Progress';
+import { TrackIcon } from '@/components/ui/TrackIcon';
+import { AlbertMark } from '@/components/albert/AlbertMark';
+import { LevelHeader, TopicHeader } from '@/components/learning/TrackSteps';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { TrackContentsList } from '@/components/learning/TrackContentsList';
 import { LessonSummary } from '@/components/learning/LessonSummary';
 import { RenamableHeading } from '@/components/learning/RenamableHeading';
-import { useTrackContents, usePaths, useEnroll } from '@/hooks/useTrack';
+import { useTrackContents, usePaths, useSkills } from '@/hooks/useTrack';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
 import { useDetailHeader } from '@/hooks/useDetailHeader';
 import { extractError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
-import type { TrackContentsLesson, UserPathKind } from '@learning/shared';
-import { HOME_ROUTE, lessonRoute, trackRoute } from '@/lib/routes';
-import { capitalize } from '@/lib/capitalize';
+import type { TrackContents, TrackContentsLesson, UserPathKind } from '@learning/shared';
+import { lessonRoute, trackRoute } from '@/lib/routes';
 import { resolveTrackView, trackViewOfParams, type ResolvedTrackView, type TrackView } from '@/lib/trackView';
 
 export default function TrackDetailScreen() {
@@ -44,7 +46,7 @@ export default function TrackDetailScreen() {
   } = useTrackContents(pathKind, id);
 
   const { data: paths } = usePaths();
-  const enroll = useEnroll();
+  const { data: skills } = useSkills();
   const updatePlan = useUpdateTrackPlan();
 
   /** A custom path's id is its plan's id. */
@@ -54,9 +56,10 @@ export default function TrackDetailScreen() {
 
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
 
-  // Find this path's live progress data (needed for the percent).
+  // The path's own line (a curated track's headline, a custom path's description) and its glyph.
   const matchingPath = paths?.find((p) => p.kind === pathKind && p.id === id) ?? null;
-  const percentComplete = matchingPath?.percentComplete ?? 0;
+  const skill = pathKind === 'track' ? skills?.find((sk) => sk.id === id) : undefined;
+  const summary = skill?.headline ?? matchingPath?.description ?? null;
   const isEnrolled = contents?.enrolled ?? false;
 
   function handleLessonPress(lesson: TrackContentsLesson) {
@@ -99,6 +102,9 @@ export default function TrackDetailScreen() {
   // ── The step asked for ────────────────────────────────────────────────────
 
   const view = resolveTrackView(contents, trackViewOfParams(params));
+  // Summed from the tree, so a track you are only looking at (not enrolled) still shows its size.
+  const totalLessons = contents.groups.reduce((n, g) => n + g.totalLessons, 0);
+  const totalDone = contents.groups.reduce((n, g) => n + g.completedLessons, 0);
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -106,38 +112,37 @@ export default function TrackDetailScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {view.level === 'levels' ? (
           <>
-            <RenamableHeading name={contents.name} onSave={pathKind === 'custom' ? renamePath : null} />
-
-            {matchingPath && (
-              <View testID="track-detail-progress" style={styles.progressBlock}>
-                <Text style={styles.progressLabel}>
-                  {matchingPath.completedLessons} of {matchingPath.totalLessons} lessons
-                </Text>
-                <Progress value={percentComplete} tone="brand" height={6} />
+            <View testID="track-detail-head" style={styles.head}>
+              <View style={styles.glyphTile}>
+                {pathKind === 'custom'
+                  ? <AlbertMark size={24} />
+                  : <TrackIcon trackId={skill?.trackId ?? 0} size={24} color={colors.brand} />}
               </View>
-            )}
-
-            {/* Enrol: the one action here, for a curated track you have not started */}
-            {!isEnrolled && pathKind === 'track' && (
-              <Button
-                testID="track-detail-enrol-btn"
-                label="Enrol"
-                loading={enroll.isPending}
-                onPress={() =>
-                  enroll.mutate(id, {
-                    onSuccess: () => router.push(HOME_ROUTE),
-                  })
-                }
-                style={styles.actionBtn}
-              />
-            )}
+              <RenamableHeading name={contents.name} onSave={pathKind === 'custom' ? renamePath : null} />
+              {!!summary && <Text testID="track-detail-summary" style={styles.summary}>{summary}</Text>}
+              <Text testID="track-detail-progress" style={styles.progressLabel}>
+                {totalDone} of {totalLessons} lessons
+              </Text>
+            </View>
           </>
         ) : (
-          <Text testID="track-detail-subheading" style={styles.subHeading}>{subHeadingOf(view)}</Text>
+          <StepHeader view={view} contents={contents} curated={pathKind === 'track'} />
         )}
 
         {view.level === 'summary' ? (
-          <LessonSummary lesson={view.lesson} />
+          <LessonSummary
+            lesson={view.lesson}
+            color={levelCard[levelOfGroup(view.group.key)].base}
+            // A lesson skipped earlier can be started from here; any other lesson is only looked over.
+            action={view.lesson.status === 'skipped' && isEnrolled ? (
+              <EdgeButton
+                testID="track-detail-start-btn"
+                look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+                label="Start lesson"
+                onPress={() => handleLessonPress(view.lesson)}
+              />
+            ) : undefined}
+          />
         ) : (
           <TrackContentsList
             contents={contents}
@@ -160,32 +165,41 @@ export default function TrackDetailScreen() {
   );
 }
 
-/** The heading of a step inside the path: the level, the topic, or the lesson. */
-function subHeadingOf(view: Exclude<ResolvedTrackView, { level: 'levels' }>): string {
-  switch (view.level) {
-    case 'topics':  return capitalize(view.group.label);
-    case 'lessons': return view.topic.name;
-    case 'summary': return view.lesson.title;
+/** The head of a step inside the path: a level's page, a topic's page, or a lesson's summary. */
+function StepHeader({ view, contents, curated }: { view: Exclude<ResolvedTrackView, { level: 'levels' }>; contents: TrackContents; curated: boolean }) {
+  if (view.level === 'topics') {
+    return <LevelHeader group={view.group} index={contents.groups.indexOf(view.group)} count={contents.groups.length} curated={curated} />;
   }
+  if (view.level === 'lessons') {
+    return <TopicHeader group={view.group} topic={view.topic} index={view.group.topics.indexOf(view.topic)} />;
+  }
+  return null;
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
-  content:   { padding: spacing.md, flexGrow: 1 },
+  content:   { paddingHorizontal: spacing.lg, paddingTop: spacing.sm3, paddingBottom: spacing.lg, flexGrow: 1 },
   centred:   { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
 
-  progressBlock: {
-    gap: spacing.xs,
-    marginBottom: spacing.md,
+  head: { gap: spacing.sm3, marginBottom: spacing.lg },
+  glyphTile: {
+    width:           48,
+    height:          48,
+    borderRadius:    radius.md,
+    backgroundColor: colors.brandSoft,
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+  summary: {
+    fontFamily: font.regular,
+    fontSize:   15,
+    lineHeight: 15 * 1.45,
+    color:      colors.textBody,
   },
   progressLabel: {
-    fontFamily: font.regular,
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-  },
-
-  actionBtn: {
-    marginBottom: spacing.lg,
+    fontFamily: font.bold,
+    fontSize:   13,
+    color:      colors.textBody,
   },
 
   // Smaller than the path's name: a level can be a whole sentence.

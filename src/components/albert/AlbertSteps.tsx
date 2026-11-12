@@ -1,8 +1,8 @@
 import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import { ALBERT_STEPS } from '@learning/shared';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize, press, spacing } from '@/theme';
 import type { BuildCardState } from '@/components/albert/BuildPathCard';
 
 export type AlbertStepStatus = 'done' | 'current' | 'todo';
@@ -20,7 +20,7 @@ export function albertStepStatuses(state: BuildCardState, hasProposal: boolean):
   return ['current', 'todo', 'todo', 'todo'];
 }
 
-/** Albert's four steps as a list that shows how far along the person is. */
+/** Albert's four steps as a stepper that shows how far along the person is. */
 export function AlbertSteps({ statuses }: { statuses: AlbertStepStatus[] }) {
   return (
     <View testID="albert-steps" style={styles.steps}>
@@ -29,17 +29,20 @@ export function AlbertSteps({ statuses }: { statuses: AlbertStepStatus[] }) {
         return (
           <View key={step.title} style={styles.stepRow}>
             <View style={styles.stepRail}>
-              <View testID={`albert-step-${i + 1}-${status}`} style={[styles.stepDot, status === 'current' && styles.stepDotCurrent, status === 'done' && styles.stepDotDone]}>
-                {status === 'done' ? (
-                  <Ionicons name="checkmark" size={fontSize.sm} color={colors.brand} />
-                ) : (
-                  <Text style={[styles.stepNum, status === 'current' && styles.stepNumCurrent]}>{i + 1}</Text>
-                )}
+              <View style={styles.dotBox}>
+                {status === 'current' && <View style={styles.dotEdge} />}
+                <View testID={`albert-step-${i + 1}-${status}`} style={[styles.stepDot, status === 'current' && styles.stepDotCurrent, status === 'done' && styles.stepDotDone]}>
+                  {status === 'done' ? (
+                    <Icon name="check" size={fontSize.sm} color={colors.brand} strokeWidth={3} />
+                  ) : (
+                    <Text style={[styles.stepNum, status === 'current' && styles.stepNumCurrent]}>{i + 1}</Text>
+                  )}
+                </View>
               </View>
               {i < ALBERT_STEPS.length - 1 && <View style={styles.stepLine} />}
             </View>
             <View style={styles.stepText}>
-              <Text style={styles.stepTitle}>{step.title}</Text>
+              <Text style={[styles.stepTitle, status === 'todo' && styles.stepTitleTodo]}>{step.title}</Text>
               <Text style={styles.stepBody}>{step.body}</Text>
             </View>
           </View>
@@ -49,16 +52,28 @@ export function AlbertSteps({ statuses }: { statuses: AlbertStepStatus[] }) {
   );
 }
 
-const DOT = 28;
+const DOT = 30;
+const DOT_RADIUS = 10;
+const DOT_EDGE = 3;
 
 const styles = StyleSheet.create({
-  steps:    { marginBottom: spacing.lg },
-  stepRow:  { flexDirection: 'row', gap: spacing.md },
+  steps:    {},
+  stepRow:  { flexDirection: 'row', gap: 14 },
   stepRail: { alignItems: 'center', width: DOT },
+  dotBox:   { width: DOT, height: DOT },
+  // The current step's solid edge: a copy of the dot, 3pt lower, in the darker cobalt.
+  dotEdge: {
+    position:        'absolute',
+    top:             DOT_EDGE,
+    width:           DOT,
+    height:          DOT,
+    borderRadius:    DOT_RADIUS,
+    backgroundColor: press.onCobaltEdge,
+  },
   stepDot: {
     width:           DOT,
     height:          DOT,
-    borderRadius:    DOT / 2,
+    borderRadius:    DOT_RADIUS,
     alignItems:      'center',
     justifyContent:  'center',
     backgroundColor: colors.surface,
@@ -69,28 +84,30 @@ const styles = StyleSheet.create({
   // Done: a tick in cobalt on the soft cobalt fill.
   stepDotDone:    { backgroundColor: colors.brandSoft, borderColor: colors.brand },
   stepNum: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.xs,
+    fontFamily: font.black,
+    fontSize:   fontSize.sm,
     color:      colors.textMuted,
   },
   stepNumCurrent: { color: colors.onBrand },
   stepLine: {
     flex:            1,
     width:           2,
-    minHeight:       spacing.lg,
-    backgroundColor: colors.borderSubtle,
-    marginVertical:  2,
+    minHeight:       8,
+    backgroundColor: colors.border,
+    marginVertical:  spacing.xs,
   },
-  stepText:  { flex: 1, paddingBottom: spacing.md },
+  stepText:  { flex: 1, gap: 2, paddingTop: 3, paddingBottom: spacing.sm },
   stepTitle: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
+    fontFamily:    font.extrabold,
+    fontSize:      fontSize.base,
+    letterSpacing: -0.01 * fontSize.base,
+    color:         colors.textStrong,
   },
+  stepTitleTodo: { color: colors.textBody },
   stepBody: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
+    lineHeight: fontSize.sm * 1.4,
     color:      colors.textMuted,
-    marginTop:  2,
   },
 });

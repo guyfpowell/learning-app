@@ -14,12 +14,13 @@ describe('TopicFeedbackPreviewScreen', () => {
 
   it('shows the real topic feedback screen with a made-up topic', () => {
     render(<TopicFeedbackPreviewScreen />);
-    expect(screen.getByText(/Knew most of it/i)).toBeTruthy();
+    expect(screen.getByText('Preview topic')).toBeTruthy();
+    expect(screen.getByText('Too easy')).toBeTruthy();
   });
 
-  it('closes the preview when Skip is pressed, without any API call', async () => {
+  it('closes the preview when Not now is pressed, without any API call', async () => {
     render(<TopicFeedbackPreviewScreen />);
-    fireEvent.press(screen.getByText(/skip/i));
+    fireEvent.press(screen.getByText('Not now'));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
   });
 });

@@ -2,68 +2,9 @@ import React from 'react';
 import { Animated, StyleSheet } from 'react-native';
 import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import { colors } from '@/theme';
-import { CelebrationOverlay, XpChipOverlay, xpFlight } from '../CelebrationOverlay';
+import { XpChipOverlay, xpFlight } from '../CelebrationOverlay';
 
 jest.useFakeTimers();
-
-describe('CelebrationOverlay', () => {
-  const baseProps = {
-    visible: true,
-    title: 'Achievement Earned!',
-    name: 'First Light',
-    description: 'Completed your first lesson',
-    onDismiss: jest.fn(),
-  };
-
-  beforeEach(() => jest.clearAllMocks());
-
-  it('renders title, name, and description when visible', () => {
-    render(<CelebrationOverlay {...baseProps} />);
-    expect(screen.getByTestId('celebration-title')).toBeTruthy();
-    expect(screen.getByTestId('celebration-name')).toBeTruthy();
-    expect(screen.getByTestId('celebration-description')).toBeTruthy();
-    expect(screen.getByText('Achievement Earned!')).toBeTruthy();
-    expect(screen.getByText('First Light')).toBeTruthy();
-    expect(screen.getByText('Completed your first lesson')).toBeTruthy();
-  });
-
-  it('does not render when visible is false', () => {
-    render(<CelebrationOverlay {...baseProps} visible={false} />);
-    expect(screen.queryByTestId('celebration-card')).toBeNull();
-  });
-
-  it('calls onDismiss when backdrop is pressed', () => {
-    render(<CelebrationOverlay {...baseProps} />);
-    fireEvent.press(screen.getByTestId('celebration-backdrop'));
-    act(() => jest.runAllTimers());
-    expect(baseProps.onDismiss).toHaveBeenCalledTimes(1);
-  });
-
-  it('is a frosted-glass card: a blur under a translucent cobalt wash, white text, coral dismiss button (096)', () => {
-    render(<CelebrationOverlay {...baseProps} />);
-    const flat = (id: string) => StyleSheet.flatten(screen.getByTestId(id).props.style);
-    expect(screen.getByTestId('celebration-blur')).toBeTruthy();
-    expect(flat('celebration-wash').backgroundColor).toBe(colors.brand);
-    expect(flat('celebration-wash').opacity).toBeLessThan(1);
-    expect(flat('celebration-card').backgroundColor).toBeUndefined();
-    expect(flat('celebration-name').color).toBe(colors.onBrand);
-    expect(flat('celebration-dismiss').backgroundColor).toBe(colors.coral);
-  });
-
-  it('calls onDismiss when the dismiss button is pressed', () => {
-    render(<CelebrationOverlay {...baseProps} />);
-    fireEvent.press(screen.getByTestId('celebration-dismiss'));
-    act(() => jest.runAllTimers());
-    expect(baseProps.onDismiss).toHaveBeenCalledTimes(1);
-  });
-
-  it('auto-dismisses after autoDismissMs', () => {
-    render(<CelebrationOverlay {...baseProps} autoDismissMs={3000} />);
-    act(() => jest.advanceTimersByTime(3000));
-    act(() => jest.runAllTimers());
-    expect(baseProps.onDismiss).toHaveBeenCalledTimes(1);
-  });
-});
 
 describe('XpChipOverlay', () => {
   const baseProps = {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import { useLesson } from '@/hooks/useLesson';
+import { levelCard } from '@/theme';
 import { LessonSummary } from '../LessonSummary';
 import type { TrackContentsLesson } from '@learning/shared';
 
@@ -15,7 +16,7 @@ function setLesson(state: { data?: unknown; isLoading?: boolean; isError?: boole
 describe('LessonSummary', () => {
   it('shows the lesson\'s summary and where the learner is with it, with nothing to start it', () => {
     setLesson({ data: { id: 'l-2', summary: 'What the PM owns in a launch.' } });
-    render(<LessonSummary lesson={lesson} />);
+    render(<LessonSummary lesson={lesson} color={levelCard.beginner.base} />);
     expect(screen.getByText('What the PM owns in a launch.')).toBeTruthy();
     expect(screen.getByText('Not started yet')).toBeTruthy();
     expect(screen.queryByText(/start lesson|continue lesson/i)).toBeNull();
@@ -25,26 +26,26 @@ describe('LessonSummary', () => {
     'says %s as "%s"',
     (status, caption) => {
       setLesson({ data: { id: 'l-2', summary: 'S' } });
-      render(<LessonSummary lesson={{ ...lesson, status }} />);
+      render(<LessonSummary lesson={{ ...lesson, status }} color={levelCard.beginner.base} />);
       expect(screen.getByText(caption)).toBeTruthy();
     },
   );
 
   it('says so when the lesson has no summary', () => {
     setLesson({ data: { id: 'l-2' } });
-    render(<LessonSummary lesson={lesson} />);
+    render(<LessonSummary lesson={lesson} color={levelCard.beginner.base} />);
     expect(screen.getByTestId('lesson-summary-empty')).toBeTruthy();
   });
 
   it('shows a spinner while it loads', () => {
     setLesson({ isLoading: true });
-    render(<LessonSummary lesson={lesson} />);
+    render(<LessonSummary lesson={lesson} color={levelCard.beginner.base} />);
     expect(screen.getByTestId('lesson-summary-loading')).toBeTruthy();
   });
 
   it('shows the server\'s message, not an empty summary, when the load fails', () => {
     setLesson({ isError: true, error: { response: { data: { message: 'Could not load that lesson.' } } } });
-    render(<LessonSummary lesson={lesson} />);
+    render(<LessonSummary lesson={lesson} color={levelCard.beginner.base} />);
     expect(screen.getByText('Could not load that lesson.')).toBeTruthy();
     expect(screen.queryByTestId('lesson-summary-empty')).toBeNull();
   });

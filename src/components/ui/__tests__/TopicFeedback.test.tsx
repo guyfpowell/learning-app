@@ -3,8 +3,6 @@ import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import {
   TOPIC_FEEDBACK_ACKNOWLEDGEMENT,
-  TOPIC_FEEDBACK_LEVEL_LABELS,
-  TOPIC_FEEDBACK_USEFUL_LABELS,
   TOPIC_FEEDBACK_WORDS_MAX,
   type TopicEnd,
 } from '@learning/shared';
@@ -20,128 +18,54 @@ function setup(onSubmit = jest.fn().mockResolvedValue(undefined)) {
 }
 
 const press = (testID: string) => fireEvent.press(screen.getByTestId(testID));
-const openUseful = () => press('topic-feedback-useful-summary');
-const openWords = () => press('topic-feedback-words-summary');
 const sendDisabled = () => screen.getByTestId('topic-feedback-submit').props.accessibilityState.disabled;
 
 describe('TopicFeedback', () => {
   afterEach(() => jest.useRealTimers());
 
-  it('shows the topic title and the Level tiles with the shared labels', () => {
+  it('shows the topic title and "Topic complete"', () => {
     setup();
     expect(screen.getByText('Pricing basics')).toBeTruthy();
-    expect(screen.getByTestId('topic-feedback-level-knew_most')).toBeTruthy();
-    expect(screen.getByText(TOPIC_FEEDBACK_LEVEL_LABELS.lost_me)).toBeTruthy();
+    expect(screen.getByText('Topic complete')).toBeTruthy();
   });
 
-  it('shows the End of topic eyebrow', () => {
+  it('shows both questions at once, each as three words', () => {
     setup();
-    expect(screen.getByText('End of topic')).toBeTruthy();
+    expect(screen.getByText('How hard was this topic')).toBeTruthy();
+    expect(screen.getByText('Too easy')).toBeTruthy();
+    expect(screen.getByText('About right')).toBeTruthy();
+    expect(screen.getByText('Too hard')).toBeTruthy();
+    expect(screen.getByText('How useful was it')).toBeTruthy();
+    expect(screen.getByText('Not really')).toBeTruthy();
+    expect(screen.getByText('A bit')).toBeTruthy();
+    expect(screen.getByText('Very')).toBeTruthy();
   });
 
-  it('limits the title to two lines', () => {
+  it('shows the note field with its label and placeholder', () => {
     setup();
-    expect(screen.getByTestId('topic-feedback-title').props.numberOfLines).toBe(2);
+    expect(screen.getByText('Anything else to tell Albert?')).toBeTruthy();
+    expect(screen.getByTestId('topic-feedback-words').props.placeholder).toBe('Something unclear, or what you\u2019d like more of');
   });
 
-  describe('steps', () => {
-    it('opens Level first, with Useful and Words collapsed', () => {
-      setup();
-      expect(screen.getByTestId('topic-feedback-level-about_right')).toBeTruthy();
-      expect(screen.queryByTestId('topic-feedback-useful-useful')).toBeNull();
-      expect(screen.queryByTestId('topic-feedback-words')).toBeNull();
-      expect(screen.getByTestId('topic-feedback-useful-summary')).toBeTruthy();
-      expect(screen.getByTestId('topic-feedback-words-summary')).toBeTruthy();
-    });
-
-    it('picking a Level answer collapses it to its label and opens Useful', () => {
-      setup();
-      press('topic-feedback-level-about_right');
-      expect(screen.queryByTestId('topic-feedback-level-about_right')).toBeNull();
-      expect(screen.getByTestId('topic-feedback-level-summary-value').props.children).toBe(TOPIC_FEEDBACK_LEVEL_LABELS.about_right);
-      expect(screen.getByTestId('topic-feedback-useful-useful')).toBeTruthy();
-    });
-
-    it('picking a Useful answer collapses it and opens Words', () => {
-      setup();
-      openUseful();
-      press('topic-feedback-useful-want_more');
-      expect(screen.queryByTestId('topic-feedback-useful-want_more')).toBeNull();
-      expect(screen.getByTestId('topic-feedback-useful-summary-value').props.children).toBe(TOPIC_FEEDBACK_USEFUL_LABELS.want_more);
-      expect(screen.getByTestId('topic-feedback-words')).toBeTruthy();
-    });
-
-    it('unpicking an answer leaves the open step alone', () => {
-      setup();
-      press('topic-feedback-level-about_right');
-      press('topic-feedback-level-summary');
-      press('topic-feedback-level-about_right');
-      expect(screen.getByTestId('topic-feedback-level-about_right').props.accessibilityState.selected).toBe(false);
-      expect(screen.queryByTestId('topic-feedback-useful-useful')).toBeNull();
-      expect(sendDisabled()).toBe(true);
-    });
-
-    it('a collapsed row reopens its step and closes the one that was open', () => {
-      setup();
-      press('topic-feedback-level-lost_me');
-      expect(screen.getByTestId('topic-feedback-useful-useful')).toBeTruthy();
-      press('topic-feedback-level-summary');
-      expect(screen.getByTestId('topic-feedback-level-lost_me').props.accessibilityState.selected).toBe(true);
-      expect(screen.queryByTestId('topic-feedback-useful-useful')).toBeNull();
-    });
-
-    it('the Words text survives collapsing and shows in the summary', () => {
-      setup();
-      openWords();
-      fireEvent.changeText(screen.getByTestId('topic-feedback-words'), 'More examples please');
-      press('topic-feedback-level-summary');
-      expect(screen.queryByTestId('topic-feedback-words')).toBeNull();
-      expect(screen.getByTestId('topic-feedback-words-summary-value').props.children).toBe('More examples please');
-      openWords();
-      expect(screen.getByTestId('topic-feedback-words').props.value).toBe('More examples please');
-    });
-
-    it('opening Words does not focus the field', () => {
-      setup();
-      openWords();
-      const border = StyleSheet.flatten(screen.getByTestId('topic-feedback-words').props.style).borderColor;
-      expect(border).toBe(colors.border);
-    });
-
-    it('Send stays visible through every step change', () => {
-      setup();
-      expect(screen.getByTestId('topic-feedback-submit')).toBeTruthy();
-      press('topic-feedback-level-about_right');
-      expect(screen.getByTestId('topic-feedback-submit')).toBeTruthy();
-      openWords();
-      expect(screen.getByTestId('topic-feedback-submit')).toBeTruthy();
-    });
-  });
-
-  it('Send is the coral button, dimmed until answered', () => {
+  it('limits the title to three lines', () => {
     setup();
-    const send = () => StyleSheet.flatten(screen.getByTestId('topic-feedback-submit').props.style);
-    expect(send()).toEqual(expect.objectContaining({ backgroundColor: colors.coral, opacity: 0.5 }));
+    expect(screen.getByTestId('topic-feedback-title').props.numberOfLines).toBe(3);
+  });
+
+  it('a word can be picked and unpicked by pressing it again', () => {
+    setup();
     press('topic-feedback-level-about_right');
-    expect(send().backgroundColor).toBe(colors.coral);
-    expect(send().opacity).toBeUndefined();
+    expect(screen.getByTestId('topic-feedback-level-about_right').props.accessibilityState.selected).toBe(true);
+    press('topic-feedback-level-about_right');
+    expect(screen.getByTestId('topic-feedback-level-about_right').props.accessibilityState.selected).toBe(false);
   });
 
-  it('the words field takes a brand border on focus', () => {
+  it('Send is the cobalt button, flat grey until answered', () => {
     setup();
-    openWords();
-    const border = () => StyleSheet.flatten(screen.getByTestId('topic-feedback-words').props.style).borderColor;
-    expect(border()).toBe(colors.border);
-    fireEvent(screen.getByTestId('topic-feedback-words'), 'focus');
-    expect(border()).toBe(colors.brand);
-    fireEvent(screen.getByTestId('topic-feedback-words'), 'blur');
-    expect(border()).toBe(colors.border);
-  });
-
-  it('has no words toggle and no Not now', () => {
-    setup();
-    expect(screen.queryByTestId('topic-feedback-words-toggle')).toBeNull();
-    expect(screen.queryByText(/not now/i)).toBeNull();
+    const face = () => StyleSheet.flatten(screen.getByTestId('topic-feedback-submit').props.style).backgroundColor;
+    expect(face()).toBe(colors.border);
+    press('topic-feedback-level-about_right');
+    expect(face()).toBe(colors.brand);
   });
 
   it('Send is disabled until something is answered', () => {
@@ -169,7 +93,6 @@ describe('TopicFeedback', () => {
     );
     expect(await screen.findByText(TOPIC_FEEDBACK_ACKNOWLEDGEMENT)).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.queryByTestId('topic-feedback-close')).toBeNull();
   });
 
   it('the acknowledgement closes itself', async () => {
@@ -196,7 +119,6 @@ describe('TopicFeedback', () => {
 
   it('sends only what was picked', async () => {
     const { onSubmit } = setup();
-    openUseful();
     press('topic-feedback-useful-useful');
     press('topic-feedback-submit');
     await waitFor(() =>
@@ -204,8 +126,9 @@ describe('TopicFeedback', () => {
     );
   });
 
-  it('Skip sends dismissed and closes with no acknowledgement', async () => {
+  it('Not now sends dismissed and closes with no acknowledgement', async () => {
     const { onSubmit, onClose } = setup();
+    expect(screen.getByText('Not now')).toBeTruthy();
     press('topic-feedback-skip');
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(onSubmit).toHaveBeenCalledWith({ stableKey: 'topic-a', dismissed: true });
@@ -214,14 +137,12 @@ describe('TopicFeedback', () => {
 
   it('whitespace-only words do not count as an answer', () => {
     setup();
-    openWords();
     fireEvent.changeText(screen.getByTestId('topic-feedback-words'), '   ');
     expect(sendDisabled()).toBe(true);
   });
 
   it('caps the words at the shared maximum', () => {
     setup();
-    openWords();
     expect(screen.getByTestId('topic-feedback-words').props.maxLength).toBe(TOPIC_FEEDBACK_WORDS_MAX);
   });
 
@@ -232,11 +153,11 @@ describe('TopicFeedback', () => {
     press('topic-feedback-submit');
     expect(await screen.findByText('Network down')).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByTestId('topic-feedback-level-summary-value').props.children).toBe(TOPIC_FEEDBACK_LEVEL_LABELS.knew_most);
+    expect(screen.getByTestId('topic-feedback-level-knew_most').props.accessibilityState.selected).toBe(true);
     expect(screen.queryByText(TOPIC_FEEDBACK_ACKNOWLEDGEMENT)).toBeNull();
   });
 
-  it('a failed Skip shows the error and keeps the box open', async () => {
+  it('a failed Not now shows the error and keeps the box open', async () => {
     const onSubmit = jest.fn().mockRejectedValue({ response: { data: { message: 'Network down' } } });
     const { onClose } = setup(onSubmit);
     press('topic-feedback-skip');

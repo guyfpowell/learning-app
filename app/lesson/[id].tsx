@@ -7,7 +7,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { isAxiosError } from 'axios';
 import * as Sentry from '@sentry/react-native';
 import type { ApiErrorResponse, PremiumRequiredDetails } from '@learning/shared';
-import { colors, font, fontSize, lineHeight, press, spacing, trackingEm } from '@/theme';
+import { colors, font, fontSize, levelCard, lineHeight, press, spacing, trackingEm } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
@@ -17,10 +17,11 @@ import { KeyTakeawayBlock } from '@/components/ui/KeyTakeawayBlock';
 import { LessonPositionHeader } from '@/components/learning/LessonPositionHeader';
 import { LessonReading } from '@/components/learning/LessonReading';
 import { CompletedLessonView } from '@/components/learning/CompletedLessonView';
+import { LessonStatusLine } from '@/components/learning/LessonStatusLine';
 import { Spinner } from '@/components/ui/Spinner';
 import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizModal } from '@/components/QuizModal';
-import { useLesson, useStartRetake } from '@/hooks/useLesson';
+import { useLesson } from '@/hooks/useLesson';
 import { useLessonClock } from '@/hooks/useLessonClock';
 import { useDetailHeader } from '@/hooks/useDetailHeader';
 import { lessonService } from '@/services/lesson.service';
@@ -132,9 +133,7 @@ export default function LessonDetailScreen() {
       ? { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.brandSoft }
       : { fontFamily: font.regular, fontSize: fontSize.md, color: colors.textMuted },
   };
-  const startRetake = useStartRetake();
   const clock = useLessonClock();
-  const [retakeFailed, setRetakeFailed] = useState(false);
 
   // Guards against re-initialising phase after the user has manually transitioned
   const phaseInitialized = useRef<string | null>(null);
@@ -160,23 +159,6 @@ export default function LessonDetailScreen() {
   const showNotFound = isError && isNotFoundError(error);
   // The server's message or fixed copy, never the transport's own text ("Network Error").
   const lessonError = extractError(error);
-
-  // A new pass: POST /retake, restart the clock, and read the lesson again from the top.
-  function handleRetake() {
-    if (!lesson) return;
-    setRetakeFailed(false);
-    startRetake.mutate(lesson.id, {
-      onSuccess: () => {
-        clock.reset();
-        setPhase('expanded');
-        updatePosition(lesson.id, 'expanded');
-      },
-      onError: (err) => {
-        Sentry.addBreadcrumb({ category: 'lesson', message: 'Retake start failed', level: 'warning', data: { lessonId: lesson.id, err: String(err) } });
-        setRetakeFailed(true);
-      },
-    });
-  }
 
   return (
     <SafeAreaView style={[styles.container, takeawayPage && styles.onColour]} edges={['left', 'right', 'bottom']}>
@@ -220,20 +202,23 @@ export default function LessonDetailScreen() {
         {lesson && (
           <>
             <View testID="lesson-card" style={styles.card}>
+              {viewing && (
+                <LessonStatusLine
+                  testID="lesson-completed-banner"
+                  status="done"
+                  color={levelCard[lesson.skillPath?.level ?? 'intermediate'].base}
+                  text={position ? `Lesson ${position.index} of ${position.total} \u00B7 Completed` : 'Completed'}
+                />
+              )}
               {(viewing || phase !== 'takeaway' || lesson.quizCompleted) && (
                 <View testID="lesson-title-row" style={[styles.titleRow, !viewing && phase === 'takeaway' && styles.titleRowEnd]}>
-                  {(viewing || phase !== 'takeaway') && <Text testID="lesson-title" style={styles.title}>{lesson.title}</Text>}
+                  {(viewing || phase !== 'takeaway') && <Text testID="lesson-title" style={[styles.title, viewing && styles.titleViewing]}>{lesson.title}</Text>}
                   {lesson.quizCompleted && <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} color={takeawayPage ? colors.white : undefined} />}
                 </View>
               )}
 
               {viewing && (
-                <CompletedLessonView
-                  lesson={lesson}
-                  onRetake={handleRetake}
-                  retaking={startRetake.isPending}
-                  retakeFailed={retakeFailed}
-                />
+                <CompletedLessonView lesson={lesson} />
               )}
 
               {!viewing && phase === 'expanded' && <LessonReading content={lesson.content} mediaUrl={lesson.mediaUrl} />}
@@ -346,6 +331,8 @@ const styles = StyleSheet.create({
   takeawayTopic: { fontFamily: font.medium, fontSize: fontSize.base - 1, color: colors.brandSoft },
   // The takeaway page has no title, so the rating control stays at the right edge on its own.
   titleRowEnd: { justifyContent: 'flex-end' },
+  // The review page's title: 26pt, a touch smaller than the reading page's.
+  titleViewing: { fontFamily: font.black, fontSize: 26, lineHeight: 26 * 1.08, letterSpacing: -0.035 * 26 },
   quizBtn:     { marginTop: spacing.sm },
   error: {
     fontFamily: font.regular,

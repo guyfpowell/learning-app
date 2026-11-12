@@ -5,103 +5,10 @@ import {
   Easing,
   Pressable,
   StyleSheet,
-  View,
   type LayoutChangeEvent,
 } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { BlurView } from 'expo-blur';
-import { colors, font, fontSize, radius, shadow, spacing, tracking } from '@/theme';
-import { Button } from '@/components/ui/Button';
-
-/** Blur strength and cobalt tint of the achievement card's glass (096). */
-const CARD_BLUR = 40;
-const CARD_WASH_OPACITY = 0.6;
-
-interface CelebrationOverlayProps {
-  visible: boolean;
-  title: string;
-  name: string;
-  description: string;
-  onDismiss: () => void;
-  /** Auto-dismiss delay in ms (default 6000) */
-  autoDismissMs?: number;
-}
-
-export function CelebrationOverlay({
-  visible,
-  title,
-  name,
-  description,
-  onDismiss,
-  autoDismissMs = 6000,
-}: CelebrationOverlayProps) {
-  const anim = useRef(new Animated.Value(0)).current;
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!visible) return;
-
-    Animated.spring(anim, {
-      toValue: 1,
-      friction: 6,
-      tension: 80,
-      useNativeDriver: true,
-    }).start();
-
-    timerRef.current = setTimeout(() => {
-      dismiss();
-    }, autoDismissMs);
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [visible]);
-
-  function dismiss() {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    Animated.timing(anim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      anim.setValue(0);
-      onDismiss();
-    });
-  }
-
-  if (!visible) return null;
-
-  return (
-    <Pressable
-      testID="celebration-backdrop"
-      style={styles.backdrop}
-      onPress={dismiss}
-      accessibilityLabel="Dismiss celebration"
-    >
-      <Animated.View
-        testID="celebration-card"
-        style={[
-          styles.card,
-          shadow.brand as object,
-          {
-            opacity: anim,
-            transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }],
-          },
-        ]}
-      >
-        <BlurView testID="celebration-blur" intensity={CARD_BLUR} tint="dark" style={StyleSheet.absoluteFill} />
-        <View testID="celebration-wash" style={styles.wash} pointerEvents="none" />
-        <Text testID="celebration-title" style={styles.title}>{title}</Text>
-        <Text testID="celebration-name" style={styles.name}>{name}</Text>
-        <Text testID="celebration-description" style={styles.description}>{description}</Text>
-        <Button testID="celebration-dismiss" label="Tap to dismiss" variant="coral" onPress={dismiss} style={styles.dismissBtn} />
-      </Animated.View>
-    </Pressable>
-  );
-}
+import { font, fontSize, radius, spacing } from '@/theme';
 
 /** A box on the screen, in window coordinates. */
 export interface ScreenRect {
@@ -226,58 +133,6 @@ export function XpChipOverlay({ xp, visible, onDismiss, autoDismissMs = 2000, an
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 100,
-  },
-  card: {
-    borderRadius: radius.xl,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.brandSoft,
-    padding: spacing.xl,
-    marginHorizontal: spacing.xl,
-    alignItems: 'center',
-    gap: spacing.xs,
-    maxWidth: 360,
-    width: '100%',
-  },
-  wash: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: colors.brand,
-    opacity: CARD_WASH_OPACITY,
-  },
-  title: {
-    fontFamily: font.semibold,
-    fontSize: fontSize.sm,
-    color: colors.brandSoft,
-    textTransform: 'uppercase',
-    letterSpacing: tracking.caps,
-    marginBottom: spacing.xs,
-  },
-  name: {
-    fontFamily: font.bold,
-    fontSize: fontSize.xl,
-    color: colors.onBrand,
-    textAlign: 'center',
-  },
-  description: {
-    fontFamily: font.regular,
-    fontSize: fontSize.md,
-    color: colors.brandSoft,
-    textAlign: 'center',
-    marginTop: spacing.xs,
-  },
-  dismissBtn: {
-    marginTop: spacing.md,
-  },
   xpChipContainer: {
     position: 'absolute',
     top: 80,

@@ -1,27 +1,14 @@
 import { useState } from 'react';
 import { View, StyleSheet, Pressable, Modal } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { Ionicons } from '@expo/vector-icons';
-import type { AchievementAxis, AchievementDefinition, AchievementKey, UserAchievement } from '@learning/shared';
+import type { AchievementDefinition, AchievementKey, UserAchievement } from '@learning/shared';
 import { ACHIEVEMENTS_BY_KEY } from '@learning/shared';
-import { colors, font, fontSize, radius, spacing } from '@/theme';
+import { colors, font, press, spacing } from '@/theme';
 import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
 import { Spinner } from '@/components/ui/Spinner';
-import { Medal } from '@/components/ui/Medal';
+import { Medal, medalBaseOf, medalInfoOf } from '@/components/ui/Medal';
+import { EdgeButton } from '@/components/ui/EdgeButton';
 import { useAchievements } from '@/hooks/useAchievements';
-
-/** Icon name by achievement axis — badge artwork is uncommissioned; axis determines the placeholder. */
-const AXIS_ICON: Record<AchievementAxis, keyof typeof Ionicons.glyphMap> = {
-  session:     'flash-outline',
-  accuracy:    'ribbon-outline',
-  improvement: 'trending-up-outline',
-  breadth:     'globe-outline',
-  depth:       'layers-outline',
-  curation:    'bookmark-outline',
-  return:      'refresh-outline',
-  social:      'people-outline',
-  milestone:   'star-outline',
-};
 
 type AchievementItem =
   | (UserAchievement & { earned: true })
@@ -31,41 +18,56 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-// ── Achievement detail modal ──────────────────────────────────────────────────
+// ── Achievement detail sheet ──────────────────────────────────────────────────
 
+/** An achievement's detail, as a bottom sheet: its medal, what it is and how it was (or is) earned. */
 function AchievementDetailModal({ item, onClose }: { item: AchievementItem; onClose: () => void }) {
-  const iconName = AXIS_ICON[item.axis] ?? 'star-outline';
   const earned = item.earned;
   const def = ACHIEVEMENTS_BY_KEY[item.key];
+  const info = medalInfoOf(item.key);
+  const tag = info ? `${info.category} \u00B7 ${info.tier}`.toUpperCase() : null;
+  const tagColor = info && earned ? medalBaseOf(info.category) : colors.textMuted;
 
   return (
-    <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable style={styles.modalCard} onPress={() => { /* swallow — keep modal open */ }}>
-          <View testID="achievement-detail-modal" style={styles.modalContent}>
-            <View style={[styles.modalIconCircle, { backgroundColor: earned ? colors.xpSoft : colors.surfaceSunken }]}>
-              <Ionicons name={iconName} size={32} color={earned ? '#BE7C1C' : colors.textSubtle} />
+    <Modal transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable testID="achievement-detail-scrim" style={styles.scrim} onPress={onClose}>
+        <Pressable style={styles.sheet} onPress={() => { /* swallow: keep the sheet open */ }}>
+          <View testID="achievement-detail-modal" style={styles.sheetContent}>
+            <View style={styles.handle} />
+            <View style={styles.sheetMedal}>
+              <Medal achievement={item.key} locked={!earned} size={SHEET_MEDAL_SIZE} />
             </View>
 
-            <Text testID="achievement-detail-name" style={styles.modalName}>{item.name}</Text>
+            {tag && <Text style={[styles.tag, { color: tagColor }]}>{tag}</Text>}
+            <Text testID="achievement-detail-name" style={styles.sheetName}>{item.name}</Text>
 
-            <Text testID="achievement-detail-description" style={styles.modalDescription}>{item.description}</Text>
+            {earned ? (
+              <Text testID="achievement-detail-description" style={styles.sheetDescription}>{item.description}</Text>
+            ) : (
+              <View style={styles.howTo}>
+                <Text style={styles.howToLabel}>HOW TO EARN IT</Text>
+                <Text testID="achievement-detail-description" style={styles.howToText}>{item.description}</Text>
+              </View>
+            )}
 
-            {earned && item.unlockedAt && (
-              <Text testID="achievement-detail-earned-date" style={styles.modalEarnedDate}>
-                Earned {formatDate(item.unlockedAt)}
-              </Text>
+            {earned && item.unlockedAt ? (
+              <Text testID="achievement-detail-earned-date" style={styles.sheetNote}>Earned {formatDate(item.unlockedAt)}</Text>
+            ) : (
+              !earned && <Text style={styles.sheetNote}>Not earned yet</Text>
             )}
 
             {def?.xpThreshold && (
-              <Text testID="achievement-detail-xp" style={styles.modalXp}>
-                {def.xpThreshold.toLocaleString()} XP
-              </Text>
+              <Text testID="achievement-detail-xp" style={styles.sheetNote}>{def.xpThreshold.toLocaleString()} XP</Text>
             )}
 
-            <Pressable testID="achievement-detail-close" onPress={onClose} style={styles.modalCloseBtn}>
-              <Text style={styles.modalCloseTxt}>Close</Text>
-            </Pressable>
+            <View style={styles.close}>
+              <EdgeButton
+                testID="achievement-detail-close"
+                look={{ face: colors.white, label: colors.textStrong, edge: press.secondaryEdge }}
+                label="Close"
+                onPress={onClose}
+              />
+            </View>
           </View>
         </Pressable>
       </Pressable>
@@ -84,34 +86,32 @@ export function AchievementsSection() {
   ];
   const selectedItem = selectedKey ? (all.find(a => a.key === selectedKey) ?? null) : null;
 
+  const earned = all.filter(a => a.earned);
+  const toEarn = all.filter(a => !a.earned);
+  const total = all.length;
+  const earnedCount = achievements?.totalUnlocked ?? earned.length;
+  const pct = total > 0 ? (earnedCount / total) * 100 : 0;
+
   return (
-    <View testID="achievements-section">
-      <View style={styles.headingRow}>
+    <View testID="achievements-section" style={styles.section}>
+      <View style={styles.head}>
         <Text style={styles.sectionHeading}>Achievements</Text>
-        {all.length > 0 && (
-          <Text testID="achievements-count" style={styles.count}>
-            {achievements?.totalUnlocked ?? 0} of {all.length}
-          </Text>
+        {total > 0 && (
+          <View style={styles.progress}>
+            <View style={styles.bar}>
+              <View style={[styles.barFill, { width: `${Math.min(100, pct)}%` }]} />
+            </View>
+            <Text testID="achievements-count" style={styles.count}>
+              {earnedCount} of {total} earned · tap any to see how to earn it
+            </Text>
+          </View>
         )}
       </View>
 
       {isLoading && <Spinner />}
 
-      {!isLoading && all.length > 0 && (
-        <View style={styles.achievementGrid}>
-          {all.map(a => (
-            <Pressable
-              key={a.key}
-              testID={`achievement-${a.key}`}
-              onPress={() => setSelectedKey(a.key)}
-              style={styles.achievement}
-            >
-              <Medal achievement={a.key} locked={!a.earned} size={MEDAL_SIZE} />
-              <Text style={[styles.achievementName, !a.earned && styles.achievementLocked]} numberOfLines={2}>{a.name}</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
+      {!isLoading && earned.length > 0 && <MedalGrid label="EARNED" items={earned} onOpen={setSelectedKey} />}
+      {!isLoading && toEarn.length > 0 && <MedalGrid label="STILL TO EARN" items={toEarn} onOpen={setSelectedKey} />}
 
       {selectedKey && selectedItem && (
         <AchievementDetailModal item={selectedItem} onClose={() => setSelectedKey(null)} />
@@ -120,103 +120,98 @@ export function AchievementsSection() {
   );
 }
 
+/** A labelled grid of medals, four to a row. */
+function MedalGrid({ label, items, onOpen }: { label: string; items: AchievementItem[]; onOpen: (key: AchievementKey) => void }) {
+  return (
+    <View style={styles.group}>
+      <Text style={styles.groupLabel}>{label}</Text>
+      <View style={styles.achievementGrid}>
+        {items.map(a => (
+          <Pressable key={a.key} testID={`achievement-${a.key}`} onPress={() => onOpen(a.key)} style={styles.achievement}>
+            <Medal achievement={a.key} locked={!a.earned} size={MEDAL_SIZE} />
+            <Text style={[styles.achievementName, !a.earned && styles.achievementLocked]} numberOfLines={2}>{a.name}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const GRID_COLS = 4;
-const MEDAL_SIZE = 56;
+const MEDAL_SIZE = 62;
+const SHEET_MEDAL_SIZE = 112;
 
 const styles = StyleSheet.create({
-  headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: spacing.md },
+  section: { gap: 22 },
+  head:    { gap: 10 },
   sectionHeading: sectionHeadingStyle,
+  progress: { gap: 7 },
+  bar:      { height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' },
+  barFill:  { height: 6, borderRadius: 3, backgroundColor: colors.textStrong },
   count: {
-    fontFamily: font.extrabold,
-    fontSize:   fontSize.sm,
-    color:      colors.textLink,
+    fontFamily: font.bold,
+    fontSize:   13,
+    color:      colors.textBody,
+  },
+  group: { gap: 14 },
+  groupLabel: {
+    paddingBottom:     8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    fontFamily:        font.extrabold,
+    fontSize:          12,
+    letterSpacing:     0.08 * 12,
+    color:             colors.textMuted,
   },
 
   // Achievements: medals on the page, four to a row
   achievementGrid: {
     flexDirection: 'row',
     flexWrap:      'wrap',
-    rowGap:        spacing.md,
+    rowGap:        18,
   },
   achievement: {
     width:             `${100 / GRID_COLS}%`,
     paddingHorizontal: spacing.xs,
     alignItems:        'center',
-    gap:               7,
+    gap:               6,
   },
   achievementName: {
-    fontFamily: font.extrabold,
-    fontSize:   11,
-    lineHeight: 11 * 1.2,
+    fontFamily: font.bold,
+    fontSize:   12,
+    lineHeight: 12 * 1.2,
     color:      colors.textStrong,
     textAlign:  'center',
   },
   achievementLocked: { color: colors.textMuted },
 
-  // Achievement detail modal
-  modalOverlay: {
-    flex:            1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent:  'center',
-    alignItems:      'center',
-    padding:         spacing.lg,
+  // Achievement detail sheet
+  scrim: { flex: 1, backgroundColor: 'rgba(18,21,34,0.48)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor:      colors.paper,
+    borderTopLeftRadius:  32,
+    borderTopRightRadius: 32,
+    paddingTop:           12,
+    paddingHorizontal:    28,
+    paddingBottom:        44,
   },
-  modalCard: {
-    width:           '100%',
-    maxWidth:        360,
-    backgroundColor: colors.surface,
-    borderRadius:    radius.xl,
-    padding:         spacing.lg,
-    alignItems:      'center',
-    gap:             spacing.sm,
+  sheetContent: { alignItems: 'center', gap: 14 },
+  handle:       { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.borderStrong },
+  sheetMedal:   { paddingTop: 10, paddingBottom: spacing.xs },
+  tag:          { fontFamily: font.extrabold, fontSize: 12, letterSpacing: 0.1 * 12 },
+  sheetName:    { fontFamily: font.black, fontSize: 30, lineHeight: 30, letterSpacing: -0.035 * 30, color: colors.textStrong, textAlign: 'center' },
+  sheetDescription: { fontFamily: font.regular, fontSize: 17, lineHeight: 17 * 1.45, color: colors.textBody, textAlign: 'center', maxWidth: 290 },
+  howTo: {
+    alignSelf:         'stretch',
+    gap:               6,
+    paddingVertical:   14,
+    marginTop:         spacing.xs,
+    borderTopWidth:    1,
+    borderBottomWidth: 1,
+    borderColor:       colors.border,
   },
-  modalContent: {
-    alignItems: 'center',
-    width:      '100%',
-  },
-  modalIconCircle: {
-    width:          64,
-    height:         64,
-    borderRadius:   32,
-    alignItems:     'center',
-    justifyContent: 'center',
-    marginBottom:   spacing.xs,
-  },
-  modalName: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.lg,
-    color:      colors.textStrong,
-    textAlign:  'center',
-  },
-  modalDescription: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textBody,
-    textAlign:  'center',
-  },
-  modalEarnedDate: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textMuted,
-    textAlign:  'center',
-  },
-  modalXp: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.xs,
-    color:      '#BE7C1C',
-    textAlign:  'center',
-  },
-  modalCloseBtn: {
-    marginTop:    spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.brandSoft,
-    borderRadius: radius.pill,
-  },
-  modalCloseTxt: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.sm,
-    color:      colors.brand,
-    textAlign:  'center',
-  },
+  howToLabel: { fontFamily: font.extrabold, fontSize: 12, letterSpacing: 0.08 * 12, color: colors.textMuted },
+  howToText:  { fontFamily: font.semibold, fontSize: 17, lineHeight: 17 * 1.4, color: colors.textStrong },
+  sheetNote:  { fontFamily: font.bold, fontSize: 13, color: colors.textMuted },
+  close:      { alignSelf: 'stretch', marginTop: spacing.sm },
 });

@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { Button } from '@/components/ui/Button';
-import { KeyTakeawayBlock } from '@/components/ui/KeyTakeawayBlock';
-import { TabBar } from '@/components/ui/TabBar';
+import { WordTabs } from '@/components/ui/WordTabs';
 import { LessonReading } from '@/components/learning/LessonReading';
 import { QuizReview } from '@/components/learning/QuizReview';
-import { colors, font, fontSize, spacing } from '@/theme';
-import { LESSON_COMPLETED_BANNER, RETAKE_START_ERROR, type Lesson } from '@learning/shared';
+import { colors, font, levelCard, spacing } from '@/theme';
+import type { Lesson } from '@learning/shared';
 
 type ViewTab = 'summary' | 'lesson' | 'quiz';
 
@@ -17,39 +15,27 @@ const TABS = [
   { key: 'quiz', label: 'Quiz' },
 ] as const satisfies readonly { key: ViewTab; label: string }[];
 
-interface CompletedLessonViewProps {
-  lesson: Lesson;
-  onRetake: () => void;
-  retaking: boolean;
-  retakeFailed: boolean;
-}
-
 /**
  * A lesson the learner has completed, to look back over: its summary, the full lesson and its
- * quiz, one tap apart in any order. Nothing here submits an answer; only Retake lesson starts a new pass.
+ * quiz, one tap apart in any order. Nothing here submits an answer or starts a retake.
  */
-export function CompletedLessonView({ lesson, onRetake, retaking, retakeFailed }: CompletedLessonViewProps) {
+export function CompletedLessonView({ lesson }: { lesson: Lesson }) {
   const [tab, setTab] = useState<ViewTab>('summary');
+  const color = levelCard[lesson.skillPath?.level ?? 'intermediate'].base;
 
   return (
     <View testID="completed-lesson-view" style={styles.view}>
-      <TabBar tabs={TABS} selected={tab} onSelect={setTab} testIDPrefix="lesson-tab" />
+      <WordTabs tabs={TABS} selected={tab} onSelect={setTab} color={color} testIDPrefix="lesson-tab" />
 
       {tab === 'summary' && (
         <View testID="lesson-tab-panel-summary" style={styles.panel}>
-          <View testID="lesson-completed-banner" style={styles.banner}>
-            <Text style={styles.bannerText}>{LESSON_COMPLETED_BANNER}</Text>
-          </View>
           {!!lesson.summary && <Text testID="lesson-summary-text" style={styles.summary}>{lesson.summary}</Text>}
-          {!!lesson.keyTakeaway && <KeyTakeawayBlock testID="key-takeaway" takeaway={lesson.keyTakeaway} />}
-          <Button
-            testID="lesson-retake-btn"
-            label="Retake lesson"
-            variant="secondary"
-            loading={retaking}
-            onPress={onRetake}
-          />
-          {retakeFailed && <Text testID="retake-error" style={styles.error}>{RETAKE_START_ERROR}</Text>}
+          {!!lesson.keyTakeaway && (
+            <View style={styles.takeaway}>
+              <Text style={[styles.takeawayLabel, { color }]}>KEY TAKEAWAY</Text>
+              <Text testID="key-takeaway" style={styles.takeawayText}>{lesson.keyTakeaway}</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -69,10 +55,10 @@ export function CompletedLessonView({ lesson, onRetake, retaking, retakeFailed }
 }
 
 const styles = StyleSheet.create({
-  view:    { gap: spacing.md },
-  panel:   { gap: spacing.md },
-  banner:  { backgroundColor: colors.successSoft, borderRadius: 8, padding: spacing.sm, alignItems: 'center' },
-  bannerText: { fontFamily: font.bold, fontSize: fontSize.base, color: colors.success },
-  summary: { fontFamily: font.regular, fontSize: fontSize.md, lineHeight: fontSize.md * 1.5, color: colors.textBody },
-  error:   { fontFamily: font.regular, fontSize: fontSize.base, color: colors.error },
+  view:    { gap: spacing.lg },
+  panel:   { gap: 22 },
+  summary: { fontFamily: font.regular, fontSize: 17, lineHeight: 17 * 1.6, color: colors.textBody },
+  takeaway: { gap: spacing.sm, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
+  takeawayLabel: { fontFamily: font.extrabold, fontSize: 12, letterSpacing: 0.1 * 12 },
+  takeawayText: { fontFamily: font.extrabold, fontSize: 22, lineHeight: 22 * 1.22, letterSpacing: -0.025 * 22, color: colors.textStrong },
 });

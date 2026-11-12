@@ -1,7 +1,9 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, PATHS_LOAD_ERROR, type AlbertPathActions, type UserPath } from '@learning/shared';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize, levelCard, spacing } from '@/theme';
+import { EdgeButton } from '@/components/ui/EdgeButton';
+import { LevelHero } from '@/components/home/LevelHero';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
@@ -29,18 +31,18 @@ export interface BuildPathCardProps {
 }
 
 /** The free user's allowance is spent — said plainly, next to the upgrade (079a). */
-function AllowanceUsed() {
+function AllowanceUsed({ onCard = false }: { onCard?: boolean }) {
   return (
-    <Text testID="allowance-used" style={styles.buildBody}>
+    <Text testID="allowance-used" style={[styles.buildBody, onCard && styles.onCard]}>
       {ERROR_MESSAGES[ERROR_CODES.ALBERT_ALLOWANCE_USED]}
     </Text>
   );
 }
 
 /** The trial is over: said plainly, where the actions would have been (079i3). */
-function TrialOver() {
+function TrialOver({ onCard = false }: { onCard?: boolean }) {
   return (
-    <Text testID="trial-over" style={styles.buildBody}>
+    <Text testID="trial-over" style={[styles.buildBody, onCard && styles.onCard]}>
       {ERROR_MESSAGES[ERROR_CODES.FRESH_PATH_TRIAL_OVER]}
     </Text>
   );
@@ -148,16 +150,23 @@ function CompleteBody(props: BuildPathCardProps) {
 
 function NoPathBody(props: BuildPathCardProps) {
   const { actions, onBuild } = props;
+  const offer = buildOfferOf(actions);
   return (
     <>
-      <Text style={styles.buildTitle}>Build my own path</Text>
-      <Text style={styles.buildBody}>
-        Tell me about your role and what you want to get better at, and I'll
-        build a path from the whole curriculum instead of a fixed track.
-      </Text>
-      {actions.trialOver && <TrialOver />}
-      {showsAllowanceUsed(props) && <AllowanceUsed />}
-      <BuildButton offer={buildOfferOf(actions)} specs={NO_PATH_BUILD} onBuild={onBuild} />
+      <Text style={styles.cardTitle}>Build my own path</Text>
+      <Text style={[styles.buildBody, styles.onCard]}>Tell me your role and what you want to get better at.</Text>
+      {actions.trialOver && <TrialOver onCard />}
+      {showsAllowanceUsed(props) && <AllowanceUsed onCard />}
+      {offer !== null && (
+        <View style={styles.cardButton}>
+          <EdgeButton
+            testID={NO_PATH_BUILD[offer].testID}
+            look={{ face: colors.white, label: colors.brand, edge: levelCard.intermediate.edge }}
+            label={NO_PATH_BUILD[offer].label}
+            onPress={onBuild}
+          />
+        </View>
+      )}
     </>
   );
 }
@@ -178,6 +187,19 @@ function CardBody(props: BuildPathCardProps) {
 export function BuildPathCard(props: BuildPathCardProps) {
   // Premium only while building is offered behind the upgrade; after the trial nothing here is premium.
   const premium = buildOfferOf(props.actions) === 'upgrade';
+  // Building a path is the page's one cobalt card, a touch wider than the page's gutters like Home's.
+  if (props.state === 'none') {
+    return (
+      <LevelHero level="intermediate" testID="build-path-card" padding={CARD_PADDING} style={styles.heroBleed}>
+        {premium && (
+          <View style={styles.badgeRow}>
+            <Badge label="Premium" variant="warning" />
+          </View>
+        )}
+        <CardBody {...props} />
+      </LevelHero>
+    );
+  }
   return (
     <View testID="build-path-card" style={styles.buildCard}>
       {premium && (
@@ -190,7 +212,19 @@ export function BuildPathCard(props: BuildPathCardProps) {
   );
 }
 
+const CARD_PADDING = 20;
+
 const styles = StyleSheet.create({
+  // The page pads 24; the card sits 16 in from the edge, as Home's does.
+  heroBleed: { marginHorizontal: -spacing.sm },
+  cardTitle: {
+    fontFamily:    font.black,
+    fontSize:      fontSize.lg,
+    letterSpacing: -0.03 * fontSize.lg,
+    color:         colors.onBrand,
+  },
+  onCard:     { color: colors.brandSoft },
+  cardButton: { marginTop: spacing.xs },
   buildCard: { gap: spacing.sm },
   heading: {
     fontFamily:    font.semibold,

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, spacing } from '@/theme';
 
 /** A row's text-only action: "Enrol", "Upgrade" or "Ask Albert". A loading one shows a spinner. */
 export function TextAction({ label, icon, color = colors.textLink, loading = false, onPress, testID }: {
@@ -38,5 +38,5 @@ export function TextAction({ label, icon, color = colors.textLink, loading = fal
 
 const styles = StyleSheet.create({
   action: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  label:  { fontFamily: font.extrabold, fontSize: fontSize.md },
+  label:  { fontFamily: font.extrabold, fontSize: 15 },
 });

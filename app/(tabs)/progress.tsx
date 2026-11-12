@@ -214,13 +214,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor:       colors.border,
   },
+  // Every column is left-aligned, with the same padding from its rule.
   stat: {
     flex:            1,
     paddingVertical: 14,
     gap:             spacing.xs,
+    paddingLeft:     spacing.sm3,
   },
   statDivided: {
-    paddingLeft:     14,
     borderLeftWidth: 1,
     borderLeftColor: colors.border,
   },

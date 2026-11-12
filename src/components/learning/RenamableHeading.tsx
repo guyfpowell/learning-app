@@ -83,12 +83,15 @@ export function RenamableHeading({ name, onSave }: Props) {
   );
 }
 
+const HEADING_SIZE = 34;
+
 const styles = StyleSheet.create({
   heading: {
-    fontFamily: font.display,
-    fontSize: fontSize.xl,
+    fontFamily: font.black,
+    fontSize: HEADING_SIZE,
+    lineHeight: HEADING_SIZE,
+    letterSpacing: -0.04 * HEADING_SIZE,
     color: colors.textStrong,
-    marginBottom: spacing.md,
   },
   input: {
     padding: 0,

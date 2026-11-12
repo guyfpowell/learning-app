@@ -2,6 +2,7 @@ import React from 'react';
 import Svg, { ClipPath, Defs, Ellipse, G, LinearGradient, Path, Stop } from 'react-native-svg';
 import MEDALS from '@/components/ui/medals.json';
 import { medalKeyOf } from '@/lib/medalKey';
+import { mixHex } from '@/lib/mixHex';
 import { colors, medal } from '@/theme';
 
 /**
@@ -19,19 +20,12 @@ const BY_KEY: Record<string, { category: Category; item: Item }> = {};
 MEDALS.forEach(c => c.items.forEach(item => { BY_KEY[item.key] = { category: c, item }; }));
 
 const JEWEL_BY_CATEGORY: Record<string, string> = medal.jewel;
-const XP_CATEGORY = 'XP milestones';
+export const XP_CATEGORY = 'XP milestones';
 
 /** The art's box: 64 wide, 68 tall (the edge sits 4 below the face). */
 const VIEW_WIDTH = 64;
 const VIEW_HEIGHT = 68;
 const EDGE_DROP = 4;
-
-function mix(a: string, b: string, t: number): string {
-  const channels = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
-  const from = channels(a);
-  const to = channels(b);
-  return `#${from.map((v, i) => Math.round(v + (to[i] - v) * t).toString(16).padStart(2, '0')).join('')}`;
-}
 
 /** The medal's colour: jewel by category, gold for the XP milestones, stone when locked. */
 function baseColourOf(category: string, locked: boolean): string {
@@ -47,6 +41,17 @@ function glyphColourOf(xp: boolean, locked: boolean): string {
 
 let sequence = 0;
 
+/** A medal's category and tier, for the unlock screen's tag: null for a key with no artwork. */
+export function medalInfoOf(achievement: string): { category: string; tier: string } | null {
+  const entry = BY_KEY[medalKeyOf(achievement)];
+  return entry ? { category: entry.category.category, tier: entry.item.tier } : null;
+}
+
+/** The medal's colour for a category (jewel by category, gold for the XP milestones). */
+export function medalBaseOf(category: string): string {
+  return baseColourOf(category, false);
+}
+
 /** `achievement` is the app's key ("clean-sheet"). An unknown key draws nothing. */
 export function Medal({ achievement, locked = false, size = 64 }: { achievement: string; locked?: boolean; size?: number }) {
   const entry = BY_KEY[medalKeyOf(achievement)];
@@ -56,9 +61,9 @@ export function Medal({ achievement, locked = false, size = 64 }: { achievement:
   const xp = c.category === XP_CATEGORY;
 
   const base = baseColourOf(c.category, locked);
-  const top = locked ? colors.surfaceSunken : mix(base, colors.white, xp ? 0.35 : 0.22);
-  const bottom = locked ? medal.lockedBottom : mix(base, medal.shade, 0.14);
-  const edge = locked ? colors.borderStrong : mix(base, medal.shade, xp ? 0.3 : 0.45);
+  const top = locked ? colors.surfaceSunken : mixHex(base, colors.white, xp ? 0.35 : 0.22);
+  const bottom = locked ? medal.lockedBottom : mixHex(base, medal.shade, 0.14);
+  const edge = locked ? colors.borderStrong : mixHex(base, medal.shade, xp ? 0.3 : 0.45);
   const glyphColor = glyphColourOf(xp, locked);
   const rim = !locked && it.tier !== 'trail' ? 0.42 : 0;
   const rim2 = !locked && it.tier === 'summit' ? 0.3 : 0;

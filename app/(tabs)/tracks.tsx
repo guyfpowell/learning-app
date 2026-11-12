@@ -3,12 +3,13 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, font, fontSize, press, spacing, trackingEm } from '@/theme';
+import { colors, font, fontSize, press, spacing } from '@/theme';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { EdgeButton } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
 import { TextAction } from '@/components/tracks/TextAction';
 import { TrackIcon } from '@/components/ui/TrackIcon';
+import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
 import { Spinner } from '@/components/ui/Spinner';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { ActiveTrackHero } from '@/components/tracks/ActiveTrackHero';
@@ -23,7 +24,7 @@ import { HOME_ROUTE, trackRoute } from '@/lib/routes';
 
 // Display-only labels. `category` is free text (web admin can create others), so
 // callers must fall back to the raw value for anything not listed here.
-const GLYPH_SIZE = 24;
+const GLYPH_SIZE = 23;
 // Side gutters, the same as Home's.
 const TRACKS_GUTTER = spacing.md + spacing.xs;
 
@@ -155,7 +156,8 @@ export default function TracksScreen() {
         ids={{ tap: 'albert-cta', card: 'albert-cta-card', name: 'albert-cta-name', headline: 'albert-cta-headline' }}
         tapLabel="Ask Albert to build a path around your goals"
         onOpen={openAlbert}
-        glyph={<AlbertMark size={GLYPH_SIZE} />}
+        glyph={<AlbertMark size={22} />}
+        prompt
         name="Want something built around your goals?"
         headline={null}
         action={<TextAction testID="albert-cta-btn" label="Ask Albert" onPress={openAlbert} />}
@@ -250,11 +252,9 @@ const styles = StyleSheet.create({
   },
   section: { marginBottom: spacing.sm },
   sectionHeading: {
-    fontFamily:    font.black,
-    fontSize:      fontSize.xl,
-    letterSpacing: trackingEm.display * fontSize.xl,
-    color:         colors.textStrong,
-    marginTop:     spacing.lg,
-    marginBottom:  spacing.xs,
+    ...sectionHeadingStyle,
+    paddingHorizontal: spacing.xs,
+    marginTop:         22,
+    marginBottom:      spacing.xs,
   },
 });

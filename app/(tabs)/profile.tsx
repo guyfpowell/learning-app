@@ -136,22 +136,22 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]} showsVerticalScrollIndicator={false}>
-
-        {/* ── Avatar + header ──────────────────────────────────────────────── */}
-        <View style={styles.header}>
-          <View style={styles.avatarEdge}>
-            <View style={styles.avatar} testID="avatar-initials">
-              <Text style={styles.avatarText}>{user ? initials(user.name) : '?'}</Text>
-            </View>
+      {/* ── Avatar + header: fixed, so it stays at the top while the page scrolls ── */}
+      <View style={styles.header}>
+        <View style={styles.avatarEdge}>
+          <View style={styles.avatar} testID="avatar-initials">
+            <Text style={styles.avatarText}>{user ? initials(user.name) : '?'}</Text>
           </View>
-          {user && (
-            <View style={styles.headerText}>
-              <Text style={styles.name}>{user.name}</Text>
-              <Text style={styles.email}>{user.email}</Text>
-            </View>
-          )}
         </View>
+        {user && (
+          <View style={styles.headerText}>
+            <Text style={styles.name}>{user.name}</Text>
+            <Text style={styles.email}>{user.email}</Text>
+          </View>
+        )}
+      </View>
+
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]} showsVerticalScrollIndicator={false}>
 
         {/* ── Saved lessons ─────────────────────────────────────────────────── */}
         <View style={styles.section}>
@@ -286,15 +286,18 @@ const SAVED_TOAST_MS = 3000;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
-  content:   { paddingHorizontal: spacing.lg, paddingTop: 10, gap: BLOCK_GAP },
+  content:   { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: BLOCK_GAP },
   // A heading with its list under it.
   section:   { gap: 6 },
 
   // Header: avatar left, name and email beside it
   header: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           spacing.md,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop:        10,
+    paddingBottom:     14,
   },
   avatarEdge: {
     backgroundColor: press.onCobaltEdge,

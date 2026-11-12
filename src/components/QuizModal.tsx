@@ -19,8 +19,9 @@ import { Input } from '@/components/ui/Input';
 import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizOpt } from '@/components/ui/QuizOpt';
 import type { QuizOptState } from '@/components/ui/QuizOpt';
-import { colors, font, fontSize, lineHeight, press, results, spacing, trackingEm } from '@/theme';
-import { CelebrationOverlay, XpChipOverlay, type ScreenRect } from '@/components/ui/CelebrationOverlay';
+import { colors, font, fontSize, lineHeight, press, radius, results, spacing, trackingEm } from '@/theme';
+import { XpChipOverlay, type ScreenRect } from '@/components/ui/CelebrationOverlay';
+import { AchievementUnlock } from '@/components/quiz/AchievementUnlock';
 import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
 import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
 import { CIRCLE_BUTTON_SIZE } from '@/components/ui/circleButtonStyle';
@@ -43,9 +44,7 @@ interface QuizModalProps {
   completionTime?: () => number;
 }
 
-type CelebrationItem =
-  | { type: 'achievement'; id: string; name: string; description: string }
-  | { type: 'xp'; id: string; amount: number };
+type CelebrationItem = { type: 'xp'; id: string; amount: number };
 
 /**
  * One Modal for the whole quiz journey. The question and result views swap inside it, so
@@ -145,6 +144,11 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [, setCelebrationQueue] = useState<CelebrationItem[]>([]);
+  // The achievements just earned, shown one at a time from the result's "See achievement" button.
+  const [unlockedKeys, setUnlockedKeys] = useState<AchievementKey[]>([]);
+  /** Which unlock screen is up (null: the result itself), and whether they have all been seen or skipped. */
+  const [unlockStep, setUnlockStep] = useState<number | null>(null);
+  const [unlocksDone, setUnlocksDone] = useState(false);
   const [currentCelebration, setCurrentCelebration] = useState<CelebrationItem | null>(null);
   // Where the XP chip sits on the screen, so the XP animation can fly back onto it.
   const [xpRect, setXpRect] = useState<ScreenRect | null>(null);
@@ -178,6 +182,9 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
       milestoneAnim.setValue(0.8);
       setCelebrationQueue([]);
       setCurrentCelebration(null);
+      setUnlockedKeys([]);
+      setUnlockStep(null);
+      setUnlocksDone(false);
       setTopicFeedbackClosed(false);
       celebrationFired.current = false;
     }
@@ -224,10 +231,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
     celebrationFired.current = true;
     const items: CelebrationItem[] = [];
     const unlocked: AchievementKey[] = submit.data.achievementsUnlocked ?? [];
-    for (const key of unlocked) {
-      const def = ACHIEVEMENTS_BY_KEY[key];
-      if (def) items.push({ type: 'achievement', id: key, name: def.name, description: def.description });
-    }
+    setUnlockedKeys(unlocked.filter(key => ACHIEVEMENTS_BY_KEY[key]));
     if (submit.data.xpAwarded != null && submit.data.xpAwarded > 0) {
       items.push({ type: 'xp', id: 'xp-award', amount: submit.data.xpAwarded });
     }
@@ -392,16 +396,6 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
     const tailStep = feedbacks.length + (coaching ? 1 : 0);
     const celebration = (
       <>
-        {currentCelebration?.type === 'achievement' && (
-          <CelebrationOverlay
-            key={currentCelebration.id}
-            visible
-            title="Achievement Earned!"
-            name={currentCelebration.name}
-            description={currentCelebration.description}
-            onDismiss={advanceCelebration}
-          />
-        )}
         {currentCelebration?.type === 'xp' && (
           <XpChipOverlay
             key={currentCelebration.id}
@@ -412,15 +406,46 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
             onDismiss={advanceCelebration}
           />
         )}
+        {unlockStep !== null && unlockedKeys[unlockStep] && (
+          // Over the result, which stays mounted underneath so coming back does not replay it.
+          <View style={StyleSheet.absoluteFill}>
+            <AchievementUnlock key={unlockedKeys[unlockStep]} achievement={unlockedKeys[unlockStep]} onContinue={continueUnlocks} />
+          </View>
+        )}
       </>
     );
+    const unlocksPending = unlockedKeys.length > 0 && !unlocksDone;
+    function continueUnlocks() {
+      if (unlockStep !== null && unlockStep + 1 < unlockedKeys.length) {
+        setUnlockStep(unlockStep + 1);
+        return;
+      }
+      setUnlockStep(null);
+      setUnlocksDone(true);
+    }
     return (
       <QuizResultFrame
         {...frame}
         onClose={handleLeaveLesson}
         overlay={celebration}
         tone={tone}
-        action={
+        action={unlocksPending ? (
+          // Earned achievements come before the way on: view them one by one, or skip them.
+          <View style={styles.unlockActions}>
+            <Pressable testID="achievements-skip-btn" accessibilityRole="button" onPress={() => setUnlocksDone(true)} style={styles.skipTouch}>
+              <Text style={[styles.skip, { color: results[tone].tint }]}>Skip</Text>
+            </Pressable>
+            <View style={styles.unlockButton}>
+              <ResultButton
+                testID="result-action-btn"
+                tone={tone}
+                label={unlockedKeys.length === 1 ? 'See achievement' : `See ${unlockedKeys.length} achievements`}
+                icon="next"
+                onPress={() => setUnlockStep(0)}
+              />
+            </View>
+          </View>
+        ) : (
           <ResultButton
             testID="result-action-btn"
             tone={tone}
@@ -428,7 +453,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
             icon="next"
             onPress={() => handleNavigateAfterQuiz(nextLessonId)}
           />
-        }
+        )}
         /* 079f: the result's lesson carries the stored verdict, so no refetch. */
         rating={<LessonRatingControl lessonId={lesson.id} rating={submit.data.lesson.rating ?? null} color={results[tone].fg} />}
       >
@@ -450,11 +475,14 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
             happened, so Home will not show it again; one never written comes back on Home. */}
         <Reveal delay={revealDelay(tailStep)}>
           {topicEnd && (
-            <TopicFeedback
-              topicEnd={topicEnd}
-              onSubmit={body => topicFeedback.submit(topicEnd.planId, body)}
-              onClose={() => { setTopicFeedbackClosed(true); refreshPaths(); }}
-            />
+            // The screen is drawn for paper, so on a verdict colour it sits on a paper panel.
+            <View style={styles.topicFeedbackPanel}>
+              <TopicFeedback
+                topicEnd={topicEnd}
+                onSubmit={body => topicFeedback.submit(topicEnd.planId, body)}
+                onClose={() => { setTopicFeedbackClosed(true); refreshPaths(); }}
+              />
+            </View>
           )}
         </Reveal>
       </QuizResultFrame>
@@ -564,6 +592,11 @@ const styles = StyleSheet.create({
   secondTry: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
   secondTryText: { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.xpText },
   contentGrow: { flexGrow: 1 },
+  unlockActions: { flexDirection: 'row', alignItems: 'center', gap: 18 },
+  unlockButton: { flex: 1 },
+  skipTouch: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 },
+  skip: { fontFamily: font.bold, fontSize: 15 },
+  topicFeedbackPanel: { padding: spacing.lg, backgroundColor: colors.paper, borderRadius: radius.xl },
   options:  { gap: spacing.sm3, marginBottom: spacing.lg },
   // The one picked answer sits midway between the question and Submit.
   optionsPicked: { flex: 1, justifyContent: 'center', marginBottom: 0 },

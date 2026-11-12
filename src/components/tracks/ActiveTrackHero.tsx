@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { HeroBackground } from '@/components/ui/HeroBackground';
-import { colors, font, fontSize, radius, shadow, spacing, trackingEm } from '@/theme';
+import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
 import type { TrackEntryIds } from '@/components/tracks/TrackRow';
 
 interface ActiveTrackHeroProps {
@@ -38,12 +38,14 @@ export function ActiveTrackHero({ ids, activeTestID, mark, tapLabel, onOpen, nam
   );
 }
 
+const NAME_SIZE = 30;
+
 const styles = StyleSheet.create({
   hero: {
     overflow:     'hidden',
     borderRadius: radius.xl,
     padding:      spacing.lg,
-    gap:          spacing.sm,
+    gap:          10,
     marginBottom: spacing.md,
     // Wider than the page's gutters by 4pt a side, as on Home.
     marginHorizontal: -spacing.xs,
@@ -53,20 +55,22 @@ const styles = StyleSheet.create({
   label:    { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   eyebrow: {
     fontFamily:    font.extrabold,
-    fontSize:      fontSize.sm,
-    letterSpacing: trackingEm.caps * fontSize.sm,
+    fontSize:      fontSize.xs,
+    letterSpacing: 0.1 * fontSize.xs,
     textTransform: 'uppercase',
     color:         colors.brandSoft,
   },
   name: {
     fontFamily:    font.black,
-    fontSize:      fontSize.xl + 6,
-    letterSpacing: trackingEm.display * (fontSize.xl + 6),
+    fontSize:      NAME_SIZE,
+    lineHeight:    NAME_SIZE * 1.02,
+    letterSpacing: -0.035 * NAME_SIZE,
     color:         colors.onBrand,
   },
   headline: {
     fontFamily: font.regular,
-    fontSize:   fontSize.md,
+    fontSize:   15,
+    lineHeight: 15 * 1.4,
     color:      colors.brandSoft,
   },
 });

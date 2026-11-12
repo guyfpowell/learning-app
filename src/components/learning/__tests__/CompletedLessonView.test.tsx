@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { LESSON_COMPLETED_BANNER, RETAKE_START_ERROR, type Lesson } from '@learning/shared';
+import { type Lesson } from '@learning/shared';
 import { CompletedLessonView } from '../CompletedLessonView';
 
 jest.mock('@/components/ui/KeyTakeawayBlock', () => ({
@@ -18,16 +18,14 @@ const lesson: Lesson = {
   createdAt: '', updatedAt: '',
 };
 
-function setup(over: { onRetake?: () => void; retaking?: boolean; retakeFailed?: boolean } = {}) {
-  const onRetake = over.onRetake ?? jest.fn();
-  render(<CompletedLessonView lesson={lesson} onRetake={onRetake} retaking={over.retaking ?? false} retakeFailed={over.retakeFailed ?? false} />);
-  return { onRetake };
+function setup() {
+  render(<CompletedLessonView lesson={lesson} />);
 }
 
 describe('CompletedLessonView', () => {
-  it('opens on the summary, with the completed banner, the summary and the key takeaway', () => {
+  it('opens on the summary, with the summary and the key takeaway', () => {
     setup();
-    expect(screen.getByTestId('lesson-completed-banner')).toHaveTextContent(LESSON_COMPLETED_BANNER);
+    expect(screen.getByText('KEY TAKEAWAY')).toBeTruthy();
     expect(screen.getByTestId('lesson-summary-text')).toHaveTextContent('What a launch tier is.');
     expect(screen.getByTestId('key-takeaway')).toHaveTextContent('Match effort to the tier.');
     expect(screen.queryByTestId('lesson-content')).toBeNull();
@@ -46,21 +44,11 @@ describe('CompletedLessonView', () => {
     expect(screen.getByText('Tier 1 is rare.')).toBeTruthy();
   });
 
-  it('never offers to submit an answer: only Retake lesson starts anything', () => {
+  it('never offers to submit an answer, or to retake the lesson', () => {
     setup();
-    fireEvent.press(screen.getByTestId('lesson-tab-quiz'));
     expect(screen.queryByTestId('lesson-retake-btn')).toBeNull();
-    expect(screen.queryByText(/submit|try again|test my knowledge/i)).toBeNull();
-  });
-
-  it('starts a retake only from the summary\'s Retake lesson button', () => {
-    const { onRetake } = setup();
-    fireEvent.press(screen.getByTestId('lesson-retake-btn'));
-    expect(onRetake).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows the retake error under the button', () => {
-    setup({ retakeFailed: true });
-    expect(screen.getByTestId('retake-error')).toHaveTextContent(RETAKE_START_ERROR);
+    expect(screen.queryByText(/retake/i)).toBeNull();
+    fireEvent.press(screen.getByTestId('lesson-tab-quiz'));
+    expect(screen.queryByText(/submit|try again|test my knowledge|retake/i)).toBeNull();
   });
 });

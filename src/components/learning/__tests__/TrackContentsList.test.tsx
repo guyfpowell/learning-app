@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render, screen, fireEvent } from '@testing-library/react-native';
-import { colors } from '@/theme';
+import { levelCard } from '@/theme';
 import { resolveTrackView, type TrackView } from '@/lib/trackView';
 import { TrackContentsList } from '../TrackContentsList';
 import type { TrackContents, TrackContentsLesson } from '@learning/shared';
@@ -133,13 +133,19 @@ describe('TrackContentsList — the lessons of a topic', () => {
 });
 
 describe('TrackContentsList — look', () => {
-  it('draws no progress bars: counts only', () => {
+  it('draws a bar for each level but none for a topic: counts only', () => {
     setup({ group: 'beginner' });
     expect(screen.queryByTestId('topic-progress-topic-1')).toBeNull();
   });
 
-  it('colours the current marker in the brand colour', () => {
+  it('colours the current marker in its level\'s colour', () => {
     setup();
-    expect(nameColor('group-row-beginner', 'Current')).toBe(colors.brand);
+    expect(nameColor('group-row-beginner', 'Current')).toBe(levelCard.beginner.base);
+  });
+
+  it('draws a topic as done, started or to do from its lessons', () => {
+    setup({ group: 'intermediate' });
+    expect(screen.getByText('0 of 3 lessons')).toBeTruthy();
+    expect(screen.queryByText('Complete')).toBeNull();
   });
 });

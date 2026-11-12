@@ -3,7 +3,8 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, press, shadow, spacing } from '@/theme';
+import { Icon } from '@/components/ui/Icon';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { usePaths } from '@/hooks/useTrack';
@@ -110,10 +111,17 @@ export default function AlbertScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]} showsVerticalScrollIndicator={false}>
         {/* ── Intro — typographic, no mascot ─────────────────────────────── */}
         <View testID="albert-intro" style={styles.intro}>
-          <Text style={styles.eyebrow}>AI ASSISTANT</Text>
-          <Text style={styles.heading}>
-            Meet <Text style={styles.headingAccent}>Albert</Text>
-          </Text>
+          <View style={styles.markEdge}>
+            <View style={styles.mark}>
+              <Icon name="albert" size={24} color={colors.white} fill={colors.white} />
+            </View>
+          </View>
+          <View style={styles.title}>
+            <Text style={styles.eyebrow}>AI ASSISTANT</Text>
+            <Text style={styles.heading}>
+              Meet <Text style={styles.headingAccent}>Albert</Text>
+            </Text>
+          </View>
           {/* Someone with a path has met Albert: the name only, without the lead, so the path is on the first screen (096). */}
           {!hasPath && (
             <Text style={styles.lead}>
@@ -157,32 +165,50 @@ export default function AlbertScreen() {
   );
 }
 
+const MARK_SIZE = 44;
+const MARK_RADIUS = 14;
+const HEADING_SIZE = 34;
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.paper },
-  content:   { padding: spacing.lg, paddingBottom: spacing.xl2 },
+  content:   { padding: spacing.lg, paddingTop: spacing.xs, paddingBottom: spacing.xl2 },
 
-  intro:   { paddingTop: spacing.md, marginBottom: spacing.lg },
+  intro: { gap: 12, marginBottom: 14 },
+  // Albert's mark: the sparkle on a cobalt tile with the pressed edge and a soft glow.
+  markEdge: {
+    alignSelf:       'flex-start',
+    paddingBottom:   press.edge,
+    borderRadius:    MARK_RADIUS,
+    backgroundColor: press.onCobaltEdge,
+    ...shadow.brand,
+  },
+  mark: {
+    width:           MARK_SIZE,
+    height:          MARK_SIZE,
+    borderRadius:    MARK_RADIUS,
+    backgroundColor: colors.brand,
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+  title:   { gap: 6 },
   eyebrow: {
-    fontFamily:    font.semibold,
-    fontSize:      fontSize.xs,
-    color:         colors.coral,
-    letterSpacing: 1.5,
-    marginBottom:  spacing.xs,
+    fontFamily:    font.extrabold,
+    fontSize:      12,
+    color:         colors.brand,
+    letterSpacing: 0.08 * 12,
   },
   heading: {
-    fontFamily:    font.display,
-    fontSize:      fontSize.xxl,
-    lineHeight:    fontSize.xxl * 1.08,
-    letterSpacing: -0.7,
+    fontFamily:    font.black,
+    fontSize:      HEADING_SIZE,
+    lineHeight:    HEADING_SIZE,
+    letterSpacing: -0.04 * HEADING_SIZE,
     color:         colors.textStrong,
   },
   headingAccent: { color: colors.brand },
   lead: {
     fontFamily: font.regular,
-    fontSize:   fontSize.md,
-    lineHeight: fontSize.md * 1.5,
+    fontSize:   15,
+    lineHeight: 15 * 1.45,
     color:      colors.textBody,
-    marginTop:  spacing.sm,
   },
-
 });

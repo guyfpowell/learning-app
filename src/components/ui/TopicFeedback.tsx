@@ -1,13 +1,10 @@
-import { useEffect, useRef, useState, type ComponentProps } from 'react';
-import { LayoutAnimation, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { Ionicons } from '@expo/vector-icons';
 import {
   TOPIC_FEEDBACK_ACKNOWLEDGEMENT,
   TOPIC_FEEDBACK_LEVELS,
-  TOPIC_FEEDBACK_LEVEL_LABELS,
   TOPIC_FEEDBACK_USEFUL,
-  TOPIC_FEEDBACK_USEFUL_LABELS,
   TOPIC_FEEDBACK_WORDS_MAX,
   hasTopicFeedbackAnswer,
   topicFeedbackRequest,
@@ -16,24 +13,21 @@ import {
   type TopicFeedbackRequest,
   type TopicFeedbackUseful,
 } from '@learning/shared';
-import { colors, font, fontSize, lineHeight, radius, shadow, spacing, tracking } from '@/theme';
-import { Button } from '@/components/ui/Button';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import { StepSummary } from '@/components/ui/StepSummary';
+import { colors, font, fontSize, press, radius, shadow, spacing, trackingEm } from '@/theme';
+import { EdgeButton } from '@/components/ui/EdgeButton';
+import { Icon } from '@/components/ui/Icon';
+import { WordChoice } from '@/components/ui/WordChoice';
 import { extractError } from '@/lib/errors';
 
 /** How long the acknowledgement shows before the box closes itself. */
 const ACKNOWLEDGEMENT_MS = 2000;
 
-type IconName = ComponentProps<typeof Ionicons>['name'];
+const WORDS_LABEL = 'Anything else to tell Albert?';
+const WORDS_PLACEHOLDER = 'Something unclear, or what you\u2019d like more of';
 
-/** The questions, in the order they open. Exactly one is open at a time. */
-type Step = 'level' | 'useful' | 'words';
-
-const WORDS_LABEL = 'Anything else Albert should know?';
-
-const LEVEL_ICONS = { knew_most: 'arrow-down-circle-outline', about_right: 'locate-outline', lost_me: 'arrow-up-circle-outline' } satisfies Record<TopicFeedbackLevel, IconName>;
-const USEFUL_ICONS = { not_for_me: 'thumbs-down-outline', useful: 'thumbs-up-outline', want_more: 'add-circle-outline' } satisfies Record<TopicFeedbackUseful, IconName>;
+// The design's words for the two questions (the shared labels are the web's). The values sent are unchanged.
+const LEVEL_WORDS: Record<TopicFeedbackLevel, string> = { knew_most: 'Too easy', about_right: 'About right', lost_me: 'Too hard' };
+const USEFUL_WORDS: Record<TopicFeedbackUseful, string> = { not_for_me: 'Not really', useful: 'A bit', want_more: 'Very' };
 
 interface TopicFeedbackProps {
   topicEnd: TopicEnd;
@@ -44,15 +38,13 @@ interface TopicFeedbackProps {
 }
 
 /**
- * The end-of-topic screen (079d): two optional taps and optional words. Closing always writes:
- * what was picked, or `dismissed` on Skip. It never changes the path and never blocks.
+ * The end-of-topic screen (079d): two optional taps and optional words, all visible at once.
+ * Not now always writes `dismissed`; Send writes what was picked. It never changes the path and never blocks.
  */
 export function TopicFeedback({ topicEnd, onSubmit, onClose }: TopicFeedbackProps) {
   const [level, setLevel] = useState<TopicFeedbackLevel | null>(null);
   const [useful, setUseful] = useState<TopicFeedbackUseful | null>(null);
   const [words, setWords] = useState('');
-  const [openStep, setOpenStep] = useState<Step>('level');
-  const [wordsFocused, setWordsFocused] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
@@ -66,23 +58,6 @@ export function TopicFeedback({ topicEnd, onSubmit, onClose }: TopicFeedbackProp
     const timer = setTimeout(() => onCloseRef.current(), ACKNOWLEDGEMENT_MS);
     return () => clearTimeout(timer);
   }, [acknowledged]);
-
-  function open(step: Step) {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setWordsFocused(false);
-    setOpenStep(step);
-  }
-
-  /** Picking answers the step and opens the next one; clearing a pick leaves the open step alone. */
-  function pickLevel(value: TopicFeedbackLevel | null) {
-    setLevel(value);
-    if (value !== null) open('useful');
-  }
-
-  function pickUseful(value: TopicFeedbackUseful | null) {
-    setUseful(value);
-    if (value !== null) open('words');
-  }
 
   /** Writes the answer, or a dismissal when `dismiss`. Returns whether the write succeeded. */
   async function write(dismiss: boolean) {
@@ -104,23 +79,46 @@ export function TopicFeedback({ topicEnd, onSubmit, onClose }: TopicFeedbackProp
 
   if (acknowledged) {
     return (
-      <View testID="topic-feedback" style={styles.card}>
-        <Text style={styles.heading}>{TOPIC_FEEDBACK_ACKNOWLEDGEMENT}</Text>
+      <View testID="topic-feedback" style={styles.screen}>
+        <Text style={styles.acknowledgement}>{TOPIC_FEEDBACK_ACKNOWLEDGEMENT}</Text>
       </View>
     );
   }
 
   return (
-    <View testID="topic-feedback" accessibilityLabel="Topic feedback" style={styles.card}>
+    <View testID="topic-feedback" accessibilityLabel="Topic feedback" style={styles.screen}>
       <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={styles.eyebrow}>End of topic</Text>
-          <Text testID="topic-feedback-title" numberOfLines={2} style={styles.heading}>
-            {'How was '}
-            <Text style={styles.headingTopic}>{topicEnd.title}</Text>
-            {'?'}
-          </Text>
+        <Text testID="topic-feedback-title" numberOfLines={3} style={styles.title}>{topicEnd.title}</Text>
+        <View style={styles.complete}>
+          <View style={styles.tick}>
+            <Icon name="check" size={13} color={colors.white} strokeWidth={3.2} />
+          </View>
+          <Text style={styles.completeText}>Topic complete</Text>
         </View>
+      </View>
+
+      <WordChoice label="How hard was this topic" testIDPrefix="topic-feedback-level" options={TOPIC_FEEDBACK_LEVELS} labels={LEVEL_WORDS} picked={level} disabled={sending} onPick={setLevel} />
+      <WordChoice label="How useful was it" testIDPrefix="topic-feedback-useful" options={TOPIC_FEEDBACK_USEFUL} labels={USEFUL_WORDS} picked={useful} disabled={sending} onPick={setUseful} />
+
+      <View style={styles.note}>
+        <Text style={styles.noteLabel}>{WORDS_LABEL}</Text>
+        <TextInput
+          testID="topic-feedback-words"
+          accessibilityLabel={WORDS_LABEL}
+          placeholder={WORDS_PLACEHOLDER}
+          placeholderTextColor={colors.textSubtle}
+          value={words}
+          onChangeText={setWords}
+          maxLength={TOPIC_FEEDBACK_WORDS_MAX}
+          editable={!sending}
+          multiline
+          style={styles.words}
+        />
+      </View>
+
+      {error !== '' && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+
+      <View style={styles.actions}>
         <Pressable
           testID="topic-feedback-skip"
           accessibilityRole="button"
@@ -128,90 +126,74 @@ export function TopicFeedback({ topicEnd, onSubmit, onClose }: TopicFeedbackProp
           style={styles.skipTouch}
           onPress={() => write(true)}
         >
-          <Text style={styles.skip}>Skip</Text>
+          <Text style={styles.skip}>Not now</Text>
         </Pressable>
+        <View style={styles.send}>
+          <EdgeButton
+            testID="topic-feedback-submit"
+            look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+            disabledLook={{ face: colors.border, label: colors.textSubtle }}
+            label="Send"
+            disabled={!answered}
+            loading={sending}
+            onPress={() => write(false)}
+          />
+        </View>
       </View>
-
-      <SegmentedControl label="Level" testIDPrefix="topic-feedback-level" options={TOPIC_FEEDBACK_LEVELS} labels={TOPIC_FEEDBACK_LEVEL_LABELS} icons={LEVEL_ICONS} picked={level} open={openStep === 'level'} onOpen={() => open('level')} disabled={sending} onPick={pickLevel} />
-      <SegmentedControl label="Useful" testIDPrefix="topic-feedback-useful" options={TOPIC_FEEDBACK_USEFUL} labels={TOPIC_FEEDBACK_USEFUL_LABELS} icons={USEFUL_ICONS} picked={useful} open={openStep === 'useful'} onOpen={() => open('useful')} disabled={sending} onPick={pickUseful} />
-
-      {openStep === 'words' ? (
-        <TextInput
-          testID="topic-feedback-words"
-          accessibilityLabel={WORDS_LABEL}
-          placeholder={WORDS_LABEL}
-          placeholderTextColor={colors.textMuted}
-          value={words}
-          onChangeText={setWords}
-          maxLength={TOPIC_FEEDBACK_WORDS_MAX}
-          editable={!sending}
-          multiline
-          numberOfLines={2}
-          onFocus={() => setWordsFocused(true)}
-          onBlur={() => setWordsFocused(false)}
-          style={[styles.words, wordsFocused && styles.wordsFocused]}
-        />
-      ) : (
-        <StepSummary
-          testID="topic-feedback-words-summary"
-          label={WORDS_LABEL}
-          value={words.trim() === '' ? undefined : words.trim()}
-          disabled={sending}
-          onPress={() => open('words')}
-        />
-      )}
-
-      {error !== '' && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-
-      <Button
-        testID="topic-feedback-submit"
-        label="Send"
-        variant="coral"
-        size="lg"
-        disabled={!answered}
-        loading={sending}
-        onPress={() => write(false)}
-      />
     </View>
   );
 }
 
+const TITLE_SIZE = 32;
+
 const styles = StyleSheet.create({
-  card: {
-    gap: spacing.md,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radius.xl,
+  screen: { gap: 28, marginBottom: spacing.md },
+  header: { gap: spacing.sm3 },
+  title: {
+    fontFamily:    font.black,
+    fontSize:      TITLE_SIZE,
+    lineHeight:    TITLE_SIZE * 1.04,
+    letterSpacing: -0.04 * TITLE_SIZE,
+    color:         colors.textStrong,
+  },
+  complete:     { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  tick: {
+    width:           22,
+    height:          22,
+    borderRadius:    7,
+    backgroundColor: colors.brand,
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+  completeText: { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.textStrong },
+  acknowledgement: {
+    fontFamily:    font.black,
+    fontSize:      fontSize.lg,
+    letterSpacing: trackingEm.heading * fontSize.lg,
+    color:         colors.textStrong,
+  },
+  // The one card on the page: the note is the only thing typed.
+  note: {
+    gap:               10,
+    padding:           18,
+    marginHorizontal:  -spacing.sm,
+    backgroundColor:   colors.surface,
+    borderRadius:      radius.card,
     ...shadow.card,
   },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm3, marginBottom: spacing.xs },
-  headerText: { flex: 1, gap: spacing.xs },
-  eyebrow: {
-    fontFamily: font.bold,
-    fontSize: fontSize.xs,
-    letterSpacing: tracking.caps,
-    textTransform: 'uppercase',
-    color: colors.textSubtle,
-  },
-  heading: { fontFamily: font.display, fontSize: fontSize.lg, lineHeight: fontSize.lg * lineHeight.snug, letterSpacing: tracking.tight, color: colors.textStrong },
-  headingTopic: { color: colors.brand },
-  skipTouch: { minWidth: 44, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
-  skip: { fontFamily: font.medium, fontSize: fontSize.sm, color: colors.textMuted },
+  noteLabel: { fontFamily: font.extrabold, fontSize: fontSize.base, letterSpacing: -0.01 * fontSize.base, color: colors.textStrong },
   words: {
-    minHeight: 64,
-    padding: spacing.sm3,
+    minHeight:         44,
+    padding:           0,
     textAlignVertical: 'top',
-    fontFamily: font.regular,
-    fontSize: fontSize.base,
-    color: colors.textStrong,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.md,
+    fontFamily:        font.regular,
+    fontSize:          15,
+    lineHeight:        15 * 1.45,
+    color:             colors.textStrong,
   },
-  wordsFocused: { borderColor: colors.brand },
-  error: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
+  error:   { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 18 },
+  skipTouch: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 },
+  skip:      { fontFamily: font.bold, fontSize: 15, color: colors.textMuted },
+  send:      { flex: 1 },
 });

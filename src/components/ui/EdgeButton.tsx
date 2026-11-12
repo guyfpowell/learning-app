@@ -5,7 +5,11 @@ import { Icon, type IconName } from '@/components/ui/Icon';
 import { font, fontSize, press, radius, spacing } from '@/theme';
 
 const FACE_HEIGHT = 56;
-const COMPACT_FACE_HEIGHT = 44;
+/** The small button beside a row's text: 34pt face, radius 12, a 3pt edge and a 1.5pt ring in the edge's colour. */
+const COMPACT_FACE_HEIGHT = 34;
+const COMPACT_RADIUS = 12;
+const COMPACT_EDGE = 3;
+const COMPACT_RING = 1.5;
 const LABEL_TRACKING = -0.01 * fontSize.md;
 
 /** What a button looks like: its face, its label and the solid edge under it. */
@@ -39,9 +43,10 @@ export function EdgeButton({ look, disabledLook, label, icon, onPress, disabled 
   const flat = disabled && disabledLook !== undefined;
   const face = flat ? disabledLook.face : look.face;
   const labelColor = flat ? disabledLook.label : look.label;
-  const edgeHeight = pressed ? press.edgePressed : press.edge;
+  const restEdge = compact ? COMPACT_EDGE : press.edge;
+  const edgeHeight = pressed ? press.edgePressed : restEdge;
   return (
-    <View style={[styles.edge, { backgroundColor: look.edge, paddingBottom: flat ? 0 : edgeHeight }, flat && styles.flat]}>
+    <View style={[styles.edge, compact && styles.compactEdge, { backgroundColor: look.edge, paddingBottom: flat ? 0 : edgeHeight }, flat && styles.flat]}>
       <Pressable
         testID={testID}
         onPress={onPress}
@@ -51,7 +56,7 @@ export function EdgeButton({ look, disabledLook, label, icon, onPress, disabled 
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
         accessibilityState={{ disabled: disabled || loading }}
-        style={[styles.face, compact && styles.compactFace, { backgroundColor: face }, pressed && !disabled && { transform: [{ translateY: lift }] }]}
+        style={[styles.face, compact && styles.compactFace, compact && { borderColor: look.edge }, { backgroundColor: face }, pressed && !disabled && { transform: [{ translateY: lift }] }]}
       >
         {loading ? (
           <ActivityIndicator color={labelColor} />
@@ -70,7 +75,8 @@ const styles = StyleSheet.create({
   edge:  { borderRadius: radius.md },
   flat:  { backgroundColor: 'transparent' },
   face:  { height: FACE_HEIGHT, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
-  compactFace:  { height: COMPACT_FACE_HEIGHT, paddingHorizontal: spacing.md },
-  compactLabel: { fontSize: fontSize.base },
+  compactEdge:  { borderRadius: COMPACT_RADIUS },
+  compactFace:  { height: COMPACT_FACE_HEIGHT, borderRadius: COMPACT_RADIUS, borderWidth: COMPACT_RING, paddingHorizontal: spacing.sm3 },
+  compactLabel: { fontSize: 13, letterSpacing: 0 },
   label: { fontFamily: font.cta, fontSize: fontSize.md - 1, letterSpacing: LABEL_TRACKING },
 });

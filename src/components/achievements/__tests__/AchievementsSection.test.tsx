@@ -25,7 +25,13 @@ describe('AchievementsSection', () => {
 
   it('shows how many are earned out of all of them (096)', () => {
     render(<AchievementsSection />);
-    expect(screen.getByTestId('achievements-count')).toHaveTextContent('2 of 4');
+    expect(screen.getByTestId('achievements-count')).toHaveTextContent('2 of 4 earned · tap any to see how to earn it');
+  });
+
+  it('groups the medals under EARNED and STILL TO EARN', () => {
+    render(<AchievementsSection />);
+    expect(screen.getByText('EARNED')).toBeTruthy();
+    expect(screen.getByText('STILL TO EARN')).toBeTruthy();
   });
 
   it('handles undefined achievements gracefully', () => {

@@ -1107,12 +1107,47 @@ describe('QuizModal', () => {
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => jest.useRealTimers());
 
-    it('shows achievement overlay when achievementsUnlocked is populated on finalization', () => {
+    it('offers See achievement, with Skip, instead of Next lesson when one was earned', () => {
       setQuizMock({ data: { ...mockResult, achievementsUnlocked: ['first-light'] } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByTestId('celebration-card')).toBeTruthy();
-      expect(screen.getByText('Achievement Earned!')).toBeTruthy();
-      expect(screen.getByText('First Light')).toBeTruthy();
+      expect(within(screen.getByTestId('result-action-btn')).getByText('See achievement')).toBeTruthy();
+      expect(screen.getByTestId('achievements-skip-btn')).toBeTruthy();
+      expect(screen.queryByText('Next lesson')).toBeNull();
+      expect(screen.queryByTestId('achievement-unlock')).toBeNull();
+    });
+
+    it('says how many when several were earned', () => {
+      setQuizMock({ data: { ...mockResult, achievementsUnlocked: ['first-light', 'good-innings'] } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.getByText('See 2 achievements')).toBeTruthy();
+    });
+
+    it('shows each earned achievement one after another, then the result with Next lesson', () => {
+      setQuizMock({ data: { ...mockResult, achievementsUnlocked: ['first-light', 'good-innings'] } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      fireEvent.press(screen.getByTestId('result-action-btn'));
+      expect(screen.getByTestId('achievement-unlock-name').props.children).toBe('First Light');
+      fireEvent.press(screen.getByTestId('achievement-continue-btn'));
+      expect(screen.getByTestId('achievement-unlock-name').props.children).toBe('Good Innings');
+      fireEvent.press(screen.getByTestId('achievement-continue-btn'));
+      expect(screen.queryByTestId('achievement-unlock')).toBeNull();
+      expect(screen.queryByTestId('achievements-skip-btn')).toBeNull();
+      expect(within(screen.getByTestId('result-action-btn')).getByText(/Next lesson|Back to dashboard/)).toBeTruthy();
+    });
+
+    it('Skip goes straight to Next lesson without showing any achievement', () => {
+      setQuizMock({ data: { ...mockResult, achievementsUnlocked: ['first-light'] } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      fireEvent.press(screen.getByTestId('achievements-skip-btn'));
+      expect(screen.queryByTestId('achievement-unlock')).toBeNull();
+      expect(screen.queryByTestId('achievements-skip-btn')).toBeNull();
+      expect(within(screen.getByTestId('result-action-btn')).getByText(/Next lesson|Back to dashboard/)).toBeTruthy();
+    });
+
+    it('shows Next lesson straight away when nothing was earned', () => {
+      setQuizMock({ data: { ...mockResult, achievementsUnlocked: [] } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.queryByTestId('achievements-skip-btn')).toBeNull();
     });
 
     it('shows XP chip overlay when xpAwarded > 0 and no achievements', () => {
@@ -1124,36 +1159,13 @@ describe('QuizModal', () => {
     it('does not show any overlay when achievementsUnlocked is empty and xpAwarded is null', () => {
       setQuizMock({ data: { ...mockResult, xpAwarded: null, achievementsUnlocked: [] } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.queryByTestId('celebration-card')).toBeNull();
       expect(screen.queryByTestId('xp-chip-animated')).toBeNull();
     });
 
-    it('advances to XP chip overlay after achievement overlay is dismissed', () => {
+    it('still shows the XP chip when achievements were earned: they wait behind the button', () => {
       setQuizMock({ data: { ...mockResult, xpAwarded: 50, achievementsUnlocked: ['first-light'] } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      // Achievement overlay is shown first
-      expect(screen.getByTestId('celebration-card')).toBeTruthy();
-      // Dismiss it
-      fireEvent.press(screen.getByTestId('celebration-backdrop'));
-      act(() => jest.runAllTimers());
-      // XP chip overlay should now be shown
       expect(screen.getByTestId('xp-chip-animated')).toBeTruthy();
-    });
-
-    it('bug fix: second queued achievement gets its own timer and entrance animation, not the dismissed one\'s stale state', () => {
-      setQuizMock({ data: { ...mockResult, achievementsUnlocked: ['first-light', 'good-innings'] } });
-      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByText('First Light')).toBeTruthy();
-      // Auto-dismiss the first achievement
-      act(() => jest.advanceTimersByTime(6000));
-      act(() => jest.runAllTimers());
-      // Second achievement must render as its own fresh instance
-      expect(screen.getByTestId('celebration-card')).toBeTruthy();
-      expect(screen.getByText('Good Innings')).toBeTruthy();
-      // ...and must carry its own auto-dismiss timer rather than being stuck forever
-      act(() => jest.advanceTimersByTime(6000));
-      act(() => jest.runAllTimers());
-      expect(screen.queryByTestId('celebration-card')).toBeNull();
     });
   });
 
@@ -1197,7 +1209,6 @@ describe('QuizModal', () => {
       jest.useFakeTimers();
       setQuizMock({ data: { ...mockResult, topicEnd } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      fireEvent.press(screen.getByTestId('topic-feedback-useful-summary'));
       fireEvent.press(screen.getByTestId('topic-feedback-useful-useful'));
       // The press awaits the write; inside act, everything it sets lands before the asserts.
       await act(async () => fireEvent.press(screen.getByTestId('topic-feedback-submit')));

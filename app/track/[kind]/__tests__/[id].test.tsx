@@ -1,9 +1,9 @@
 import React from 'react';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
 import TrackDetailScreen from '../[id]';
-import { useTrackContents, usePaths, useEnroll } from '@/hooks/useTrack';
+import { useTrackContents, usePaths, useEnroll, useSkills } from '@/hooks/useTrack';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
-import { trackRoute } from '@/lib/routes';
+import { lessonRoute, trackRoute } from '@/lib/routes';
 import type { TrackContents, UserPath } from '@learning/shared';
 
 const mockPush = jest.fn();
@@ -18,6 +18,7 @@ jest.mock('@/hooks/useTrack', () => ({
   useTrackContents: jest.fn(),
   usePaths:         jest.fn(),
   useEnroll:        jest.fn(),
+  useSkills:        jest.fn(),
 }));
 
 jest.mock('@/hooks/useTrackBuilder', () => ({
@@ -101,12 +102,14 @@ function setMocks({
   paths           = [mockPath] as UserPath[],
   pathsLoading    = false,
   enroll          = mockEnroll,
+  skills          = [] as unknown[],
 } = {}) {
   (useTrackContents as jest.Mock).mockReturnValue({
     data: contents, isLoading: contentsLoading, isError: contentsError, error: null,
   });
   (usePaths as jest.Mock).mockReturnValue({ data: paths, isLoading: pathsLoading });
   (useEnroll as jest.Mock).mockReturnValue(enroll);
+  (useSkills as jest.Mock).mockReturnValue({ data: skills });
   (useUpdateTrackPlan as jest.Mock).mockReturnValue(mockUpdatePlan);
 }
 
@@ -211,6 +214,30 @@ describe('TrackDetailScreen', () => {
     expect(mockPush).toHaveBeenCalledWith(trackRoute('track', 'skill-1', { group: 'beginner', topic: 'topic-1', lesson: 'l-2' }));
   });
 
+  it('offers Start lesson on a skipped lesson\'s summary, and opens the lesson', () => {
+    mockParams = { kind: 'track', id: 'skill-1', group: 'beginner', topic: 'topic-1', lesson: 'l-2' };
+    const base = withGroups();
+    const skipped: TrackContents = {
+      ...base,
+      groups: base.groups.map(g => ({
+        ...g,
+        topics: g.topics.map(t => ({ ...t, lessons: t.lessons.map(l => (l.id === 'l-2' ? { ...l, status: 'skipped' as const } : l)) })),
+      })),
+    };
+    setMocks({ contents: skipped });
+    render(<TrackDetailScreen />);
+    expect(screen.getByText('Start lesson')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('track-detail-start-btn'));
+    expect(mockPush).toHaveBeenCalledWith(lessonRoute('l-2'));
+  });
+
+  it('offers no Start lesson on a lesson that is not skipped', () => {
+    mockParams = { kind: 'track', id: 'skill-1', group: 'beginner', topic: 'topic-1', lesson: 'l-2' };
+    setMocks({ contents: withGroups() });
+    render(<TrackDetailScreen />);
+    expect(screen.queryByTestId('track-detail-start-btn')).toBeNull();
+  });
+
   it('shows a lesson\'s summary, with nothing to start it', () => {
     mockParams = { kind: 'track', id: 'skill-1', group: 'beginner', topic: 'topic-1', lesson: 'l-2' };
     setMocks({ contents: withGroups() });
@@ -249,18 +276,11 @@ describe('TrackDetailScreen', () => {
 
   // ── Primary action — not enrolled ─────────────────────────────────────────
 
-  it('shows Enrol button when not enrolled', () => {
+  it('has no Enrol button, even for a track the learner has not joined: enrolling is the Tracks page\'s job', () => {
     setMocks({ contents: { ...mockContents, enrolled: false }, paths: [] });
     render(<TrackDetailScreen />);
-    expect(screen.getByTestId('track-detail-enrol-btn')).toBeTruthy();
-  });
-
-  it('calls enroll mutation when Enrol is tapped', () => {
-    const enroll = { mutate: jest.fn(), isPending: false };
-    setMocks({ contents: { ...mockContents, enrolled: false }, paths: [], enroll });
-    render(<TrackDetailScreen />);
-    fireEvent.press(screen.getByTestId('track-detail-enrol-btn'));
-    expect(enroll.mutate).toHaveBeenCalledWith('skill-1', expect.any(Object));
+    expect(screen.queryByTestId('track-detail-enrol-btn')).toBeNull();
+    expect(screen.queryByText('Enrol')).toBeNull();
   });
 
   // ── Back navigation ────────────────────────────────────────────────────────
