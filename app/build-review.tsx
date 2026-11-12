@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -158,7 +158,9 @@ export default function BuildReviewScreen() {
         }}
       />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: SAVE_CLEARANCE + insets.bottom }]} keyboardShouldPersistTaps="handled">
+      {/* The keyboard lifts the floating save with the page, so it is never hidden under it. */}
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: SAVE_CLEARANCE + insets.bottom }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View testID="builder-intro" style={styles.intro}>
           <Text accessibilityRole="header" style={styles.heading}>Review your path</Text>
           <Text testID="plan-counts" style={styles.line}>{`${topicCount}, chosen for what you described${needClause}.`}</Text>
@@ -250,6 +252,7 @@ export default function BuildReviewScreen() {
           onUpgrade={() => router.push(PAYWALL_ROUTE)}
         />
       </LinearGradient>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -261,6 +264,7 @@ const FADE_FROM = 'rgba(243, 241, 236, 0)';
 
 const styles = StyleSheet.create({
   safe:           { flex: 1, backgroundColor: colors.paper },
+  flex:           { flex: 1 },
   headerBackBtn:  { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   content:        { paddingHorizontal: spacing.lg, paddingTop: 14, gap: 24 },
   intro:          { gap: 10 },

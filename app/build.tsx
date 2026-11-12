@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useRef, useState, type ComponentRef } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -50,6 +50,7 @@ export default function BuildScreen() {
    */
   const [cloud, setCloud] = useState<CloudTerm[]>([]);
   const sessionId = useRef<string | null>(null);
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
 
   const buildPlan = useBuildPlan();
   const setDraft = useDraftStore((s) => s.setDraft);
@@ -113,7 +114,9 @@ export default function BuildScreen() {
         }}
       />
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {/* The keyboard shrinks the page, so Build my path stays reachable under the field. */}
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView ref={scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View testID="builder-intro" style={styles.intro}>
           <AlbertTile />
           <Text accessibilityRole="header" style={styles.heading}>Describe where you are and what you want.</Text>
@@ -134,6 +137,8 @@ export default function BuildScreen() {
             multiline
             textAlignVertical="top"
             editable={!busy}
+            // Bring the button into view above the keyboard.
+            onFocus={() => setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 150)}
           />
 
           <UnderstandingCloud terms={cloud} />
@@ -172,12 +177,14 @@ export default function BuildScreen() {
           )}
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe:           { flex: 1, backgroundColor: colors.paper },
+  flex:           { flex: 1 },
   headerBackBtn:  { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   content:        { paddingHorizontal: spacing.lg, paddingTop: 18, paddingBottom: spacing.xl2, gap: 26 },
   intro:          { gap: 14 },

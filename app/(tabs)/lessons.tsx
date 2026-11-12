@@ -65,7 +65,7 @@ export default function LessonsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
-      <ScrollView contentContainerStyle={[hasNoContent ? styles.contentBleed : styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]}>
+      <ScrollView contentContainerStyle={[hasNoContent ? styles.contentBleed : styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]} automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
 
         {/* First thing on the screen — 069 items 1+2. It used to render below the
             streak hero and the stats row, so a brand-new user met a wall of zeros

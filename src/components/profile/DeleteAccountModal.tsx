@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, Modal, Switch } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Modal, Switch, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { DELETE_ACCOUNT_CONFIRM_WORD, type TeamOwnershipInfo } from '@learning/shared';
@@ -42,7 +42,7 @@ export function DeleteAccountModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
-      <View style={deleteStyles.overlay}>
+      <KeyboardAvoidingView style={deleteStyles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={deleteStyles.sheet}>
           {/* Cancel button — always visible */}
           <Pressable testID="delete-modal-cancel-btn" onPress={onClose} style={deleteStyles.cancelRow}>
@@ -187,7 +187,7 @@ export function DeleteAccountModal({ onClose }: { onClose: () => void }) {
             </View>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
