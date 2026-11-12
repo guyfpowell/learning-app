@@ -12,7 +12,7 @@ jest.mock('@/components/albert/SituationChangeSection', () => ({ SituationChange
 describe('OldStylePreviewScreen', () => {
   it('lists each place that still draws the old button, with where it shows', () => {
     render(<OldStylePreviewScreen />);
-    for (const title of ['Test My Knowledge', 'Home with no active path', 'Albert: path complete', 'Build review: save', 'Rename a path']) {
+    for (const title of ['Test My Knowledge', 'Home with no active path', 'Albert: path complete']) {
       expect(screen.getByText(title)).toBeTruthy();
     }
   });

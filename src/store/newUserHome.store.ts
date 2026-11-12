@@ -5,7 +5,7 @@ export const NEW_USER_HOME_VARIANTS = ['1a', '1b', '1c'] as const;
 export type NewUserHomeVariant = typeof NEW_USER_HOME_VARIANTS[number];
 
 /** What everyone sees until the owner decides (and until variants are offered per user). */
-export const DEFAULT_NEW_USER_HOME: NewUserHomeVariant = '1b';
+export const DEFAULT_NEW_USER_HOME: NewUserHomeVariant = '1c';
 
 /** The next layout in the list, wrapping round: the dev switch's one tap. */
 export function nextNewUserHome(current: NewUserHomeVariant): NewUserHomeVariant {

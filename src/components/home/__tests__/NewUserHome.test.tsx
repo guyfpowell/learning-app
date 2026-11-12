@@ -5,6 +5,7 @@ import { NewUserHome } from '../NewUserHome';
 import { useSkills } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { BUILD_ROUTE, TRACKS_ROUTE, trackRoute } from '@/lib/routes';
+import { useNewUserHomeStore } from '@/store/newUserHome.store';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -19,7 +20,10 @@ function setup({ name = 'Sam Jones', skills = [skill('s1', 'Product Strategy', 1
 }
 
 describe('NewUserHome (Albert first)', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useNewUserHomeStore.setState({ variant: '1b' });
+  });
 
   it('opens with Albert greeting the person by first name, and no daily framing', () => {
     setup();

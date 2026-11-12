@@ -31,6 +31,7 @@ jest.mock('@/hooks/useTrack', () => ({
   useTopicFeedback: jest.fn(),
   useRefreshPaths: jest.fn(),
   useSkills: () => ({ data: undefined }),
+  useTrackContents: () => ({ data: undefined }),
 }));
 
 jest.mock('@/hooks/useProgress', () => ({

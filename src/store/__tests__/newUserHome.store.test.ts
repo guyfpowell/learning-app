@@ -3,8 +3,8 @@ import { DEFAULT_NEW_USER_HOME, nextNewUserHome, useNewUserHomeStore } from '../
 describe('new-user Home store', () => {
   beforeEach(() => useNewUserHomeStore.setState({ variant: DEFAULT_NEW_USER_HOME }));
 
-  it('shows Albert first (1b) until told otherwise', () => {
-    expect(useNewUserHomeStore.getState().variant).toBe('1b');
+  it('shows the climb (1c) until told otherwise', () => {
+    expect(useNewUserHomeStore.getState().variant).toBe('1c');
   });
 
   it('cycles 1a, 1b, 1c and round again', () => {

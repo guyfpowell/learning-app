@@ -2,17 +2,13 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
-import { SAVE_LOCK } from '@learning/shared';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { PathCard } from '@/components/ui/PathCard';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { BuildPathCard } from '@/components/albert/BuildPathCard';
 import { SituationChangeSection } from '@/components/albert/SituationChangeSection';
-import { ReviewSaveArea } from '@/components/trackBuilder/ReviewSaveArea';
-import { RenamableHeading } from '@/components/learning/RenamableHeading';
 import { queryClient } from '@/providers/QueryProvider';
 import { PREVIEW_IN_PROGRESS_ID, seedPreviewLesson } from '@/lib/previewLesson';
 import { makeCustomPath, makeNextLesson, makeTrackPath } from '@/test-utils/paths';
@@ -70,10 +66,6 @@ export default function OldStylePreviewScreen() {
           <Button label="Choose your next path →" variant="outline" onPress={noop} />
         </Block>
 
-        <Block title="No track yet" where="Progress tab for a new user with no paths (Home now has its own new-user page).">
-          <NoTrackNotice />
-        </Block>
-
         <Block title="Albert: path complete" where="Albert tab, after the last lesson of a path: Build another.">
           <BuildPathCard state="complete" path={completePath} actions={actions} allowanceSpent={false} archiveError={null} onViewMyPath={noop} onCreateNewPath={noop} onBuild={noop} />
         </Block>
@@ -84,15 +76,6 @@ export default function OldStylePreviewScreen() {
 
         <Block title="Albert: end of a path, locked" where="Home at the end of an Albert path, for a free user: 'what next' with an Upgrade button.">
           <SituationChangeSection planId="preview" locked pathFinished onUpgrade={noop} />
-        </Block>
-
-        <Block title="Build review: save" where="Build review, the save at the foot. Shown: free path used (upgrade), and open (Start this path).">
-          <ReviewSaveArea saveLock={SAVE_LOCK.allowanceUsed} saving={false} disabled={false} onSave={noop} onUpgrade={noop} />
-          <ReviewSaveArea saveLock={SAVE_LOCK.open} saving={false} disabled={false} onSave={noop} onUpgrade={noop} />
-        </Block>
-
-        <Block title="Rename a path" where="A custom path's page: tap the name. Save and Cancel are the old buttons.">
-          <RenamableHeading name="My AI Path" onSave={() => Promise.resolve()} />
         </Block>
 
         <Block title="Other old buttons, as drawn" where="Build review 'change anything' box (Update my path, Undo), Albert suggestion Upgrade. Same Button, shown here without their data.">

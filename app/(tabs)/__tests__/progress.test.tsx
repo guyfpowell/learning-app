@@ -251,10 +251,10 @@ describe('ProgressScreen — enrollment cards', () => {
     expect(screen.getByText('Completed')).toBeTruthy();
   });
 
-  it('shows empty state when enrollments array is empty', () => {
+  it('shows no "pick a track" box when there are no paths: the medals stand on their own', () => {
     (usePaths as jest.Mock).mockReturnValue({ data: [] });
     render(<ProgressScreen />);
-    expect(screen.getByTestId('no-track-notice')).toBeTruthy();
+    expect(screen.queryByTestId('no-track-notice')).toBeNull();
   });
 
   it('does not show enrollment sections while loading (data undefined)', () => {

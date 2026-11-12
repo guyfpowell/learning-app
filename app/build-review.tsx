@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '@/components/ui/Text';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
-import { colors, font, fontSize, spacing } from '@/theme';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { BuilderIntro } from '@/components/trackBuilder/BuilderIntro';
+import { colors, font, fontSize, radius, spacing } from '@/theme';
+import { Icon } from '@/components/ui/Icon';
+import { ReviewRuns } from '@/components/trackBuilder/ReviewRuns';
 import { FollowUpCard } from '@/components/trackBuilder/FollowUpCard';
 import { ReviewSaveArea } from '@/components/trackBuilder/ReviewSaveArea';
 import { useDraftStore } from '@/store/trackBuilder.store';
@@ -50,7 +50,9 @@ function refusedSaveLock(code: string | null): SaveLock | null {
 
 export default function BuildReviewScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { draft, updateResult, clearDraft } = useDraftStore();
+  const [nameFocused, setNameFocused] = useState(false);
 
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -136,9 +138,11 @@ export default function BuildReviewScreen() {
           // SDK 58 on iOS 26+ defaults Stack headers to transparent (Liquid Glass), which would
           // lay the header over this screen's content.
           headerTransparent: false,
-          title: 'Review your path',
+          title: 'Your path',
           headerStyle: { backgroundColor: colors.paper },
-          headerTitleStyle: { fontFamily: font.semibold, fontSize: fontSize.md, color: colors.textStrong },
+          headerShadowVisible: false,
+          headerTitleAlign: 'center',
+          headerTitleStyle: { fontFamily: font.bold, fontSize: 13, color: colors.textMuted },
           headerLeft: () => (
             <Pressable
               testID="review-back"
@@ -147,19 +151,18 @@ export default function BuildReviewScreen() {
               accessibilityLabel="Go back"
               style={styles.headerBackBtn}
             >
-              <Text style={styles.headerBackText}>‹</Text>
+              <Icon name="back" size={22} color={colors.textStrong} strokeWidth={2.2} />
             </Pressable>
           ),
           headerBackVisible: false,
         }}
       />
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <BuilderIntro
-          heading="Review your path"
-          line={`${topicCount}, chosen for what you described${needClause}.`}
-          lineTestID="plan-counts"
-        />
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: SAVE_CLEARANCE + insets.bottom }]} keyboardShouldPersistTaps="handled">
+        <View testID="builder-intro" style={styles.intro}>
+          <Text accessibilityRole="header" style={styles.heading}>Review your path</Text>
+          <Text testID="plan-counts" style={styles.line}>{`${topicCount}, chosen for what you described${needClause}.`}</Text>
+        </View>
 
         {/* Rule 6 — the loop settled rather than resolved. Say so: a plan built
             with part of the request still unanswered must not present itself as
@@ -171,42 +174,28 @@ export default function BuildReviewScreen() {
           </Text>
         )}
 
-        <Card style={styles.card}>
+        <View style={styles.nameBlock}>
           <Text style={styles.label}>Name</Text>
           <TextInput
             testID="path-name"
-            style={styles.input}
+            style={[styles.input, nameFocused && styles.inputFocused]}
             value={name}
             onChangeText={setName}
+            onFocus={() => setNameFocused(true)}
+            onBlur={() => setNameFocused(false)}
             maxLength={PATH_NAME_MAX}
             placeholder="Name your path"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.textSubtle}
           />
           <Text style={styles.helper}>You can rename this any time.</Text>
           {result.description != null && (
             <Text testID="path-description" style={styles.description}>{result.description}</Text>
           )}
-        </Card>
+        </View>
 
-        <Card style={styles.card}>
-          {runs.map((run, i) => (
-            <View key={i} style={styles.run}>
-              {/* The need, as the heading for the run that serves it — the
-                  model's own words about this person. 068 Chunk 9b. */}
-              {run.need ? (
-                <Text testID={`run-need-${i}`} style={styles.runNeed}>{run.need}</Text>
-              ) : null}
-              {run.topics.map((t) => (
-                <View key={t.stableKey} style={styles.topic}>
-                  <Text style={styles.topicName}>{t.topicName}</Text>
-                  <View style={styles.badges}>
-                    <Badge label={t.level} variant="info" />
-                  </View>
-                </View>
-              ))}
-            </View>
-          ))}
-        </Card>
+        {/* The track, grouped under the need each run serves — 068 Chunk 9b.
+            Algorithm lives in @learning/shared (076c) — one copy, one place. */}
+        <ReviewRuns runs={runs} />
 
         {/* Rule 5 — what we do not teach, said plainly and never swapped for
             the nearest thing we do.
@@ -216,10 +205,10 @@ export default function BuildReviewScreen() {
             thing under the name is what you are not getting. Rule 5 says say it
             plainly, not say it first. Kept in step with the web screen. */}
         {result.notCovered ? (
-          <Card style={styles.card}>
+          <View style={styles.notCoveredBlock}>
             <Text style={styles.label}>What this doesn't cover</Text>
             <Text testID="not-covered" style={styles.notCovered}>{result.notCovered}</Text>
-          </Card>
+          </View>
         ) : null}
 
         {/* The "change anything" box — 068 Chunk 7d. **Hidden, not deleted.**
@@ -243,7 +232,16 @@ export default function BuildReviewScreen() {
         {error !== null && (
           <Text testID="review-error" style={styles.error}>{error}</Text>
         )}
+      </ScrollView>
 
+      {/* The save floats over the foot of the list, which scrolls behind it. */}
+      <LinearGradient
+        testID="review-save-bar"
+        pointerEvents="box-none"
+        colors={[FADE_FROM, colors.paper, colors.paper]}
+        locations={[0, 0.3, 1]}
+        style={[styles.saveBar, { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.sm }]}
+      >
         <ReviewSaveArea
           saveLock={saveLock}
           saving={createPlan.isPending}
@@ -251,33 +249,50 @@ export default function BuildReviewScreen() {
           onSave={() => void onAccept()}
           onUpgrade={() => router.push(PAYWALL_ROUTE)}
         />
-      </ScrollView>
+      </LinearGradient>
     </SafeAreaView>
   );
 }
 
+/** Space the list leaves under its last line so it clears the floating save button. */
+const SAVE_CLEARANCE = 130;
+/** The page colour at no opacity: the bar's top edge fades in from nothing. */
+const FADE_FROM = 'rgba(243, 241, 236, 0)';
+
 const styles = StyleSheet.create({
   safe:           { flex: 1, backgroundColor: colors.paper },
-  headerBackBtn:  { paddingVertical: spacing.xs, paddingRight: spacing.sm },
-  headerBackText: { fontFamily: font.regular, fontSize: fontSize.lg, color: colors.brand },
-  content:        { padding: spacing.lg, gap: spacing.md },
+  headerBackBtn:  { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  content:        { paddingHorizontal: spacing.lg, paddingTop: 14, gap: 24 },
+  intro:          { gap: 10 },
+  heading:        { fontFamily: font.black, fontSize: 30, lineHeight: 30 * 1.04, letterSpacing: -0.035 * 30, color: colors.textStrong },
+  line:           { fontFamily: font.regular, fontSize: 16, lineHeight: 16 * 1.5, color: colors.textBody },
   settled:        { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textStrong },
-  card:           { gap: spacing.sm },
-  helper:         { fontFamily: font.regular, fontSize: fontSize.xs, color: colors.textMuted },
-  description:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textStrong },
-  label: {
-    fontFamily: font.medium, fontSize: fontSize.xs,
-    color: colors.textMuted, textTransform: 'uppercase',
-  },
+  nameBlock:      { gap: 7 },
+  label:          { fontFamily: font.bold, fontSize: 13, color: colors.textBody },
   input: {
-    fontFamily: font.regular, fontSize: fontSize.md, color: colors.textStrong,
-    padding: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: 8,
+    height:            54,
+    fontFamily:        font.medium,
+    fontSize:          17,
+    color:             colors.textStrong,
+    backgroundColor:   colors.surface,
+    borderWidth:       1.5,
+    borderColor:       colors.borderStrong,
+    borderRadius:      radius.md,
+    paddingHorizontal: 16,
   },
-  topic:     { gap: spacing.xs, paddingVertical: spacing.xs },
-  topicName: { fontFamily: font.medium, fontSize: fontSize.md, color: colors.textStrong },
-  badges:    { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
-  run:        { marginBottom: spacing.md },
-  runNeed:    { fontFamily: font.semibold, fontSize: fontSize.sm, color: colors.textStrong, marginBottom: spacing.xs },
-  notCovered: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
-  error:      { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
+  inputFocused:   { borderWidth: 2, borderColor: colors.brand },
+  helper:         { fontFamily: font.regular, fontSize: 13, color: colors.textMuted },
+  description:    { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textStrong },
+  notCoveredBlock: { gap: 7, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border },
+  notCovered:     { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
+  error:          { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
+  saveBar: {
+    position:          'absolute',
+    left:              0,
+    right:             0,
+    bottom:            0,
+    paddingTop:        28,
+    paddingHorizontal: 20,
+    gap:               spacing.sm,
+  },
 });

@@ -7,7 +7,7 @@
  */
 import React from 'react';
 import type { TrackBuilderDraft } from '@/store/trackBuilder.store';
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react-native';
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
@@ -45,6 +45,11 @@ const mockDraft: TrackBuilderDraft = {
 /**
  * Mock Stack.Screen to render headerLeft inline so testIDs are findable.
  */
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({
     push: mockPush,
@@ -360,4 +365,14 @@ describe('the follow-up box', () => {
     await send('drop it');
     expect(screen.getByTestId('review-error').props.children).toBe('Boom');
   });
+
+describe('the save button floats over the foot of the page (board 23)', () => {
+  it('is in a bar pinned over the content, and flat until the path has a name', () => {
+    render(<BuildReviewScreen />);
+    expect(within(screen.getByTestId('review-save-bar')).getByTestId('accept-plan')).toBeTruthy();
+    expect(screen.getByTestId('accept-plan').props.accessibilityState?.disabled).toBe(true);
+    fireEvent.changeText(screen.getByTestId('path-name'), 'AI basics');
+    expect(screen.getByTestId('accept-plan').props.accessibilityState?.disabled).toBe(false);
+  });
+});
 });

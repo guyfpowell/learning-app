@@ -21,6 +21,25 @@ describe('RenamableHeading', () => {
     expect(screen.queryByTestId('rename-input')).toBeNull();
   });
 
+  it('has a pencil beside the name that opens the edit, like tapping the name', () => {
+    setup(jest.fn());
+    fireEvent.press(screen.getByTestId('rename-btn'));
+    expect(input().props.value).toBe('Head of refresher');
+  });
+
+  it('counts the letters against the limit while editing', () => {
+    setup(jest.fn());
+    fireEvent.press(screen.getByTestId('track-detail-heading'));
+    expect(screen.getByTestId('rename-count')).toHaveTextContent(`${'Head of refresher'.length} / ${PATH_NAME_MAX}`);
+    fireEvent.changeText(input(), 'Abc');
+    expect(screen.getByTestId('rename-count')).toHaveTextContent(`3 / ${PATH_NAME_MAX}`);
+  });
+
+  it('has no pencil when the name is not the learner\'s to change', () => {
+    setup(null);
+    expect(screen.queryByTestId('rename-btn')).toBeNull();
+  });
+
   it('is plain text when there is nothing to save to', () => {
     setup(null);
     fireEvent.press(screen.getByTestId('track-detail-heading'));

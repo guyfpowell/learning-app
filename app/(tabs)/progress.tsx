@@ -14,7 +14,6 @@ import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
 import { SubLevel } from '@/components/ui/SubLevel';
 import { FlameIcon } from '@/components/ui/Streak';
 import { PathProgress } from '@/components/ui/PathProgress';
-import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
 import { AchievementsSection } from '@/components/achievements/AchievementsSection';
 import { TRACKS_ROUTE, trackRoute } from '@/lib/routes';
 
@@ -54,7 +53,6 @@ export default function ProgressScreen() {
   // because they are computed over UserProgress rows.
   const inProgress: UserPath[] = paths?.filter(p => !isProgressComplete(p)) ?? [];
   const completed: UserPath[] = paths?.filter(isProgressComplete) ?? [];
-  const hasNoPaths = Array.isArray(paths) && paths.length === 0;
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
@@ -159,10 +157,6 @@ export default function ProgressScreen() {
               />
             ))}
           </View>
-        )}
-
-        {hasNoPaths && (
-          <NoTrackNotice body="Your progress and track map appear here once you're on a track." />
         )}
       </ScrollView>
     </SafeAreaView>

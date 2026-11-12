@@ -45,19 +45,19 @@ beforeEach(() => {
 });
 
 describe('NewUserHome picks its layout from the store', () => {
-  it('shows Albert first (1b) by default', () => {
+  it('shows the climb (1c) by default', () => {
     render(<NewUserHome />);
-    expect(screen.getByTestId('new-user-albert')).toBeTruthy();
+    expect(screen.getByTestId('new-user-trail')).toBeTruthy();
   });
 
-  it('shows the pitch for 1a and the climb for 1c', () => {
+  it('shows the pitch for 1a and Albert first for 1b', () => {
     useNewUserHomeStore.setState({ variant: '1a' });
     const { unmount } = render(<NewUserHome />);
     expect(screen.getByTestId('new-user-pitch')).toBeTruthy();
     unmount();
-    useNewUserHomeStore.setState({ variant: '1c' });
+    useNewUserHomeStore.setState({ variant: '1b' });
     render(<NewUserHome />);
-    expect(screen.getByTestId('new-user-trail')).toBeTruthy();
+    expect(screen.getByTestId('new-user-albert')).toBeTruthy();
   });
 });
 
