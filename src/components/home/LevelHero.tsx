@@ -18,7 +18,8 @@ export function LevelHero({ level, children, testID }: { level: SkillLevel; chil
 }
 
 const styles = StyleSheet.create({
-  shadow: { borderRadius: radius.xl, ...shadow.brand },
+  // Wider than the page's gutters by 4pt a side: the owner's taste, not the board's.
+  shadow: { borderRadius: radius.xl, marginHorizontal: -spacing.xs, ...shadow.brand },
   clip:   { borderRadius: radius.xl, overflow: 'hidden' },
   body:   { padding: spacing.lg, gap: spacing.sm3 },
 });

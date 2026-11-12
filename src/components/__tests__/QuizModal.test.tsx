@@ -257,14 +257,26 @@ describe('QuizModal', () => {
     expect(screen.getByPlaceholderText('Your answer...')).toBeTruthy();
   });
 
-  it('Submit is pinned, flat and grey until an answer is picked, then cobalt', () => {
+  it('Submit is hidden until an answer is picked, then pinned and cobalt', () => {
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-    const face = () => StyleSheet.flatten(screen.getByTestId('submit-btn').props.style).backgroundColor;
-    expect(within(screen.getByTestId('pinned-action')).getByText('Submit')).toBeTruthy();
-    expect(face()).toBe(colors.border);
-    expect(screen.getByTestId('submit-btn').props.accessibilityState).toMatchObject({ disabled: true });
+    expect(screen.queryByTestId('submit-btn')).toBeNull();
     fireEvent.press(screen.getByText('Option A'));
-    expect(face()).toBe(colors.brand);
+    expect(within(screen.getByTestId('pinned-action')).getByText('Submit')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByTestId('submit-btn').props.style).backgroundColor).toBe(colors.brand);
+  });
+
+  it('picking an answer hides the others, and picking it again brings them back and hides Submit', () => {
+    render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+    fireEvent.press(screen.getByTestId('quiz-opt-0'));
+    expect(screen.getByTestId('quiz-opt-0')).toBeTruthy();
+    expect(screen.queryByTestId('quiz-opt-1')).toBeNull();
+    expect(screen.queryByTestId('quiz-opt-2')).toBeNull();
+    expect(screen.getByTestId('submit-btn')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('quiz-opt-0'));
+    expect(screen.getByTestId('quiz-opt-0').props.accessibilityState).toMatchObject({ selected: false });
+    expect(screen.getByTestId('quiz-opt-1')).toBeTruthy();
+    expect(screen.getByTestId('quiz-opt-2')).toBeTruthy();
+    expect(screen.queryByTestId('submit-btn')).toBeNull();
   });
 
   it('091c: a picked option is announced as selected', () => {
@@ -272,7 +284,7 @@ describe('QuizModal', () => {
     expect(screen.getByTestId('quiz-opt-0').props.accessibilityState).toMatchObject({ selected: false });
     fireEvent.press(screen.getByTestId('quiz-opt-0'));
     expect(screen.getByTestId('quiz-opt-0').props.accessibilityState).toMatchObject({ selected: true });
-    expect(screen.getByTestId('quiz-opt-1').props.accessibilityState).toMatchObject({ selected: false });
+    expect(screen.queryByTestId('quiz-opt-1')).toBeNull();
   });
 
   it('renders multiple-choice options', () => {
@@ -282,8 +294,9 @@ describe('QuizModal', () => {
     expect(screen.getByText('Option C')).toBeTruthy();
   });
 
-  it('shows Submit button for each question', () => {
+  it('shows Submit for each question once an answer is picked', () => {
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    fireEvent.press(screen.getByText('Option A'));
     expect(screen.getByText('Submit')).toBeTruthy();
   });
 
@@ -300,6 +313,7 @@ describe('QuizModal', () => {
   it('shows spinner on Submit button while submitting', () => {
     setQuizMock({ isPending: true });
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+    fireEvent.press(screen.getByText('Option A'));
     expect(screen.queryByText('Submit')).toBeNull();
     const { ActivityIndicator } = require('react-native');
     expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeTruthy();

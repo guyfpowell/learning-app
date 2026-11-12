@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { Icon } from '@/components/ui/Icon';
 import { HeroBackground } from '@/components/ui/HeroBackground';
 import { colors, font, fontSize, radius, shadow, spacing, trackingEm } from '@/theme';
 import type { TrackEntryIds } from '@/components/tracks/TrackRow';
@@ -29,7 +28,6 @@ export function ActiveTrackHero({ ids, activeTestID, mark, tapLabel, onOpen, nam
             {mark}
             <Text testID={activeTestID} style={styles.eyebrow}>{mark ? 'Active · Albert path' : 'Active'}</Text>
           </View>
-          <Icon name="forward" size={fontSize.lg} color={colors.onBrand} strokeWidth={2.4} />
         </View>
         <Text testID={ids.name} style={styles.name}>{name}</Text>
         {!!headline && (
@@ -47,9 +45,11 @@ const styles = StyleSheet.create({
     padding:      spacing.lg,
     gap:          spacing.sm,
     marginBottom: spacing.md,
+    // Wider than the page's gutters by 4pt a side, as on Home.
+    marginHorizontal: -spacing.xs,
     ...shadow.brand,
   },
-  eyebrows: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  eyebrows: { flexDirection: 'row', alignItems: 'center' },
   label:    { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   eyebrow: {
     fontFamily:    font.extrabold,

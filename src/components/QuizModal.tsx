@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Easing, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -61,6 +61,9 @@ export function QuizModal(props: QuizModalProps) {
 
 // A correct heading bursts in from far behind the screen, overshoots, then a springy pull settles it.
 // It is left-aligned at rest: it expands from the left into the centre of the screen, then back to the left.
+/** How the answers and Submit come and go when an answer is picked or cleared: quick off the mark, then slowing into place. */
+const PICK_ANIMATION = LayoutAnimation.create(420, LayoutAnimation.Types.easeOut, LayoutAnimation.Properties.opacity);
+
 /** Extra room under the last answer, so a picked one (cobalt) does not sit tight against the cobalt Submit at the end of the scroll. */
 const QUESTION_BOTTOM_AIR = spacing.md;
 
@@ -249,9 +252,11 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
 
   function renderOptions(options: string[]) {
     // On the second try the ruled-out answer drops to the bottom. Its testID keeps its original place.
-    const shown = options.filter(option => option !== wrongAnswer).concat(options.filter(option => option === wrongAnswer));
+    // Once one is picked it is the only one shown; picking it again brings the rest back.
+    const ordered = options.filter(option => option !== wrongAnswer).concat(options.filter(option => option === wrongAnswer));
+    const shown = selectedAnswer === undefined ? ordered : ordered.filter(option => option === selectedAnswer);
     return (
-      <View style={styles.options}>
+      <View style={[styles.options, selectedAnswer !== undefined && styles.optionsPicked]}>
         {shown.map(option => {
           let state: QuizOptState = 'idle';
           if (wrongAnswer === option) state = 'ruledOut';
@@ -262,7 +267,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
               testID={`quiz-opt-${options.indexOf(option)}`}
               label={option}
               state={state}
-              onPress={() => handleSelectOption(option)}
+              onPress={() => handleToggleOption(option)}
             />
           );
         })}
@@ -272,6 +277,13 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
 
   function handleSelectOption(option: string) {
     setSelectedAnswer(option);
+  }
+
+  /** A multiple-choice answer is a toggle: pressing the picked one clears it. */
+  function handleToggleOption(option: string) {
+    // The other answers and Submit fade and the list closes up, rather than snapping.
+    LayoutAnimation.configureNext(PICK_ANIMATION);
+    setSelectedAnswer(current => (current === option ? undefined : option));
   }
 
   // Advance to the next question that has not yet been resolved.
@@ -472,6 +484,8 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
     );
   }
 
+  const pickedChoice = current?.type === 'multiple-choice' && selectedAnswer !== undefined;
+
   // ─── Quiz view ───────────────────────────────────────────────────────────────
   return (
       <View style={styles.container}>
@@ -488,7 +502,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
           </View>
         </View>
 
-        <ScrollView testID="quiz-question-content" contentContainerStyle={[...frameContentStyle(insets.bottom), quizzes.length > 0 && { paddingBottom: PINNED_ACTION_CLEARANCE + QUESTION_BOTTOM_AIR + insets.bottom }]}>
+        <ScrollView testID="quiz-question-content" contentContainerStyle={[...frameContentStyle(insets.bottom), quizzes.length > 0 && { paddingBottom: PINNED_ACTION_CLEARANCE + QUESTION_BOTTOM_AIR + insets.bottom }, pickedChoice && styles.contentGrow]}>
           {quizzes.length === 0 ? (
             <Text style={styles.empty}>No quiz available for this lesson.</Text>
           ) : (
@@ -523,8 +537,8 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
           )}
         </ScrollView>
 
-        {/* Submit floats over the question, which scrolls behind it. Flat and grey until an answer is picked. */}
-        {quizzes.length > 0 && (
+        {/* Submit floats over the question, which scrolls behind it. A multiple-choice question shows it only once an answer is picked; a typed answer keeps it, grey until something is typed. */}
+        {quizzes.length > 0 && (current.type !== 'multiple-choice' || !!selectedAnswer) && (
           <PinnedAction>
             <EdgeButton
               testID="submit-btn"
@@ -549,7 +563,10 @@ const styles = StyleSheet.create({
   closeBtn: { width: CIRCLE_BUTTON_SIZE, height: CIRCLE_BUTTON_SIZE, alignItems: 'center', justifyContent: 'center' },
   secondTry: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
   secondTryText: { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.xpText },
+  contentGrow: { flexGrow: 1 },
   options:  { gap: spacing.sm3, marginBottom: spacing.lg },
+  // The one picked answer sits midway between the question and Submit.
+  optionsPicked: { flex: 1, justifyContent: 'center', marginBottom: 0 },
   shortAnswerInput:   { marginBottom: spacing.lg },
   error: {
     fontFamily:   font.regular,
