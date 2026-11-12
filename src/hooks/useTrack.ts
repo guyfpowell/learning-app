@@ -80,8 +80,9 @@ export function useSkip() {
   });
   const inFlight = mutation.isPending ? mutation.variables : undefined;
   return {
-    skip: (path: UserPath, scope: SkipScope, reason: SkipReason) =>
-      mutation.mutate({ kind: path.kind, id: path.id, scope, reason }),
+    /** `onDone` runs once the server has taken the skip, for a message to the person. */
+    skip: (path: UserPath, scope: SkipScope, reason: SkipReason, onDone?: () => void) =>
+      mutation.mutate({ kind: path.kind, id: path.id, scope, reason }, onDone ? { onSuccess: onDone } : undefined),
     pendingScope: (path: UserPath): SkipScope | null =>
       inFlight?.kind === path.kind && inFlight.id === path.id ? inFlight.scope : null,
     error: mutation.error,

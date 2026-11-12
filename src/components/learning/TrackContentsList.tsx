@@ -76,7 +76,7 @@ function LevelRow({ testID, title, done, total, current, color, onPress }: {
     >
       <View style={[styles.square, { backgroundColor: color }]} />
       <View style={styles.rowText}>
-        <Text style={styles.levelTitle}>{title}</Text>
+        <Text style={[styles.levelTitle, { color }]}>{title}</Text>
         <Caption text={count} current={current} color={color} />
         <View style={styles.bar}>
           <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: color }, pct > 0 && styles.barMin]} />

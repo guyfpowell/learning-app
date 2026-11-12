@@ -143,6 +143,7 @@ export function HomePath({ path, onStartLesson, onSkip, skipPending, onOpen }: H
               ))}
               {choosing && (
                 <SkipReasonPicker
+                  title={SKIP_LINKS.find(l => l.scope === choosing)?.label}
                   onPick={reason => {
                     setChoosing(null);
                     onSkip(path, choosing, reason);

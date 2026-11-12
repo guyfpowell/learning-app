@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Tabs } from 'expo-router';
 import { View, Pressable, AppState, StyleSheet, type ColorValue, type PressableProps } from 'react-native';
-import { Text } from '@/components/ui/Text';
 import { BlurView } from 'expo-blur';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { AlbertTabIcon } from '@/components/albert/AlbertTabIcon';
+import { VerifyEmailBanner } from '@/components/auth/VerifyEmailBanner';
+import { useHasAlbertSuggestion } from '@/hooks/useAlbertSuggestion';
 import { colors, font, fontSize, radius, shadow, spacing } from '@/theme';
 import { TEAM_FEATURE_ENABLED } from '@/config/features';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -15,12 +17,6 @@ import { TAB_BAR_HEIGHT } from '@/lib/safeArea';
 import { iapService } from '@/services/iap.service';
 import { useAuthStore } from '@/store/auth.store';
 import * as Sentry from '@sentry/react-native';
-
-// Verification banner colours — not in the design system's amber scale (that's
-// #FFEECF/#EDB345/#BE7C1C); these are a distinct, deliberately lighter shade.
-const BANNER_BG = '#fffbeb';
-const BANNER_BORDER = '#fde68a';
-const BANNER_TEXT = '#92400e';
 
 // Lower is more see-through (0-100).
 const TAB_BAR_BLUR = 25;
@@ -48,6 +44,11 @@ const styles = StyleSheet.create({
   tabButton: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill },
   tabBarBlur: { borderRadius: radius.pill },
 });
+
+/** The Albert tab's icon: with a dot while a suggestion waits. */
+function LiveAlbertTabIcon({ color, focused }: { color?: string; focused: boolean }) {
+  return <AlbertTabIcon color={color} focused={focused} badge={useHasAlbertSuggestion()} />;
+}
 
 /** The active tab's icon is filled in its colour. */
 function tabIcon(name: IconName) {
@@ -113,40 +114,15 @@ export default function TabsLayout() {
         testID="tab-top-inset"
         style={{
           paddingTop: insets.top,
-          backgroundColor: showBanner ? BANNER_BG : colors.bg,
+          backgroundColor: colors.bg,
         }}
       />
       {showBanner && (
-        <View
-          testID="email-verification-banner"
-          style={{
-            backgroundColor: BANNER_BG,
-            borderBottomWidth: 1,
-            borderBottomColor: BANNER_BORDER,
-            paddingTop: spacing.sm,
-            paddingBottom: spacing.sm,
-            paddingHorizontal: spacing.md,
-          }}
-        >
-          <Text style={{ fontSize: fontSize.xs, color: BANNER_TEXT }}>
-            Please verify your email to keep your account active.{' '}
-            {resendSent ? (
-              <Text style={{ fontFamily: font.medium }}>Email sent!</Text>
-            ) : (
-              <Text
-                style={{ fontFamily: font.medium, textDecorationLine: 'underline' }}
-                onPress={() => {
-                  if (resendVerification.isPending) return;
-                  resendVerification.mutate(undefined, {
-                    onSuccess: () => setResendSent(true),
-                  });
-                }}
-              >
-                {resendVerification.isPending ? 'Sending…' : 'Resend verification email'}
-              </Text>
-            )}
-          </Text>
-        </View>
+        <VerifyEmailBanner
+          sent={resendSent}
+          sending={resendVerification.isPending}
+          onResend={() => resendVerification.mutate(undefined, { onSuccess: () => setResendSent(true) })}
+        />
       )}
       <Tabs
         screenListeners={{ focus: invalidateCurrentUser }}
@@ -208,7 +184,10 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="albert"
-          options={{ title: 'Albert', tabBarIcon: tabIcon('albert') }}
+          options={{
+            title: 'Albert',
+            tabBarIcon: ({ color, focused }) => <LiveAlbertTabIcon color={typeof color === 'string' ? color : undefined} focused={focused} />,
+          }}
         />
       </Tabs>
     </View>

@@ -19,10 +19,11 @@ import {
   type ProposalMove,
   type ProposalStage,
 } from '@learning/shared';
-import { colors, font, fontSize, spacing } from '@/theme';
-import { Badge } from '@/components/ui/Badge';
+import { colors, font, fontSize, levelCard } from '@/theme';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { EdgeButton } from '@/components/ui/EdgeButton';
+import { Icon } from '@/components/ui/Icon';
+import { RuleButton } from '@/components/albert/RuleButton';
 import { useDecideProposal, useProposal } from '@/hooks/useProposal';
 import { errorCode } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
@@ -47,8 +48,19 @@ function DiffList({ label, items }: { label: string; items: string[] }) {
 function DecisionButtons({ deciding, onDecide }: { deciding: boolean; onDecide: (d: ProposalDecision) => void }) {
   return (
     <View style={styles.buttons}>
-      <Button testID="proposal-accept" label="Accept" disabled={deciding} onPress={() => onDecide('accept')} />
-      <Button testID="proposal-decline" label="Decline" variant="outline" disabled={deciding} onPress={() => onDecide('decline')} />
+      <View style={styles.button}>
+        <RuleButton testID="proposal-decline" label="Decline" disabled={deciding} onPress={() => onDecide('decline')} />
+      </View>
+      <View style={styles.button}>
+        <EdgeButton
+          testID="proposal-accept"
+          look={{ face: colors.brand, label: colors.onBrand, edge: levelCard.intermediate.edge }}
+          label="Accept"
+          faceHeight={46}
+          disabled={deciding}
+          onPress={() => onDecide('accept')}
+        />
+      </View>
     </View>
   );
 }
@@ -60,22 +72,22 @@ interface CardProps {
 
 function ChangeCard({ reason, diff, deciding, onDecide }: CardProps & { reason: string; diff: ProposalDiff }) {
   return (
-    <Card testID="proposal-card" style={styles.card}>
-      <Text style={styles.body}>{reason}</Text>
+    <View testID="proposal-card" style={styles.card}>
+      <Text style={styles.suggestion}>{reason}</Text>
       {proposalDiffLists(diff).map(list => <DiffList key={list.label} label={list.label} items={list.items} />)}
       <DecisionButtons deciding={deciding} onDecide={onDecide} />
-    </Card>
+    </View>
   );
 }
 
 function MoveCard({ move, deciding, onDecide }: CardProps & { move: ProposalMove }) {
   return (
-    <Card testID="move-card" style={styles.card}>
+    <View testID="move-card" style={styles.card}>
       <Text style={styles.listLabel}>{moveHeading(move.kind, move.to.title)}</Text>
-      <Text style={styles.body}>{move.text}</Text>
+      <Text style={styles.suggestion}>{move.text}</Text>
       {move.skips.map(t => <Text key={t.key} testID="move-skip" style={styles.listItem}>{t.title}</Text>)}
       <DecisionButtons deciding={deciding} onDecide={onDecide} />
-    </Card>
+    </View>
   );
 }
 
@@ -110,7 +122,8 @@ export function PathProposalSection({ path }: { path: CustomPath }) {
   return (
     <View testID={`path-proposal-${path.id}`} style={styles.section}>
       <View style={styles.badgeRow}>
-        <Badge label={SUGGESTION_BADGE_TEXT} variant="info" />
+        <Icon name="albert" size={16} color={colors.brand} fill={colors.brand} strokeWidth={1.2} />
+        <Text testID="suggestion-badge" style={styles.eyebrow}>{SUGGESTION_BADGE_TEXT.toUpperCase()}</Text>
       </View>
       {proposalQuery.isError && <Text testID="proposal-load-error" style={styles.error}>{PROPOSAL_LOAD_ERROR}</Text>}
       {notice === 'decide-error' && <Text style={styles.error}>{PROPOSAL_DECIDE_ERROR}</Text>}
@@ -131,11 +144,22 @@ export function PathProposalSection({ path }: { path: CustomPath }) {
 }
 
 const styles = StyleSheet.create({
-  section:   { gap: spacing.sm, marginBottom: spacing.lg },
-  badgeRow:  { flexDirection: 'row', flexWrap: 'wrap' },
-  card:      { gap: spacing.sm },
-  buttons:   { gap: spacing.xs },
-  upgrade:   { gap: spacing.xs },
+  // On the page, split from what is above by a rule, not in a card (Albert, option A).
+  section:   { gap: 12, paddingTop: 18, paddingBottom: 20, paddingHorizontal: 2, borderTopWidth: 1, borderTopColor: colors.border },
+  badgeRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  eyebrow:   { flex: 1, fontFamily: font.extrabold, fontSize: 12, letterSpacing: 0.08 * 12, color: colors.brand },
+  card:      { gap: 12 },
+  buttons:   { flexDirection: 'row', gap: 10 },
+  button:    { flex: 1 },
+  upgrade:   { gap: 8 },
+  // The suggestion is the largest type on the screen.
+  suggestion: {
+    fontFamily:    font.extrabold,
+    fontSize:      22,
+    lineHeight:    22 * 1.22,
+    letterSpacing: -0.025 * 22,
+    color:         colors.textStrong,
+  },
   body: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,

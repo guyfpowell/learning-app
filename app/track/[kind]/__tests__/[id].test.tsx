@@ -1,5 +1,7 @@
 import React from 'react';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { levelCard } from '@/theme';
 import TrackDetailScreen from '../[id]';
 import { useTrackContents, usePaths, useEnroll, useSkills } from '@/hooks/useTrack';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
@@ -170,6 +172,17 @@ describe('TrackDetailScreen', () => {
     expect(screen.getByTestId('track-detail-subheading').props.children).toBe('Beginner');
     expect(screen.getByText('Introduction')).toBeTruthy();
     expect(screen.queryByTestId('track-detail-progress')).toBeNull();
+  });
+
+  it('sets a level\'s name in the level\'s colour, on the track page and on its own page', () => {
+    mockParams = { kind: 'track', id: 'skill-1' };
+    setMocks({ contents: withGroups() });
+    const { unmount } = render(<TrackDetailScreen />);
+    expect(StyleSheet.flatten(screen.getByText('Beginner').props.style).color).toBe(levelCard.beginner.base);
+    unmount();
+    mockParams = { kind: 'track', id: 'skill-1', group: 'beginner' };
+    render(<TrackDetailScreen />);
+    expect(StyleSheet.flatten(screen.getByTestId('track-detail-subheading').props.style).color).toBe(levelCard.beginner.base);
   });
 
   it('shows a topic\'s lessons', () => {

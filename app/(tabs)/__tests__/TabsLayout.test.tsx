@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, act } from '@testing-library/react-native';
+import { render, act, fireEvent } from '@testing-library/react-native';
 import { AppState, StyleSheet, type AppStateStatus, type StyleProp, type ViewStyle } from 'react-native';
 import { CURRENT_USER_QUERY_KEY } from '@/lib/queryKeys';
 import { must } from '@/test-utils/must';
@@ -59,6 +59,8 @@ jest.mock('@/theme', () => ({
   radius: { pill: 999 },
   shadow: { md: {} },
 }));
+
+jest.mock('@/hooks/useAlbertSuggestion', () => ({ useHasAlbertSuggestion: () => false }));
 
 jest.mock('@/hooks/useNotifications', () => ({
   useNotifications: jest.fn(),
@@ -188,28 +190,23 @@ describe('(tabs) layout', () => {
     expect(queryByText(/verify your email/i)).toBeNull();
   });
 
-  describe('Chunk A9 — safe-area insets on the verification banner (revised by Ticket 072j)', () => {
-    it('banner paddingTop is spacing.sm only — top inset is owned by the layout wrapper', () => {
+  describe('the verification banner is a sand pill under the status bar (board 22)', () => {
+    it('shows the pill with Resend when the email is unverified', () => {
       mockUseCurrentUser.mockReturnValue({ data: { id: 'u1', emailVerified: false } });
       const TabsLayout = require('../_layout').default;
-      const { getByTestId } = render(<TabsLayout />);
-      const banner = getByTestId('email-verification-banner');
-      const style = Array.isArray(banner.props.style)
-        ? Object.assign({}, ...banner.props.style.filter(Boolean))
-        : banner.props.style ?? {};
-      // spacing.sm = 8; insets.top is now owned by tab-top-inset, not the banner
-      expect(style.paddingTop).toBe(8);
+      const { getByTestId, getByText } = render(<TabsLayout />);
+      expect(getByTestId('email-verification-banner')).toBeTruthy();
+      expect(getByText('Resend')).toBeTruthy();
     });
 
-    it('does not hard-code a fixed paddingTop on the banner', () => {
+    it('says it was sent, with nothing left to press, after Resend', () => {
       mockUseCurrentUser.mockReturnValue({ data: { id: 'u1', emailVerified: false } });
+      mockMutate.mockImplementation((_v: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.());
       const TabsLayout = require('../_layout').default;
-      const { getByTestId } = render(<TabsLayout />);
-      const banner = getByTestId('email-verification-banner');
-      const style = Array.isArray(banner.props.style)
-        ? Object.assign({}, ...banner.props.style.filter(Boolean))
-        : banner.props.style ?? {};
-      expect(style.paddingTop).not.toBe(10);
+      const { getByText, queryByText } = render(<TabsLayout />);
+      fireEvent.press(getByText('Resend'));
+      expect(getByText('Verification email sent. Check your inbox.')).toBeTruthy();
+      expect(queryByText('Resend')).toBeNull();
     });
   });
 
@@ -225,7 +222,7 @@ describe('(tabs) layout', () => {
       expect(style.paddingTop).toBe(44); // useSafeAreaInsets returns top:44
     });
 
-    it('tints the top-inset View with the banner colour when the banner is visible', () => {
+    it('keeps the app background on the top-inset View when the banner is visible: the pill carries the colour', () => {
       mockUseCurrentUser.mockReturnValue({ data: { id: 'u1', emailVerified: false } });
       const TabsLayout = require('../_layout').default;
       const { getByTestId } = render(<TabsLayout />);
@@ -233,7 +230,7 @@ describe('(tabs) layout', () => {
       const style = Array.isArray(topInset.props.style)
         ? Object.assign({}, ...topInset.props.style.filter(Boolean))
         : topInset.props.style ?? {};
-      expect(style.backgroundColor).toBe('#fffbeb');
+      expect(style.backgroundColor).toBe('#F8FAFC');
     });
 
     it('uses the normal app background on the top-inset View when the banner is hidden', () => {

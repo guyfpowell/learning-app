@@ -38,6 +38,8 @@ let serverLatest: SituationChange | null;
 
 function renderSection({ locked = false, pathFinished = false, client = createTestQueryClient() } = {}) {
   render(<SituationChangeSection planId="plan-1" locked={locked} pathFinished={pathFinished} onUpgrade={onUpgrade} />, { wrapper: queryWrapper(client) });
+  // Mid-path it is a row until tapped; the box is behind it.
+  if (!locked && !pathFinished) fireEvent.press(screen.getByTestId('situation-change-toggle'));
   return client;
 }
 
@@ -64,15 +66,26 @@ describe('SituationChangeSection (079h)', () => {
   });
   afterEach(() => jest.useRealTimers());
 
-  it('shows the invitation and caps the box at the shared statement limit', async () => {
+  it('mid-path shows only the row until it is tapped, then closes again when tapped again', () => {
+    render(<SituationChangeSection planId="plan-1" locked={false} pathFinished={false} onUpgrade={onUpgrade} />, { wrapper: queryWrapper(createTestQueryClient()) });
+    expect(screen.getByText('My situation has changed')).toBeTruthy();
+    expect(screen.queryByTestId('situation-change-text')).toBeNull();
+    fireEvent.press(screen.getByTestId('situation-change-toggle'));
+    expect(screen.getByTestId('situation-change-text')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('situation-change-toggle'));
+    expect(screen.queryByTestId('situation-change-text')).toBeNull();
+  });
+
+  it('is a row that opens the box when tapped, and caps the box at the shared statement limit', async () => {
     renderSection();
-    expect(await screen.findByText(SITUATION_CHANGE_INVITE)).toBeTruthy();
+    expect(await screen.findByText('My situation has changed')).toBeTruthy();
+    expect(screen.getByLabelText(SITUATION_CHANGE_INVITE)).toBeTruthy();
     expect(screen.getByTestId('situation-change-text').props.maxLength).toBe(TRACK_STATEMENT_MAX);
   });
 
   it('shows a free user the entry locked: the invitation and an upgrade, no box and no request', () => {
     renderSection({ locked: true });
-    expect(screen.getByText(SITUATION_CHANGE_INVITE)).toBeTruthy();
+    expect(screen.getByText('My situation has changed')).toBeTruthy();
     expect(screen.queryByTestId('situation-change-text')).toBeNull();
     fireEvent.press(screen.getByTestId('situation-change-upgrade'));
     expect(onUpgrade).toHaveBeenCalledTimes(1);

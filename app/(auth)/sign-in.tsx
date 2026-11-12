@@ -1,22 +1,12 @@
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Logo } from '@/components/ui/Logo';
-import { Wordmark } from '@/components/ui/Wordmark';
+import { AuthFrame } from '@/components/auth/AuthFrame';
 import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { EdgeButton } from '@/components/ui/EdgeButton';
 import { useLogin } from '@/hooks/useAuth';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize, press, radius, spacing } from '@/theme';
 import { extractError } from '@/lib/errors';
 import { isValidEmail, normaliseEmail } from '@learning/shared';
 
@@ -52,149 +42,75 @@ export default function SignInScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Logo size={64} />
-          <Wordmark height={35} />
-          <Text style={styles.tagline}>A little every day</Text>
+    <AuthFrame
+      title="Sign in"
+      intro="Welcome back. Sign in to continue learning."
+      footerLead="Don't have an account?"
+      footerAction="Create one"
+      onFooter={() => router.push('/(auth)/register')}
+    >
+      {login.isError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>
+            {extractError(login.error)}
+          </Text>
+        </View>
+      )}
 
-          <Card style={styles.card}>
-            <Text style={styles.heading}>Sign in</Text>
-            <Text style={styles.sub}>
-              Welcome back. Sign in to continue learning.
-            </Text>
+      <View style={styles.fields}>
+        <Input
+          testID="signin-email"
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+          error={emailError ?? undefined}
+          placeholder="you@example.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+          returnKeyType="next"
+        />
 
-            {login.isError && (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorBannerText}>
-                  {extractError(login.error)}
-                </Text>
-              </View>
-            )}
+        <Input
+          testID="signin-password"
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+          error={passwordError ?? undefined}
+          placeholder="••••••••"
+          secureTextEntry
+          autoComplete="current-password"
+          returnKeyType="done"
+          onSubmitEditing={handleSubmit}
+        />
+      </View>
 
-            <View style={styles.fields}>
-              <Input
-                testID="signin-email"
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                onBlur={() => setTouched((t) => ({ ...t, email: true }))}
-                error={emailError ?? undefined}
-                placeholder="you@example.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                returnKeyType="next"
-              />
-
-              <Input
-                testID="signin-password"
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                onBlur={() => setTouched((t) => ({ ...t, password: true }))}
-                error={passwordError ?? undefined}
-                placeholder="••••••••"
-                secureTextEntry
-                autoComplete="current-password"
-                returnKeyType="done"
-                onSubmitEditing={handleSubmit}
-              />
-            </View>
-
-            <Button
-              testID="signin-submit"
-              variant="coral"
-              label="Sign in"
-              onPress={handleSubmit}
-              loading={login.isPending}
-              style={styles.submitBtn}
-            />
-          </Card>
-
-          <Pressable onPress={() => router.push('/(auth)/register')}>
-            <Text style={styles.link}>
-              {"Don't have an account? "}
-              <Text style={styles.linkBold}>Create one</Text>
-            </Text>
-          </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <EdgeButton
+        testID="signin-submit"
+        look={{ face: colors.brand, label: colors.onBrand, edge: press.primaryEdge }}
+        label="Sign in"
+        onPress={handleSubmit}
+        loading={login.isPending}
+      />
+    </AuthFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.brand,
-  },
-  flex: {
-    flex: 1,
-  },
-  scroll: {
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
-    gap: spacing.md,
-  },
-  tagline: {
-    fontFamily: font.regular,
-    fontSize: fontSize.base,
-    color: colors.white,
-    opacity: 0.85,
-    marginBottom: spacing.sm,
-  },
-  card: {
-    width: '100%',
-    gap: spacing.md,
-  },
-  heading: {
-    fontFamily: font.semibold,
-    fontSize: fontSize.lg,
-    color: colors.brand,
-  },
-  sub: {
-    fontFamily: font.regular,
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    lineHeight: 20,
-  },
   errorBanner: {
     backgroundColor: colors.errorBg,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 8,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   errorBannerText: {
-    fontFamily: font.regular,
+    fontFamily: font.medium,
     fontSize: fontSize.sm,
     color: colors.error,
   },
   fields: {
-    gap: spacing.md,
-  },
-  submitBtn: {
-    marginTop: spacing.xs,
-  },
-  link: {
-    fontFamily: font.regular,
-    fontSize: fontSize.sm,
-    color: colors.white,
-    textAlign: 'center',
-  },
-  linkBold: {
-    fontFamily: font.semibold,
+    gap: 16,
   },
 });

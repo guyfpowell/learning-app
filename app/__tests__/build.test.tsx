@@ -24,7 +24,9 @@ let mockCanGoBack = false;
  * headerLeft). Mock Stack.Screen to render headerLeft inline so the testID is
  * findable by the test renderer.
  */
+const mockParams: { statement?: string } = {};
 jest.mock('expo-router', () => ({
+  useLocalSearchParams: () => mockParams,
   useRouter: () => ({
     push: mockPush,
     replace: mockReplace,
@@ -163,5 +165,13 @@ describe('getting out', () => {
     fireEvent.press(screen.getByTestId('build-back'));
     expect(mockBack).toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('starts the box with what the person typed on Home, and sends nothing until they build', () => {
+    mockParams.statement = 'Designer moving into product';
+    render(<BuildScreen />);
+    expect(screen.getByTestId('build-statement').props.value).toBe('Designer moving into product');
+    expect(mockPush).not.toHaveBeenCalled();
+    delete mockParams.statement;
   });
 });

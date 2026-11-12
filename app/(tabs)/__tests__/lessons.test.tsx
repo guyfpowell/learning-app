@@ -30,6 +30,7 @@ jest.mock('@/hooks/useTrack', () => ({
   useSkip: jest.fn(),
   useTopicFeedback: jest.fn(),
   useRefreshPaths: jest.fn(),
+  useSkills: () => ({ data: undefined }),
 }));
 
 jest.mock('@/hooks/useProgress', () => ({
@@ -198,7 +199,7 @@ describe('LessonsScreen', () => {
     (usePaths as jest.Mock).mockReturnValue({ data: undefined, isError: true });
     const { getByTestId, queryByTestId } = render(<LessonsScreen />);
     expect(getByTestId('paths-load-error')).toHaveTextContent(PATHS_LOAD_ERROR);
-    expect(queryByTestId('no-track-notice')).toBeNull();
+    expect(queryByTestId('new-user-home')).toBeNull();
   });
 
   describe('momentum card (096)', () => {
@@ -363,7 +364,7 @@ describe('LessonsScreen', () => {
       // A user who finished their active path still has history — NoTrackNotice is wrong for them.
       setEnrollmentsMock([mockCompletedEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.queryByTestId('no-track-notice')).toBeNull();
+      expect(screen.queryByTestId('new-user-home')).toBeNull();
       expect(screen.getByText('Product Strategy')).toBeTruthy();
       expect(screen.getByTestId('choose-next-path-btn')).toBeTruthy();
     });
@@ -456,12 +457,28 @@ describe('LessonsScreen', () => {
       expect(mockSkip).not.toHaveBeenCalled();
     });
 
-    it('picking a reason calls skipLesson with the path ref and that reason (079c)', () => {
+    it('picking a reason calls skipLesson with the path ref and that reason (079c)', async () => {
       setEnrollmentsMock([{ ...mockEnrollment, canSkipLesson: true }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('skip-lesson-btn-skill-1'));
       fireEvent.press(screen.getByTestId('skip-reason-not_for_me'));
-      expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'track', id: 'skill-1' }), 'lesson', 'not_for_me');
+      await waitFor(() => expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'track', id: 'skill-1' }), 'lesson', 'not_for_me', expect.any(Function)));
+    });
+
+    it('says what was skipped in a toast once the skip has gone through, then clears it', async () => {
+      jest.useFakeTimers();
+      setEnrollmentsMock([{ ...mockEnrollment, canSkipLesson: true }]);
+      render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('skip-lesson-btn-skill-1'));
+      fireEvent.press(screen.getByTestId('skip-reason-not_now'));
+      act(() => { jest.advanceTimersByTime(300); });
+      expect(screen.queryByTestId('skip-toast')).toBeNull();
+      const onDone = mockSkip.mock.calls[0][3] as () => void;
+      act(() => onDone());
+      expect(screen.getByText(/skipped$/)).toBeTruthy();
+      act(() => { jest.advanceTimersByTime(3000); });
+      expect(screen.queryByTestId('skip-toast')).toBeNull();
+      jest.useRealTimers();
     });
 
     it('cancelling the picker skips nothing (079c)', () => {
@@ -473,12 +490,12 @@ describe('LessonsScreen', () => {
       expect(mockSkip).not.toHaveBeenCalled();
     });
 
-    it('works for a custom path too', () => {
+    it('works for a custom path too', async () => {
       setCustomPlansMock([{ ...mockCustomPlan, canSkipLesson: true }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('skip-lesson-btn-plan-1'));
       fireEvent.press(screen.getByTestId('skip-reason-already_know'));
-      expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'custom', id: 'plan-1' }), 'lesson', 'already_know');
+      await waitFor(() => expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'custom', id: 'plan-1' }), 'lesson', 'already_know', expect.any(Function)));
     });
 
     it('disables Skip Lesson button while a lesson skip is pending', () => {
@@ -531,30 +548,30 @@ describe('LessonsScreen', () => {
       expect(screen.queryByTestId('skip-level-btn-skill-1')).toBeNull();
     });
 
-    it('calls skip with the path, the topic scope and the picked reason', () => {
+    it('calls skip with the path, the topic scope and the picked reason', async () => {
       setEnrollmentsMock([{ ...mockEnrollment, canSkipTopic: true }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('skip-topic-btn-skill-1'));
       expect(mockSkip).not.toHaveBeenCalled();
       fireEvent.press(screen.getByTestId('skip-reason-not_now'));
-      expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'track', id: 'skill-1' }), 'topic', 'not_now');
+      await waitFor(() => expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'track', id: 'skill-1' }), 'topic', 'not_now', expect.any(Function)));
     });
 
-    it('calls skip with the path, the level scope and the picked reason', () => {
+    it('calls skip with the path, the level scope and the picked reason', async () => {
       setEnrollmentsMock([{ ...mockEnrollment, canSkipLevel: true }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('skip-level-btn-skill-1'));
       expect(mockSkip).not.toHaveBeenCalled();
       fireEvent.press(screen.getByTestId('skip-reason-already_know'));
-      expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'track', id: 'skill-1' }), 'level', 'already_know');
+      await waitFor(() => expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'track', id: 'skill-1' }), 'level', 'already_know', expect.any(Function)));
     });
 
-    it('offers Skip Topic on a custom path too — the same affordance a track gets', () => {
+    it('offers Skip Topic on a custom path too — the same affordance a track gets', async () => {
       setCustomPlansMock([{ ...mockCustomPlan, canSkipTopic: true }]);
       render(<LessonsScreen />);
       fireEvent.press(screen.getByTestId('skip-topic-btn-plan-1'));
       fireEvent.press(screen.getByTestId('skip-reason-not_now'));
-      expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'custom', id: 'plan-1' }), 'topic', 'not_now');
+      await waitFor(() => expect(mockSkip).toHaveBeenCalledWith(expect.objectContaining({ kind: 'custom', id: 'plan-1' }), 'topic', 'not_now', expect.any(Function)));
     });
 
     it('disables Skip Topic button while a topic skip is pending', () => {
@@ -580,28 +597,28 @@ describe('LessonsScreen', () => {
   });
 
   describe('no-track state (069 items 1+2)', () => {
-    it('shows the no-track notice when no enrollments', () => {
+    it('shows the new-user page when there are no paths', () => {
       setEnrollmentsMock([]);
       render(<LessonsScreen />);
-      expect(screen.getByTestId('no-track-notice')).toBeTruthy();
+      expect(screen.getByTestId('new-user-home')).toBeTruthy();
     });
 
-    it('hides the notice when enrollments exist', () => {
+    it('hides the new-user page when paths exist', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      expect(screen.queryByTestId('no-track-notice')).toBeNull();
+      expect(screen.queryByTestId('new-user-home')).toBeNull();
     });
 
-    it('hides the notice while enrollments are loading', () => {
+    it('hides the new-user page while paths are loading', () => {
       setEnrollmentsMock(undefined);
       render(<LessonsScreen />);
-      expect(screen.queryByTestId('no-track-notice')).toBeNull();
+      expect(screen.queryByTestId('new-user-home')).toBeNull();
     });
 
-    it('routes to tracks from the notice', () => {
+    it('routes to the tracks list from the new-user page', () => {
       setEnrollmentsMock([]);
       render(<LessonsScreen />);
-      fireEvent.press(screen.getByTestId('no-track-browse-btn'));
+      fireEvent.press(screen.getByTestId('new-user-browse-btn'));
       expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
     });
 
@@ -737,7 +754,7 @@ describe('LessonsScreen', () => {
       setEnrollmentsMock([]);
       setCustomPlansMock([mockCustomPlan]);
       render(<LessonsScreen />);
-      expect(screen.queryByTestId('no-track-notice')).toBeNull();
+      expect(screen.queryByTestId('new-user-home')).toBeNull();
     });
 
     it('shows streak hero when user has a custom plan but no enrollments', () => {
@@ -780,7 +797,7 @@ describe('LessonsScreen', () => {
     it('shows last path + choose-next-path CTA when paths exist but none is active', () => {
       setEnrollmentsMock([{ ...mockEnrollment, isActive: false }]);
       render(<LessonsScreen />);
-      expect(screen.queryByTestId('no-track-notice')).toBeNull();
+      expect(screen.queryByTestId('new-user-home')).toBeNull();
       expect(screen.getByTestId('enrollment-card-skill-1')).toBeTruthy();
       expect(screen.getByTestId('choose-next-path-btn')).toBeTruthy();
     });

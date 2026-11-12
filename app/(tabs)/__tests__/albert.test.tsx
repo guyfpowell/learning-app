@@ -346,9 +346,10 @@ describe('AlbertScreen', () => {
     setUser('premium');
     setPaths([{ ...unfinishedPath, nextLesson: makeNextLesson({ id: 'l9', title: 'Closures' }) }]);
     render(<AlbertScreen />);
-    const row = within(screen.getByTestId('view-my-path'));
+    const row = within(screen.getByTestId('path-info'));
     expect(row.getByText('My AI Path')).toBeTruthy();
-    expect(row.getByText('40% complete')).toBeTruthy();
+    expect(row.getByText('40%')).toBeTruthy();
+    expect(row.getByText(/\d+ of \d+ lessons/)).toBeTruthy();
     expect(row.getByText('Next: Closures')).toBeTruthy();
   });
 
@@ -356,7 +357,7 @@ describe('AlbertScreen', () => {
     setUser('premium');
     setPaths([unfinishedPath]);
     render(<AlbertScreen />);
-    expect(screen.getByText('Create a new path')).toBeTruthy();
+    expect(screen.getByText('New path')).toBeTruthy();
     expect(screen.queryByText('Create a NEW path')).toBeNull();
   });
 
@@ -365,8 +366,9 @@ describe('AlbertScreen', () => {
     expect(screen.queryByText(/More from Albert/i)).toBeNull();
   });
 
-  describe('096: the four steps show where the person is', () => {
+  describe('096: the steps show where the person is', () => {
     const states = (n: number) => [1, 2, 3, 4].map(i => (['done', 'current', 'todo'] as const).find(st => screen.queryByTestId(`albert-step-${i}-${st}`)) ?? 'missing').slice(0, n);
+    const bar = () => [1, 2, 3].map(i => (['done', 'active', 'attention'] as const).find(st => screen.queryByTestId(`albert-bar-${i}-${st}`)) ?? 'missing');
 
     it('step 1 is current with no path, and the intro stays whole', () => {
       setUser('premium');
@@ -376,27 +378,29 @@ describe('AlbertScreen', () => {
       expect(screen.getByText(/Your personalised AI assistant/)).toBeTruthy();
     });
 
-    it('steps 1 and 2 are done and step 3 current with a path in progress; the intro shrinks to the label and name', () => {
+    it('with a path in progress, the path is done and learning and tending are both active; the intro shrinks to the mark and the name', () => {
       setUser('premium');
       setPaths([unfinishedPath]);
       render(<AlbertScreen />);
-      expect(states(4)).toEqual(['done', 'done', 'current', 'todo']);
-      expect(screen.getByText('Meet Albert')).toBeTruthy();
-      expect(screen.getByText('AI ASSISTANT')).toBeTruthy();
+      expect(bar()).toEqual(['done', 'active', 'active']);
+      expect(screen.queryByTestId('albert-steps')).toBeNull();
+      expect(screen.getByText('Albert')).toBeTruthy();
+      expect(screen.queryByText('Meet Albert')).toBeNull();
+      expect(screen.queryByText('AI ASSISTANT')).toBeNull();
       expect(screen.queryByText(/Your personalised AI assistant/)).toBeNull();
     });
 
-    it('step 4 is current while Albert has a suggestion waiting', () => {
+    it('tending turns to attention while Albert has a suggestion waiting', () => {
       setUser('premium');
       setPaths([{ ...unfinishedPath, hasProposal: true }]);
       render(<AlbertScreen />);
-      expect(states(4)).toEqual(['done', 'done', 'done', 'current']);
+      expect(bar()).toEqual(['done', 'active', 'attention']);
     });
 
-    it('all four are done when the path is finished', () => {
+    it('all three are done when the path is finished', () => {
       setPaths([finishedPath]);
       render(<AlbertScreen />);
-      expect(states(4)).toEqual(['done', 'done', 'done', 'done']);
+      expect(bar()).toEqual(['done', 'done', 'done']);
     });
   });
 

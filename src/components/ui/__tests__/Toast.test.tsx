@@ -33,4 +33,11 @@ describe('Toast', () => {
     const { toJSON } = render(<Toast message="No close" visible />);
     expect(toJSON()).toBeTruthy();
   });
+
+  it('plain shows just the words: no icon and no dismiss', () => {
+    const { UNSAFE_queryAllByType } = render(<Toast plain visible message="Lesson 2 skipped" />);
+    expect(screen.getByText('Lesson 2 skipped')).toBeTruthy();
+    expect(UNSAFE_queryAllByType(require('react-native-svg').default)).toHaveLength(0);
+    expect(screen.queryByTestId('toast-dismiss')).toBeNull();
+  });
 });

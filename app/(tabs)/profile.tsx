@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
+import { queryClient } from '@/providers/QueryProvider';
+import { PREVIEW_LESSON_ID, seedPreviewLesson } from '@/lib/previewLesson';
+import { nextNewUserHome, useNewUserHomeStore } from '@/store/newUserHome.store';
 import { Icon } from '@/components/ui/Icon';
 import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
 import { settingsRow, CHEVRON_SIZE } from '@/components/profile/settingsRow';
@@ -70,6 +73,8 @@ function PushPermissionStatus({
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const newUserHome = useNewUserHomeStore(s => s.variant);
+  const setNewUserHome = useNewUserHomeStore(s => s.setVariant);
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
 
@@ -238,6 +243,69 @@ export default function ProfileScreen() {
             accessibilityRole="button"
           >
             <Text style={settingsRow.label}>Preview topic feedback (dev)</Text>
+            <Icon name="forward" size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
+          </Pressable>
+        )}
+
+        {__DEV__ && (
+          <Pressable
+            testID="albert-suggestion-preview-btn"
+            onPress={() => router.push('/albert-suggestion-preview' as Href)}
+            style={settingsRow.row}
+            accessibilityRole="button"
+          >
+            <Text style={settingsRow.label}>Preview Albert suggestion (dev)</Text>
+            <Icon name="forward" size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
+          </Pressable>
+        )}
+
+        {__DEV__ && (
+          <Pressable
+            testID="completed-lesson-preview-btn"
+            onPress={() => {
+              seedPreviewLesson(queryClient);
+              router.push(`/lesson/${PREVIEW_LESSON_ID}`);
+            }}
+            style={settingsRow.row}
+            accessibilityRole="button"
+          >
+            <Text style={settingsRow.label}>Preview completed lesson (dev)</Text>
+            <Icon name="forward" size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
+          </Pressable>
+        )}
+
+        {__DEV__ && (
+          <Pressable
+            testID="quiz-already-completed-preview-btn"
+            onPress={() => router.push('/quiz-already-completed-preview' as Href)}
+            style={settingsRow.row}
+            accessibilityRole="button"
+          >
+            <Text style={settingsRow.label}>Preview quiz already completed (dev)</Text>
+            <Icon name="forward" size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
+          </Pressable>
+        )}
+
+        {__DEV__ && (
+          <Pressable
+            testID="old-style-preview-btn"
+            onPress={() => router.push('/old-style-preview' as Href)}
+            style={settingsRow.row}
+            accessibilityRole="button"
+          >
+            <Text style={settingsRow.label}>Preview old-style buttons (dev)</Text>
+            <Icon name="forward" size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
+          </Pressable>
+        )}
+
+        {__DEV__ && (
+          <Pressable
+            testID="new-user-home-switch-btn"
+            onPress={() => setNewUserHome(nextNewUserHome(newUserHome))}
+            style={settingsRow.row}
+            accessibilityRole="button"
+          >
+            <Text style={settingsRow.label}>New-user Home layout (dev): {newUserHome}</Text>
             <Icon name="forward" size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
           </Pressable>
         )}

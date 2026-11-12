@@ -94,6 +94,7 @@ export function PathCard({
 
       {choosing && (
         <SkipReasonPicker
+          title={SKIP_BUTTONS.find(b => b.scope === choosing)?.label}
           onPick={reason => {
             setChoosing(null);
             onSkip(path, choosing, reason);

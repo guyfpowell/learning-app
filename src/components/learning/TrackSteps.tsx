@@ -64,7 +64,7 @@ export function LevelHeader({ group, index, count, curated }: { group: TrackCont
   return (
     <View style={styles.header}>
       <Eyebrow color={color} text={`${curated ? 'Level' : 'Part'} ${index + 1} of ${count}`} />
-      <Text testID="track-detail-subheading" style={[styles.title, group.label.length > LONG_LABEL && styles.titleLong]}>{capitalize(group.label)}</Text>
+      <Text testID="track-detail-subheading" style={[styles.title, group.label.length > LONG_LABEL && styles.titleLong, { color }]}>{capitalize(group.label)}</Text>
       <View style={styles.counts}>
         <View style={styles.bar}>
           <View style={[styles.barFill, { width: `${Math.min(100, pct)}%`, backgroundColor: color }, pct > 0 && styles.barMin]} />

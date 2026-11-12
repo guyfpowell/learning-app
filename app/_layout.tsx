@@ -177,6 +177,9 @@ function RootLayout() {
           <Stack.Screen name="track/[kind]/[id]" />
           <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
           <Stack.Screen name="topic-feedback-preview" />
+          <Stack.Screen name="albert-suggestion-preview" />
+          <Stack.Screen name="quiz-already-completed-preview" />
+          <Stack.Screen name="old-style-preview" />
         </Stack>
       </QueryProvider>
     </GestureHandlerRootView>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -17,9 +17,11 @@ import {
   type SituationChangeOutcome,
   type SituationNotice,
 } from '@learning/shared';
-import { colors, font, fontSize, radius, spacing } from '@/theme';
+import { colors, font, fontSize, press, radius, spacing } from '@/theme';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { EdgeButton } from '@/components/ui/EdgeButton';
+import { Icon } from '@/components/ui/Icon';
 import { useCreateSituationChange, useLatestSituationChange } from '@/hooks/useSituationChange';
 import { errorCode } from '@/lib/errors';
 import { PATHS_QUERY_KEY, proposalQueryKey } from '@/lib/queryKeys';
@@ -60,6 +62,8 @@ export function SituationChangeSection({ planId, locked, pathFinished, onUpgrade
   const [text, setText] = useState('');
   // True once this screen has seen a look under way, so a finished one from before it opened is not replayed.
   const [watched, setWatched] = useState(false);
+  // Mid-path the entry is a plain row; tapping it opens the box (the board draws no box).
+  const [open, setOpen] = useState(false);
 
   const outcome = latest.data?.outcome ?? null;
   // A failed read stops the polling but keeps the last data, so a stale `running` is not still looking.
@@ -81,9 +85,8 @@ export function SituationChangeSection({ planId, locked, pathFinished, onUpgrade
 
   if (locked) {
     return (
-      <Box testID="situation-change-locked" finished={pathFinished}>
-        <Text style={styles.body}>{invite}</Text>
-        <UpgradeButton onPress={onUpgrade} />
+      <Box testID="situation-change-locked" finished={pathFinished} invite={invite} locked onPressHead={onUpgrade} headTestID="situation-change-upgrade">
+        {pathFinished && <UpgradeButton onPress={onUpgrade} />}
       </Box>
     );
   }
@@ -95,8 +98,7 @@ export function SituationChangeSection({ planId, locked, pathFinished, onUpgrade
   const notice = looking ? null : noticeFor({ sendError: create.error, loadFailed: latest.isError, watched, outcome, pathFinished });
 
   return (
-    <Box testID={`situation-change-${planId}`} finished={pathFinished}>
-      <Text style={styles.body}>{invite}</Text>
+    <Box testID={`situation-change-${planId}`} finished={pathFinished} invite={invite} onPressHead={() => setOpen(o => !o)} headTestID="situation-change-toggle" expanded={open || looking || !!notice}>
       {looking ? (
         <Text testID="situation-change-looking" accessibilityLiveRegion="polite" style={styles.body}>
           {SITUATION_LOOKING_COPY}
@@ -115,7 +117,15 @@ export function SituationChangeSection({ planId, locked, pathFinished, onUpgrade
             multiline
             textAlignVertical="top"
           />
-          <Button testID="situation-change-submit" label={SITUATION_SEND_LABEL} disabled={text.trim().length === 0} onPress={send} />
+          <EdgeButton
+            testID="situation-change-submit"
+            look={{ face: colors.brand, label: colors.onBrand, edge: press.primaryEdge }}
+            disabledLook={{ face: colors.border, label: colors.textSubtle }}
+            label={SITUATION_SEND_LABEL}
+            faceHeight={46}
+            disabled={text.trim().length === 0}
+            onPress={send}
+          />
         </>
       )}
       {notice && (
@@ -128,15 +138,53 @@ export function SituationChangeSection({ planId, locked, pathFinished, onUpgrade
   );
 }
 
-/** Mid-path (the Albert tab) it sits on the page under a hairline (096); at path end on Home it is still a card. */
-function Box({ testID, finished, children }: { testID: string; finished: boolean; children: React.ReactNode }) {
-  if (finished) return <Card testID={testID} style={styles.card}>{children}</Card>;
-  return <View testID={testID} style={styles.plain}>{children}</View>;
+/**
+ * Mid-path (the Albert tab) it sits on the page between two rules, with a tile and the invitation as its
+ * heading, and a crown when locked (096); at path end on Home it is still a card.
+ */
+function Box({ testID, finished, invite, locked = false, onPressHead, headTestID, expanded = true, children }: {
+  testID: string;
+  finished: boolean;
+  invite: string;
+  locked?: boolean;
+  onPressHead?: () => void;
+  headTestID?: string;
+  expanded?: boolean;
+  children: React.ReactNode;
+}) {
+  if (finished) {
+    return (
+      <Card testID={testID} style={styles.card}>
+        <Text style={styles.body}>{invite}</Text>
+        {children}
+      </Card>
+    );
+  }
+  return (
+    <View testID={testID} style={styles.plain}>
+      <Pressable testID={headTestID} onPress={onPressHead} accessibilityRole="button" accessibilityLabel="My situation has changed" accessibilityState={{ expanded: locked ? undefined : expanded }} style={styles.head}>
+        <View style={styles.tile}>
+          <Icon name="retake" size={20} color={colors.textStrong} />
+        </View>
+        <View style={styles.headText}>
+          <Text style={styles.invite}>My situation has changed</Text>
+          <Text style={styles.inviteSub}>New role or new goal? Albert adjusts.</Text>
+        </View>
+        {locked && <Icon name="premium" size={20} color={colors.xpEdge} />}
+      </Pressable>
+      {expanded && children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   card: { gap: spacing.sm, marginBottom: spacing.lg },
-  plain: { gap: spacing.sm, marginTop: spacing.lg, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.borderSubtle },
+  plain: { gap: spacing.sm, marginTop: spacing.md, paddingVertical: 16, paddingHorizontal: 2, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border },
+  head:  { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  tile:  { width: 40, height: 40, borderRadius: 13, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center' },
+  headText: { flex: 1, gap: 1 },
+  invite: { fontFamily: font.extrabold, fontSize: 15, color: colors.textStrong },
+  inviteSub: { fontFamily: font.regular, fontSize: 13, color: colors.textMuted },
   body: {
     fontFamily: font.regular,
     fontSize:   fontSize.sm,
@@ -149,13 +197,14 @@ const styles = StyleSheet.create({
     color:      colors.error,
   },
   input: {
-    minHeight:    96,
-    fontFamily:   font.regular,
-    fontSize:     fontSize.md,
-    color:        colors.textStrong,
-    padding:      spacing.sm,
-    borderWidth:  1,
-    borderColor:  colors.border,
-    borderRadius: radius.input,
+    minHeight:       96,
+    fontFamily:      font.regular,
+    fontSize:        fontSize.md,
+    color:           colors.textStrong,
+    padding:         spacing.sm3,
+    backgroundColor: colors.surface,
+    borderWidth:     1.5,
+    borderColor:     colors.border,
+    borderRadius:    radius.md,
   },
 });

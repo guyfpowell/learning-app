@@ -24,7 +24,7 @@ export interface EdgeLook {
  * The caller picks the colours, so it sits on any surface: white on cobalt, ink on sand.
  * `disabled` draws it flat, in the `disabledLook`; `loading` swaps the label for a spinner.
  */
-export function EdgeButton({ look, disabledLook, label, icon, onPress, disabled = false, loading = false, compact = false, testID, accessibilityLabel }: {
+export function EdgeButton({ look, disabledLook, label, icon, onPress, disabled = false, loading = false, compact = false, faceHeight, testID, accessibilityLabel }: {
   look: EdgeLook;
   /** What it looks like when disabled: flat, with no edge. */
   disabledLook?: Pick<EdgeLook, 'face' | 'label'>;
@@ -35,6 +35,8 @@ export function EdgeButton({ look, disabledLook, label, icon, onPress, disabled 
   loading?: boolean;
   /** A shorter face and smaller label, for a button that sits beside text in a row. */
   compact?: boolean;
+  /** A face height other than the standard 56 (the Albert page's 46pt buttons). */
+  faceHeight?: number;
   testID?: string;
   accessibilityLabel?: string;
 }) {
@@ -56,7 +58,7 @@ export function EdgeButton({ look, disabledLook, label, icon, onPress, disabled 
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
         accessibilityState={{ disabled: disabled || loading }}
-        style={[styles.face, compact && styles.compactFace, compact && { borderColor: look.edge }, { backgroundColor: face }, pressed && !disabled && { transform: [{ translateY: lift }] }]}
+        style={[styles.face, compact && styles.compactFace, compact && { borderColor: look.edge }, faceHeight !== undefined && { height: faceHeight }, { backgroundColor: face }, pressed && !disabled && { transform: [{ translateY: lift }] }]}
       >
         {loading ? (
           <ActivityIndicator color={labelColor} />

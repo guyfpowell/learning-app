@@ -3,8 +3,8 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, font, press, shadow, spacing } from '@/theme';
-import { Icon } from '@/components/ui/Icon';
+import { colors, font, spacing } from '@/theme';
+import { AlbertTile } from '@/components/albert/AlbertTile';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { usePaths } from '@/hooks/useTrack';
@@ -15,7 +15,7 @@ import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { PathProposalSection } from '@/components/albert/PathProposalSection';
 import { SituationChangeSection } from '@/components/albert/SituationChangeSection';
 import { BuildPathCard, type BuildCardState } from '@/components/albert/BuildPathCard';
-import { AlbertSteps, albertStepStatuses } from '@/components/albert/AlbertSteps';
+import { AlbertProgress, AlbertSteps, albertBarStatuses, albertStepStatuses } from '@/components/albert/AlbertSteps';
 import { ALBERT_PATH_ACTIONS_UNLOADED, ERROR_CODES, albertPathActions, isAlbertLocked, type AlbertPathActions, type SessionUser, type UserPath } from '@learning/shared';
 import { BUILD_ROUTE, trackRoute } from '@/lib/routes';
 
@@ -109,30 +109,32 @@ export default function AlbertScreen() {
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]} showsVerticalScrollIndicator={false}>
-        {/* ── Intro — typographic, no mascot ─────────────────────────────── */}
-        <View testID="albert-intro" style={styles.intro}>
-          <View style={styles.markEdge}>
-            <View style={styles.mark}>
-              <Icon name="albert" size={24} color={colors.white} fill={colors.white} />
+        {/* ── Intro: with a path, only the mark and the name (096); without, the full welcome ─────────── */}
+        {hasPath ? (
+          <View testID="albert-intro" style={styles.introRow}>
+            <AlbertTile />
+            <Text style={styles.nameHeading}>Albert</Text>
+          </View>
+        ) : (
+          <View testID="albert-intro" style={styles.intro}>
+            <AlbertTile />
+            <View style={styles.title}>
+              <Text style={styles.eyebrow}>AI ASSISTANT</Text>
+              <Text style={styles.heading}>
+                Meet <Text style={styles.headingAccent}>Albert</Text>
+              </Text>
             </View>
-          </View>
-          <View style={styles.title}>
-            <Text style={styles.eyebrow}>AI ASSISTANT</Text>
-            <Text style={styles.heading}>
-              Meet <Text style={styles.headingAccent}>Albert</Text>
-            </Text>
-          </View>
-          {/* Someone with a path has met Albert: the name only, without the lead, so the path is on the first screen (096). */}
-          {!hasPath && (
             <Text style={styles.lead}>
               Your personalised AI assistant. Albert builds a learning path around what you
               actually need, instead of a fixed track.
             </Text>
-          )}
-        </View>
+          </View>
+        )}
 
         {/* ── The four steps, showing where the person is (096) ─────────── */}
-        <AlbertSteps statuses={albertStepStatuses(cardState, proposalPaths.length > 0)} />
+        {hasPath
+          ? <AlbertProgress statuses={albertBarStatuses(cardState, proposalPaths.length > 0)} />
+          : <AlbertSteps statuses={albertStepStatuses(cardState, proposalPaths.length > 0)} />}
 
         {/* ── Albert's suggestions: one per custom path that has one, finished or not ── */}
         {proposalPaths.map(p => <PathProposalSection key={p.id} path={p} />)}
@@ -165,8 +167,6 @@ export default function AlbertScreen() {
   );
 }
 
-const MARK_SIZE = 44;
-const MARK_RADIUS = 14;
 const HEADING_SIZE = 34;
 
 const styles = StyleSheet.create({
@@ -174,22 +174,9 @@ const styles = StyleSheet.create({
   content:   { padding: spacing.lg, paddingTop: spacing.xs, paddingBottom: spacing.xl2 },
 
   intro: { gap: 12, marginBottom: 14 },
-  // Albert's mark: the sparkle on a cobalt tile with the pressed edge and a soft glow.
-  markEdge: {
-    alignSelf:       'flex-start',
-    paddingBottom:   press.edge,
-    borderRadius:    MARK_RADIUS,
-    backgroundColor: press.onCobaltEdge,
-    ...shadow.brand,
-  },
-  mark: {
-    width:           MARK_SIZE,
-    height:          MARK_SIZE,
-    borderRadius:    MARK_RADIUS,
-    backgroundColor: colors.brand,
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
+  // With a path: the mark beside the name, one line.
+  introRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 2, marginBottom: 14 },
+  nameHeading: { fontFamily: font.black, fontSize: 30, letterSpacing: -0.035 * 30, color: colors.textStrong },
   title:   { gap: 6 },
   eyebrow: {
     fontFamily:    font.extrabold,

@@ -1,23 +1,13 @@
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Logo } from '@/components/ui/Logo';
-import { Wordmark } from '@/components/ui/Wordmark';
+import { AuthFrame } from '@/components/auth/AuthFrame';
 import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { EdgeButton } from '@/components/ui/EdgeButton';
 import { useRegister } from '@/hooks/useAuth';
 import { authService } from '@/services/auth.service';
-import { colors, font, fontSize, spacing } from '@/theme';
+import { colors, font, fontSize, press, radius, spacing } from '@/theme';
 import { extractError, errorCode } from '@/lib/errors';
 import * as Sentry from '@sentry/react-native';
 import {
@@ -148,220 +138,150 @@ export default function RegisterScreen() {
   const inviteError = serverErrorCode ? INVITE_ERROR_COPY.get(serverErrorCode) : undefined;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Logo size={64} />
-          <Wordmark height={35} />
-          <Text style={styles.tagline}>A little every day</Text>
+    <AuthFrame
+      title="Create account"
+      intro="Join Ascent and start building your skills."
+      footerLead="Already have an account?"
+      footerAction="Sign in"
+      onFooter={() => router.back()}
+      scrollToEnd={passwordFocused}
+    >
+      {register.isError && !inviteError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>
+            {extractError(register.error)}
+          </Text>
+        </View>
+      )}
 
-          <Card style={styles.card}>
-            <Text style={styles.heading}>Create account</Text>
-            <Text style={styles.sub}>
-              Join Ascent and start building your skills.
-            </Text>
+      {register.isSuccess && (
+        <View style={styles.successBanner}>
+          <Text style={styles.successBannerText}>
+            Account created! Redirecting…
+          </Text>
+        </View>
+      )}
 
-            {register.isError && !inviteError && (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorBannerText}>
-                  {extractError(register.error)}
-                </Text>
-              </View>
-            )}
+      <View style={styles.fields}>
+        {/* Ticket 073a: invite code above email when visible */}
+        {showInviteField && (
+          <Input
+            testID="register-invite-code"
+            label="Invite code"
+            value={inviteCode}
+            onChangeText={handleInviteCodeChange}
+            error={inviteError}
+            placeholder="XXXX-XXXX"
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={INVITE_CODE_DISPLAY_LENGTH}
+            returnKeyType="next"
+          />
+        )}
 
-            {register.isSuccess && (
-              <View style={styles.successBanner}>
-                <Text style={styles.successBannerText}>
-                  Account created! Redirecting…
-                </Text>
-              </View>
-            )}
+        <Input
+          testID="register-name"
+          label="Name"
+          value={name}
+          onChangeText={setName}
+          onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+          error={nameError ?? undefined}
+          placeholder="Your full name"
+          autoComplete="name"
+          returnKeyType="next"
+        />
 
-            <View style={styles.fields}>
-              {/* Ticket 073a: invite code above email when visible */}
-              {showInviteField && (
-                <Input
-                  testID="register-invite-code"
-                  label="Invite code"
-                  value={inviteCode}
-                  onChangeText={handleInviteCodeChange}
-                  error={inviteError}
-                  placeholder="XXXX-XXXX"
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  maxLength={INVITE_CODE_DISPLAY_LENGTH}
-                  returnKeyType="next"
-                />
-              )}
+        <Input
+          testID="register-email"
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+          error={emailError ?? undefined}
+          placeholder="you@example.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+          returnKeyType="next"
+        />
 
-              <Input
-                testID="register-name"
-                label="Name"
-                value={name}
-                onChangeText={setName}
-                onBlur={() => setTouched((t) => ({ ...t, name: true }))}
-                error={nameError ?? undefined}
-                placeholder="Your full name"
-                autoComplete="name"
-                returnKeyType="next"
-              />
+        <View style={styles.passwordBlock}>
+          {passwordFocused && <PasswordHint password={password} />}
+          <Input
+            testID="register-password"
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            onFocus={() => setPasswordFocused(true)}
+            onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+            error={passwordError ?? undefined}
+            placeholder={`Min ${PASSWORD_MIN_LENGTH} characters`}
+            secureTextEntry
+            autoComplete="new-password"
+            returnKeyType="next"
+          />
+        </View>
 
-              <Input
-                testID="register-email"
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                onBlur={() => setTouched((t) => ({ ...t, email: true }))}
-                error={emailError ?? undefined}
-                placeholder="you@example.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                returnKeyType="next"
-              />
+        <Input
+          testID="register-confirm"
+          label="Confirm password"
+          value={confirm}
+          onChangeText={setConfirm}
+          onBlur={() => setTouched((t) => ({ ...t, confirm: true }))}
+          error={confirmError ?? undefined}
+          placeholder="Repeat your password"
+          secureTextEntry
+          autoComplete="new-password"
+          returnKeyType="done"
+          onSubmitEditing={handleSubmit}
+        />
+      </View>
 
-              <View>
-                <Input
-                  testID="register-password"
-                  label="Password"
-                  value={password}
-                  onChangeText={setPassword}
-                  onFocus={() => setPasswordFocused(true)}
-                  onBlur={() => setTouched((t) => ({ ...t, password: true }))}
-                  error={passwordError ?? undefined}
-                  placeholder={`Min ${PASSWORD_MIN_LENGTH} characters`}
-                  secureTextEntry
-                  autoComplete="new-password"
-                  returnKeyType="next"
-                />
-                {passwordFocused && <PasswordHint password={password} />}
-              </View>
-
-              <Input
-                testID="register-confirm"
-                label="Confirm password"
-                value={confirm}
-                onChangeText={setConfirm}
-                onBlur={() => setTouched((t) => ({ ...t, confirm: true }))}
-                error={confirmError ?? undefined}
-                placeholder="Repeat your password"
-                secureTextEntry
-                autoComplete="new-password"
-                returnKeyType="done"
-                onSubmitEditing={handleSubmit}
-              />
-            </View>
-
-            <Button
-              testID="register-submit"
-              variant="coral"
-              label="Create account"
-              onPress={handleSubmit}
-              loading={register.isPending}
-              style={styles.submitBtn}
-            />
-          </Card>
-
-          <Pressable onPress={() => router.back()}>
-            <Text style={styles.link}>
-              {'Already have an account? '}
-              <Text style={styles.linkBold}>Sign in</Text>
-            </Text>
-          </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <EdgeButton
+        testID="register-submit"
+        look={{ face: colors.brand, label: colors.onBrand, edge: press.primaryEdge }}
+        label="Create account"
+        onPress={handleSubmit}
+        loading={register.isPending}
+      />
+    </AuthFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.brand,
-  },
-  flex: {
-    flex: 1,
-  },
-  scroll: {
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
-    gap: spacing.md,
-  },
-  tagline: {
-    fontFamily: font.regular,
-    fontSize: fontSize.base,
-    color: colors.white,
-    opacity: 0.85,
-    marginBottom: spacing.sm,
-  },
-  card: {
-    width: '100%',
-    gap: spacing.md,
-  },
-  heading: {
-    fontFamily: font.semibold,
-    fontSize: fontSize.lg,
-    color: colors.brand,
-  },
-  sub: {
-    fontFamily: font.regular,
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    lineHeight: 20,
-  },
   errorBanner: {
     backgroundColor: colors.errorBg,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 8,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   errorBannerText: {
-    fontFamily: font.regular,
+    fontFamily: font.medium,
     fontSize: fontSize.sm,
     color: colors.error,
   },
   successBanner: {
     backgroundColor: colors.successBg,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   successBannerText: {
-    fontFamily: font.regular,
+    fontFamily: font.medium,
     fontSize: fontSize.sm,
     color: colors.success,
   },
   fields: {
-    gap: spacing.md,
+    gap: 16,
   },
-  submitBtn: {
-    marginTop: spacing.xs,
-  },
-  link: {
-    fontFamily: font.regular,
-    fontSize: fontSize.sm,
-    color: colors.white,
-    textAlign: 'center',
-  },
-  linkBold: {
-    fontFamily: font.semibold,
+  // The requirements sit above the box, so they never push Confirm password and the button off the screen.
+  passwordBlock: {
+    gap: 10,
   },
 });
 
 const hintStyles = StyleSheet.create({
   container: {
-    marginTop: spacing.xs,
     gap: 4,
   },
   row: {

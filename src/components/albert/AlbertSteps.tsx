@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Icon } from '@/components/ui/Icon';
 import { ALBERT_STEPS } from '@learning/shared';
-import { colors, font, fontSize, press, spacing } from '@/theme';
+import { colors, font, fontSize, press, radius, spacing } from '@/theme';
 import type { BuildCardState } from '@/components/albert/BuildPathCard';
 
 export type AlbertStepStatus = 'done' | 'current' | 'todo';
@@ -52,11 +52,53 @@ export function AlbertSteps({ statuses }: { statuses: AlbertStepStatus[] }) {
   );
 }
 
+/** How a segment of the bar is lit: finished, running now, or with something for the person to look at. */
+export type AlbertBarStatus = 'done' | 'active' | 'attention';
+
+/**
+ * The bar a person with a path sees: their path (always made), learning it, and Albert tending it.
+ * Learning and tending run together, so both are active; tending turns to attention while a
+ * suggestion waits for review; a finished path is done throughout.
+ */
+export function albertBarStatuses(state: BuildCardState, hasProposal: boolean): AlbertBarStatus[] {
+  if (state === 'complete') return ['done', 'done', 'done'];
+  return ['done', 'active', hasProposal ? 'attention' : 'active'];
+}
+
+const BAR_LABELS = ['Your path', 'Learning', 'Tending'] as const;
+
+/** Three segments in a row: done in green, active in cobalt, attention in gold. */
+export function AlbertProgress({ statuses }: { statuses: AlbertBarStatus[] }) {
+  return (
+    <View testID="albert-bar" style={styles.bar}>
+      {BAR_LABELS.map((label, i) => {
+        const status = statuses[i];
+        return (
+          <View key={label} style={styles.segment}>
+            <View
+              testID={`albert-bar-${i + 1}-${status}`}
+              style={[styles.segmentBar, status === 'done' && styles.segmentDone, status === 'active' && styles.segmentCurrent, status === 'attention' && styles.segmentAttention]}
+            />
+            <Text style={styles.segmentLabel}>{label}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 const DOT = 30;
 const DOT_RADIUS = 10;
 const DOT_EDGE = 3;
 
 const styles = StyleSheet.create({
+  bar:     { flexDirection: 'row', gap: 6, paddingHorizontal: 2, paddingTop: 2, paddingBottom: 6 },
+  segment: { flex: 1, gap: 7 },
+  segmentBar:     { height: 6, borderRadius: radius.pill, backgroundColor: colors.borderSubtle },
+  segmentDone:    { backgroundColor: colors.success },
+  segmentCurrent: { backgroundColor: colors.brand },
+  segmentLabel:     { fontFamily: font.extrabold, fontSize: 11, color: colors.textStrong },
+  segmentAttention: { backgroundColor: colors.warning },
   steps:    {},
   stepRow:  { flexDirection: 'row', gap: 14 },
   stepRail: { alignItems: 'center', width: DOT },

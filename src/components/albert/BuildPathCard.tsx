@@ -1,13 +1,14 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, PATHS_LOAD_ERROR, type AlbertPathActions, type UserPath } from '@learning/shared';
-import { colors, font, fontSize, levelCard, spacing } from '@/theme';
+import { colors, font, fontSize, levelCard, radius, spacing } from '@/theme';
 import { EdgeButton } from '@/components/ui/EdgeButton';
 import { LevelHero } from '@/components/home/LevelHero';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
 import { flooredPct } from '@/components/ui/PathCard';
+import { RuleButton } from '@/components/albert/RuleButton';
 
 /**
  * Which build card the Albert tab shows. It keys off the *unfinished* custom path, not the path
@@ -54,18 +55,25 @@ interface BuildButtonSpec {
   variant: 'primary' | 'outline';
 }
 
-/** The person's path as one tappable row: its name, how far along, and what is next (096). */
-function PathRow({ path, onOpen }: { path: UserPath; onOpen: () => void }) {
+/** The person's path: its name, how far along, and what is next (096). Opened by the button under it. */
+function PathInfo({ path }: { path: UserPath }) {
+  const pct = flooredPct(path);
   return (
-    <Pressable testID="view-my-path" onPress={onOpen} style={styles.pathRow} accessibilityRole="button" accessibilityLabel={`Open ${path.name}`}>
-      <View style={styles.pathRowTop}>
-        <Text style={styles.pathName} numberOfLines={1}>{path.name}</Text>
-        <Text style={styles.pathPct}>{flooredPct(path)}% complete</Text>
+    <View testID="path-info" style={styles.pathInfo}>
+      <Text style={styles.pathName} numberOfLines={2}>{path.name}</Text>
+      <View style={styles.pathBarBlock}>
+        <View style={styles.pathTrack}>
+          <View style={[styles.pathFill, { width: `${pct}%` }]} />
+        </View>
+        <View style={styles.pathCounts}>
+          <Text style={styles.pathLessons}>{path.completedLessons} of {path.totalLessons} lessons</Text>
+          <Text style={styles.pathPct}>{pct}%</Text>
+        </View>
       </View>
       {path.nextLesson && (
         <Text style={styles.pathNext} numberOfLines={1}>Next: {path.nextLesson.title}</Text>
       )}
-    </Pressable>
+    </View>
   );
 }
 
@@ -108,7 +116,7 @@ function UnfinishedBody(props: BuildPathCardProps) {
   return (
     <>
       <Text style={styles.heading}>Your path</Text>
-      {props.path && <PathRow path={props.path} onOpen={onViewMyPath} />}
+      {props.path && <PathInfo path={props.path} />}
       {actions.trialOver && <TrialOver />}
       {showsAllowanceUsed(props) && <AllowanceUsed />}
       {archiveError && (
@@ -116,15 +124,18 @@ function UnfinishedBody(props: BuildPathCardProps) {
           {archiveError}
         </Text>
       )}
-      {/* Starting again removes this path, so it is a quiet link, not a button (096). */}
-      {actions.canRemove && (
-        <View style={styles.newPath}>
-          <Text style={styles.buildBody}>{FRESH_PATH_TRIAL_NOTE}</Text>
-          <Pressable testID="create-new-path" onPress={onCreateNewPath} accessibilityRole="button">
-            <Text style={styles.newPathLink}>Create a new path</Text>
-          </Pressable>
+      <View style={styles.pathActions}>
+        <View style={styles.pathOpen}>
+          <RuleButton testID="view-my-path" label="View my path" height={48} onPress={onViewMyPath} />
         </View>
-      )}
+        {/* Starting again removes this path, so it is a quiet link, not a button (096). */}
+        {actions.canRemove && (
+          <Pressable testID="create-new-path" onPress={onCreateNewPath} accessibilityRole="button" accessibilityLabel="Create a new path" hitSlop={8}>
+            <Text style={styles.newPathLink}>New path</Text>
+          </Pressable>
+        )}
+      </View>
+      {actions.canRemove && <Text style={styles.buildBody}>{FRESH_PATH_TRIAL_NOTE}</Text>}
     </>
   );
 }
@@ -135,7 +146,7 @@ function CompleteBody(props: BuildPathCardProps) {
   return (
     <>
       <Text style={styles.heading}>Your path</Text>
-      {props.path && <PathRow path={props.path} onOpen={onViewMyPath} />}
+      {props.path && <PathInfo path={props.path} />}
       <Text style={styles.buildBody}>
         {offer === null
           ? 'Great work. Your custom path is complete. View it on your Tracks.'
@@ -143,6 +154,7 @@ function CompleteBody(props: BuildPathCardProps) {
       </Text>
       {actions.trialOver && <TrialOver />}
       {showsAllowanceUsed(props) && <AllowanceUsed />}
+      <RuleButton testID="view-my-path" label="View my path" height={48} onPress={onViewMyPath} />
       <BuildButton offer={offer} specs={COMPLETE_BUILD} onBuild={onBuild} />
     </>
   );
@@ -225,27 +237,27 @@ const styles = StyleSheet.create({
   },
   onCard:     { color: colors.brandSoft },
   cardButton: { marginTop: spacing.xs },
-  buildCard: { gap: spacing.sm },
+  // On the page, not a card: a rule above, the section's content stacked under it.
+  buildCard: { gap: 12, paddingTop: 18, paddingHorizontal: 2, paddingBottom: 4, borderTopWidth: 1, borderTopColor: colors.border },
   heading: {
-    fontFamily:    font.semibold,
-    fontSize:      fontSize.sm,
+    fontFamily:    font.extrabold,
+    fontSize:      12,
     color:         colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.08 * 12,
   },
-  pathRow: {
-    paddingVertical:   spacing.sm3,
-    borderTopWidth:    1,
-    borderBottomWidth: 1,
-    borderColor:       colors.borderSubtle,
-    gap:               spacing.xs,
-  },
-  pathRowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.sm },
-  pathName: { flex: 1, fontFamily: font.semibold, fontSize: fontSize.base, color: colors.textStrong },
-  pathPct:  { fontFamily: font.medium, fontSize: fontSize.sm, color: colors.brand },
-  pathNext: { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
-  newPath: { gap: spacing.xs, marginTop: spacing.sm },
-  newPathLink: { fontFamily: font.medium, fontSize: fontSize.sm, color: colors.textMuted, textDecorationLine: 'underline' },
+  pathInfo: { gap: 12 },
+  pathName: { fontFamily: font.black, fontSize: 20, letterSpacing: -0.025 * 20, color: colors.textStrong },
+  pathBarBlock: { gap: 7 },
+  pathTrack: { height: 8, borderRadius: radius.pill, backgroundColor: colors.border, overflow: 'hidden' },
+  pathFill:  { height: '100%', borderRadius: radius.pill, backgroundColor: colors.brand },
+  pathCounts: { flexDirection: 'row', justifyContent: 'space-between' },
+  pathLessons: { fontFamily: font.bold, fontSize: 13, color: colors.textBody },
+  pathPct:   { fontFamily: font.bold, fontSize: 13, color: colors.brand },
+  pathNext:  { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
+  pathActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pathOpen:  { flex: 1 },
+  newPathLink: { fontFamily: font.bold, fontSize: 14, color: colors.textMuted, paddingHorizontal: 6 },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   buildTitle: {
     fontFamily: font.displayMedium,

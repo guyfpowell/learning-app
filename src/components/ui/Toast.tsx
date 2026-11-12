@@ -24,6 +24,8 @@ interface ToastProps {
   variant?: ToastVariant;
   visible: boolean;
   onDismiss?: () => void;
+  /** Just the words: no icon, a shorter bar (the skip confirmation). */
+  plain?: boolean;
 }
 
 const palette: Record<ToastVariant, { icon: IconName; color: string }> = {
@@ -33,14 +35,14 @@ const palette: Record<ToastVariant, { icon: IconName; color: string }> = {
   error:   { icon: 'incorrect', color: colors.error },
 };
 
-export function Toast({ message, variant = 'info', visible, onDismiss }: ToastProps) {
+export function Toast({ message, variant = 'info', visible, onDismiss, plain = false }: ToastProps) {
   if (!visible) return null;
 
   const { icon, color } = palette[variant];
 
   return (
-    <View style={[styles.container, shadow.md as object]}>
-      <Icon name={icon} size={20} color={color} strokeWidth={2.2} />
+    <View style={[styles.container, plain && styles.plain, shadow.md as object]}>
+      {!plain && <Icon name={icon} size={20} color={color} strokeWidth={2.2} />}
       <Text style={styles.message} numberOfLines={2}>
         {message}
       </Text>
@@ -54,6 +56,7 @@ export function Toast({ message, variant = 'info', visible, onDismiss }: ToastPr
 }
 
 const styles = StyleSheet.create({
+  plain: { minHeight: 52, paddingVertical: 0, paddingHorizontal: 18, borderRadius: 16 },
   container: {
     flexDirection:     'row',
     alignItems:        'center',

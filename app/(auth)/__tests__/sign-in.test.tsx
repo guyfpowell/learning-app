@@ -152,8 +152,10 @@ describe('SignInScreen', () => {
     expect(mockMutate).toHaveBeenCalledWith({ email: 'user@example.com', password: 'secret123' });
   });
 
-  it('the submit button is the coral variant (090)', () => {
+  it('the submit button is the cobalt edge button, on the colour page', () => {
     render(<SignInScreen />);
-    expect(StyleSheet.flatten(screen.getByTestId('signin-submit').props.style).backgroundColor).toBe(colors.coral);
+    expect(StyleSheet.flatten(screen.getByTestId('signin-submit').props.style).backgroundColor).toBe(colors.brand);
+    expect(screen.getByTestId('auth-background')).toBeTruthy();
+    expect(screen.getByTestId('auth-card')).toBeTruthy();
   });
 });

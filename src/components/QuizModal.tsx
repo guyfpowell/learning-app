@@ -12,7 +12,6 @@ import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { useRefreshPaths, useTopicFeedback } from '@/hooks/useTrack';
 import { TopicFeedback } from '@/components/ui/TopicFeedback';
 import { errorCode, extractError } from '@/lib/errors';
-import { Button } from '@/components/ui/Button';
 import { EdgeButton } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
 import { Input } from '@/components/ui/Input';
@@ -497,17 +496,22 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
         onClose={handleLeaveLesson}
         rating={lesson.quizCompleted ? <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} /> : undefined}
         action={
-          <Button
+          <EdgeButton
             testID="result-action-btn"
-            label={lesson.nextLessonId ? 'Next Lesson' : 'Back to Dashboard'}
+            look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+            label={lesson.nextLessonId ? 'Next lesson' : 'Back to dashboard'}
+            icon="next"
             onPress={() => handleNavigateAfterQuiz(lesson.nextLessonId)}
-            variant="glass"
-            size="lg"
           />
         }
       >
-        <Text style={styles.resultHeading}>Already Completed</Text>
-        <Text style={styles.completedBody}>You've already finished this lesson's quiz.</Text>
+        <View style={styles.completedBlock}>
+          <View style={styles.completedTile}>
+            <Icon name="check" size={30} color={colors.textStrong} strokeWidth={2.6} />
+          </View>
+          <Text style={styles.resultHeading}>Already Completed</Text>
+          <Text style={styles.completedBody}>You've already finished this lesson's quiz.</Text>
+        </View>
       </QuizResultFrame>
     );
   }
@@ -614,12 +618,16 @@ const styles = StyleSheet.create({
     textAlign:  'center',
     marginTop:  spacing.xl,
   },
+  // The message sits centred in the space above the pinned button.
+  completedBlock: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: spacing.lg, paddingBottom: 90 },
+  completedTile:  { width: 64, height: 64, borderRadius: 22, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   completedBody: {
-    fontFamily:   font.regular,
-    fontSize:     fontSize.base,
-    color:        colors.textMuted,
-    textAlign:    'center',
-    marginBottom: spacing.xl,
+    fontFamily: font.regular,
+    fontSize:   17,
+    lineHeight: 17 * 1.45,
+    color:      colors.textBody,
+    textAlign:  'center',
+    maxWidth:   280,
   },
   verdictTop:     { gap: spacing.sm3, marginTop: spacing.lg, marginBottom: spacing.md },
   verdictHeading: {
@@ -633,9 +641,11 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm3 },
   nudge:    { fontFamily: font.medium, fontSize: fontSize.md, marginTop: spacing.xs },
   resultHeading: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.xl,
-    color:      colors.textStrong,
-    textAlign:  'center',
+    fontFamily:    font.black,
+    fontSize:      32,
+    lineHeight:    32 * 1.05,
+    letterSpacing: -0.035 * 32,
+    color:         colors.textStrong,
+    textAlign:     'center',
   },
 });

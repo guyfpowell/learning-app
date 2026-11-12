@@ -2,11 +2,11 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
-import { colors, font, fontSize, spacing } from '@/theme';
-import { Card } from '@/components/ui/Card';
-import { BuilderIntro } from '@/components/trackBuilder/BuilderIntro';
-import { Button } from '@/components/ui/Button';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { colors, font, fontSize, levelCard, spacing } from '@/theme';
+import { AlbertTile } from '@/components/albert/AlbertTile';
+import { EdgeButton } from '@/components/ui/EdgeButton';
+import { Icon } from '@/components/ui/Icon';
 import { useBuildPlan } from '@/hooks/useTrackBuilder';
 import {
   ERROR_CODES, TRACK_STATEMENT_MAX, isTrackStatementTooShort, type BuiltPlan, type CloudTerm,
@@ -34,7 +34,9 @@ const PLACEHOLDER =
 
 export default function BuildScreen() {
   const router = useRouter();
-  const [text, setText] = useState('');
+  // Home's "tell Albert about you" box hands over what the person has typed so far; nothing is sent until they build.
+  const { statement } = useLocalSearchParams<{ statement?: string }>();
+  const [text, setText] = useState(statement ?? '');
   const [error, setError] = useState<string | null>(null);
   /**
    * A refusal and a failure look different — 068 Chunk 9f. A notice is a
@@ -93,7 +95,9 @@ export default function BuildScreen() {
           headerTransparent: false,
           title: 'Build my own path',
           headerStyle: { backgroundColor: colors.paper },
-          headerTitleStyle: { fontFamily: font.semibold, fontSize: fontSize.md, color: colors.textStrong },
+          headerShadowVisible: false,
+          headerTitleAlign: 'center',
+          headerTitleStyle: { fontFamily: font.bold, fontSize: 13, color: colors.textMuted },
           headerLeft: () => (
             <Pressable
               testID="build-back"
@@ -102,7 +106,7 @@ export default function BuildScreen() {
               accessibilityLabel="Go back"
               style={styles.headerBackBtn}
             >
-              <Text style={styles.headerBackText}>‹</Text>
+              <Icon name="back" size={22} color={colors.textStrong} strokeWidth={2.2} />
             </Pressable>
           ),
           headerBackVisible: false,
@@ -110,22 +114,23 @@ export default function BuildScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <BuilderIntro
-          heading="Describe where you are and what you want."
-          line="I'll put together a path from the whole curriculum rather than a fixed track."
-        />
+        <View testID="builder-intro" style={styles.intro}>
+          <AlbertTile />
+          <Text accessibilityRole="header" style={styles.heading}>Describe where you are and what you want.</Text>
+          <Text style={styles.line}>I'll put together a path from the whole curriculum rather than a fixed track.</Text>
+        </View>
 
-        <Card style={styles.card}>
+        <View style={styles.form}>
           <TextInput
             testID="build-statement"
-            style={styles.input}
+            style={[styles.input, text.length > 0 && styles.inputFilled]}
             value={text}
             onChangeText={setText}
             // Capped in the box, not validated on submit: being told your words are too long
             // after writing them is the worst version of this. The server rejects more.
             maxLength={TRACK_STATEMENT_MAX}
             placeholder={PLACEHOLDER}
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.textSubtle}
             multiline
             textAlignVertical="top"
             editable={!busy}
@@ -140,12 +145,13 @@ export default function BuildScreen() {
             <Text testID="build-error" style={styles.error}>{error}</Text>
           )}
 
-          <Button
+          <EdgeButton
             testID="build-submit"
+            look={{ face: colors.brand, label: colors.onBrand, edge: levelCard.intermediate.edge }}
+            disabledLook={{ face: colors.border, label: colors.textSubtle }}
             label={busy ? 'Building your path…' : 'Build my path'}
             disabled={tooShort || busy}
             onPress={() => void onBuild()}
-            style={styles.submit}
           />
 
           {/* A build takes 4–9 seconds — 068 Chunk 7a. Five seconds of nothing
@@ -164,7 +170,7 @@ export default function BuildScreen() {
               </Text>
             </View>
           )}
-        </Card>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -172,23 +178,30 @@ export default function BuildScreen() {
 
 const styles = StyleSheet.create({
   safe:           { flex: 1, backgroundColor: colors.paper },
-  headerBackBtn:  { paddingVertical: spacing.xs, paddingRight: spacing.sm },
-  headerBackText: { fontFamily: font.regular, fontSize: fontSize.lg, color: colors.brand },
-  content:        { padding: spacing.lg, gap: spacing.md },
-  card:           { gap: spacing.md },
+  headerBackBtn:  { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  content:        { paddingHorizontal: spacing.lg, paddingTop: 18, paddingBottom: spacing.xl2, gap: 26 },
+  intro:          { gap: 14 },
+  heading: { fontFamily: font.black, fontSize: 30, lineHeight: 30 * 1.06, letterSpacing: -0.035 * 30, color: colors.textStrong },
+  line:    { fontFamily: font.regular, fontSize: 16, lineHeight: 16 * 1.5, color: colors.textBody },
+  // On the page, under a rule: no card.
+  form:    { gap: 14, paddingTop: 24, borderTopWidth: 1, borderTopColor: colors.border },
   input: {
-    minHeight: 160,
-    fontFamily: font.regular,
-    fontSize: fontSize.md,
-    color: colors.textStrong,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
+    minHeight:       200,
+    fontFamily:      font.regular,
+    fontSize:        17,
+    lineHeight:      17 * 1.45,
+    color:           colors.textStrong,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 18,
+    paddingVertical:   16,
+    borderWidth:     1.5,
+    borderColor:     colors.borderStrong,
+    borderRadius:    18,
   },
+  // With words in it the ring turns cobalt.
+  inputFilled: { borderWidth: 2, borderColor: colors.brand },
   waiting:     { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
   waitingText: { flex: 1, fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
   notice:      { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
   error:       { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
-  submit:      { marginTop: spacing.xs },
 });

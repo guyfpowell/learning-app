@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -5,22 +6,27 @@ import { useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Button } from '@/components/ui/Button';
+import { Toast } from '@/components/ui/Toast';
+import { skippedMessage } from '@/lib/skipToast';
 import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
 import { TopicFeedback } from '@/components/ui/TopicFeedback';
 import { extractError } from '@/lib/errors';
 import { useProgress } from '@/hooks/useProgress';
-import { NoTrackNotice } from '@/components/ui/NoTrackNotice';
+import { NewUserHome } from '@/components/home/NewUserHome';
 import { PathCard } from '@/components/ui/PathCard';
 import { HomePath } from '@/components/home/HomePath';
 import { MomentumCard } from '@/components/home/MomentumCard';
 import { PathEndSection } from '@/components/albert/PathEndSection';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
-import { PATHS_LOAD_ERROR } from '@learning/shared';
+import { PATHS_LOAD_ERROR, type SkipReason, type SkipScope, type UserPath } from '@learning/shared';
 import { TRACKS_ROUTE, lessonRoute, trackRoute } from '@/lib/routes';
 
 /** Home's side gutters (the design's 20: there is no 20 token). */
 const HOME_GUTTER = spacing.md + spacing.xs;
+
+/** How long the skip toast stays. */
+const SKIP_TOAST_MS = 3000;
 
 /** The streak banner shows from this many days on. */
 const STREAK_BANNER_AFTER_DAYS = 3;
@@ -32,6 +38,17 @@ export default function LessonsScreen() {
   const skip = useSkip();
   const topicFeedback = useTopicFeedback();
   const refreshPaths = useRefreshPaths();
+  // "Lesson 2 skipped": shown once the server has taken the skip, then clears itself.
+  const [skipToast, setSkipToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!skipToast) return;
+    const timer = setTimeout(() => setSkipToast(null), SKIP_TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [skipToast]);
+  const onSkip = (path: UserPath, scope: SkipScope, reason: SkipReason) => {
+    const message = skippedMessage(path, scope);
+    skip.skip(path, scope, reason, () => setSkipToast(message));
+  };
 
   // Active path is authoritative from the server (ADR-009 C2 + C11) — no client derivation.
   const activePath = paths?.find(p => p.isActive);
@@ -48,12 +65,12 @@ export default function LessonsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]}>
+      <ScrollView contentContainerStyle={[hasNoContent ? styles.contentBleed : styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]}>
 
         {/* First thing on the screen — 069 items 1+2. It used to render below the
             streak hero and the stats row, so a brand-new user met a wall of zeros
             before reaching the one action available to them. */}
-        {hasNoContent && <NoTrackNotice />}
+        {hasNoContent && <NewUserHome />}
         {pathsFailed && (
           <Text testID="paths-load-error" style={styles.loadError}>{PATHS_LOAD_ERROR}</Text>
         )}
@@ -97,7 +114,7 @@ export default function LessonsScreen() {
             path={activePath}
             onOpen={() => router.push(trackRoute(activePath.kind, activePath.id))}
             onStartLesson={id => router.push(lessonRoute(id))}
-            onSkip={skip.skip}
+            onSkip={onSkip}
             skipPending={skip.pendingScope(activePath)}
           />
         )}
@@ -110,7 +127,7 @@ export default function LessonsScreen() {
               path={lastPath}
               onOpen={() => router.push(trackRoute(lastPath.kind, lastPath.id))}
               onStartLesson={id => router.push(lessonRoute(id))}
-              onSkip={skip.skip}
+              onSkip={onSkip}
               skipPending={skip.pendingScope(lastPath)}
             />
             <Button
@@ -123,6 +140,12 @@ export default function LessonsScreen() {
         )}
 
       </ScrollView>
+
+      {skipToast && (
+        <View testID="skip-toast" style={styles.toast} pointerEvents="none">
+          <Toast plain visible message={skipToast} />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -137,6 +160,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   content:   { padding: HOME_GUTTER, flexGrow: 1 },
+  // The new-user page runs its colour block edge to edge and pads its own content.
+  contentBleed: { flexGrow: 1 },
+  // Floats above the tab bar, 16 in from each edge.
+  toast:     { position: 'absolute', start: spacing.md, end: spacing.md, bottom: TAB_BAR_CLEARANCE },
 
   // ── Streak banner ────────────────────────────────────────────────────────
   streakBanner: {

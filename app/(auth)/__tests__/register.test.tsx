@@ -250,8 +250,19 @@ describe('RegisterScreen', () => {
     });
   });
 
-  it('the submit button is the coral variant (090)', () => {
+  it('the submit button is the cobalt edge button, on the colour page', () => {
     render(<RegisterScreen />);
-    expect(StyleSheet.flatten(screen.getByTestId('register-submit').props.style).backgroundColor).toBe(colors.coral);
+    expect(StyleSheet.flatten(screen.getByTestId('register-submit').props.style).backgroundColor).toBe(colors.brand);
+    expect(screen.getByTestId('auth-background')).toBeTruthy();
+    expect(screen.getByTestId('auth-card')).toBeTruthy();
+  });
+
+  it('shows the password requirements above the password box once it has focus, so the rest of the form stays in reach', () => {
+    render(<RegisterScreen />);
+    expect(screen.queryByText('At least 10 characters')).toBeNull();
+    fireEvent(screen.getByTestId('register-password'), 'focus');
+    const tree = JSON.stringify(screen.toJSON());
+    expect(tree.indexOf('At least 10 characters')).toBeGreaterThan(-1);
+    expect(tree.indexOf('At least 10 characters')).toBeLessThan(tree.indexOf('register-password'));
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -17,6 +17,7 @@ import { KeyTakeawayBlock } from '@/components/ui/KeyTakeawayBlock';
 import { LessonPositionHeader } from '@/components/learning/LessonPositionHeader';
 import { LessonReading } from '@/components/learning/LessonReading';
 import { CompletedLessonView } from '@/components/learning/CompletedLessonView';
+import { PremiumSheet } from '@/components/ui/PremiumSheet';
 import { LessonStatusLine } from '@/components/learning/LessonStatusLine';
 import { Spinner } from '@/components/ui/Spinner';
 import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
@@ -79,30 +80,21 @@ function PremiumModal({
   const teasersRemaining = details?.teasersRemaining ?? PREMIUM_LESSON_BUDGET - teasersUsed;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <View style={styles.modalSheet}>
-          <Text style={styles.modalIcon}>🔒</Text>
-          <Text style={styles.modalTitle}>
-            {isLimit ? 'Free Preview Limit Reached' : 'Premium Content'}
-          </Text>
-          <Text style={styles.modalBody}>
-            {isLimit
-              ? `You've used ${teasersUsed} of ${PREMIUM_LESSON_BUDGET} free previews. Upgrade to continue learning.`
-              : 'This is premium content. Upgrade to unlock unlimited access to all lessons.'}
-          </Text>
-          {isLimit && (
-            <Text style={styles.teasersRemaining}>
-              {teasersRemaining} free preview{teasersRemaining === 1 ? '' : 's'} remaining
-            </Text>
-          )}
-          <Button label="Upgrade now" onPress={onUpgrade} />
-          <Pressable onPress={onClose} style={styles.dismissBtn}>
-            <Text style={styles.dismissText}>Maybe later</Text>
-          </Pressable>
-        </View>
-      </Pressable>
-    </Modal>
+    <PremiumSheet
+      visible={visible}
+      title={isLimit ? 'Free Preview Limit Reached' : 'Premium Content'}
+      body={isLimit
+        ? `You've used ${teasersUsed} of ${PREMIUM_LESSON_BUDGET} free previews. Upgrade to continue learning.`
+        : 'This is premium content. Upgrade to unlock unlimited access to all lessons.'}
+      onUpgrade={onUpgrade}
+      onClose={onClose}
+    >
+      {isLimit && (
+        <Text style={styles.teasersRemaining}>
+          {teasersRemaining} free preview{teasersRemaining === 1 ? '' : 's'} remaining
+        </Text>
+      )}
+    </PremiumSheet>
   );
 }
 
@@ -349,42 +341,6 @@ const styles = StyleSheet.create({
     fontFamily: font.bold,
     fontSize:   fontSize.md,
     color:      colors.textDark,
-    textAlign:  'center',
-  },
-  modalOverlay: {
-    flex:            1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent:  'flex-end',
-  },
-  modalSheet: {
-    backgroundColor:     colors.surface,
-    borderTopLeftRadius:  20,
-    borderTopRightRadius: 20,
-    padding:              spacing.xl,
-    gap:                  spacing.md,
-    alignItems:           'center',
-  },
-  modalIcon: {
-    fontSize: 48,
-  },
-  modalTitle: {
-    fontFamily: font.bold,
-    fontSize:   fontSize.lg,
-    color:      colors.textDark,
-    textAlign:  'center',
-  },
-  modalBody: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.base,
-    color:      colors.textMuted,
-    textAlign:  'center',
-    lineHeight: fontSize.base * 1.5,
-  },
-  dismissBtn:  { paddingVertical: spacing.sm },
-  dismissText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
     textAlign:  'center',
   },
   teasersRemaining: {
