@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View, StyleSheet, Pressable, Modal } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { SheetModal } from '@/components/ui/SheetModal';
 import { Text } from '@/components/ui/Text';
 import type { AchievementDefinition, AchievementKey, UserAchievement } from '@learning/shared';
 import { ACHIEVEMENTS_BY_KEY } from '@learning/shared';
@@ -29,8 +30,7 @@ function AchievementDetailModal({ item, onClose }: { item: AchievementItem; onCl
   const tagColor = info && earned ? medalBaseOf(info.category) : colors.textMuted;
 
   return (
-    <Modal transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable testID="achievement-detail-scrim" style={styles.scrim} onPress={onClose}>
+    <SheetModal scrimTestID="achievement-detail-scrim" onClose={onClose}>
         <Pressable style={styles.sheet} onPress={() => { /* swallow: keep the sheet open */ }}>
           <View testID="achievement-detail-modal" style={styles.sheetContent}>
             <View style={styles.handle} />
@@ -70,8 +70,7 @@ function AchievementDetailModal({ item, onClose }: { item: AchievementItem; onCl
             </View>
           </View>
         </Pressable>
-      </Pressable>
-    </Modal>
+    </SheetModal>
   );
 }
 
@@ -186,7 +185,6 @@ const styles = StyleSheet.create({
   achievementLocked: { color: colors.textMuted },
 
   // Achievement detail sheet
-  scrim: { flex: 1, backgroundColor: 'rgba(18,21,34,0.48)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor:      colors.paper,
     borderTopLeftRadius:  32,

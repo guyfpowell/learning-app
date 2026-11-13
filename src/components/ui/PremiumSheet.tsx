@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { SheetModal } from '@/components/ui/SheetModal';
 import { Text } from '@/components/ui/Text';
 import { EdgeButton } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
@@ -18,9 +19,9 @@ export function PremiumSheet({ visible, title, body, onUpgrade, onClose, testID,
   testID?: string;
   children?: ReactNode;
 }) {
+  if (!visible) return null;
   return (
-    <Modal testID={testID} visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.scrim} onPress={onClose}>
+    <SheetModal testID={testID} onClose={onClose}>
         <Pressable style={styles.sheet} onPress={() => { /* swallow: keep the sheet open */ }}>
           <View style={styles.handle} />
           <View style={styles.tile}>
@@ -42,13 +43,11 @@ export function PremiumSheet({ visible, title, body, onUpgrade, onClose, testID,
             <Text style={styles.laterLabel}>Maybe later</Text>
           </Pressable>
         </Pressable>
-      </Pressable>
-    </Modal>
+    </SheetModal>
   );
 }
 
 const styles = StyleSheet.create({
-  scrim:  { flex: 1, backgroundColor: 'rgba(18,21,34,0.48)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor:       colors.paper,
     borderTopLeftRadius:   32,

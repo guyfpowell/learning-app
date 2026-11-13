@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, Modal, Switch, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Switch, Dimensions } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { DELETE_ACCOUNT_CONFIRM_WORD, type TeamOwnershipInfo } from '@learning/shared';
 import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { SheetModal } from '@/components/ui/SheetModal';
 import { Spinner } from '@/components/ui/Spinner';
 import { useDeleteAccount, useDeleteAccountPreflight } from '@/hooks/useAuth';
 import { extractError } from '@/lib/errors';
@@ -41,8 +42,7 @@ export function DeleteAccountModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={deleteStyles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <SheetModal keyboardAvoiding onClose={onClose}>
         <View style={deleteStyles.sheet}>
           {/* Cancel button — always visible */}
           <Pressable testID="delete-modal-cancel-btn" onPress={onClose} style={deleteStyles.cancelRow}>
@@ -187,23 +187,17 @@ export function DeleteAccountModal({ onClose }: { onClose: () => void }) {
             </View>
           )}
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </SheetModal>
   );
 }
 
 const deleteStyles = StyleSheet.create({
-  overlay: {
-    flex:            1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent:  'flex-end',
-  },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius:  radius.xl,
     borderTopRightRadius: radius.xl,
     padding:         spacing.lg,
-    maxHeight:       '90%',
+    maxHeight:       Dimensions.get('window').height * 0.9,
   },
   cancelRow: {
     alignItems: 'flex-end',

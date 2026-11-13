@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Modal, PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import { SheetModal } from '@/components/ui/SheetModal';
 import { Text } from '@/components/ui/Text';
 import { Icon } from '@/components/ui/Icon';
 import { SKIP_REASONS, SKIP_REASON_LABELS, SKIP_REASON_QUESTION, type SkipReason } from '@learning/shared';
@@ -48,8 +49,7 @@ export function SkipReasonPicker({ title = 'Skip lesson', onPick, onCancel }: Sk
   })).current;
 
   return (
-    <Modal transparent animationType="slide" onRequestClose={onCancel}>
-      <Pressable testID="skip-reason-scrim" style={styles.scrim} onPress={onCancel}>
+    <SheetModal scrimTestID="skip-reason-scrim" onClose={onCancel}>
         <Animated.View style={[styles.sheet, { transform: [{ translateY: drag }] }]} {...pan.panHandlers}>
           <Pressable testID="skip-reason-picker" accessibilityLabel={SKIP_REASON_QUESTION} style={styles.content} onPress={() => { /* swallow: keep the sheet open */ }}>
             <View style={styles.handle} />
@@ -67,8 +67,7 @@ export function SkipReasonPicker({ title = 'Skip lesson', onPick, onCancel }: Sk
             </Pressable>
           </Pressable>
         </Animated.View>
-      </Pressable>
-    </Modal>
+    </SheetModal>
   );
 }
 
@@ -98,7 +97,6 @@ const ROW_RADIUS = 16;
 const ROW_EDGE = 3;
 
 const styles = StyleSheet.create({
-  scrim:   { flex: 1, backgroundColor: 'rgba(18,21,34,0.48)', justifyContent: 'flex-end' },
   sheet:   { backgroundColor: colors.paper, borderTopLeftRadius: 32, borderTopRightRadius: 32 },
   content: { paddingTop: 12, paddingHorizontal: 20, paddingBottom: 44, gap: 18 },
   handle:  { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.borderStrong, alignSelf: 'center' },
