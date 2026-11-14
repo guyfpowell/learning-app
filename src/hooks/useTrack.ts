@@ -35,12 +35,17 @@ async function loadPaths(): Promise<UserPath[]> {
   }
 }
 
-/** Invalidate everything a path change can affect. */
+/**
+ * Invalidate everything a path change can affect. Returns a promise that settles once the
+ * refetches land, so a mutation returning it stays pending until the screen shows the new state.
+ */
 function usePathInvalidation() {
   const queryClient = useQueryClient();
-  return () => {
-    void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
-    void queryClient.invalidateQueries({ queryKey: ['skills'] });
+  return async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY }),
+      queryClient.invalidateQueries({ queryKey: ['skills'] }),
+    ]);
   };
 }
 

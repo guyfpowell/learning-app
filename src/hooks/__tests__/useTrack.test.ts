@@ -3,11 +3,11 @@ import { makeCustomPath, makeTrackPath } from '@/test-utils/paths';
 import type { UserPath } from '@learning/shared';
 import { queryWrapper } from '@/test-utils/queryClient';
 import * as Sentry from '@sentry/react-native';
-import { usePaths, useSkip, useTopicFeedback } from '../useTrack';
+import { usePaths, useSetActivePath, useSkip, useTopicFeedback } from '../useTrack';
 import { trackService } from '@/services/track.service';
 
 jest.mock('@/services/track.service', () => ({
-  trackService: { getPaths: jest.fn(), skip: jest.fn(), topicFeedback: jest.fn() },
+  trackService: { getPaths: jest.fn(), setActivePath: jest.fn(), skip: jest.fn(), topicFeedback: jest.fn() },
 }));
 
 const mockTrackService = trackService as jest.Mocked<typeof trackService>;
@@ -75,5 +75,26 @@ describe('useTopicFeedback (079d)', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(trackService.topicFeedback).toHaveBeenCalledWith('p1', { stableKey: 'topic-a', dismissed: true });
+  });
+});
+
+describe('useSetActivePath', () => {
+  it('stays pending until the paths refetch lands, so the button never flashes back', async () => {
+    // The first load answers at once; once the switch is made, the refetch is held open by hand.
+    let switched = false;
+    let resolveRefetch!: (paths: UserPath[]) => void;
+    mockTrackService.getPaths.mockImplementation(() =>
+      switched ? new Promise((resolve) => { resolveRefetch = resolve; }) : Promise.resolve([track]));
+    mockTrackService.setActivePath.mockImplementation(async () => { switched = true; });
+    const { result } = renderHook(() => ({ paths: usePaths(), setActive: useSetActivePath() }), { wrapper: queryWrapper() });
+    await waitFor(() => expect(result.current.paths.isSuccess).toBe(true));
+
+    act(() => result.current.setActive.mutate({ kind: 'track', id: 's1' }));
+
+    await waitFor(() => expect(mockTrackService.getPaths).toHaveBeenCalledTimes(2));
+    expect(result.current.setActive.isPending).toBe(true);
+
+    await act(async () => { resolveRefetch([track]); });
+    await waitFor(() => expect(result.current.setActive.isPending).toBe(false));
   });
 });
