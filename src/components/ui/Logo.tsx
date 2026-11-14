@@ -1,11 +1,20 @@
 import { SvgXml } from 'react-native-svg';
-import { markWhiteOutlineSvg } from '@/assets/logo';
+import { markCobaltOutlineSvg, markWhiteOutlineSvg } from '@/assets/logo';
+
+export type LogoVariant = 'white' | 'cobalt';
 
 interface LogoProps {
   size?: number;
+  /** The approved file to use: white on cobalt or dark, cobalt on light. */
+  variant?: LogoVariant;
 }
 
-/** White-outline Ascent mark — for use directly on the brand (cobalt) background. */
-export function Logo({ size = 64 }: LogoProps) {
-  return <SvgXml xml={markWhiteOutlineSvg} width={size} height={size} />;
+export const markSvgs: Record<LogoVariant, string> = {
+  white:  markWhiteOutlineSvg,
+  cobalt: markCobaltOutlineSvg,
+};
+
+/** The approved Ascent chevron mark. White by default, for the brand (cobalt) background. */
+export function Logo({ size = 64, variant = 'white' }: LogoProps) {
+  return <SvgXml xml={markSvgs[variant]} width={size} height={size} />;
 }

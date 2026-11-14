@@ -5,12 +5,13 @@ import { Text } from '@/components/ui/Text';
 import { EdgeButton } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
 import { Medal } from '@/components/ui/Medal';
+import { AlbertMark } from '@/components/albert/AlbertMark';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { LevelHero } from '@/components/home/LevelHero';
 import { NewUserHeading, NewUserTracks, useFirstName } from '@/components/home/NewUserParts';
 import { useSkills, useTrackContents } from '@/hooks/useTrack';
 import { BUILD_ROUTE, lessonRoute } from '@/lib/routes';
-import { colors, font, levelCard, press } from '@/theme';
+import { colors, font, levelCard } from '@/theme';
 
 /** The four levels along the trail, in order. */
 const LEVELS = ['beginner', 'intermediate', 'advanced', 'expert'] as const;
@@ -58,7 +59,7 @@ export function NewUserClimb() {
   return (
     <View testID="new-user-home" style={styles.page}>
       <View style={styles.intro}>
-        <Wordmark height={34} color={colors.brand} />
+        <Wordmark height={34} variant="cobalt" />
         <Text testID="new-user-welcome" style={styles.eyebrow}>{firstName ? `WELCOME TO ASCENT, ${firstName.toUpperCase()}` : 'WELCOME TO ASCENT'}</Text>
         <Text accessibilityRole="header" style={styles.headline}>Every product career is a climb. Start yours.</Text>
         <Text style={styles.lead}>Four levels, from first principles to leading product. Learn in short lessons, whenever you've got a moment.</Text>
@@ -102,11 +103,7 @@ export function NewUserClimb() {
       )}
 
       <Pressable testID="new-user-albert-row" onPress={() => router.push(BUILD_ROUTE)} accessibilityRole="button" style={styles.albertRow}>
-        <View style={styles.albertEdge}>
-          <View style={styles.albertTile}>
-            <Icon name="albert" size={20} color={colors.white} fill={colors.white} strokeWidth={1.2} />
-          </View>
-        </View>
+        <AlbertMark size={42} />
         <View style={styles.albertText}>
           <Text style={styles.albertTitle}>Or let Albert, your guide, plan your climb</Text>
           <Text style={styles.albertBody}>Describe your role and goal. Your first path is free.</Text>
@@ -161,8 +158,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor:       colors.border,
   },
-  albertEdge: { paddingBottom: 3, borderRadius: 14, backgroundColor: press.onCobaltEdge },
-  albertTile: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' },
   albertText: { flex: 1, gap: 2 },
   albertTitle: { fontFamily: font.extrabold, fontSize: 16, color: colors.textStrong },
   albertBody:  { fontFamily: font.regular, fontSize: 13, lineHeight: 13 * 1.35, color: colors.textMuted },

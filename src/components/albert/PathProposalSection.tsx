@@ -22,7 +22,7 @@ import {
 import { colors, font, fontSize, levelCard } from '@/theme';
 import { Button } from '@/components/ui/Button';
 import { EdgeButton } from '@/components/ui/EdgeButton';
-import { Icon } from '@/components/ui/Icon';
+import { AlbertMark } from '@/components/albert/AlbertMark';
 import { RuleButton } from '@/components/albert/RuleButton';
 import { useDecideProposal, useProposal } from '@/hooks/useProposal';
 import { errorCode } from '@/lib/errors';
@@ -122,7 +122,7 @@ export function PathProposalSection({ path }: { path: CustomPath }) {
   return (
     <View testID={`path-proposal-${path.id}`} style={styles.section}>
       <View style={styles.badgeRow}>
-        <Icon name="albert" size={16} color={colors.brand} fill={colors.brand} strokeWidth={1.2} />
+        <AlbertMark size={16} />
         <Text testID="suggestion-badge" style={styles.eyebrow}>{SUGGESTION_BADGE_TEXT.toUpperCase()}</Text>
       </View>
       {proposalQuery.isError && <Text testID="proposal-load-error" style={styles.error}>{PROPOSAL_LOAD_ERROR}</Text>}

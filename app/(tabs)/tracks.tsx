@@ -198,7 +198,7 @@ export default function TracksScreen() {
               <ActiveTrackHero
                 ids={customIds(activeCustom.id)}
                 activeTestID={`active-badge-${activeCustom.id}`}
-                mark={<AlbertMark color={colors.onBrand} />}
+                mark={<AlbertMark variant="onBrand" />}
                 tapLabel={`View ${activeCustom.name} details`}
                 onOpen={() => router.push(trackRoute(activeCustom.kind, activeCustom.id))}
                 name={capitalize(activeCustom.name)}

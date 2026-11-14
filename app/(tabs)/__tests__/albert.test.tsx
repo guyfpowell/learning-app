@@ -384,7 +384,7 @@ describe('AlbertScreen', () => {
       render(<AlbertScreen />);
       expect(bar()).toEqual(['done', 'active', 'active']);
       expect(screen.queryByTestId('albert-steps')).toBeNull();
-      expect(screen.getByText('Albert')).toBeTruthy();
+      expect(screen.getByTestId('albert-wordmark')).toBeTruthy();
       expect(screen.queryByText('Meet Albert')).toBeNull();
       expect(screen.queryByText('AI ASSISTANT')).toBeNull();
       expect(screen.queryByText(/Your personalised AI assistant/)).toBeNull();
@@ -581,7 +581,7 @@ describe('AlbertScreen', () => {
       expect(screen.getByTestId('trial-over')).toBeTruthy();
       expect(screen.queryByTestId('allowance-used')).toBeNull();
       expect(screen.queryByText('Premium')).toBeNull();
-      expect(screen.getByText('Albert')).toBeTruthy();
+      expect(screen.getByTestId('albert-wordmark')).toBeTruthy();
     });
   });
 });

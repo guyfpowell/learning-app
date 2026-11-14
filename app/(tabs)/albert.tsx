@@ -4,6 +4,7 @@ import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { colors, font, spacing } from '@/theme';
+import { AlbertWordmark } from '@/components/albert/AlbertWordmark';
 import { AlbertTile } from '@/components/albert/AlbertTile';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { PremiumModal } from '@/components/ui/PremiumModal';
@@ -113,7 +114,7 @@ export default function AlbertScreen() {
         {hasPath ? (
           <View testID="albert-intro" style={styles.introRow}>
             <AlbertTile />
-            <Text style={styles.nameHeading}>Albert</Text>
+            <AlbertWordmark />
           </View>
         ) : (
           <View testID="albert-intro" style={styles.intro}>
@@ -176,7 +177,6 @@ const styles = StyleSheet.create({
   intro: { gap: 12, marginBottom: 14 },
   // With a path: the mark beside the name, one line.
   introRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 2, marginBottom: 14 },
-  nameHeading: { fontFamily: font.black, fontSize: 30, letterSpacing: -0.035 * 30, color: colors.textStrong },
   title:   { gap: 6 },
   eyebrow: {
     fontFamily:    font.extrabold,

@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Text } from '@/components/ui/Text';
 import { EdgeButton } from '@/components/ui/EdgeButton';
 import { HeroBackground } from '@/components/ui/HeroBackground';
-import { Icon } from '@/components/ui/Icon';
+import { AlbertMark } from '@/components/albert/AlbertMark';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { NewUserBadge, NewUserTracks, useFirstName } from '@/components/home/NewUserParts';
 import { BUILD_ROUTE } from '@/lib/routes';
@@ -48,9 +48,7 @@ export function NewUserAlbertFirst() {
         <Wordmark height={34} />
 
         <View style={styles.greeting}>
-          <View style={styles.tile}>
-            <Icon name="albert" size={22} color={colors.brand} fill={colors.brand} strokeWidth={1.2} />
-          </View>
+          <AlbertMark size={40} variant="onBrand" />
           <View style={styles.greetingText}>
             <Text testID="new-user-welcome" style={styles.greetingTitle}>{firstName ? `Welcome to Ascent, ${firstName}` : 'Welcome to Ascent'}</Text>
             <Text style={styles.greetingLine}>I'm Albert, your guide. Tell me about you.</Text>
@@ -135,7 +133,6 @@ const styles = StyleSheet.create({
     overflow:                'hidden',
   },
   greeting:     { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  tile:         { width: 40, height: 40, borderRadius: 13, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   greetingText: { flex: 1, gap: 1 },
   greetingTitle: { fontFamily: font.extrabold, fontSize: 15, color: colors.white },
   greetingLine:  { fontFamily: font.semibold, fontSize: 13, color: colors.brandSoft },

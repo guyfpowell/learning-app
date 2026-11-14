@@ -113,11 +113,13 @@ export default function TrackDetailScreen() {
         {view.level === 'levels' ? (
           <>
             <View testID="track-detail-head" style={styles.head}>
-              <View style={styles.glyphTile}>
-                {pathKind === 'custom'
-                  ? <AlbertMark size={24} />
-                  : <TrackIcon trackId={skill?.trackId ?? 0} size={24} color={colors.brand} />}
-              </View>
+              {pathKind === 'custom'
+                ? <AlbertMark size={48} />
+                : (
+                  <View style={styles.glyphTile}>
+                    <TrackIcon trackId={skill?.trackId ?? 0} size={24} color={colors.brand} />
+                  </View>
+                )}
               <RenamableHeading name={contents.name} onSave={pathKind === 'custom' ? renamePath : null} />
               {!!summary && <Text testID="track-detail-summary" style={styles.summary}>{summary}</Text>}
               <Text testID="track-detail-progress" style={styles.progressLabel}>
