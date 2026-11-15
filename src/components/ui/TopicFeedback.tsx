@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { useAutoDismiss } from '@/hooks/useAutoDismiss';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import {
@@ -48,16 +49,10 @@ export function TopicFeedback({ topicEnd, onSubmit, onClose }: TopicFeedbackProp
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
 
   const answered = hasTopicFeedbackAnswer({ level, useful, words });
 
-  useEffect(() => {
-    if (!acknowledged) return;
-    const timer = setTimeout(() => onCloseRef.current(), ACKNOWLEDGEMENT_MS);
-    return () => clearTimeout(timer);
-  }, [acknowledged]);
+  useAutoDismiss(acknowledged, onClose, ACKNOWLEDGEMENT_MS);
 
   /** Writes the answer, or a dismissal when `dismiss`. Returns whether the write succeeded. */
   async function write(dismiss: boolean) {

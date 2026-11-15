@@ -1,12 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
 import { trackService, type SkipCall } from '@/services/track.service';
+import { SET_ACTIVE_PATH_ERROR } from '@learning/shared';
 import type { ActivePathRef, SkipReason, SkipScope, TopicFeedbackRequest, UserPath, UserPathKind } from '@learning/shared';
-import { PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY } from '@/lib/queryKeys';
+import { PATHS_QUERY_KEY, SKILLS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY } from '@/lib/queryKeys';
+import { SET_ACTIVE_PATH_WRITE } from '@/lib/optimisticWrites';
+import { invalidatePathQueries } from '@/lib/pathInvalidation';
+import { useOptimisticMutation } from '@/hooks/useOptimisticMutation';
 
 export function useSkills() {
   return useQuery({
-    queryKey: ['skills'],
+    queryKey: SKILLS_QUERY_KEY,
     queryFn: () => trackService.getSkills(),
   });
 }
@@ -41,12 +45,7 @@ async function loadPaths(): Promise<UserPath[]> {
  */
 function usePathInvalidation() {
   const queryClient = useQueryClient();
-  return async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY }),
-      queryClient.invalidateQueries({ queryKey: ['skills'] }),
-    ]);
-  };
+  return () => invalidatePathQueries(queryClient);
 }
 
 export function useEnroll() {
@@ -57,20 +56,24 @@ export function useEnroll() {
   });
 }
 
+/**
+ * "Make active" changes the screen at once (ADR-019): the tapped path shows active and every other
+ * path not, and the request follows in the background. The server is certain to produce exactly
+ * that from the person's own tap, and setting the same path active twice is safe.
+ */
 export function useSetActivePath() {
-  const invalidate = usePathInvalidation();
-  return useMutation({
-    mutationFn: (ref: ActivePathRef) => trackService.setActivePath(ref),
-    onSuccess: invalidate,
+  const mutation = useOptimisticMutation<ActivePathRef, UserPath[]>({
+    write: SET_ACTIVE_PATH_WRITE,
+    expected: (paths, ref) => paths.map((path) => ({ ...path, isActive: path.kind === ref.kind && path.id === ref.id })),
+    failureMessage: SET_ACTIVE_PATH_ERROR,
   });
-}
-
-export function useRemovePath() {
-  const invalidate = usePathInvalidation();
-  return useMutation({
-    mutationFn: (ref: ActivePathRef) => trackService.removePath(ref),
-    onSuccess: invalidate,
-  });
+  return {
+    setActive: mutation.mutate,
+    failure: mutation.failure,
+    dismissFailure: mutation.dismissFailure,
+    /** True while a call for this path is in flight, so a second tap on it can be ignored. */
+    isPendingFor: (ref: ActivePathRef) => mutation.isInFlight((v) => v.kind === ref.kind && v.id === ref.id),
+  };
 }
 
 /**

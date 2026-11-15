@@ -1,10 +1,14 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { colors } from '@/theme';
-import { render, screen, fireEvent, within } from '@testing-library/react-native';
+import { render, screen, fireEvent, within, act, waitFor } from '@testing-library/react-native';
+import { queryWrapper } from '@/test-utils/queryClient';
+import { trackService } from '@/services/track.service';
+import { makeTrackPath } from '@/test-utils/paths';
+import { must } from '@/test-utils/must';
 import TracksScreen from '../tracks';
 import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTrack';
-import type { ActivePathRef, SkillWithAccess, UserPath } from '@learning/shared';
+import { SET_ACTIVE_PATH_ERROR, type ActivePathRef, type SkillWithAccess, type UserPath } from '@learning/shared';
 import { makeCustomPath } from '@/test-utils/paths';
 
 const mockPush = jest.fn();
@@ -15,6 +19,10 @@ jest.mock('@/hooks/useTrack', () => ({
   usePaths:          jest.fn(),
   useEnroll:         jest.fn(),
   useSetActivePath:  jest.fn(),
+}));
+
+jest.mock('@/services/track.service', () => ({
+  trackService: { getPaths: jest.fn(), setActivePath: jest.fn() },
 }));
 
 let capturedEdges: string[] | undefined;
@@ -92,6 +100,12 @@ const activeEnrollment: UserPath = {
 
 const mockMutate = jest.fn();
 const mockSetActive = jest.fn();
+const mockDismissFailure = jest.fn();
+
+/** What `useSetActivePath` returns when nothing is in flight and nothing has failed. */
+function idleSetActive(overrides: Partial<{ failure: string | null; isPendingFor: (ref: ActivePathRef) => boolean }> = {}) {
+  return { setActive: mockSetActive, failure: null as string | null, dismissFailure: mockDismissFailure, isPendingFor: () => false, ...overrides };
+}
 
 function setMocks({
   skills = [baseSkill],
@@ -109,13 +123,7 @@ function setMocks({
     isError: false,
     error: null as unknown,
   },
-  setActiveTrack = {
-    mutate: mockSetActive,
-    isPending: false,
-    variables: undefined as ActivePathRef | undefined,
-    isError: false,
-    error: null as unknown,
-  },
+  setActiveTrack = idleSetActive(),
 } = {}) {
   (useSkills         as jest.Mock).mockReturnValue({ data: skills,      isLoading: skillsLoading, isError: skillsError, error: skillsErr });
   (usePaths           as jest.Mock).mockReturnValue({ data: enrollments, isLoading: enrollmentsLoading, isError: enrollmentsError, error: enrollmentsErr });
@@ -307,20 +315,18 @@ describe('TracksScreen', () => {
       expect(screen.getByText('Enrol failed')).toBeTruthy();
     });
 
-    it('shows set-active error banner when setActiveTrack fails', () => {
-      setMocks({
-        enrollments: [mockEnrollment],
-        setActiveTrack: {
-          mutate: mockSetActive,
-          isPending: false,
-          variables: undefined,
-          isError: true,
-          error: { response: { data: { message: 'Not enrolled in that track' } } },
-        },
-      });
+    it('shows a toast, not an inline error line, when "Make active" was rejected (105)', () => {
+      setMocks({ enrollments: [mockEnrollment], setActiveTrack: idleSetActive({ failure: SET_ACTIVE_PATH_ERROR }) });
       render(<TracksScreen />);
-      expect(screen.getByTestId('tracks-set-active-error')).toBeTruthy();
-      expect(screen.getByText('Not enrolled in that track')).toBeTruthy();
+      expect(screen.getByText(SET_ACTIVE_PATH_ERROR)).toBeTruthy();
+      expect(screen.queryByTestId('tracks-set-active-error')).toBeNull();
+    });
+
+    it('dismisses the toast from its close button (105)', () => {
+      setMocks({ enrollments: [mockEnrollment], setActiveTrack: idleSetActive({ failure: SET_ACTIVE_PATH_ERROR }) });
+      render(<TracksScreen />);
+      fireEvent.press(screen.getByTestId('toast-dismiss'));
+      expect(mockDismissFailure).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -500,9 +506,6 @@ describe('TracksScreen', () => {
 
   describe('Make active on an Albert path (092)', () => {
     const albertPath = makeCustomPath({ id: 'plan-1', name: 'My Discovery Path' });
-    const pendingFor = (variables: ActivePathRef) => ({
-      mutate: mockSetActive, isPending: true, variables, isError: false, error: null as unknown,
-    });
 
     it('shows Make active inside the card of a non-active custom path and sets that path active', () => {
       setMocks({ enrollments: [albertPath] });
@@ -543,28 +546,19 @@ describe('TracksScreen', () => {
       expect(mockPush).not.toHaveBeenCalled();
     });
 
-    it('shows loading only on the custom path being switched', () => {
+    it('shows no spinner while a path is being made active, and ignores a second tap on it (105)', () => {
       const other = makeCustomPath({ id: 'plan-2', name: 'Other Path' });
       setMocks({
         enrollments: [albertPath, other],
-        setActiveTrack: pendingFor({ kind: 'custom', id: 'plan-2' }),
+        setActiveTrack: idleSetActive({ isPendingFor: (ref) => ref.id === 'plan-2' }),
       });
       render(<TracksScreen />);
-      // A loading Button shows a spinner in place of its label.
       expect(within(screen.getByTestId('make-active-btn-plan-1')).getByText(/^make active$/i)).toBeTruthy();
-      expect(within(screen.getByTestId('make-active-btn-plan-2')).queryByText(/^make active$/i)).toBeNull();
-    });
-
-    it('shows the set-active error text when switching to a custom path fails', () => {
-      setMocks({
-        enrollments: [albertPath],
-        setActiveTrack: {
-          mutate: mockSetActive, isPending: false, variables: undefined, isError: true,
-          error: { response: { data: { message: 'Plan not found' } } },
-        },
-      });
-      render(<TracksScreen />);
-      expect(screen.getByText('Plan not found')).toBeTruthy();
+      expect(within(screen.getByTestId('make-active-btn-plan-2')).getByText(/^make active$/i)).toBeTruthy();
+      fireEvent.press(screen.getByTestId('make-active-btn-plan-2'));
+      expect(mockSetActive).not.toHaveBeenCalled();
+      fireEvent.press(screen.getByTestId('make-active-btn-plan-1'));
+      expect(mockSetActive).toHaveBeenCalledWith({ kind: 'custom', id: 'plan-1' });
     });
   });
 
@@ -609,6 +603,80 @@ describe('TracksScreen', () => {
       // Only the enrol mutation is called; no track-detail navigation
       expect(mockMutate).toHaveBeenCalled();
       expect(mockPush).not.toHaveBeenCalledWith('/track/track/skill-1');
+    });
+  });
+
+  describe('Make active, end to end with the real hook (105)', () => {
+    const mockTrackService = trackService as jest.Mocked<typeof trackService>;
+    const current = makeTrackPath({ id: 'skill-1', name: 'Current Track', isActive: true });
+    const planA = makeCustomPath({ id: 'plan-1', name: 'Path A' });
+    const planB = makeCustomPath({ id: 'plan-2', name: 'Path B' });
+    const calls: { ref: ActivePathRef; resolve: () => void; reject: (err: Error) => void }[] = [];
+
+    beforeEach(() => {
+      calls.length = 0;
+      const actual = jest.requireActual<typeof import('@/hooks/useTrack')>('@/hooks/useTrack');
+      (usePaths as jest.Mock).mockImplementation(actual.usePaths);
+      (useSetActivePath as jest.Mock).mockImplementation(actual.useSetActivePath);
+      mockTrackService.getPaths.mockReset();
+      mockTrackService.setActivePath.mockReset();
+      mockTrackService.getPaths.mockResolvedValue([current, planA, planB]);
+      mockTrackService.setActivePath.mockImplementation((ref) =>
+        new Promise<void>((resolve, reject) => { calls.push({ ref, resolve, reject }); }));
+    });
+
+    // TanStack Query notifies observers on a zero-delay timer; let the last one land inside act.
+    afterEach(async () => { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); }); });
+
+    async function renderLoaded() {
+      render(<TracksScreen />, { wrapper: queryWrapper() });
+      await waitFor(() => expect(screen.getByTestId('make-active-btn-plan-1')).toBeTruthy());
+    }
+
+    it('shows the new active card before the service resolves', async () => {
+      await renderLoaded();
+
+      fireEvent.press(screen.getByTestId('make-active-btn-plan-1'));
+
+      await waitFor(() => expect(screen.getByTestId('active-badge-plan-1')).toBeTruthy());
+      expect(screen.queryByTestId('active-badge-skill-1')).toBeNull();
+      expect(screen.queryByTestId('make-active-btn-plan-1')).toBeNull();
+      expect(screen.getByTestId('make-active-btn-skill-1')).toBeTruthy();
+      expect(calls).toHaveLength(1);
+      await act(async () => { must(calls[0], 'first call').resolve(); });
+    });
+
+    it('shows the toast and the old active card, and no error line, when the call is rejected', async () => {
+      await renderLoaded();
+      fireEvent.press(screen.getByTestId('make-active-btn-plan-1'));
+      await waitFor(() => expect(calls).toHaveLength(1));
+
+      await act(async () => { must(calls[0], 'first call').reject(new Error('boom')); });
+
+      await waitFor(() => expect(screen.getByText(SET_ACTIVE_PATH_ERROR)).toBeTruthy());
+      expect(screen.getByTestId('active-badge-skill-1')).toBeTruthy();
+      expect(screen.queryByTestId('active-badge-plan-1')).toBeNull();
+      expect(screen.queryByTestId('tracks-set-active-error')).toBeNull();
+    });
+
+    it('sends one request when the same path is tapped again while its request is in flight', async () => {
+      await renderLoaded();
+
+      fireEvent.press(screen.getByTestId('make-active-btn-plan-1'));
+      await waitFor(() => expect(screen.getByTestId('active-badge-plan-1')).toBeTruthy());
+      fireEvent.press(screen.getByTestId('make-active-btn-plan-2'));
+      await waitFor(() => expect(screen.getByTestId('active-badge-plan-2')).toBeTruthy());
+      // Path A is not active any more, so its button is back, while its request is still in flight.
+      fireEvent.press(screen.getByTestId('make-active-btn-plan-1'));
+
+      await act(async () => { must(calls[0], 'first call').resolve(); });
+      await waitFor(() => expect(calls).toHaveLength(2));
+      await act(async () => { must(calls[1], 'second call').resolve(); });
+      await waitFor(() => expect(mockTrackService.getPaths).toHaveBeenCalledTimes(2));
+      expect(mockTrackService.setActivePath.mock.calls.map(([ref]) => ref)).toEqual([
+        { kind: 'custom', id: 'plan-1' },
+        { kind: 'custom', id: 'plan-2' },
+      ]);
     });
   });
 });

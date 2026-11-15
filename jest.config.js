@@ -9,6 +9,8 @@ module.exports = {
     '^expo-device$': '<rootDir>/__mocks__/expo-device.ts',
     '^react-native-svg$': '<rootDir>/__mocks__/react-native-svg.tsx',
     '^react-native-purchases$': '<rootDir>/__mocks__/react-native-purchases.ts',
+    '^@react-native-async-storage/async-storage$': '@react-native-async-storage/async-storage/jest/async-storage-mock',
+    '^@react-native-community/netinfo$': '@react-native-community/netinfo/jest/netinfo-mock.js',
   },
   transformIgnorePatterns: [
     'node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|@tanstack|zustand))',

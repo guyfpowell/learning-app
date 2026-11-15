@@ -1,4 +1,4 @@
-import { AxiosHeaders, type AxiosInstance, type AxiosResponse } from 'axios';
+import { AxiosError, AxiosHeaders, type AxiosInstance, type AxiosResponse } from 'axios';
 
 const mockExpoConfig: { hostUri?: string; extra: object } = { extra: {} };
 jest.mock('expo-constants', () => ({
@@ -36,9 +36,14 @@ jest.mock('expo-router', () => ({
   router: { replace: mockRouterReplace },
 }));
 
-const mockQueryClear = jest.fn();
+const mockQueryClient = { name: 'app query client' };
+const mockClearSessionData = jest.fn();
+jest.mock('@/lib/offlineWrites', () => ({
+  clearSessionData: mockClearSessionData,
+  isRetryableWriteError: jest.requireActual('@/lib/offlineWrites').isRetryableWriteError,
+}));
 jest.mock('@/providers/QueryProvider', () => ({
-  queryClient: { clear: mockQueryClear },
+  queryClient: mockQueryClient,
 }));
 
 describe('api module', () => {
@@ -211,8 +216,96 @@ describe('api module', () => {
 
       await expect(rejected(error)).rejects.toEqual(error);
       expect(mockClearAuth).toHaveBeenCalled();
-      expect(mockQueryClear).toHaveBeenCalled();
+      expect(mockClearSessionData).toHaveBeenCalledWith(mockQueryClient);
       expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+    });
+
+    // 105b — only a refusal from the server signs the person out.
+    describe('a refresh that does not reach the server', () => {
+      const ORIGINAL_URLS = ['/lessons/1', '/lessons/2'] as const;
+
+      function originalError(url: string) {
+        return { response: { status: 401 }, config: { url, headers: {} as Record<string, string> }, code: 'ERR_BAD_REQUEST' };
+      }
+
+      function refreshFailure(code: string, status?: number): AxiosError {
+        const response = status === undefined ? undefined : { ...axiosResponse(null), status };
+        return new AxiosError('refresh failed', code, undefined, undefined, response);
+      }
+
+      function loadSignedInApi(): AxiosInstance {
+        setDev(true);
+        process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
+        return loadApi();
+      }
+
+      it('a 401, then the refresh times out: no sign-out, and the call rejects with the network error', async () => {
+        const api = loadSignedInApi();
+        const timeout = refreshFailure('ECONNABORTED');
+        jest.spyOn(api, 'post').mockRejectedValue(timeout);
+
+        const rejected = getResponseInterceptorRejected(api);
+
+        await expect(rejected(originalError(ORIGINAL_URLS[0]))).rejects.toBe(timeout);
+        expect(mockClearAuth).not.toHaveBeenCalled();
+        expect(mockClearSessionData).not.toHaveBeenCalled();
+        expect(mockRouterReplace).not.toHaveBeenCalled();
+      });
+
+      it('a 401, then the refresh gets a 5xx: no sign-out', async () => {
+        const api = loadSignedInApi();
+        const serverError = refreshFailure('ERR_BAD_RESPONSE', 503);
+        jest.spyOn(api, 'post').mockRejectedValue(serverError);
+
+        const rejected = getResponseInterceptorRejected(api);
+
+        await expect(rejected(originalError(ORIGINAL_URLS[0]))).rejects.toBe(serverError);
+        expect(mockClearAuth).not.toHaveBeenCalled();
+        expect(mockRouterReplace).not.toHaveBeenCalled();
+      });
+
+      it.each([401, 403])('a 401, then the refresh gets a %i: sign-out, as today', async (status) => {
+        const api = loadSignedInApi();
+        jest.spyOn(api, 'post').mockRejectedValue(refreshFailure('ERR_BAD_REQUEST', status));
+
+        const rejected = getResponseInterceptorRejected(api);
+        const error = originalError(ORIGINAL_URLS[0]);
+
+        await expect(rejected(error)).rejects.toEqual(error);
+        expect(mockClearAuth).toHaveBeenCalled();
+        expect(mockClearSessionData).toHaveBeenCalledWith(mockQueryClient);
+        expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+      });
+
+      it('two calls waiting on one refresh that fails for a network reason: both reject, no sign-out', async () => {
+        const api = loadSignedInApi();
+        const timeout = refreshFailure('ECONNABORTED');
+        const refresh = { fail: (_err: AxiosError) => {} };
+        jest.spyOn(api, 'post').mockReturnValue(new Promise((_resolve, reject) => { refresh.fail = reject; }));
+
+        const rejected = getResponseInterceptorRejected(api);
+        const first = rejected(originalError(ORIGINAL_URLS[0]));
+        const second = rejected(originalError(ORIGINAL_URLS[1]));
+        refresh.fail(timeout);
+
+        await expect(first).rejects.toBe(timeout);
+        await expect(second).rejects.toBe(timeout);
+        expect(mockClearAuth).not.toHaveBeenCalled();
+        expect(mockRouterReplace).not.toHaveBeenCalled();
+      });
+
+      it('after a failed refresh, the next 401 starts a new refresh', async () => {
+        const api = loadSignedInApi();
+        const timeout = refreshFailure('ECONNABORTED');
+        const post = jest.spyOn(api, 'post').mockRejectedValue(timeout);
+        jest.spyOn(api, 'request').mockResolvedValue(axiosResponse('ok'));
+
+        const rejected = getResponseInterceptorRejected(api);
+        await expect(rejected(originalError(ORIGINAL_URLS[0]))).rejects.toBe(timeout);
+        post.mockResolvedValue(axiosResponse({ token: 'new-access-token' }));
+
+        await expect(rejected(originalError(ORIGINAL_URLS[1]))).resolves.toEqual(axiosResponse('ok'));
+      });
     });
 
     it('refreshes via the httpOnly cookie (no body) and retries the original request on 401', async () => {

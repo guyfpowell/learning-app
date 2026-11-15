@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/us
 import { TopicFeedback } from '@/components/ui/TopicFeedback';
 import { extractError } from '@/lib/errors';
 import { useProgress } from '@/hooks/useProgress';
+import { useAutoDismiss } from '@/hooks/useAutoDismiss';
 import { NewUserHome } from '@/components/home/NewUserHome';
 import { PathCard } from '@/components/ui/PathCard';
 import { HomePath } from '@/components/home/HomePath';
@@ -40,11 +41,7 @@ export default function LessonsScreen() {
   const refreshPaths = useRefreshPaths();
   // "Lesson 2 skipped": shown once the server has taken the skip, then clears itself.
   const [skipToast, setSkipToast] = useState<string | null>(null);
-  useEffect(() => {
-    if (!skipToast) return;
-    const timer = setTimeout(() => setSkipToast(null), SKIP_TOAST_MS);
-    return () => clearTimeout(timer);
-  }, [skipToast]);
+  useAutoDismiss(skipToast, () => setSkipToast(null), SKIP_TOAST_MS);
   const onSkip = (path: UserPath, scope: SkipScope, reason: SkipReason) => {
     const message = skippedMessage(path, scope);
     skip.skip(path, scope, reason, () => setSkipToast(message));

@@ -31,11 +31,6 @@ export const trackService = {
     await api.patch('/enrollments/active', ref);
   },
 
-  /** Removes a path: a track is unenrolled, a custom path is archived server-side. */
-  async removePath({ kind, id }: ActivePathRef): Promise<void> {
-    await api.delete(`/enrollments/${kind}/${id}`);
-  },
-
   /**
    * Skips from the next lesson of either kind of path: the lesson (076h), the rest of its topic,
    * or the rest of its level. Level is tracks only: a custom path is dependency-ordered (C10).

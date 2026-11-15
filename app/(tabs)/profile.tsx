@@ -26,6 +26,7 @@ import {
 } from '@/hooks/useNotificationPrefs';
 import { useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { usePushStatus } from '@/hooks/usePushStatus';
+import { useAutoDismiss } from '@/hooks/useAutoDismiss';
 import { extractError } from '@/lib/errors';
 import { openManageSubscriptions } from '@/lib/subscriptions';
 import { Toast } from '@/components/ui/Toast';
@@ -131,11 +132,7 @@ export default function ProfileScreen() {
   const saveError = updatePrefs.error ?? updateProfile.error;
 
   // The saved toast clears itself.
-  useEffect(() => {
-    if (!isSaveSuccess) return;
-    const timer = setTimeout(() => setSavedToastHidden(true), SAVED_TOAST_MS);
-    return () => clearTimeout(timer);
-  }, [isSaveSuccess]);
+  useAutoDismiss(isSaveSuccess, () => setSavedToastHidden(true), SAVED_TOAST_MS);
 
   const savedLessons = savedData ?? [];
 

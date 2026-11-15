@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query';
+import { createTestQueryClient } from '@/test-utils/queryClient';
 import { lessonQueryKey } from '@/lib/queryKeys';
 import { PREVIEW_IN_PROGRESS_ID, PREVIEW_LESSON_ID, previewCompletedLesson, previewInProgressLesson, seedPreviewLesson } from '../previewLesson';
 
@@ -15,7 +15,7 @@ describe('previewCompletedLesson', () => {
 
 describe('seedPreviewLesson', () => {
   it('puts the lesson where the lesson screen reads it, and keeps it fresh', () => {
-    const client = new QueryClient();
+    const client = createTestQueryClient();
     seedPreviewLesson(client);
     expect(client.getQueryData(lessonQueryKey(PREVIEW_LESSON_ID))).toEqual(previewCompletedLesson());
     expect(client.getQueryDefaults(lessonQueryKey(PREVIEW_LESSON_ID)).staleTime).toBe(Infinity);
@@ -28,7 +28,7 @@ describe('previewInProgressLesson', () => {
     expect(lesson.quizCompleted).toBe(false);
     expect(lesson.keyTakeaway).toBeUndefined();
     expect(lesson.quizzes.map(q => q.lessonId)).toEqual(lesson.quizzes.map(() => PREVIEW_IN_PROGRESS_ID));
-    const client = new QueryClient();
+    const client = createTestQueryClient();
     seedPreviewLesson(client);
     expect(client.getQueryData(lessonQueryKey(PREVIEW_IN_PROGRESS_ID))).toEqual(lesson);
   });

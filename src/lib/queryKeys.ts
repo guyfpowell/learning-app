@@ -11,6 +11,9 @@ export const CURRENT_USER_QUERY_KEY = ['auth', 'me'] as const;
  */
 export const PATHS_QUERY_KEY = ['enrollments'] as const;
 
+/** The track catalogue with the user's access to each (`GET /lessons/skills`). Invalidate it on a path change. */
+export const SKILLS_QUERY_KEY = ['skills'] as const;
+
 /** The user's saved Albert plans (`GET /track-plans`). Invalidate it when a plan is created or archived. */
 export const TRACK_PLANS_QUERY_KEY = ['track-plans'] as const;
 

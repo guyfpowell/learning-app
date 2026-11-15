@@ -11,23 +11,31 @@ import { TextAction } from '@/components/tracks/TextAction';
 import { TrackIcon } from '@/components/ui/TrackIcon';
 import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
 import { Spinner } from '@/components/ui/Spinner';
+import { Toast } from '@/components/ui/Toast';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { ActiveTrackHero } from '@/components/tracks/ActiveTrackHero';
 import { TrackRow } from '@/components/tracks/TrackRow';
 import { AlbertMark } from '@/components/albert/AlbertMark';
 import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTrack';
+import { useAutoDismiss } from '@/hooks/useAutoDismiss';
 import type { ActivePathRef, SkillWithAccess, UserPath } from '@learning/shared';
 import { extractError } from '@/lib/errors';
 import { capitalize } from '@/lib/capitalize';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { HOME_ROUTE, trackRoute } from '@/lib/routes';
 
-// Display-only labels. `category` is free text (web admin can create others), so
-// callers must fall back to the raw value for anything not listed here.
 const GLYPH_SIZE = 23;
+// The Albert card's mark, a point smaller than a track glyph in the design.
+const ALBERT_CTA_GLYPH_SIZE = 22;
+// How long the "could not make active" toast stays up before it clears itself.
+const FAILURE_TOAST_MS = 4000;
 // Side gutters, the same as Home's.
 const TRACKS_GUTTER = spacing.md + spacing.xs;
+// The design's 22 above a section heading: there is no 22 token.
+const SECTION_HEADING_GAP = 22;
 
+// Display-only labels. `category` is free text (web admin can create others), so
+// callers must fall back to the raw value for anything not listed here.
 const categoryLabel: Record<string, string> = {
   'product-management': 'Product',
   'ai-engineering':     'AI Eng',
@@ -43,36 +51,68 @@ function skillAction(isEnrolled: boolean, isLocked: boolean): SkillAction {
   return 'enrol';
 }
 
-export default function TracksScreen() {
-  const router = useRouter();
-  const { data: skills, isLoading: skillsLoading, isError: skillsError, error: skillsErr } = useSkills();
-  const { data: paths, isLoading: pathsLoading, isError: pathsError, error: pathsErr } = usePaths();
-  const enroll = useEnroll();
-  const setActive = useSetActivePath();
-  const [premiumModalVisible, setPremiumModalVisible] = useState(false);
-  const isLoading = skillsLoading || pathsLoading;
-  // The screen groups by what the learner can do: the active path as the hero, the paths they have
-  // joined (to switch to), and the catalogue to explore. A custom path is joined by definition.
+const skillIds = (id: string) => ({
+  tap: `skill-card-tap-${id}`, card: `skill-card-${id}`, name: `skill-name-${id}`, headline: `skill-headline-${id}`,
+});
+const customIds = (id: string) => ({
+  tap: `custom-path-tap-${id}`, card: `custom-path-card-${id}`, headline: `custom-path-description-${id}`,
+});
+
+/** What the screen shows, grouped by what the learner can do. */
+interface TrackSections {
+  enrolledSkillIds: Set<string>;
+  activeCustom: UserPath | undefined;
+  activeTrack: UserPath | undefined;
+  /** The catalogue entry for `activeTrack`, for its name and headline. */
+  activeSkill: SkillWithAccess | undefined;
+  otherCustomPaths: UserPath[];
+  otherEnrolledSkills: SkillWithAccess[];
+  exploreSkills: SkillWithAccess[];
+  hasCustomPath: boolean;
+  hasOtherTracks: boolean;
+  hasYourTracks: boolean;
+}
+
+/**
+ * The active path as the hero, the paths the learner has joined (to switch to), and the
+ * catalogue to explore. A custom path is joined by definition.
+ */
+function groupTracks(skills: SkillWithAccess[] | undefined, paths: UserPath[] | undefined): TrackSections {
   const trackPaths = paths?.filter((p) => p.kind === 'track') ?? [];
   const enrolledSkillIds = new Set(trackPaths.map((p) => p.id));
   const customPaths = paths?.filter((p) => p.kind === 'custom') ?? [];
   const activeCustom = customPaths.find((p) => p.isActive);
   const activeTrack = trackPaths.find((p) => p.isActive);
-  const activeSkill = skills?.find((s) => s.id === activeTrack?.id);
   const otherCustomPaths = customPaths.filter((p) => !p.isActive);
   const otherEnrolledSkills = skills?.filter((s) => enrolledSkillIds.has(s.id) && s.id !== activeTrack?.id) ?? [];
-  const exploreSkills = skills?.filter((s) => !enrolledSkillIds.has(s.id)) ?? [];
   const hasOtherTracks = otherCustomPaths.length + otherEnrolledSkills.length > 0;
-  const hasYourTracks = !!activeCustom || !!activeTrack || hasOtherTracks;
-  const isSwitchingTo = (ref: ActivePathRef) =>
-    setActive.isPending && setActive.variables?.kind === ref.kind && setActive.variables.id === ref.id;
+  return {
+    enrolledSkillIds,
+    activeCustom,
+    activeTrack,
+    activeSkill: skills?.find((s) => s.id === activeTrack?.id),
+    otherCustomPaths,
+    otherEnrolledSkills,
+    exploreSkills: skills?.filter((s) => !enrolledSkillIds.has(s.id)) ?? [],
+    hasCustomPath: customPaths.length > 0,
+    hasOtherTracks,
+    hasYourTracks: !!activeCustom || !!activeTrack || hasOtherTracks,
+  };
+}
 
-  const skillIds = (id: string) => ({
-    tap: `skill-card-tap-${id}`, card: `skill-card-${id}`, name: `skill-name-${id}`, headline: `skill-headline-${id}`,
-  });
-  const customIds = (id: string) => ({
-    tap: `custom-path-tap-${id}`, card: `custom-path-card-${id}`, headline: `custom-path-description-${id}`,
-  });
+export default function TracksScreen() {
+  const router = useRouter();
+  const { data: skills, isLoading: skillsLoading, isError: skillsError, error: skillsErr } = useSkills();
+  const { data: paths, isLoading: pathsLoading, isError: pathsError, error: pathsErr } = usePaths();
+  const enroll = useEnroll();
+  const { setActive, isPendingFor, failure, dismissFailure } = useSetActivePath();
+  const [premiumModalVisible, setPremiumModalVisible] = useState(false);
+  const isLoading = skillsLoading || pathsLoading;
+  const {
+    enrolledSkillIds, activeCustom, activeTrack, activeSkill, otherCustomPaths, otherEnrolledSkills, exploreSkills,
+    hasCustomPath, hasOtherTracks, hasYourTracks,
+  } = groupTracks(skills, paths);
+  useAutoDismiss(failure, dismissFailure, FAILURE_TOAST_MS);
 
   /** The compact white button that switches the active path. */
   function makeActiveButton(id: string, ref: ActivePathRef) {
@@ -82,8 +122,7 @@ export default function TracksScreen() {
         look={{ face: colors.white, label: colors.textStrong, edge: press.secondaryEdge }}
         label="Make active"
         compact
-        loading={isSwitchingTo(ref)}
-        onPress={() => setActive.mutate(ref)}
+        onPress={() => { if (!isPendingFor(ref)) setActive(ref); }}
       />
     );
   }
@@ -146,7 +185,7 @@ export default function TracksScreen() {
   }
 
   // Only for a learner with no Albert path: once they have one, it is already above.
-  const showAlbertCta = customPaths.length === 0;
+  const showAlbertCta = !hasCustomPath;
 
   /** Points someone browsing the catalogue to Albert, in the same card as a track. */
   function albertRow() {
@@ -156,7 +195,7 @@ export default function TracksScreen() {
         ids={{ tap: 'albert-cta', card: 'albert-cta-card', name: 'albert-cta-name', headline: 'albert-cta-headline' }}
         tapLabel="Ask Albert to build a path around your goals"
         onOpen={openAlbert}
-        glyph={<AlbertMark size={22} />}
+        glyph={<AlbertMark size={ALBERT_CTA_GLYPH_SIZE} />}
         prompt
         name="Want something built around your goals?"
         headline={null}
@@ -183,12 +222,6 @@ export default function TracksScreen() {
         {enroll.isError && (
           <View testID="tracks-enrol-error">
             <Text style={styles.errorText}>{extractError(enroll.error)}</Text>
-          </View>
-        )}
-
-        {setActive.isError && (
-          <View testID="tracks-set-active-error">
-            <Text style={styles.errorText}>{extractError(setActive.error)}</Text>
           </View>
         )}
 
@@ -231,6 +264,12 @@ export default function TracksScreen() {
         )}
       </ScrollView>
 
+      {failure && (
+        <View testID="set-active-toast" style={styles.toast}>
+          <Toast visible variant="error" message={failure} onDismiss={dismissFailure} />
+        </View>
+      )}
+
       <PremiumModal
         visible={premiumModalVisible}
         onClose={() => setPremiumModalVisible(false)}
@@ -251,10 +290,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   section: { marginBottom: spacing.sm },
+  toast:   { position: 'absolute', start: spacing.md, end: spacing.md, bottom: TAB_BAR_CLEARANCE },
   sectionHeading: {
     ...sectionHeadingStyle,
     paddingHorizontal: spacing.xs,
-    marginTop:         22,
+    marginTop:         SECTION_HEADING_GAP,
     marginBottom:      spacing.xs,
   },
 });

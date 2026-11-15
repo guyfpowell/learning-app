@@ -1,6 +1,11 @@
 import { renderHook, waitFor, act } from '@testing-library/react-native';
-import { queryWrapper } from '@/test-utils/queryClient';
-import { useLogin, useLogout, useRegister } from '../useAuth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { onlineManager } from '@tanstack/react-query';
+import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
+import { pauseSetActiveWrite } from '@/test-utils/pausedWrite';
+import { PERSIST_STORAGE_KEY } from '@/lib/offlineWrites';
+import { trackService } from '@/services/track.service';
+import { useDeleteAccount, useLogin, useLogout, useRegister } from '../useAuth';
 import * as Sentry from '@sentry/react-native';
 import { authService } from '@/services/auth.service';
 import { userService } from '@/services/user.service';
@@ -20,8 +25,11 @@ jest.mock('@/services/user.service', () => ({
   userService: {
     updateProfile: jest.fn(() => Promise.resolve({})),
     syncTimezone: jest.fn(() => Promise.resolve()),
+    deleteAccount: jest.fn(() => Promise.resolve()),
   },
 }));
+
+jest.mock('@/services/track.service', () => ({ trackService: { setActivePath: jest.fn() } }));
 
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
@@ -146,5 +154,53 @@ describe('useLogout', () => {
 
     await waitFor(() => expect(result.current.isError || result.current.isSuccess).toBe(true));
     expect(useAuthStore.getState().user).toBeNull();
+  });
+});
+
+describe('sign-out discards writes made on patchy signal (105a)', () => {
+  const ref = { kind: 'custom', id: 'p1' } as const;
+  const mockTrackService = trackService as jest.Mocked<typeof trackService>;
+
+  beforeEach(async () => {
+    resetServiceMocks();
+    mockTrackService.setActivePath.mockReset();
+    mockTrackService.setActivePath.mockResolvedValue(undefined);
+    mockUserService.deleteAccount.mockResolvedValue(undefined);
+    mockAuthService.logout.mockResolvedValue(undefined);
+    await AsyncStorage.clear();
+    useAuthStore.getState().setAuth(mockUser, 'access');
+  });
+  afterEach(() => onlineManager.setOnline(true));
+
+  /** A write paused and saved, then the phone is brought back online after the person signs out. */
+  async function expectNothingLeft(client: ReturnType<typeof createTestQueryClient>) {
+    expect(await AsyncStorage.getItem(PERSIST_STORAGE_KEY)).toBeNull();
+    onlineManager.setOnline(true);
+    await client.resumePausedMutations();
+    expect(mockTrackService.setActivePath).not.toHaveBeenCalled();
+  }
+
+  it('on log out', async () => {
+    const client = createTestQueryClient();
+    await pauseSetActiveWrite(client, ref);
+    const { result } = renderHook(() => useLogout(), { wrapper: queryWrapper(client) });
+
+    act(() => { result.current.mutate(); });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    await waitFor(async () => expect(await AsyncStorage.getItem(PERSIST_STORAGE_KEY)).toBeNull());
+    await expectNothingLeft(client);
+  });
+
+  it('on delete account', async () => {
+    const client = createTestQueryClient();
+    await pauseSetActiveWrite(client, ref);
+    const { result } = renderHook(() => useDeleteAccount(), { wrapper: queryWrapper(client) });
+
+    act(() => { result.current.mutate('password'); });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    await waitFor(async () => expect(await AsyncStorage.getItem(PERSIST_STORAGE_KEY)).toBeNull());
+    await expectNothingLeft(client);
   });
 });

@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/react-native';
 import { authService, type LoginInput, type RegisterInput } from '@/services/auth.service';
 import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/store/auth.store';
+import { clearSessionData } from '@/lib/offlineWrites';
 
 /**
  * Onboarding used to collect the timezone. With it gone, the device is the only
@@ -55,7 +56,7 @@ export function useLogout() {
     onSettled: () => {
       // Always clear — even if the call fails. AuthGate handles redirect to sign-in.
       clearAuth();
-      queryClient.clear();
+      void clearSessionData(queryClient);
     },
   });
 }
@@ -76,7 +77,7 @@ export function useDeleteAccount() {
     mutationFn: (password: string) => userService.deleteAccount(password),
     onSuccess: () => {
       clearAuth();
-      queryClient.clear();
+      void clearSessionData(queryClient);
     },
   });
 }

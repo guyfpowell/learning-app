@@ -1,13 +1,17 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { QueryClient, onlineManager } from '@tanstack/react-query';
+import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios';
 import { makeCustomPath, makeTrackPath } from '@/test-utils/paths';
-import type { UserPath } from '@learning/shared';
-import { queryWrapper } from '@/test-utils/queryClient';
+import { SET_ACTIVE_PATH_ERROR, type UserPath } from '@learning/shared';
+import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
+import { must } from '@/test-utils/must';
 import * as Sentry from '@sentry/react-native';
-import { usePaths, useSetActivePath, useSkip, useTopicFeedback } from '../useTrack';
+import { useEnroll, usePaths, useSetActivePath, useSkip, useTopicFeedback } from '../useTrack';
+import { QUERY_CLIENT_DEFAULTS } from '@/lib/offlineWrites';
 import { trackService } from '@/services/track.service';
 
 jest.mock('@/services/track.service', () => ({
-  trackService: { getPaths: jest.fn(), setActivePath: jest.fn(), skip: jest.fn(), topicFeedback: jest.fn() },
+  trackService: { getPaths: jest.fn(), setActivePath: jest.fn(), skip: jest.fn(), topicFeedback: jest.fn(), enroll: jest.fn() },
 }));
 
 const mockTrackService = trackService as jest.Mocked<typeof trackService>;
@@ -30,15 +34,15 @@ describe('useSkip (079c)', () => {
   it('sends the path, the scope and the reason as one call', async () => {
     // Resolved by hand, so the test sees the call in flight and ends on a settled mutation rather
     // than returning while the skip is still running.
-    let resolveSkip!: (path: UserPath) => void;
-    mockTrackService.skip.mockReturnValue(new Promise((resolve) => { resolveSkip = resolve; }));
+    const held: { resolve?: (path: UserPath) => void } = {};
+    mockTrackService.skip.mockReturnValue(new Promise((resolve) => { held.resolve = resolve; }));
     const { result } = renderHook(() => useSkip(), { wrapper: queryWrapper() });
 
     act(() => result.current.skip(plan, 'topic', 'already_know'));
 
     await waitFor(() => expect(result.current.pendingScope(plan)).toBe('topic'));
     expect(mockTrackService.skip).toHaveBeenCalledWith({ kind: 'custom', id: 'p1', scope: 'topic', reason: 'already_know' });
-    await act(async () => resolveSkip(track));
+    await act(async () => must(held.resolve, 'skip resolver')(track));
     await waitFor(() => expect(result.current.pendingScope(plan)).toBeNull());
   });
 
@@ -78,23 +82,244 @@ describe('useTopicFeedback (079d)', () => {
   });
 });
 
-describe('useSetActivePath', () => {
-  it('stays pending until the paths refetch lands, so the button never flashes back', async () => {
-    // The first load answers at once; once the switch is made, the refetch is held open by hand.
+describe('useSetActivePath (105)', () => {
+  const trackA = makeTrackPath({ id: 's1', isActive: true });
+  const planB = makeCustomPath({ id: 'p1', isActive: false });
+  const refB = { kind: 'custom', id: 'p1' } as const;
+  const activeIds = (paths: UserPath[] | undefined) => paths?.filter((p) => p.isActive).map((p) => p.id);
+
+  /** The first load answers at once; a refetch after a switch is held open by hand until released. */
+  function setup() {
     let switched = false;
-    let resolveRefetch!: (paths: UserPath[]) => void;
+    const held: {
+      resolveSwitch?: () => void;
+      rejectSwitch?: (err: Error) => void;
+      resolveRefetch?: (paths: UserPath[]) => void;
+    } = {};
     mockTrackService.getPaths.mockImplementation(() =>
-      switched ? new Promise((resolve) => { resolveRefetch = resolve; }) : Promise.resolve([track]));
-    mockTrackService.setActivePath.mockImplementation(async () => { switched = true; });
-    const { result } = renderHook(() => ({ paths: usePaths(), setActive: useSetActivePath() }), { wrapper: queryWrapper() });
-    await waitFor(() => expect(result.current.paths.isSuccess).toBe(true));
+      switched ? new Promise((resolve) => { held.resolveRefetch = resolve; }) : Promise.resolve([trackA, planB]));
+    mockTrackService.setActivePath.mockImplementation(() => {
+      switched = true;
+      return new Promise<void>((resolve, reject) => { held.resolveSwitch = resolve; held.rejectSwitch = reject; });
+    });
+    const hook = renderHook(() => ({ paths: usePaths(), setActive: useSetActivePath() }), { wrapper: queryWrapper() });
+    return {
+      hook,
+      resolveSwitch: () => must(held.resolveSwitch, 'switch resolver')(),
+      rejectSwitch: (err: Error) => must(held.rejectSwitch, 'switch rejecter')(err),
+      resolveRefetch: (paths: UserPath[]) => must(held.resolveRefetch, 'refetch resolver')(paths),
+    };
+  }
 
-    act(() => result.current.setActive.mutate({ kind: 'track', id: 's1' }));
+  beforeEach(() => { jest.clearAllMocks(); mockTrackService.getPaths.mockReset(); mockTrackService.setActivePath.mockReset(); });
+  afterEach(async () => { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); }); });
 
+  it('shows the tapped path active before the service resolves, and the previous one not active', async () => {
+    const { hook } = setup();
+    await waitFor(() => expect(hook.result.current.paths.isSuccess).toBe(true));
+
+    act(() => hook.result.current.setActive.setActive(refB));
+
+    await waitFor(() => expect(activeIds(hook.result.current.paths.data)).toEqual(['p1']));
+    expect(mockTrackService.setActivePath).toHaveBeenCalledWith(refB);
+  });
+
+  it('puts the paths back, and returns the failure, when the service rejects', async () => {
+    const { hook, rejectSwitch } = setup();
+    await waitFor(() => expect(hook.result.current.paths.isSuccess).toBe(true));
+    act(() => hook.result.current.setActive.setActive(refB));
+    await waitFor(() => expect(activeIds(hook.result.current.paths.data)).toEqual(['p1']));
+
+    await act(async () => { rejectSwitch(new Error('boom')); });
+
+    await waitFor(() => expect(activeIds(hook.result.current.paths.data)).toEqual(['s1']));
+    expect(hook.result.current.setActive.failure).toBe(SET_ACTIVE_PATH_ERROR);
+  });
+
+  it('keeps what is on screen while the refetch after a success is held open', async () => {
+    const { hook, resolveSwitch, resolveRefetch } = setup();
+    await waitFor(() => expect(hook.result.current.paths.isSuccess).toBe(true));
+    act(() => hook.result.current.setActive.setActive(refB));
+    await waitFor(() => expect(activeIds(hook.result.current.paths.data)).toEqual(['p1']));
+
+    await act(async () => { resolveSwitch(); });
     await waitFor(() => expect(mockTrackService.getPaths).toHaveBeenCalledTimes(2));
-    expect(result.current.setActive.isPending).toBe(true);
+    expect(activeIds(hook.result.current.paths.data)).toEqual(['p1']);
 
-    await act(async () => { resolveRefetch([track]); });
-    await waitFor(() => expect(result.current.setActive.isPending).toBe(false));
+    await act(async () => { resolveRefetch([{ ...trackA, isActive: false }, { ...planB, isActive: true }]); });
+    await waitFor(() => expect(activeIds(hook.result.current.paths.data)).toEqual(['p1']));
+  });
+
+  it('knows the tapped path is in flight until the server answers', async () => {
+    const { hook, resolveSwitch } = setup();
+    await waitFor(() => expect(hook.result.current.paths.isSuccess).toBe(true));
+
+    act(() => hook.result.current.setActive.setActive(refB));
+
+    expect(hook.result.current.setActive.isPendingFor(refB)).toBe(true);
+    expect(hook.result.current.setActive.isPendingFor({ kind: 'track', id: 's1' })).toBe(false);
+    await waitFor(() => expect(mockTrackService.setActivePath).toHaveBeenCalledTimes(1));
+    await act(async () => { resolveSwitch(); });
+    await waitFor(() => expect(hook.result.current.setActive.isPendingFor(refB)).toBe(false));
+  });
+});
+
+describe('useSetActivePath on patchy signal (105a)', () => {
+  const trackA = makeTrackPath({ id: 's1', isActive: true });
+  const planB = makeCustomPath({ id: 'p1', isActive: false });
+  const refA = { kind: 'track', id: 's1' } as const;
+  const refB = { kind: 'custom', id: 'p1' } as const;
+  const activeIds = (paths: UserPath[] | undefined) => paths?.filter((p) => p.isActive).map((p) => p.id);
+
+  const networkError = new AxiosError('Network Error', 'ERR_NETWORK');
+  const timeout = new AxiosError('timeout of 15000ms exceeded', 'ECONNABORTED');
+  function refusal(status: number): AxiosError {
+    const response: AxiosResponse = { data: null, status, statusText: '', headers: {}, config: { headers: new AxiosHeaders() } };
+    return new AxiosError(`Request failed with status code ${status}`, 'ERR_BAD_RESPONSE', undefined, undefined, response);
+  }
+
+  /** The service fails with `failWith` while `failing.on` is set; a failure can switch itself off after one. */
+  const failing: { on: boolean; failWith: Error; once: boolean } = { on: false, failWith: networkError, once: false };
+  function setup() {
+    mockTrackService.getPaths.mockResolvedValue([trackA, planB]);
+    mockTrackService.setActivePath.mockImplementation(() => {
+      if (!failing.on) return Promise.resolve();
+      if (failing.once) failing.on = false;
+      return Promise.reject(failing.failWith);
+    });
+    return renderHook(() => ({ paths: usePaths(), setActive: useSetActivePath() }), { wrapper: queryWrapper() });
+  }
+  const advance = (ms: number) => act(async () => { await jest.advanceTimersByTimeAsync(ms); });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    mockTrackService.getPaths.mockReset();
+    mockTrackService.setActivePath.mockReset();
+    Object.assign(failing, { on: false, failWith: networkError, once: false });
+  });
+  afterEach(async () => {
+    await advance(60_000);
+    act(() => onlineManager.setOnline(true));
+    jest.useRealTimers();
+  });
+
+  it('sends no request offline, shows the new state at once, and sends when signal returns', async () => {
+    const hook = setup();
+    await waitFor(() => expect(hook.result.current.paths.isSuccess).toBe(true));
+    act(() => onlineManager.setOnline(false));
+
+    act(() => hook.result.current.setActive.setActive(refB));
+
+    await waitFor(() => expect(activeIds(hook.result.current.paths.data)).toEqual(['p1']));
+    expect(mockTrackService.setActivePath).not.toHaveBeenCalled();
+    expect(hook.result.current.setActive.failure).toBeNull();
+
+    act(() => onlineManager.setOnline(true));
+    await waitFor(() => expect(mockTrackService.setActivePath).toHaveBeenCalledWith(refB));
+    await waitFor(() => expect(hook.result.current.setActive.isPendingFor(refB)).toBe(false));
+  });
+
+  it('sends two writes made offline in the order they were tapped', async () => {
+    const hook = setup();
+    await waitFor(() => expect(hook.result.current.paths.isSuccess).toBe(true));
+    act(() => onlineManager.setOnline(false));
+
+    act(() => hook.result.current.setActive.setActive(refB));
+    act(() => hook.result.current.setActive.setActive(refA));
+    await waitFor(() => expect(activeIds(hook.result.current.paths.data)).toEqual(['s1']));
+    expect(mockTrackService.setActivePath).not.toHaveBeenCalled();
+
+    act(() => onlineManager.setOnline(true));
+    await waitFor(() => expect(mockTrackService.setActivePath).toHaveBeenCalledTimes(2));
+    expect(mockTrackService.setActivePath.mock.calls.map(([ref]) => ref)).toEqual([refB, refA]);
+    await waitFor(() => expect(hook.result.current.setActive.isPendingFor(refA)).toBe(false));
+  });
+
+  it.each([['a network error', networkError], ['a timeout', timeout]])('retries %s once and shows no failure when the retry works', async (_name, error) => {
+    Object.assign(failing, { on: true, failWith: error, once: true });
+    const hook = setup();
+    await waitFor(() => expect(hook.result.current.paths.isSuccess).toBe(true));
+
+    act(() => hook.result.current.setActive.setActive(refB));
+    await waitFor(() => expect(mockTrackService.setActivePath).toHaveBeenCalledTimes(1));
+    expect(hook.result.current.setActive.failure).toBeNull();
+    await advance(1_000);
+
+    await waitFor(() => expect(mockTrackService.setActivePath).toHaveBeenCalledTimes(2));
+    expect(hook.result.current.setActive.failure).toBeNull();
+    expect(activeIds(hook.result.current.paths.data)).toEqual(['p1']);
+  });
+
+  it('retries a 5xx three times, then shows the failure and restores the paths', async () => {
+    Object.assign(failing, { on: true, failWith: refusal(503) });
+    const hook = setup();
+    await waitFor(() => expect(hook.result.current.paths.isSuccess).toBe(true));
+
+    act(() => hook.result.current.setActive.setActive(refB));
+    await waitFor(() => expect(mockTrackService.setActivePath).toHaveBeenCalledTimes(1));
+    await advance(1_000);
+    await advance(2_000);
+    expect(mockTrackService.setActivePath).toHaveBeenCalledTimes(3);
+    expect(hook.result.current.setActive.failure).toBeNull();
+    await advance(4_000);
+
+    await waitFor(() => expect(hook.result.current.setActive.failure).toBe(SET_ACTIVE_PATH_ERROR));
+    expect(mockTrackService.setActivePath).toHaveBeenCalledTimes(4);
+    expect(activeIds(hook.result.current.paths.data)).toEqual(['s1']);
+  });
+
+  it('never retries a 404: the failure shows at once', async () => {
+    Object.assign(failing, { on: true, failWith: refusal(404) });
+    const hook = setup();
+    await waitFor(() => expect(hook.result.current.paths.isSuccess).toBe(true));
+
+    act(() => hook.result.current.setActive.setActive(refB));
+
+    await waitFor(() => expect(hook.result.current.setActive.failure).toBe(SET_ACTIVE_PATH_ERROR));
+    await advance(30_000);
+    expect(mockTrackService.setActivePath).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('every other mutation on patchy signal (105a)', () => {
+  const networkError = new AxiosError('Network Error', 'ERR_NETWORK');
+  const advance = (ms: number) => act(async () => { await jest.advanceTimersByTimeAsync(ms); });
+  // The app's own defaults, as `QueryProvider` builds the client; the test client's are not the same.
+  const appClient = () => new QueryClient({ defaultOptions: { ...QUERY_CLIENT_DEFAULTS, mutations: { ...QUERY_CLIENT_DEFAULTS.mutations, gcTime: Infinity } } });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    mockTrackService.enroll.mockReset();
+    mockTrackService.skip.mockReset();
+    act(() => onlineManager.setOnline(false));
+  });
+  afterEach(async () => {
+    await advance(60_000);
+    act(() => onlineManager.setOnline(true));
+    jest.useRealTimers();
+  });
+
+  it('sends enrol offline at once, fails, and never retries it', async () => {
+    mockTrackService.enroll.mockRejectedValue(networkError);
+    const { result } = renderHook(() => useEnroll(), { wrapper: queryWrapper(appClient()) });
+
+    act(() => result.current.mutate('skill-1'));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    await advance(30_000);
+    expect(mockTrackService.enroll).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends a skip offline at once, fails, and never retries it', async () => {
+    mockTrackService.skip.mockRejectedValue(networkError);
+    const { result } = renderHook(() => useSkip(), { wrapper: queryWrapper(appClient()) });
+
+    act(() => result.current.skip(makeTrackPath({ id: 's1' }), 'lesson', 'not_now'));
+
+    await waitFor(() => expect(result.current.error).toBe(networkError));
+    await advance(30_000);
+    expect(mockTrackService.skip).toHaveBeenCalledTimes(1);
   });
 });

@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useAuthStore } from '@/store/auth.store';
 import { queryClient } from '@/providers/QueryProvider';
+import { clearSessionData, isRetryableWriteError } from '@/lib/offlineWrites';
 import * as Sentry from '@sentry/react-native';
 
 // Dev fallback: the API runs on the same machine as Metro, so take the host the
@@ -68,10 +69,19 @@ api.interceptors.request.use((config) => {
  */
 export const BACKGROUND_REQUEST = { headers: { 'X-Background': 'true' } } as const;
 
-// ─── Response: on 401 → try refresh, then sign out if refresh fails ──────────
+// ─── Response: on 401 → try refresh, then sign out only if the server refuses it ─
 let isRefreshing = false;
-let refreshQueue: Array<(token: string) => void> = [];
+interface RefreshWaiter {
+  retryWith: (token: string) => void;
+  fail: (err: unknown) => void;
+}
+let refreshQueue: RefreshWaiter[] = [];
 
+/**
+ * The new access token, or null when the server refused the refresh (the session is over).
+ * A refresh that never reached the server (network error, timeout, 5xx) throws that error
+ * instead, so the caller can fail without signing anyone out (ADR-021, Decision 1).
+ */
 async function tryRefresh(): Promise<string | null> {
   try {
     // No body — the refresh token travels only as the httpOnly cookie.
@@ -90,6 +100,7 @@ async function tryRefresh(): Promise<string | null> {
       level: 'warning',
       data: { err: String(err) },
     });
+    if (isRetryableWriteError(err)) throw err;
     return null;
   }
 }
@@ -101,7 +112,7 @@ function signOutAndRedirect() {
     level: 'warning',
   });
   useAuthStore.getState().clearAuth();
-  queryClient.clear();
+  void clearSessionData(queryClient);
   router.replace('/(auth)/sign-in');
 }
 
@@ -134,19 +145,32 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
-          refreshQueue.push((newToken: string) => {
-            error.config.headers['Authorization'] = `Bearer ${newToken}`;
-            api.request(error.config).then(resolve).catch(reject);
+          refreshQueue.push({
+            retryWith: (newToken: string) => {
+              error.config.headers['Authorization'] = `Bearer ${newToken}`;
+              api.request(error.config).then(resolve).catch(reject);
+            },
+            fail: reject,
           });
         });
       }
 
       isRefreshing = true;
-      const newToken = await tryRefresh();
+      let newToken: string | null;
+      try {
+        newToken = await tryRefresh();
+      } catch (refreshError) {
+        // Didn't reach the server: nobody signs out, every waiting call fails with this error.
+        isRefreshing = false;
+        const waiting = refreshQueue;
+        refreshQueue = [];
+        waiting.forEach(waiter => waiter.fail(refreshError));
+        return Promise.reject(refreshError);
+      }
       isRefreshing = false;
 
       if (newToken) {
-        refreshQueue.forEach(cb => cb(newToken));
+        refreshQueue.forEach(waiter => waiter.retryWith(newToken));
         refreshQueue = [];
         error.config.headers['Authorization'] = `Bearer ${newToken}`;
         return api.request(error.config);
