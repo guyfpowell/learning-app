@@ -1,12 +1,14 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
-import { useCreateTrackPlan, useUpdateTrackPlan } from '../useTrackBuilder';
+import { onlineManager } from '@tanstack/react-query';
+import { NoSignalError } from '@/lib/offlineWrites';
+import { useBuildPlan, useCreateTrackPlan, useRefinePlan, useUpdateTrackPlan } from '../useTrackBuilder';
 import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, TRACK_PLANS_QUERY_KEY } from '@/lib/queryKeys';
 import { trackBuilderService } from '@/services/trackBuilder.service';
 import { ERROR_CODES } from '@learning/shared';
 
 jest.mock('@/services/trackBuilder.service', () => ({
-  trackBuilderService: { createPlan: jest.fn(), updateTrackPlan: jest.fn() },
+  trackBuilderService: { buildPlan: jest.fn(), refinePlan: jest.fn(), createPlan: jest.fn(), updateTrackPlan: jest.fn() },
 }));
 
 const createPlan = trackBuilderService.createPlan as jest.Mock;
@@ -75,5 +77,42 @@ describe('useUpdateTrackPlan', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: TRACK_PLANS_QUERY_KEY });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: PATHS_QUERY_KEY });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: TRACK_CONTENTS_QUERY_KEY });
+  });
+});
+
+describe('Albert\'s path actions with no signal (105g)', () => {
+  const service = trackBuilderService as jest.Mocked<typeof trackBuilderService>;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    act(() => onlineManager.setOnline(false));
+  });
+  afterEach(() => act(() => onlineManager.setOnline(true)));
+
+  it('build sends nothing and fails at once with NoSignalError', async () => {
+    const { result } = renderHook(() => useBuildPlan(), { wrapper: queryWrapper() });
+    act(() => result.current.mutate({ statement: 'I lead a team', sessionId: 's1' }));
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(NoSignalError));
+    expect(service.buildPlan).not.toHaveBeenCalled();
+  });
+
+  it('refine sends nothing and fails at once with NoSignalError', async () => {
+    const { result } = renderHook(() => useRefinePlan(), { wrapper: queryWrapper() });
+    act(() => result.current.mutate({ statement: 'I lead a team', plan: [], sessionId: 's1', chunks: [] }));
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(NoSignalError));
+    expect(service.refinePlan).not.toHaveBeenCalled();
+  });
+
+  it('save sends nothing and fails at once with NoSignalError', async () => {
+    const { result } = renderHook(() => useCreateTrackPlan(), { wrapper: queryWrapper() });
+    act(() => result.current.mutate(plan));
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(NoSignalError));
+    expect(service.createPlan).not.toHaveBeenCalled();
+  });
+
+  it('archive and rename send nothing and fail at once with NoSignalError', async () => {
+    const { result } = renderHook(() => useUpdateTrackPlan(), { wrapper: queryWrapper() });
+    act(() => result.current.mutate({ id: 'p1', name: 'New name' }));
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(NoSignalError));
+    expect(service.updateTrackPlan).not.toHaveBeenCalled();
   });
 });

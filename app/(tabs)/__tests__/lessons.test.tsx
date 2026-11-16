@@ -203,6 +203,14 @@ describe('LessonsScreen', () => {
     expect(queryByTestId('new-user-home')).toBeNull();
   });
 
+  // 105d: with no signal a refetch pauses; the query keeps its data and reports no error.
+  it('offline with cached paths, shows them and no load error', () => {
+    (usePaths as jest.Mock).mockReturnValue({ data: [mockEnrollment], isError: false, fetchStatus: 'paused' });
+    const { getAllByText, queryByTestId } = render(<LessonsScreen />);
+    expect(getAllByText(mockEnrollment.name).length).toBeGreaterThanOrEqual(1);
+    expect(queryByTestId('paths-load-error')).toBeNull();
+  });
+
   describe('momentum card (096)', () => {
     it('shows the momentum card when progress data exists and a track is enrolled', () => {
       setProgressMock(mockProgress);

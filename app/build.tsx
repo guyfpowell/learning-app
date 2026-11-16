@@ -13,7 +13,7 @@ import {
 } from '@learning/shared';
 import { UnderstandingCloud } from '@/components/trackBuilder/UnderstandingCloud';
 import { useDraftStore } from '@/store/trackBuilder.store';
-import { extractError, errorCode } from '@/lib/errors';
+import { extractError, errorCode, writeError } from '@/lib/errors';
 import { BUILD_REVIEW_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
 
 /**
@@ -77,7 +77,7 @@ export default function BuildScreen() {
       goToReview(result);
     } catch (err) {
       if (errorCode(err) === ERROR_CODES.TRACK_STATEMENT_TOO_THIN) setNotice(extractError(err));
-      else setError(extractError(err));
+      else setError(writeError(err));
     }
   };
 

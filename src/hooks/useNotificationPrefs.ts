@@ -1,8 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
 import type { NotificationPreference, UpdateNotificationPreferencesRequest } from '@learning/shared';
 import { notificationService } from '@/services/notification.service';
 import { NOTIFICATION_PREFERENCES_QUERY_KEY } from '@/lib/queryKeys';
+import { UPDATE_PREFERENCES_WRITE } from '@/lib/safeWrites';
+import { useSafeWrite } from '@/hooks/useSafeWrite';
 
 export function useNotificationPreferences() {
   return useQuery({
@@ -21,10 +23,7 @@ async function loadPreferences(): Promise<NotificationPreference> {
   }
 }
 
+/** Safe to send again (ADR-021 Decision 4): waits through a drop, one write at a time, survives a restart. */
 export function useUpdateNotificationPreferences() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (prefs: UpdateNotificationPreferencesRequest) => notificationService.updatePreferences(prefs),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: NOTIFICATION_PREFERENCES_QUERY_KEY }),
-  });
+  return useSafeWrite<UpdateNotificationPreferencesRequest, NotificationPreference>(UPDATE_PREFERENCES_WRITE);
 }

@@ -13,6 +13,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, font, fontSize, radius, spacing, shadow } from '@/theme';
 import { Spinner } from '@/components/ui/Spinner';
 import { useOfferings, usePurchase, useRestorePurchases } from '@/hooks/useIAP';
+import { writeError } from '@/lib/errors';
+
+// Payment errors show fixed copy, never the server's words; a signal drop says it was the signal (ADR-021).
+const PURCHASE_FAILED_COPY = 'Something went wrong. Please try again.';
+const RESTORE_FAILED_COPY = "Couldn't restore purchases. Please try again.";
 import type { PurchasesPackage } from '@/hooks/useIAP';
 
 // ── Legal URLs ────────────────────────────────────────────────────────────────
@@ -162,7 +167,7 @@ export default function PaywallScreen() {
         {/* Error */}
         {purchase.isError && (
           <Text style={styles.errorText}>
-            Something went wrong. Please try again.
+            {writeError(purchase.error, PURCHASE_FAILED_COPY)}
           </Text>
         )}
 
@@ -206,7 +211,7 @@ export default function PaywallScreen() {
 
         {restore.isError && (
           <Text testID="restore-error" style={styles.errorText}>
-            Couldn't restore purchases. Please try again.
+            {writeError(restore.error, RESTORE_FAILED_COPY)}
           </Text>
         )}
       </ScrollView>

@@ -1,4 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { onlineManager } from '@tanstack/react-query';
+import { NoSignalError } from '@/lib/offlineWrites';
 import * as Sentry from '@sentry/react-native';
 import { SITUATION_POLL_MS, type SituationChange, type SituationChangeOutcome } from '@learning/shared';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
@@ -75,5 +77,20 @@ describe('useCreateSituationChange (079h)', () => {
 
     expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ category: 'albert', message: 'Situation change send failed' }));
     expect(JSON.stringify((Sentry.addBreadcrumb as jest.Mock).mock.calls)).not.toContain('New job');
+  });
+});
+
+describe('useCreateSituationChange with no signal (105g)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    act(() => onlineManager.setOnline(false));
+  });
+  afterEach(() => act(() => onlineManager.setOnline(true)));
+
+  it('sends nothing and fails at once with NoSignalError', async () => {
+    const { result } = renderHook(() => useCreateSituationChange('plan-1'), { wrapper: queryWrapper() });
+    act(() => result.current.mutate('New job'));
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(NoSignalError));
+    expect(mockService.create).not.toHaveBeenCalled();
   });
 });

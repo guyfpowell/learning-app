@@ -5,6 +5,8 @@ import { useOfferings, usePurchase, useRestorePurchases } from '@/hooks/useIAP';
 import { PACKAGE_TYPE } from 'react-native-purchases';
 import type { IAPOffering } from '@/hooks/useIAP';
 import { makePackage } from '@/test-utils/purchases';
+import { NO_SIGNAL_ERROR } from '@learning/shared';
+import { NoSignalError } from '@/lib/offlineWrites';
 
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));
@@ -28,8 +30,8 @@ const mockAnnual  = makePackage(PACKAGE_TYPE.ANNUAL,  { identifier: 'com.learnin
 
 const mockOffering: IAPOffering = { monthly: mockMonthly, annual: mockAnnual };
 
-const mockPurchase = { mutate: jest.fn(), isPending: false, isSuccess: false, isError: false, error: null, reset: jest.fn() };
-const mockRestore  = { mutate: jest.fn(), isPending: false, isSuccess: false, isError: false, error: null, reset: jest.fn() };
+const mockPurchase = { mutate: jest.fn(), isPending: false, isSuccess: false, isError: false, error: null as Error | null, reset: jest.fn() };
+const mockRestore  = { mutate: jest.fn(), isPending: false, isSuccess: false, isError: false, error: null as Error | null, reset: jest.fn() };
 
 function setMocks(overrides: {
   offering?: IAPOffering | null;
@@ -243,5 +245,19 @@ describe('PaywallScreen — Restore Purchases (073b-8)', () => {
     render(<PaywallScreen />);
     const btn = screen.getByTestId('restore-purchases-btn');
     expect(btn.props.accessibilityState?.disabled).toBe(true);
+  });
+});
+
+describe('payment with no signal (105g)', () => {
+  it('a purchase that never left the phone says it was the signal', () => {
+    setMocks({ purchase: { ...mockPurchase, isError: true, error: new NoSignalError() } });
+    render(<PaywallScreen />);
+    expect(screen.getByText(NO_SIGNAL_ERROR)).toBeTruthy();
+  });
+
+  it('a restore that never left the phone says it was the signal', () => {
+    setMocks({ restore: { ...mockRestore, isError: true, error: new NoSignalError() } });
+    render(<PaywallScreen />);
+    expect(screen.getByTestId('restore-error').props.children).toBe(NO_SIGNAL_ERROR);
   });
 });

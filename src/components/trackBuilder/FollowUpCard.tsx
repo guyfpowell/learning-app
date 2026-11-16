@@ -5,7 +5,7 @@ import { TRACK_STATEMENT_MAX, type BuiltPlan, type BuiltPlanTopic, type RefinePl
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { extractError } from '@/lib/errors';
+import { writeError } from '@/lib/errors';
 import type { TrackBuilderDraft } from '@/store/trackBuilder.store';
 
 interface Props {
@@ -88,7 +88,7 @@ export function FollowUpCard({ draft, refinePlan, busy, refining, onPlanChange, 
       });
       if (await apply(r)) setFollowUp('');
     } catch (err) {
-      onError(extractError(err));
+      onError(writeError(err));
     }
   }
 

@@ -5,7 +5,7 @@ import { EdgeButton } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
 import { PATH_NAME_MAX } from '@learning/shared';
 import { colors, font, fontSize, press, spacing } from '@/theme';
-import { extractError } from '@/lib/errors';
+import { writeError } from '@/lib/errors';
 
 type RenameState =
   | { mode: 'view' }
@@ -37,7 +37,7 @@ export function RenamableHeading({ name, onSave }: Props) {
       await save(trimmed);
       setState({ mode: 'view' });
     } catch (err) {
-      setState({ mode: 'edit', draft, error: extractError(err) });
+      setState({ mode: 'edit', draft, error: writeError(err) });
     }
   }
 

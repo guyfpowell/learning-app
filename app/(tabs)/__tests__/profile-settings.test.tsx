@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import { Linking } from 'react-native';
 import ProfileScreen from '../profile';
 import { useAuthStore } from '@/store/auth.store';
+import { GENERIC_ERROR } from '@/lib/errors';
 import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
@@ -383,7 +384,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     setMutationMock({ isError: true, error: null });
     render(<ProfileScreen />);
     expect(screen.getByTestId('settings-error')).toBeTruthy();
-    expect(screen.getByText('Something went wrong. Please try again.')).toBeTruthy();
+    expect(screen.getByText(GENERIC_ERROR)).toBeTruthy();
   });
 
   it('shows API error message when notification prefs save fails', () => {

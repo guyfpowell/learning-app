@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { must } from '@/test-utils/must';
+import { GENERIC_ERROR } from '@/lib/errors';
 import { colors, fontSize, radius, spacing } from '@/theme';
 import { headerRowBox } from '@/components/quiz/QuizResultFrame';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react-native';
@@ -369,7 +370,7 @@ describe('QuizModal', () => {
     setQuizMock({ isError: true, error: null });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
     expect(screen.getByTestId('submit-error')).toBeTruthy();
-    expect(screen.getByText('Something went wrong. Please try again.')).toBeTruthy();
+    expect(screen.getByText(GENERIC_ERROR)).toBeTruthy();
   });
 
   it('shows API error message when submission fails with API-provided message', () => {
@@ -881,14 +882,16 @@ describe('QuizModal', () => {
       setQuizMock({ data: mockResult });
       render(<QuizModal visible={true} lesson={{ ...mockLesson, isSaved: false }} onClose={onClose} />);
       fireEvent.press(screen.getByLabelText('Save lesson'));
-      expect(mockSaveMutate).toHaveBeenCalledWith('lesson-1', expect.anything());
+      expect(mockSaveMutate).toHaveBeenCalledWith({ lessonId: 'lesson-1' }, expect.anything());
+      expect(useSaveLesson).toHaveBeenCalledWith('lesson-1');
+      expect(useSubmitQuiz).toHaveBeenCalledWith('lesson-1');
     });
 
     it('calls useUnsaveLesson.mutate with the lesson id when toggled off', () => {
       setQuizMock({ data: mockResult });
       render(<QuizModal visible={true} lesson={{ ...mockLesson, isSaved: true }} onClose={onClose} />);
       fireEvent.press(screen.getByLabelText('Remove from saved lessons'));
-      expect(mockUnsaveMutate).toHaveBeenCalledWith('lesson-1', expect.anything());
+      expect(mockUnsaveMutate).toHaveBeenCalledWith({ lessonId: 'lesson-1' }, expect.anything());
     });
 
     it('is shown on the per-question feedback view', () => {

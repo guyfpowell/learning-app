@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet } from 'react-native';
 import { render, screen, fireEvent, within } from '@testing-library/react-native';
 import RegisterScreen from '../register';
 import { colors } from '@/theme';
+import { NETWORK_ERROR, TIMEOUT_ERROR } from '@/lib/errors';
 import { useRegister } from '@/hooks/useAuth';
 import { authService } from '@/services/auth.service';
 import { waitFor } from '@testing-library/react-native';
@@ -147,13 +148,13 @@ describe('RegisterScreen', () => {
   it('shows timeout message for ECONNABORTED error', () => {
     setRegisterMock({ isError: true, error: { code: 'ECONNABORTED' } });
     render(<RegisterScreen />);
-    expect(screen.getByText('Request timed out. Please try again.')).toBeTruthy();
+    expect(screen.getByText(TIMEOUT_ERROR)).toBeTruthy();
   });
 
   it('shows network message for ERR_NETWORK error', () => {
     setRegisterMock({ isError: true, error: { code: 'ERR_NETWORK' } });
     render(<RegisterScreen />);
-    expect(screen.getByText('Network error. Please check your connection.')).toBeTruthy();
+    expect(screen.getByText(NETWORK_ERROR)).toBeTruthy();
   });
 
   it('shows success banner when registration succeeds', () => {

@@ -1,37 +1,31 @@
+import { AxiosError } from 'axios';
+import { NO_SIGNAL_ERROR } from '@learning/shared';
 import { withoutEmDashes } from '@/lib/emDash';
+import { errorCode, responseData, stringField } from '@/lib/errorCode';
+import { isSignalDrop } from '@/lib/offlineWrites';
 
-type BodyField = 'code' | 'message' | 'error';
+export { errorCode };
 
-/** The body of a failed request's response, when the error carries one. */
-function responseData(err: unknown): unknown {
-  if (typeof err !== 'object' || err === null || !('response' in err)) return undefined;
-  const { response } = err;
-  if (typeof response !== 'object' || response === null || !('data' in response)) return undefined;
-  return response.data;
-}
-
-/** A string field of `value`, or null when it is missing or not a string. */
-function stringField(value: unknown, key: BodyField): string | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const field: unknown = Reflect.get(value, key);
-  return typeof field === 'string' ? field : null;
-}
+export const TIMEOUT_ERROR = 'Request timed out. Please try again.';
+export const NETWORK_ERROR = 'Network error. Please check your connection.';
+/** Shown when the server gave no message of its own, so a raw `Error.message` never reaches the screen. */
+export const GENERIC_ERROR = 'Something went wrong. Please try again.';
 
 export function extractError(err: unknown): string {
   const transportCode = stringField(err, 'code');
-  if (transportCode === 'ECONNABORTED') return 'Request timed out. Please try again.';
-  if (transportCode === 'ERR_NETWORK') return 'Network error. Please check your connection.';
+  if (transportCode === AxiosError.ECONNABORTED) return TIMEOUT_ERROR;
+  if (transportCode === AxiosError.ERR_NETWORK) return NETWORK_ERROR;
   const data = responseData(err);
-  return withoutEmDashes(stringField(data, 'message') || stringField(data, 'error') || 'Something went wrong. Please try again.');
+  return withoutEmDashes(stringField(data, 'message') || stringField(data, 'error') || GENERIC_ERROR);
 }
 
 /**
- * The server's own error code, when there is one — 068 Chunk 9f.
- *
- * `extractError` returns the message a person reads; this says what kind of
- * thing it was, so a refusal can be rendered as a notice rather than in the red
- * error style. The person asking for a track did nothing broken.
+ * The message for a write that isn't safe to send again (ADR-021 Decision 6). A write that found
+ * no signal, or lost it before the server answered, says it was the signal; anything the server
+ * answered (a 4xx or 5xx) shows what it shows today: `fallback` where the screen has fixed copy,
+ * otherwise the server's message.
  */
-export function errorCode(err: unknown): string | null {
-  return stringField(responseData(err), 'code');
+export function writeError(err: unknown, fallback?: string): string {
+  if (isSignalDrop(err)) return NO_SIGNAL_ERROR;
+  return fallback ?? extractError(err);
 }

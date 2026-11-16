@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import * as Sentry from '@sentry/react-native';
 import { usePushStatus } from '../usePushStatus';
 import { registerForPushNotifications } from '../useNotifications';
+import { queryWrapper } from '@/test-utils/queryClient';
 
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
@@ -21,14 +22,14 @@ describe('usePushStatus', () => {
   });
 
   it('reads the permission status on mount', async () => {
-    const { result } = renderHook(() => usePushStatus());
+    const { result } = renderHook(() => usePushStatus(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.permissionStatus).toBe('granted'));
     expect(result.current.error).toBeNull();
   });
 
   it('logs and surfaces an error when the status check rejects', async () => {
     mockGetPermissions.mockRejectedValue(new Error('boom'));
-    const { result } = renderHook(() => usePushStatus());
+    const { result } = renderHook(() => usePushStatus(), { wrapper: queryWrapper() });
 
     await waitFor(() => expect(result.current.error).toBe('Could not check notification settings.'));
     expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
@@ -38,7 +39,7 @@ describe('usePushStatus', () => {
 
   it('logs and surfaces an error when register rejects', async () => {
     mockRegister.mockRejectedValue(new Error('boom'));
-    const { result } = renderHook(() => usePushStatus());
+    const { result } = renderHook(() => usePushStatus(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.permissionStatus).toBe('granted'));
 
     await act(async () => {
@@ -58,7 +59,7 @@ describe('usePushStatus', () => {
     mockGetPermissions.mockImplementation(() => (
       registered ? Promise.resolve({ status: 'granted' }) : Promise.reject(new Error('boom'))
     ));
-    const { result } = renderHook(() => usePushStatus());
+    const { result } = renderHook(() => usePushStatus(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.error).not.toBeNull());
 
     await act(async () => {

@@ -1,35 +1,38 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo, { NetInfoStateType, type NetInfoState } from '@react-native-community/netinfo';
 import { onlineManager } from '@tanstack/react-query';
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios';
+import { axiosError } from '@/test-utils/axios';
 import { PATHS_QUERY_KEY } from '@/lib/queryKeys';
 import { createTestQueryClient } from '@/test-utils/queryClient';
 import { pauseSetActiveWrite, saveToDevice } from '@/test-utils/pausedWrite';
 import { must } from '@/test-utils/must';
 import { trackService } from '@/services/track.service';
+import { ERROR_CODES } from '@learning/shared';
+import { HEALTH_URL } from '@/lib/apiUrl';
 import {
   DiscardedWriteError,
+  NoSignalError,
   PERSIST_STORAGE_KEY,
   clearSessionData,
   connectOnlineManager,
-  isRetryableWriteError,
+  didNotReachServer,
+  isRetryableError,
+  isSignalDrop,
+  requireSignal,
   writePersister,
 } from '../offlineWrites';
-import { SET_ACTIVE_PATH_WRITE } from '../optimisticWrites';
+import { SET_ACTIVE_PATH_WRITE } from '../safeWrites';
 
 jest.mock('@/services/track.service', () => ({ trackService: { setActivePath: jest.fn() } }));
 
 const mockTrackService = trackService as jest.Mocked<typeof trackService>;
 const mockAddListener = NetInfo.addEventListener as jest.Mock;
+const mockConfigure = NetInfo.configure as jest.Mock;
 
 const ref = { kind: 'custom', id: 'p1' } as const;
 
-function axiosError(code: string, status?: number): AxiosError {
-  const response: AxiosResponse | undefined = status === undefined
-    ? undefined
-    : { data: null, status, statusText: '', headers: {}, config: { headers: new AxiosHeaders() } };
-  return new AxiosError('failed', code, undefined, undefined, response);
-}
+
+const writeInProgress = () => axiosError('ERR_BAD_REQUEST', 409, { success: false, code: ERROR_CODES.IDEMPOTENCY_IN_PROGRESS });
 
 const cellular = (isInternetReachable: boolean): NetInfoState => ({
   type: NetInfoStateType.cellular,
@@ -41,7 +44,20 @@ const disconnected: NetInfoState = { type: NetInfoStateType.none, isConnected: f
 const unknown: NetInfoState = { type: NetInfoStateType.unknown, isConnected: null, isInternetReachable: null, details: null };
 
 describe('connectOnlineManager', () => {
+  beforeEach(() => jest.clearAllMocks());
   afterEach(() => onlineManager.setOnline(true));
+
+  // 105d: reachability is Ascent's own liveness route, so "reachable" means the server answers.
+  it('points NetInfo at the API\'s health route, with GET and a 200 test, before it listens', async () => {
+    connectOnlineManager();
+
+    const configured = must(mockConfigure.mock.calls[0], 'NetInfo.configure call')[0];
+    expect(configured).toMatchObject({ reachabilityUrl: HEALTH_URL, reachabilityMethod: 'GET' });
+    expect(HEALTH_URL).toMatch(/^http:\/\/[^/]+\/health$/);
+    await expect(configured.reachabilityTest({ status: 200 })).resolves.toBe(true);
+    await expect(configured.reachabilityTest({ status: 503 })).resolves.toBe(false);
+    expect(mockConfigure.mock.invocationCallOrder[0]).toBeLessThan(must(mockAddListener.mock.invocationCallOrder[0], 'listener call'));
+  });
 
   function listener(): (state: NetInfoState) => void {
     connectOnlineManager();
@@ -69,22 +85,66 @@ describe('connectOnlineManager', () => {
   });
 });
 
-describe('isRetryableWriteError', () => {
+describe('isRetryableError', () => {
   it.each([
     ['a network error', axiosError('ERR_NETWORK')],
     ['a timeout', axiosError('ECONNABORTED')],
     ['a 500', axiosError('ERR_BAD_RESPONSE', 500)],
     ['a 503', axiosError('ERR_BAD_RESPONSE', 503)],
-  ])('retries %s', (_name, error) => expect(isRetryableWriteError(error)).toBe(true));
+    ['a 409 IDEMPOTENCY_IN_PROGRESS, the first send still being handled (105f)', writeInProgress()],
+  ])('retries %s', (_name, error) => expect(isRetryableError(error)).toBe(true));
 
   it.each([
     ['a 400', axiosError('ERR_BAD_REQUEST', 400)],
     ['a 401', axiosError('ERR_BAD_REQUEST', 401)],
     ['a 404', axiosError('ERR_BAD_REQUEST', 404)],
-    ['a 409', axiosError('ERR_BAD_REQUEST', 409)],
+    ['any other 409', axiosError('ERR_BAD_REQUEST', 409, { success: false, code: ERROR_CODES.LESSON_ALREADY_COMPLETED })],
     ['an error that is not a request failure', new Error('boom')],
     ['a discarded write', new DiscardedWriteError()],
-  ])('never retries %s', (_name, error) => expect(isRetryableWriteError(error)).toBe(false));
+    ['no signal', new NoSignalError()],
+  ])('never retries %s', (_name, error) => expect(isRetryableError(error)).toBe(false));
+});
+
+// 105g: "didn't reach the server" is one check; the signal message adds "never sent", and leaves out the 5xx.
+describe('didNotReachServer and isSignalDrop', () => {
+  it.each([
+    ['a network error', axiosError('ERR_NETWORK')],
+    ['a timeout', axiosError('ECONNABORTED')],
+  ])('%s did not reach the server, and was the signal', (_name, error) => {
+    expect(didNotReachServer(error)).toBe(true);
+    expect(isSignalDrop(error)).toBe(true);
+  });
+
+  it('no signal to begin with was the signal', () => {
+    expect(isSignalDrop(new NoSignalError())).toBe(true);
+    expect(didNotReachServer(new NoSignalError())).toBe(false);
+  });
+
+  it.each([
+    ['a 503', axiosError('ERR_BAD_RESPONSE', 503)],
+    ['a 404', axiosError('ERR_BAD_REQUEST', 404)],
+    ['an error that is not a request failure', new Error('boom')],
+  ])('%s reached the server, so it was not the signal', (_name, error) => {
+    expect(didNotReachServer(error)).toBe(false);
+    expect(isSignalDrop(error)).toBe(false);
+  });
+});
+
+describe('requireSignal', () => {
+  afterEach(() => onlineManager.setOnline(true));
+
+  it('with no signal, sends nothing and fails at once with NoSignalError', async () => {
+    onlineManager.setOnline(false);
+    const send = jest.fn(() => Promise.resolve('sent'));
+
+    await expect(requireSignal(send)).rejects.toBeInstanceOf(NoSignalError);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('with signal, sends and returns the result', async () => {
+    const send = jest.fn(() => Promise.resolve('sent'));
+    await expect(requireSignal(send)).resolves.toBe('sent');
+  });
 });
 
 describe('what is saved to the device', () => {

@@ -4,7 +4,8 @@ import { trackService, type SkipCall } from '@/services/track.service';
 import { SET_ACTIVE_PATH_ERROR } from '@learning/shared';
 import type { ActivePathRef, SkipReason, SkipScope, TopicFeedbackRequest, UserPath, UserPathKind } from '@learning/shared';
 import { PATHS_QUERY_KEY, SKILLS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY } from '@/lib/queryKeys';
-import { SET_ACTIVE_PATH_WRITE } from '@/lib/optimisticWrites';
+import { SET_ACTIVE_PATH_WRITE } from '@/lib/safeWrites';
+import { requireSignal } from '@/lib/offlineWrites';
 import { invalidatePathQueries } from '@/lib/pathInvalidation';
 import { useOptimisticMutation } from '@/hooks/useOptimisticMutation';
 
@@ -51,7 +52,8 @@ function usePathInvalidation() {
 export function useEnroll() {
   const invalidate = usePathInvalidation();
   return useMutation({
-    mutationFn: (skillId: string) => trackService.enroll(skillId),
+    // Not safe to send twice: with no signal it fails at once (ADR-021 Decision 6).
+    mutationFn: (skillId: string) => requireSignal(() => trackService.enroll(skillId)),
     onSuccess: invalidate,
   });
 }
@@ -83,7 +85,7 @@ export function useSetActivePath() {
 export function useSkip() {
   const invalidate = usePathInvalidation();
   const mutation = useMutation({
-    mutationFn: (call: SkipCall) => trackService.skip(call),
+    mutationFn: (call: SkipCall) => requireSignal(() => trackService.skip(call)),
     onSuccess: invalidate,
   });
   const inFlight = mutation.isPending ? mutation.variables : undefined;
@@ -105,7 +107,7 @@ export function useSkip() {
 export function useTopicFeedback() {
   const mutation = useMutation({
     mutationFn: ({ planId, body }: { planId: string; body: TopicFeedbackRequest }) =>
-      trackService.topicFeedback(planId, body),
+      requireSignal(() => trackService.topicFeedback(planId, body)),
   });
   return { submit: (planId: string, body: TopicFeedbackRequest) => mutation.mutateAsync({ planId, body }) };
 }
@@ -120,9 +122,8 @@ export function useRefreshPaths() {
 }
 
 /**
- * Full lesson tree for a path of either kind. Invalidated by lesson completion
- * so the tree reflects progress when the user returns from a lesson.
- * Query key prefix: ['track-contents'] — useSubmitQuiz invalidates this prefix.
+ * Full lesson tree for a path of either kind. A finished lesson invalidates every tree (the quiz
+ * answer's settle step, `SUBMIT_QUIZ_WRITE`), so the tree shows progress when the user returns.
  */
 export function useTrackContents(kind: UserPathKind, id: string, options?: { enabled?: boolean }) {
   return useQuery({

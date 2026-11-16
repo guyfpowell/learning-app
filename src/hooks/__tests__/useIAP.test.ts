@@ -1,4 +1,6 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
+import { onlineManager } from '@tanstack/react-query';
+import { NoSignalError } from '@/lib/offlineWrites';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { iapService } from '@/services/iap.service';
 import { subscriptionService } from '@/services/subscription.service';
@@ -234,5 +236,29 @@ describe('useRestorePurchases (073b-8)', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.error?.message).toBe('refetch failed');
+  });
+});
+
+describe('payments with no signal (105g)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    act(() => onlineManager.setOnline(false));
+  });
+  afterEach(() => act(() => onlineManager.setOnline(true)));
+
+  it('a purchase sends nothing and fails at once with NoSignalError', async () => {
+    const { result } = renderHook(() => usePurchase(), { wrapper: queryWrapper() });
+    act(() => result.current.mutate(mockMonthly));
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(NoSignalError));
+    expect(iapService.purchasePackage).not.toHaveBeenCalled();
+    expect(subscriptionService.verifyPurchase).not.toHaveBeenCalled();
+  });
+
+  it('a restore sends nothing and fails at once with NoSignalError', async () => {
+    const { result } = renderHook(() => useRestorePurchases(), { wrapper: queryWrapper() });
+    act(() => result.current.mutate());
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(NoSignalError));
+    expect(iapService.restorePurchases).not.toHaveBeenCalled();
+    expect(subscriptionService.verifyPurchase).not.toHaveBeenCalled();
   });
 });

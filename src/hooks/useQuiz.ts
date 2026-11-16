@@ -1,23 +1,16 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { quizService } from '@/services/quiz.service';
-import type { SubmitQuizRequest } from '@learning/shared';
-import { PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, lessonQueryKey } from '@/lib/queryKeys';
+import type { QuizResult } from '@learning/shared';
+import { SUBMIT_QUIZ_WRITE, type SubmitQuizInput } from '@/lib/safeWrites';
+import { lessonWriteScope } from '@/lib/mutationKeys';
+import { useSafeWrite } from '@/hooks/useSafeWrite';
 
-type SubmitQuizInput = SubmitQuizRequest & { lessonId: string };
+export type { SubmitQuizInput } from '@/lib/safeWrites';
 
-export function useSubmitQuiz() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ lessonId, answers, isRetake, skipRetake, completionTime }: SubmitQuizInput) =>
-      quizService.submitQuiz(lessonId, answers, { isRetake, skipRetake, completionTime }),
-    onSuccess: (data, variables) => {
-      if (data.lessonFinalized) {
-        void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
-        void queryClient.invalidateQueries({ queryKey: PROGRESS_QUERY_KEY });
-        void queryClient.invalidateQueries({ queryKey: lessonQueryKey(variables.lessonId) });
-        // Refresh the tree on the track detail screen so progress marks update.
-        void queryClient.invalidateQueries({ queryKey: TRACK_CONTENTS_QUERY_KEY });
-      }
-    },
-  });
+/**
+ * One quiz answer. Safe to send again (ADR-021 Decision 4): it waits through a drop, keeps its
+ * order behind the lesson's other writes, survives a restart, and the server replays a repeat, so
+ * the answer that finishes the lesson never meets LESSON_ALREADY_COMPLETED on a retry. The screen
+ * shows nothing ahead of the server: the submit button's loading state until the reply arrives.
+ */
+export function useSubmitQuiz(lessonId: string) {
+  return useSafeWrite<SubmitQuizInput, QuizResult>(SUBMIT_QUIZ_WRITE, lessonWriteScope(lessonId));
 }

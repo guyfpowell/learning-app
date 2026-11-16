@@ -54,12 +54,12 @@ describe('useSaveLesson (ticket 017 chunk 3)', () => {
 
   it('calls lessonService.saveLesson with the lesson id', async () => {
     mockLessonService.saveLesson.mockResolvedValue({ saved: true });
-    const { result } = renderHook(() => useSaveLesson(), { wrapper: queryWrapper() });
+    const { result } = renderHook(() => useSaveLesson('lesson-1'), { wrapper: queryWrapper() });
 
-    act(() => { result.current.mutate('lesson-1'); });
+    act(() => { result.current.mutate({ lessonId: 'lesson-1' }); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockLessonService.saveLesson).toHaveBeenCalledWith('lesson-1');
+    expect(mockLessonService.saveLesson).toHaveBeenCalledWith('lesson-1', expect.stringMatching(/^[0-9a-f-]{36}$/));
   });
 });
 
@@ -68,12 +68,12 @@ describe('useUnsaveLesson (ticket 017 chunk 3)', () => {
 
   it('calls lessonService.unsaveLesson with the lesson id', async () => {
     mockLessonService.unsaveLesson.mockResolvedValue(undefined);
-    const { result } = renderHook(() => useUnsaveLesson(), { wrapper: queryWrapper() });
+    const { result } = renderHook(() => useUnsaveLesson('lesson-1'), { wrapper: queryWrapper() });
 
-    act(() => { result.current.mutate('lesson-1'); });
+    act(() => { result.current.mutate({ lessonId: 'lesson-1' }); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockLessonService.unsaveLesson).toHaveBeenCalledWith('lesson-1');
+    expect(mockLessonService.unsaveLesson).toHaveBeenCalledWith('lesson-1', expect.stringMatching(/^[0-9a-f-]{36}$/));
   });
 });
 
@@ -125,18 +125,18 @@ describe('useSetLessonRating', () => {
     mockLessonService.setRating.mockResolvedValue(undefined);
     const client = createTestQueryClient();
     client.setQueryData(lessonQueryKey('lesson-1'), { ...mockLesson, rating: null });
-    const { result } = renderHook(() => useSetLessonRating(), { wrapper: queryWrapper(client) });
+    const { result } = renderHook(() => useSetLessonRating('lesson-1'), { wrapper: queryWrapper(client) });
     act(() => { result.current.mutate({ lessonId: 'lesson-1', rating: 'down' }); });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockLessonService.setRating).toHaveBeenCalledWith('lesson-1', 'down');
-    expect(client.getQueryData<Lesson>(lessonQueryKey('lesson-1'))?.rating).toBe('down');
+    expect(mockLessonService.setRating).toHaveBeenCalledWith('lesson-1', 'down', expect.stringMatching(/^[0-9a-f-]{36}$/));
+    await waitFor(() => expect(client.getQueryData<Lesson>(lessonQueryKey('lesson-1'))?.rating).toBe('down'));
   });
 
   it('sends null to clear', async () => {
     mockLessonService.setRating.mockResolvedValue(undefined);
-    const { result } = renderHook(() => useSetLessonRating(), { wrapper: queryWrapper(createTestQueryClient()) });
+    const { result } = renderHook(() => useSetLessonRating('lesson-1'), { wrapper: queryWrapper(createTestQueryClient()) });
     act(() => { result.current.mutate({ lessonId: 'lesson-1', rating: null }); });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockLessonService.setRating).toHaveBeenCalledWith('lesson-1', null);
+    expect(mockLessonService.setRating).toHaveBeenCalledWith('lesson-1', null, expect.stringMatching(/^[0-9a-f-]{36}$/));
   });
 });

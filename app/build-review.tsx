@@ -12,7 +12,7 @@ import { ReviewSaveArea } from '@/components/trackBuilder/ReviewSaveArea';
 import { useDraftStore } from '@/store/trackBuilder.store';
 import { useRefinePlan, useCreateTrackPlan } from '@/hooks/useTrackBuilder';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
-import { errorCode, extractError } from '@/lib/errors';
+import { errorCode, writeError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import {
   ERROR_CODES,
@@ -95,7 +95,7 @@ export default function BuildReviewScreen() {
       const refused = refusedSaveLock(code);
       if (refused) setServerLock(refused);
       else if (code === ERROR_CODES.PLAN_LIMIT) setError(ERROR_MESSAGES[ERROR_CODES.PLAN_LIMIT]);
-      else setError(extractError(err));
+      else setError(writeError(err));
     }
   };
 

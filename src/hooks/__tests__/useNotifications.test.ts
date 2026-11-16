@@ -1,8 +1,9 @@
 import { renderHook } from '@testing-library/react-native';
 import { useNotifications } from '../useNotifications';
 import * as Notifications from 'expo-notifications';
-import { registerPushToken } from '@/lib/api';
 import * as Sentry from '@sentry/react-native';
+import { PUSH_TOKEN_WRITE, runSafeWrite } from '@/lib/safeWrites';
+import { queryWrapper } from '@/test-utils/queryClient';
 
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
@@ -19,15 +20,16 @@ jest.mock('expo-device', () => ({
   isDevice: true,
 }));
 
-jest.mock('@/lib/api', () => ({
-  registerPushToken: jest.fn(() => Promise.resolve()),
+jest.mock('@/lib/safeWrites', () => ({
+  PUSH_TOKEN_WRITE: { mutationKey: ['push-token'] },
+  runSafeWrite: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('react-native', () => ({
   Platform: { OS: 'ios' },
 }));
 
-const mockRegisterPushToken = registerPushToken as jest.Mock;
+const mockRunSafeWrite = runSafeWrite as jest.Mock;
 const mockGetPermissions = Notifications.getPermissionsAsync as jest.Mock;
 const mockRequestPermissions = Notifications.requestPermissionsAsync as jest.Mock;
 const mockGetToken = Notifications.getExpoPushTokenAsync as jest.Mock;
@@ -59,36 +61,36 @@ describe('useNotifications', () => {
 
   it('mounts without throwing', () => {
     expect(() => {
-      renderHook(() => useNotifications());
+      renderHook(() => useNotifications(), { wrapper: queryWrapper() });
     }).not.toThrow();
   });
 
   it('registers push token on mount when permissions are granted', async () => {
-    renderHook(() => useNotifications());
+    renderHook(() => useNotifications(), { wrapper: queryWrapper() });
     await new Promise((r) => setTimeout(r, 50));
 
     expect(mockGetPermissions).toHaveBeenCalled();
-    expect(mockRegisterPushToken).toHaveBeenCalledWith('ExponentPushToken[test-token]', 'expo');
+    expect(mockRunSafeWrite).toHaveBeenCalledWith(expect.anything(), PUSH_TOKEN_WRITE, { token: 'ExponentPushToken[test-token]', platform: 'expo' });
   });
 
   it('does not register token when permission is denied', async () => {
     mockGetPermissions.mockResolvedValue({ status: 'denied' });
     mockRequestPermissions.mockResolvedValue({ status: 'denied' });
 
-    renderHook(() => useNotifications());
+    renderHook(() => useNotifications(), { wrapper: queryWrapper() });
     await new Promise((r) => setTimeout(r, 50));
 
-    expect(mockRegisterPushToken).not.toHaveBeenCalled();
+    expect(mockRunSafeWrite).not.toHaveBeenCalled();
   });
 
   it('does not crash when getExpoPushTokenAsync throws', async () => {
     mockGetToken.mockRejectedValue(new Error('Simulator: push not supported'));
 
-    renderHook(() => useNotifications());
+    renderHook(() => useNotifications(), { wrapper: queryWrapper() });
     await new Promise((r) => setTimeout(r, 50));
 
     // registerPushToken should not have been called
-    expect(mockRegisterPushToken).not.toHaveBeenCalled();
+    expect(mockRunSafeWrite).not.toHaveBeenCalled();
   });
 
   it('does not throw if token registration fails', async () => {
@@ -96,7 +98,7 @@ describe('useNotifications', () => {
 
     await expect(
       new Promise<void>((resolve) => {
-        renderHook(() => useNotifications());
+        renderHook(() => useNotifications(), { wrapper: queryWrapper() });
         setTimeout(resolve, 50);
       })
     ).resolves.not.toThrow();
@@ -105,7 +107,7 @@ describe('useNotifications', () => {
   it('logs a breadcrumb when the token step fails', async () => {
     mockGetToken.mockRejectedValue(new Error('Network error'));
 
-    renderHook(() => useNotifications());
+    renderHook(() => useNotifications(), { wrapper: queryWrapper() });
     await new Promise((r) => setTimeout(r, 50));
 
     expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(
@@ -116,7 +118,7 @@ describe('useNotifications', () => {
   it('logs a breadcrumb instead of an unhandled rejection when the permission check rejects', async () => {
     mockGetPermissions.mockRejectedValue(new Error('permissions unavailable'));
 
-    renderHook(() => useNotifications());
+    renderHook(() => useNotifications(), { wrapper: queryWrapper() });
     await new Promise((r) => setTimeout(r, 50));
 
     expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(

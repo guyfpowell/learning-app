@@ -10,7 +10,7 @@ import { Toast } from '@/components/ui/Toast';
 import { skippedMessage } from '@/lib/skipToast';
 import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
 import { TopicFeedback } from '@/components/ui/TopicFeedback';
-import { extractError } from '@/lib/errors';
+import { writeError } from '@/lib/errors';
 import { useProgress } from '@/hooks/useProgress';
 import { useAutoDismiss } from '@/hooks/useAutoDismiss';
 import { NewUserHome } from '@/components/home/NewUserHome';
@@ -87,7 +87,7 @@ export default function LessonsScreen() {
 
         {/* A failed skip says so (079c refactor R1: it used to stop the spinner and show nothing). */}
         {skip.error && (
-          <Text testID="skip-error" style={styles.loadError}>{extractError(skip.error)}</Text>
+          <Text testID="skip-error" style={styles.loadError}>{writeError(skip.error)}</Text>
         )}
 
         {/* End-of-topic feedback (079d). Closing refetches paths, so a written answer comes back

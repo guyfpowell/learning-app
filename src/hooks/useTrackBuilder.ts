@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { trackBuilderService } from '@/services/trackBuilder.service';
 import { errorCode } from '@/lib/errors';
+import { requireSignal } from '@/lib/offlineWrites';
 import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, TRACK_PLANS_QUERY_KEY } from '@/lib/queryKeys';
 import { ERROR_CODES, type BuildPlanRequest, type CreateTrackPlanRequest, type RefinePlanRequest, type UpdateTrackPlanRequest } from '@learning/shared';
 
@@ -14,7 +15,8 @@ import { ERROR_CODES, type BuildPlanRequest, type CreateTrackPlanRequest, type R
 
 export function useBuildPlan() {
   return useMutation({
-    mutationFn: (v: BuildPlanRequest) => trackBuilderService.buildPlan(v.statement, v.sessionId),
+    // Albert's actions are never paused or retried: with no signal they fail at once (ADR-021 Decision 6).
+    mutationFn: (v: BuildPlanRequest) => requireSignal(() => trackBuilderService.buildPlan(v.statement, v.sessionId)),
   });
 }
 
@@ -25,14 +27,14 @@ export function useBuildPlan() {
 export function useRefinePlan() {
   return useMutation({
     mutationFn: (v: RefinePlanRequest) =>
-      trackBuilderService.refinePlan(v.statement, v.plan, v.sessionId, v.chunks),
+      requireSignal(() => trackBuilderService.refinePlan(v.statement, v.plan, v.sessionId, v.chunks)),
   });
 }
 
 export function useCreateTrackPlan() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (v: CreateTrackPlanRequest) => trackBuilderService.createPlan(v),
+    mutationFn: (v: CreateTrackPlanRequest) => requireSignal(() => trackBuilderService.createPlan(v)),
     onSuccess: () => {
       // Custom plans take precedence on the home surface, so both caches move.
       void queryClient.invalidateQueries({ queryKey: TRACK_PLANS_QUERY_KEY });
@@ -63,7 +65,7 @@ export function useUpdateTrackPlan() {
   return useMutation({
     mutationFn: ({ id, ...patch }: { id: string } & (
       Required<Pick<UpdateTrackPlanRequest, 'status'>> | Required<Pick<UpdateTrackPlanRequest, 'name'>>
-    )) => trackBuilderService.updateTrackPlan(id, patch),
+    )) => requireSignal(() => trackBuilderService.updateTrackPlan(id, patch)),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: TRACK_PLANS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });

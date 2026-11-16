@@ -13,7 +13,7 @@ module.exports = {
     '^@react-native-community/netinfo$': '@react-native-community/netinfo/jest/netinfo-mock.js',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|@tanstack|zustand))',
+    'node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|@tanstack|zustand|standard-navigation))',
   ],
   // `/archived/` holds retired code kept for reading only — 068 Chunk 6.
   testPathIgnorePatterns: ['/node_modules/', '/.expo/', '/archived/'],

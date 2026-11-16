@@ -40,7 +40,7 @@ describe('useSubmitQuiz', () => {
 
   it('calls quizService.submitQuiz with lessonId and answers', async () => {
     mockQuizService.submitQuiz.mockResolvedValue(mockResult);
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
+    const { result } = renderHook(() => useSubmitQuiz('lesson-1'), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' } }); });
 
@@ -48,13 +48,14 @@ describe('useSubmitQuiz', () => {
     expect(mockQuizService.submitQuiz).toHaveBeenCalledWith(
       'lesson-1',
       { 'q-1': 'A' },
-      { isRetake: undefined, skipRetake: undefined }
+      { isRetake: undefined, skipRetake: undefined, completionTime: undefined },
+      expect.stringMatching(/^[0-9a-f-]{36}$/),
     );
   });
 
   it('passes isRetake and skipRetake through to the service', async () => {
     mockQuizService.submitQuiz.mockResolvedValue(mockResult);
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
+    const { result } = renderHook(() => useSubmitQuiz('lesson-1'), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' }, isRetake: true }); });
 
@@ -62,25 +63,26 @@ describe('useSubmitQuiz', () => {
     expect(mockQuizService.submitQuiz).toHaveBeenCalledWith(
       'lesson-1',
       { 'q-1': 'A' },
-      { isRetake: true, skipRetake: undefined }
+      { isRetake: true, skipRetake: undefined, completionTime: undefined },
+      expect.stringMatching(/^[0-9a-f-]{36}$/),
     );
   });
 
   it('passes completionTime through to the service (079e)', async () => {
     mockQuizService.submitQuiz.mockResolvedValue(mockResult);
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
+    const { result } = renderHook(() => useSubmitQuiz('lesson-1'), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' }, completionTime: 37 }); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockQuizService.submitQuiz).toHaveBeenCalledWith(
-      'lesson-1', { 'q-1': 'A' }, expect.objectContaining({ completionTime: 37 })
+      'lesson-1', { 'q-1': 'A' }, expect.objectContaining({ completionTime: 37 }), expect.stringMatching(/^[0-9a-f-]{36}$/),
     );
   });
 
   it('exposes result data on success', async () => {
     mockQuizService.submitQuiz.mockResolvedValue(mockResult);
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
+    const { result } = renderHook(() => useSubmitQuiz('lesson-1'), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: {} }); });
 
@@ -90,7 +92,7 @@ describe('useSubmitQuiz', () => {
 
   it('exposes error state on failure', async () => {
     mockQuizService.submitQuiz.mockRejectedValue(new Error('Fail'));
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper() });
+    const { result } = renderHook(() => useSubmitQuiz('lesson-1'), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: {} }); });
 
@@ -102,14 +104,15 @@ describe('useSubmitQuiz', () => {
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
 
     mockQuizService.submitQuiz.mockResolvedValue({ ...mockResult, lessonFinalized: true });
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper(queryClient) });
+    const { result } = renderHook(() => useSubmitQuiz('lesson-1'), { wrapper: queryWrapper(queryClient) });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' } }); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['enrollments'] });
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['enrollments'] }));
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['progress'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['lesson', 'lesson-1'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['track-contents'] });
   });
 
   it('does NOT invalidate caches when lessonFinalized is false', async () => {
@@ -117,7 +120,7 @@ describe('useSubmitQuiz', () => {
     const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
 
     mockQuizService.submitQuiz.mockResolvedValue({ ...mockResult, lessonFinalized: false });
-    const { result } = renderHook(() => useSubmitQuiz(), { wrapper: queryWrapper(queryClient) });
+    const { result } = renderHook(() => useSubmitQuiz('lesson-1'), { wrapper: queryWrapper(queryClient) });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: { 'q-1': 'A' } }); });
 

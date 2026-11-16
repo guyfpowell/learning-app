@@ -1,4 +1,6 @@
-import api, { BACKGROUND_REQUEST } from '@/lib/api';
+import api from '@/lib/api';
+import { BACKGROUND_REQUEST } from '@/lib/requestHeaders';
+import { withIdempotencyKey } from '@/lib/idempotencyKey';
 import type { UserAuth, UserProfile, Seniority, DeleteAccountPreflight, DeleteAccountRequest, UpdateProfileRequest, UpdateSeniorityRequest, UpdateTracksRequest } from '@learning/shared';
 
 export const userService = {
@@ -22,8 +24,8 @@ export const userService = {
     await api.put('/users/me/tracks', body);
   },
 
-  async updateProfile(input: UpdateProfileRequest): Promise<void> {
-    await api.patch('/users/profile', input);
+  async updateProfile(input: UpdateProfileRequest, idempotencyKey: string): Promise<void> {
+    await api.patch('/users/profile', input, withIdempotencyKey(idempotencyKey));
   },
 
   /**
@@ -32,7 +34,7 @@ export const userService = {
    * Marked as background so a failure here can never sign the user out.
    */
   async syncTimezone(timezone: string): Promise<void> {
-    await api.patch('/users/profile', { timezone }, BACKGROUND_REQUEST);
+    await api.patch('/users/profile', { timezone } satisfies UpdateProfileRequest, BACKGROUND_REQUEST);
   },
 
   async getDeletePreflight(): Promise<DeleteAccountPreflight> {

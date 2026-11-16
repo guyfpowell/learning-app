@@ -1,4 +1,8 @@
 import { lessonService } from '../lesson.service';
+import { IDEMPOTENCY_KEY_HEADER } from '@learning/shared';
+
+const KEY = '6f1c2b1e-9d5a-4c3b-8e7f-0a1b2c3d4e5f';
+const keyed = { headers: { [IDEMPOTENCY_KEY_HEADER]: KEY } };
 
 jest.mock('@/lib/api', () => ({
   __esModule: true,
@@ -37,8 +41,8 @@ describe('lessonService', () => {
   describe('saveLesson (ticket 017 chunk 3)', () => {
     it('calls POST /lessons/:id/save and returns the result', async () => {
       mockApi.post.mockResolvedValue({ data: { saved: true } });
-      const result = await lessonService.saveLesson('lesson-1');
-      expect(mockApi.post).toHaveBeenCalledWith('/lessons/lesson-1/save');
+      const result = await lessonService.saveLesson('lesson-1', KEY);
+      expect(mockApi.post).toHaveBeenCalledWith('/lessons/lesson-1/save', undefined, keyed);
       expect(result).toEqual({ saved: true });
     });
   });
@@ -46,8 +50,8 @@ describe('lessonService', () => {
   describe('unsaveLesson (ticket 017 chunk 3)', () => {
     it('calls DELETE /lessons/:id/save', async () => {
       mockApi.delete.mockResolvedValue({});
-      await lessonService.unsaveLesson('lesson-1');
-      expect(mockApi.delete).toHaveBeenCalledWith('/lessons/lesson-1/save');
+      await lessonService.unsaveLesson('lesson-1', KEY);
+      expect(mockApi.delete).toHaveBeenCalledWith('/lessons/lesson-1/save', keyed);
     });
   });
 
@@ -64,8 +68,8 @@ describe('lessonService', () => {
   describe('setRating (079f)', () => {
     it.each([['up'], ['down'], [null]] as const)('PUTs { rating: %s } to /lessons/:id/rating', async (rating) => {
       mockApi.put.mockResolvedValue({ data: undefined });
-      await lessonService.setRating('lesson-1', rating);
-      expect(mockApi.put).toHaveBeenCalledWith('/lessons/lesson-1/rating', { rating });
+      await lessonService.setRating('lesson-1', rating, KEY);
+      expect(mockApi.put).toHaveBeenCalledWith('/lessons/lesson-1/rating', { rating }, keyed);
     });
   });
 });

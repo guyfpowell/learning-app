@@ -1,4 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { onlineManager } from '@tanstack/react-query';
+import { NoSignalError } from '@/lib/offlineWrites';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { makeCustomPath } from '@/test-utils/paths';
 import { useDecideProposal, useProposal } from '../useProposal';
@@ -62,5 +64,20 @@ describe('useDecideProposal (079g7)', () => {
     await waitFor(() => expect(mockService.decide).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(invalidate).not.toHaveBeenCalled();
+  });
+});
+
+describe('useDecideProposal with no signal (105g)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    act(() => onlineManager.setOnline(false));
+  });
+  afterEach(() => act(() => onlineManager.setOnline(true)));
+
+  it('sends nothing and fails at once with NoSignalError', async () => {
+    const { result } = renderHook(() => useDecideProposal('plan-1'), { wrapper: queryWrapper() });
+    act(() => result.current.mutate({ proposalId: 'prop-1', stage: 'change', decision: 'accept' }));
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(NoSignalError));
+    expect(mockService.decide).not.toHaveBeenCalled();
   });
 });

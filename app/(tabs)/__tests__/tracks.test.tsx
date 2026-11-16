@@ -8,8 +8,9 @@ import { makeTrackPath } from '@/test-utils/paths';
 import { must } from '@/test-utils/must';
 import TracksScreen from '../tracks';
 import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTrack';
-import { SET_ACTIVE_PATH_ERROR, type ActivePathRef, type SkillWithAccess, type UserPath } from '@learning/shared';
+import { NO_SIGNAL_ERROR, SET_ACTIVE_PATH_ERROR, type ActivePathRef, type SkillWithAccess, type UserPath } from '@learning/shared';
 import { makeCustomPath } from '@/test-utils/paths';
+import { NoSignalError } from '@/lib/offlineWrites';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -313,6 +314,14 @@ describe('TracksScreen', () => {
       render(<TracksScreen />);
       expect(screen.getByTestId('tracks-enrol-error')).toBeTruthy();
       expect(screen.getByText('Enrol failed')).toBeTruthy();
+    });
+
+    it('says it was the signal when enrol never left the phone (105g)', () => {
+      setMocks({
+        enroll: { mutate: mockMutate, isPending: false, variables: undefined, isError: true, error: new NoSignalError() },
+      });
+      render(<TracksScreen />);
+      expect(within(screen.getByTestId('tracks-enrol-error')).getByText(NO_SIGNAL_ERROR)).toBeTruthy();
     });
 
     it('shows a toast, not an inline error line, when "Make active" was rejected (105)', () => {

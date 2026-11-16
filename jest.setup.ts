@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 // ─── Global module mocks ──────────────────────────────────────────────────────
 // @sentry/react-native ships TypeScript source (not CJS) so Jest can't parse it
 // without running it through the transformer; mocking it globally avoids the
@@ -15,6 +17,10 @@ jest.mock('@sentry/react-native', () => ({
   ReactNavigationInstrumentation: jest.fn(),
   wrap: (Component: unknown) => Component,
 }));
+
+// ─── uuid (idempotency keys) ──────────────────────────────────────────────────
+// `expo-modules-core`'s `uuid.v4()` calls the native generator, which only a device has.
+globalThis.expo.uuidv4 ??= randomUUID;
 
 // ─── atob polyfill (used by auth.service JWT decoder) ────────────────────────
 if (typeof global.atob === 'undefined') {

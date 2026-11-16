@@ -22,10 +22,9 @@ import { LessonStatusLine } from '@/components/learning/LessonStatusLine';
 import { Spinner } from '@/components/ui/Spinner';
 import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizModal } from '@/components/QuizModal';
-import { useLesson } from '@/hooks/useLesson';
+import { useLesson, useSavePosition } from '@/hooks/useLesson';
 import { useLessonClock } from '@/hooks/useLessonClock';
 import { useDetailHeader } from '@/hooks/useDetailHeader';
-import { lessonService } from '@/services/lesson.service';
 import { usePaths } from '@/hooks/useTrack';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import type { LessonPhase } from '@learning/shared';
@@ -132,9 +131,13 @@ export default function LessonDetailScreen() {
 
 
   // Fire-and-forget position write: a failure is silent to the user (spec constraint 6), never to us.
+  // Safe to send again (ADR-021): it waits through a drop and keeps its order behind the lesson's other writes.
+  const savePosition = useSavePosition(id ?? '');
   function updatePosition(lessonId: string, p: LessonPhase) {
-    lessonService.updatePosition(lessonId, p).catch((err) => {
-      Sentry.addBreadcrumb({ category: 'lesson', message: 'Position save failed', level: 'warning', data: { lessonId, phase: p, err: String(err) } });
+    savePosition.mutate({ lessonId, phase: p }, {
+      onError: (err) => {
+        Sentry.addBreadcrumb({ category: 'lesson', message: 'Position save failed', level: 'warning', data: { lessonId, phase: p, err: String(err) } });
+      },
     });
   }
 

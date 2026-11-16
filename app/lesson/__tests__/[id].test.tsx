@@ -4,9 +4,8 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { colors, fontSize, spacing } from '@/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import LessonDetailScreen from '../[id]';
-import { useLesson } from '@/hooks/useLesson';
+import { useLesson, useSavePosition } from '@/hooks/useLesson';
 import { usePaths } from '@/hooks/useTrack';
-import { lessonService } from '@/services/lesson.service';
 import { extractError } from '@/lib/errors';
 import * as Sentry from '@sentry/react-native';
 
@@ -37,9 +36,6 @@ jest.mock('@/components/ui/BookmarkButton', () => {
   };
 });
 // The screen writes the read position on mount; without this mock it went out over the real API client.
-jest.mock('@/services/lesson.service', () => ({
-  lessonService: { updatePosition: jest.fn().mockResolvedValue(undefined) },
-}));
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => true };
 
@@ -77,10 +73,16 @@ const mockEnrollment = {
   totalLessons: 5,
 };
 
+let positionWriteFails = false;
+const mockSavePosition = jest.fn((_input: unknown, options?: { onError?: (err: unknown) => void }) => {
+  if (positionWriteFails) options?.onError?.(new Error('offline'));
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
-  // A plain rejection outlives its test, so each test starts from the resolving default.
-  (lessonService.updatePosition as jest.Mock).mockResolvedValue(undefined);
+  // The position write is a safe write (105f); the screen only sees its `mutate`. It succeeds unless a test says otherwise.
+  positionWriteFails = false;
+  (useSavePosition as jest.Mock).mockReturnValue({ mutate: mockSavePosition });
   (useLocalSearchParams as jest.Mock).mockReturnValue({ id: 'lesson-1' });
   (useRouter as jest.Mock).mockReturnValue(mockRouter);
   (usePaths as jest.Mock).mockReturnValue({ data: [] });
@@ -89,7 +91,7 @@ beforeEach(() => {
 describe('LessonDetailScreen', () => {
   // Refactor C6: the write's failure used to be swallowed by an empty catch.
   it('leaves a breadcrumb when the position save fails, without telling the user', async () => {
-    (lessonService.updatePosition as jest.Mock).mockRejectedValue(new Error('offline'));
+    positionWriteFails = true;
     (useLesson as jest.Mock).mockReturnValue({ data: mockLesson, isLoading: false, error: null });
     render(<LessonDetailScreen />);
     await waitFor(() => expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({

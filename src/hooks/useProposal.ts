@@ -4,6 +4,7 @@ import { isProposalGone } from '@learning/shared';
 import { proposalService, type ProposalCall } from '@/services/proposal.service';
 import { PATHS_QUERY_KEY, proposalQueryKey } from '@/lib/queryKeys';
 import { errorCode } from '@/lib/errors';
+import { requireSignal } from '@/lib/offlineWrites';
 
 /** The proposal fetch, logged on failure; the section shows the load error from the query's error state. */
 async function loadProposal(planId: string) {
@@ -36,7 +37,8 @@ export function useDecideProposal(planId: string) {
     void queryClient.invalidateQueries({ queryKey: proposalQueryKey(planId) });
   };
   return useMutation({
-    mutationFn: (call: ProposalCall) => proposalService.decide(call),
+    // Never paused or retried: with no signal it fails at once (ADR-021 Decision 6).
+    mutationFn: (call: ProposalCall) => requireSignal(() => proposalService.decide(call)),
     onSuccess: refetch,
     onError: (err) => { if (isProposalGone(errorCode(err))) refetch(); },
   });

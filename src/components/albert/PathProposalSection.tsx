@@ -2,8 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { useRouter } from 'expo-router';
 import * as Sentry from '@sentry/react-native';
-import {
-  ERROR_CODES,
+import { ERROR_CODES,
   PROPOSAL_DECIDE_ERROR,
   PROPOSAL_LOAD_ERROR,
   PROPOSAL_UPGRADE_COPY,
@@ -17,8 +16,7 @@ import {
   type ProposalDecision,
   type ProposalDiff,
   type ProposalMove,
-  type ProposalStage,
-} from '@learning/shared';
+  type ProposalStage, NO_SIGNAL_ERROR } from '@learning/shared';
 import { colors, font, fontSize, levelCard } from '@/theme';
 import { Button } from '@/components/ui/Button';
 import { EdgeButton } from '@/components/ui/EdgeButton';
@@ -27,13 +25,22 @@ import { RuleButton } from '@/components/albert/RuleButton';
 import { useDecideProposal, useProposal } from '@/hooks/useProposal';
 import { errorCode } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
+import { isSignalDrop } from '@/lib/offlineWrites';
 
-type DecideNotice = 'upgrade' | 'decide-error' | null;
+const DECIDE_NOTICE = { upgrade: 'upgrade', decideError: 'decide-error', noSignal: 'no-signal' } as const;
+type DecideNotice = typeof DECIDE_NOTICE[keyof typeof DECIDE_NOTICE];
+
+/** The error line of each notice that is one; the upgrade notice has its own box. */
+const DECIDE_ERROR_COPY: Partial<Record<DecideNotice, string>> = {
+  [DECIDE_NOTICE.decideError]: PROPOSAL_DECIDE_ERROR,
+  [DECIDE_NOTICE.noSignal]: NO_SIGNAL_ERROR,
+};
 
 /** What a failed decision shows. A proposal that moved on shows nothing: the refetch follows the server. */
-function noticeFor(err: unknown): DecideNotice {
+function noticeFor(err: unknown): DecideNotice | null {
   if (!err || isProposalGone(errorCode(err))) return null;
-  return errorCode(err) === ERROR_CODES.SUBSCRIPTION_INACTIVE ? 'upgrade' : 'decide-error';
+  if (isSignalDrop(err)) return DECIDE_NOTICE.noSignal;
+  return errorCode(err) === ERROR_CODES.SUBSCRIPTION_INACTIVE ? DECIDE_NOTICE.upgrade : DECIDE_NOTICE.decideError;
 }
 
 function DiffList({ label, items }: { label: string; items: string[] }) {
@@ -108,11 +115,12 @@ export function PathProposalSection({ path }: { path: CustomPath }) {
   const proposal = proposalQuery.data ?? null;
   const due = proposal ? dueCard(proposal) : null;
   const notice = noticeFor(decide.error);
+  const errorLine = notice === null ? undefined : DECIDE_ERROR_COPY[notice];
 
   const onDecide = (stage: ProposalStage, current: PathProposal, decision: ProposalDecision) => {
     decide.mutate({ proposalId: current.id, stage, decision }, {
       onError: (err) => {
-        if (noticeFor(err) === 'decide-error') {
+        if (noticeFor(err) === DECIDE_NOTICE.decideError) {
           Sentry.addBreadcrumb({ category: 'albert', message: 'Proposal decision failed', level: 'warning', data: { err: String(err) } });
         }
       },
@@ -126,8 +134,8 @@ export function PathProposalSection({ path }: { path: CustomPath }) {
         <Text testID="suggestion-badge" style={styles.eyebrow}>{SUGGESTION_BADGE_TEXT.toUpperCase()}</Text>
       </View>
       {proposalQuery.isError && <Text testID="proposal-load-error" style={styles.error}>{PROPOSAL_LOAD_ERROR}</Text>}
-      {notice === 'decide-error' && <Text style={styles.error}>{PROPOSAL_DECIDE_ERROR}</Text>}
-      {notice === 'upgrade' && (
+      {errorLine !== undefined && <Text style={styles.error}>{errorLine}</Text>}
+      {notice === DECIDE_NOTICE.upgrade && (
         <View style={styles.upgrade}>
           <Text style={styles.body}>{PROPOSAL_UPGRADE_COPY}</Text>
           <Button testID="proposal-upgrade" label="Upgrade" variant="outline" onPress={() => router.push(PAYWALL_ROUTE)} />

@@ -19,7 +19,7 @@ import { AlbertMark } from '@/components/albert/AlbertMark';
 import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTrack';
 import { useAutoDismiss } from '@/hooks/useAutoDismiss';
 import type { ActivePathRef, SkillWithAccess, UserPath } from '@learning/shared';
-import { extractError } from '@/lib/errors';
+import { extractError, writeError } from '@/lib/errors';
 import { capitalize } from '@/lib/capitalize';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { HOME_ROUTE, trackRoute } from '@/lib/routes';
@@ -221,7 +221,7 @@ export default function TracksScreen() {
 
         {enroll.isError && (
           <View testID="tracks-enrol-error">
-            <Text style={styles.errorText}>{extractError(enroll.error)}</Text>
+            <Text style={styles.errorText}>{writeError(enroll.error)}</Text>
           </View>
         )}
 

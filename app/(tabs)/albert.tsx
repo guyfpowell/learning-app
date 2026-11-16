@@ -11,7 +11,7 @@ import { PremiumModal } from '@/components/ui/PremiumModal';
 import { usePaths } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
-import { errorCode, extractError } from '@/lib/errors';
+import { errorCode, writeError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { PathProposalSection } from '@/components/albert/PathProposalSection';
 import { SituationChangeSection } from '@/components/albert/SituationChangeSection';
@@ -82,7 +82,7 @@ export default function AlbertScreen() {
         onError: (err) => {
           // The trial is over: the card closes and says so once. Never retried.
           if (errorCode(err) === ERROR_CODES.FRESH_PATH_TRIAL_OVER) setTrialRefused(true);
-          else setArchiveError(extractError(err));
+          else setArchiveError(writeError(err));
         },
       },
     );

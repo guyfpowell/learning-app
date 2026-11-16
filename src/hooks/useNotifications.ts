@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import * as Sentry from '@sentry/react-native';
-import { registerPushToken } from '@/lib/api';
+import type { RegisterPushTokenRequest } from '@learning/shared';
+import { PUSH_TOKEN_WRITE, runSafeWrite } from '@/lib/safeWrites';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -23,12 +25,13 @@ Notifications.setNotificationHandler({
  * authenticated (e.g. the tabs layout).
  */
 export function useNotifications() {
+  const queryClient = useQueryClient();
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
     // Background registration has no screen to report to: log, and never block app load.
-    registerForPushNotifications().catch((err) => {
+    registerForPushNotifications(queryClient).catch((err) => {
       Sentry.addBreadcrumb({ category: 'push', message: 'Push registration failed', level: 'warning', data: { err: String(err) } });
     });
 
@@ -36,10 +39,16 @@ export function useNotifications() {
       notificationListener.current?.remove();
       responseListener.current?.remove();
     };
-  }, []);
+  }, [queryClient]);
 }
 
-export async function registerForPushNotifications(): Promise<void> {
+/** Sends the token as a write that is safe to send again (ADR-021 Decision 4): it waits through a drop and survives a restart. */
+export function sendPushToken(client: QueryClient, token: string): Promise<unknown> {
+  const body: RegisterPushTokenRequest = { token, platform: 'expo' };
+  return runSafeWrite(client, PUSH_TOKEN_WRITE, body);
+}
+
+export async function registerForPushNotifications(client: QueryClient): Promise<void> {
   if (!Device.isDevice) {
     // Push tokens are not available in simulator — skip silently
     return;
@@ -69,7 +78,7 @@ export async function registerForPushNotifications(): Promise<void> {
       projectId ? { projectId } : undefined
     );
 
-    await registerPushToken(tokenData.data, 'expo');
+    await sendPushToken(client, tokenData.data);
   } catch (err) {
     // Non-blocking — do not prevent app load
     Sentry.addBreadcrumb({ category: 'push', message: 'Push token registration failed', level: 'warning', data: { err: String(err) } });

@@ -155,9 +155,9 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   const celebrationFired = useRef(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const submit = useSubmitQuiz();
-  const saveLesson = useSaveLesson();
-  const unsaveLesson = useUnsaveLesson();
+  const submit = useSubmitQuiz(lesson.id);
+  const saveLesson = useSaveLesson(lesson.id);
+  const unsaveLesson = useUnsaveLesson(lesson.id);
   const topicFeedback = useTopicFeedback();
   const refreshPaths = useRefreshPaths();
   const quizzes = lesson.quizzes;
@@ -201,7 +201,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
       });
       setIsSaved(!nextSaved);
     };
-    (nextSaved ? saveLesson : unsaveLesson).mutate(lesson.id, { onError });
+    (nextSaved ? saveLesson : unsaveLesson).mutate({ lessonId: lesson.id }, { onError });
   }
 
   // Animate score and milestone card only at lesson finalization

@@ -1,8 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
-import type { Lesson, LessonRating } from '@learning/shared';
+import type { Lesson } from '@learning/shared';
 import { lessonService } from '@/services/lesson.service';
-import { lessonQueryKey } from '@/lib/queryKeys';
+import { SAVED_LESSONS_QUERY_KEY, lessonQueryKey } from '@/lib/queryKeys';
+import { lessonWriteScope } from '@/lib/mutationKeys';
+import {
+  SAVE_LESSON_WRITE, SAVE_POSITION_WRITE, SET_RATING_WRITE, UNSAVE_LESSON_WRITE,
+  type LessonInput, type SavePositionInput, type SetRatingInput,
+} from '@/lib/safeWrites';
+import { useSafeWrite } from '@/hooks/useSafeWrite';
 
 export function useLesson(id: string) {
   return useQuery({
@@ -35,37 +41,30 @@ export function useStartRetake() {
   });
 }
 
-export function useSaveLesson() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (lessonId: string) => lessonService.saveLesson(lessonId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lessons', 'saved'] }),
-  });
+// The writes below are safe to send again (ADR-021 Decision 4): each waits through a drop, keeps
+// its order behind the lesson's other writes, survives a restart, and the server replays a repeat.
+// The screen changes nothing ahead of the server; the settle steps are in `safeWrites.ts`.
+
+export function useSaveLesson(lessonId: string) {
+  return useSafeWrite<LessonInput, { saved: true }>(SAVE_LESSON_WRITE, lessonWriteScope(lessonId));
 }
 
-export function useUnsaveLesson() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (lessonId: string) => lessonService.unsaveLesson(lessonId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lessons', 'saved'] }),
-  });
+export function useUnsaveLesson(lessonId: string) {
+  return useSafeWrite<LessonInput, void>(UNSAVE_LESSON_WRITE, lessonWriteScope(lessonId));
 }
 
 export function useSavedLessons() {
   return useQuery({
-    queryKey: ['lessons', 'saved'],
+    queryKey: SAVED_LESSONS_QUERY_KEY,
     queryFn: () => lessonService.getSavedLessons(),
   });
 }
 
-export function useSetLessonRating() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ lessonId, rating }: { lessonId: string; rating: LessonRating | null }) =>
-      lessonService.setRating(lessonId, rating),
-    // Keep the cached lesson current so a revisit shows the stored verdict without a refetch.
-    onSuccess: (_data, { lessonId, rating }) => {
-      queryClient.setQueryData<Lesson>(lessonQueryKey(lessonId), (lesson) => lesson && { ...lesson, rating });
-    },
-  });
+/** The reading position. Fire-and-forget from the screen: a failure is logged there, never shown. */
+export function useSavePosition(lessonId: string) {
+  return useSafeWrite<SavePositionInput, void>(SAVE_POSITION_WRITE, lessonWriteScope(lessonId));
+}
+
+export function useSetLessonRating(lessonId: string) {
+  return useSafeWrite<SetRatingInput, void>(SET_RATING_WRITE, lessonWriteScope(lessonId));
 }

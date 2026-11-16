@@ -4,6 +4,7 @@ import { authService, type LoginInput, type RegisterInput } from '@/services/aut
 import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/store/auth.store';
 import { clearSessionData } from '@/lib/offlineWrites';
+import { DELETE_PREFLIGHT_QUERY_KEY } from '@/lib/queryKeys';
 
 /**
  * Onboarding used to collect the timezone. With it gone, the device is the only
@@ -63,7 +64,7 @@ export function useLogout() {
 
 export function useDeleteAccountPreflight() {
   return useQuery({
-    queryKey: ['delete-preflight'],
+    queryKey: DELETE_PREFLIGHT_QUERY_KEY,
     queryFn: () => userService.getDeletePreflight(),
     staleTime: 0,
   });

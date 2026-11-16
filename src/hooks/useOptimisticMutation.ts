@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
-import { DiscardedWriteError, OPTIMISTIC_WRITE_OPTIONS } from '@/lib/offlineWrites';
+import { DiscardedWriteError, SAFE_WRITE_OPTIONS } from '@/lib/offlineWrites';
 import { isOtherWritePending, settleWhenLast, type OptimisticWrite } from '@/lib/writeSettle';
 
 /**
@@ -10,7 +10,7 @@ import { isOtherWritePending, settleWhenLast, type OptimisticWrite } from '@/lib
  * Its writes pause offline and retry on a network error, a timeout or a 5xx (105a).
  */
 interface OptimisticMutationConfig<TVariables, TCache> {
-  /** The action's keys, request and settle step (`src/lib/optimisticWrites.ts`; its shape is in `writeSettle.ts`), shared with a write restored after a restart. */
+  /** The action's keys, request and settle step (`src/lib/safeWrites.ts`; its shape is in `writeSettle.ts`), shared with a write restored after a restart. */
   write: OptimisticWrite;
   /** The state the server is certain to produce, from the cache as it is now and the tap's input. */
   expected: (current: TCache, variables: TVariables) => TCache;
@@ -39,7 +39,7 @@ export function useOptimisticMutation<TVariables, TCache>(
   const dismissFailure = useCallback(() => setFailure(null), []);
 
   const mutation = useMutation<unknown, Error, TVariables, { previous: TCache | undefined }>({
-    ...OPTIMISTIC_WRITE_OPTIONS,
+    ...SAFE_WRITE_OPTIONS,
     mutationKey: write.mutationKey,
     scope: { id: write.scope },
     mutationFn: write.mutationFn,
@@ -59,10 +59,10 @@ export function useOptimisticMutation<TVariables, TCache>(
       Sentry.addBreadcrumb({ category: 'optimistic', message: 'Optimistic update reverted', level: 'warning', data: { mutationKey: write.mutationKey } });
       if (context?.previous !== undefined) queryClient.setQueryData<TCache>(write.queryKey, context.previous);
     },
-    onSettled: (_data, error, variables) => {
+    onSettled: (data, error, variables) => {
       const index = inFlight.current.indexOf(variables);
       if (index !== -1) inFlight.current.splice(index, 1);
-      settleWhenLast(queryClient, write, error);
+      settleWhenLast(queryClient, write, { data, error, variables });
     },
   });
 

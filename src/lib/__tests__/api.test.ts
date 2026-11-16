@@ -1,4 +1,9 @@
-import { AxiosError, AxiosHeaders, type AxiosInstance, type AxiosResponse } from 'axios';
+import { AxiosHeaders, type AxiosError, type AxiosInstance, type AxiosResponse } from 'axios';
+import { axiosError, axiosResponse } from '@/test-utils/axios';
+import { must } from '@/test-utils/must';
+import { BACKGROUND_REQUEST, SKIP_REFRESH_HEADER } from '@/lib/requestHeaders';
+import { CLIENT_HEADER, CLIENT_MOBILE, DEVICE_HEADER, DEVICE_PHONE, DEVICE_TABLET } from '@learning/shared';
+import { DeviceType } from '../../../__mocks__/expo-device';
 
 const mockExpoConfig: { hostUri?: string; extra: object } = { extra: {} };
 jest.mock('expo-constants', () => ({
@@ -40,9 +45,8 @@ const mockQueryClient = { name: 'app query client' };
 const mockClearSessionData = jest.fn();
 jest.mock('@/lib/offlineWrites', () => ({
   clearSessionData: mockClearSessionData,
-  isRetryableWriteError: jest.requireActual('@/lib/offlineWrites').isRetryableWriteError,
 }));
-jest.mock('@/providers/QueryProvider', () => ({
+jest.mock('@/lib/queryClient', () => ({
   queryClient: mockQueryClient,
 }));
 
@@ -66,9 +70,14 @@ describe('api module', () => {
     Object.assign(globalThis, { __DEV__: value });
   }
 
-  function loadApi(): AxiosInstance {
+  // `api.ts` reads the device type when it loads, and `isolateModules` gives it a fresh copy of the
+  // expo-device mock, so a type is set inside the isolated registry, before `api.ts` loads.
+  function loadApi(deviceType?: number | null): AxiosInstance {
     let api: AxiosInstance | undefined;
-    jest.isolateModules(() => { api = require('@/lib/api').default; });
+    jest.isolateModules(() => {
+      if (deviceType !== undefined) require('../../../__mocks__/expo-device').__setDeviceType(deviceType);
+      api = require('@/lib/api').default;
+    });
     return api ?? fail('@/lib/api did not load');
   }
 
@@ -91,10 +100,6 @@ describe('api module', () => {
 
   function getResponseInterceptorRejected(api: AxiosInstance) {
     return lastInterceptorHandler(api.interceptors.response, 'rejected');
-  }
-
-  function axiosResponse<T>(data: T): AxiosResponse<T> {
-    return { data, status: 200, statusText: 'OK', headers: {}, config: { headers: new AxiosHeaders() } };
   }
 
   // ─── Module initialisation ──────────────────────────────────────────────────
@@ -155,6 +160,30 @@ describe('api module', () => {
       expect(config.headers).toMatchObject({ Authorization: 'Bearer test-token' });
     });
 
+    // 105i: the server keeps one session each for web, phone and tablet, so every request says which it is.
+    describe('which kind of device (105i)', () => {
+      function headersSent(deviceType: number | null): Record<string, string> {
+        setDev(true);
+        process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
+        const api = loadApi(deviceType);
+        const config = { headers: {} as Record<string, string> };
+        getRequestInterceptorFulfilled(api)(config);
+        return config.headers;
+      }
+
+      it('sends X-Device: tablet on a tablet, beside X-Client: mobile', () => {
+        expect(headersSent(DeviceType.TABLET)).toMatchObject({ [CLIENT_HEADER]: CLIENT_MOBILE, [DEVICE_HEADER]: DEVICE_TABLET });
+      });
+
+      it('sends X-Device: phone on a phone', () => {
+        expect(headersSent(DeviceType.PHONE)).toMatchObject({ [CLIENT_HEADER]: CLIENT_MOBILE, [DEVICE_HEADER]: DEVICE_PHONE });
+      });
+
+      it.each([['unknown', DeviceType.UNKNOWN], ['not yet known', null]])('counts an %s type as a phone', (_name, type) => {
+        expect(headersSent(type)).toMatchObject({ [DEVICE_HEADER]: DEVICE_PHONE });
+      });
+    });
+
     it('does not inject Authorization when no token', () => {
       setDev(true);
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
@@ -173,191 +202,169 @@ describe('api module', () => {
   // ─── Response interceptor ────────────────────────────────────────────────────
 
   describe('response interceptor — 401 handling', () => {
-    // 069 A1 — syncTimezone() on register was signing brand-new users out.
-    it('does NOT sign out when a background request 401s and refresh fails', async () => {
+    const URLS = ['/lessons/1', '/lessons/2'] as const;
+
+    /** A 401 on `url`, as axios rejects it; `background` marks it the way `BACKGROUND_REQUEST` does. */
+    function unauthorized(url: string, background = false): AxiosError {
+      const headers = new AxiosHeaders(background ? { ...BACKGROUND_REQUEST.headers } : {});
+      return axiosError('ERR_BAD_REQUEST', 401, null, { url, headers });
+    }
+
+    function sentToken(error: AxiosError): unknown {
+      return must(error.config, 'the failed call\'s config').headers.Authorization;
+    }
+
+    function loadSignedInApi(): AxiosInstance {
       setDev(true);
       process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
-      mockGetState.mockReturnValue({
-        accessToken: 'tok',
-        user: { id: '1', email: 'test@example.com', name: 'Test' },
-        clearAuth: mockClearAuth,
-        setAuth: mockSetAuth,
-      });
+      return loadApi();
+    }
 
-      const api = loadApi();
-      jest.spyOn(api, 'post').mockRejectedValue(new Error('refresh failed'));
+    /** The refresh call stays open until the test settles it, so several 401s can wait on it. */
+    function holdRefresh(api: AxiosInstance) {
+      const refresh = { fail: (_err: AxiosError) => {} };
+      jest.spyOn(api, 'post').mockReturnValue(new Promise((_resolve, reject) => { refresh.fail = reject; }));
+      return refresh;
+    }
 
-      const rejected = getResponseInterceptorRejected(api);
-      const error = {
-        response: { status: 401 },
-        config: { url: '/users/profile', headers: { 'X-Background': 'true' } },
-        code: 'ERR_BAD_REQUEST',
-      };
+    it('refreshes via the httpOnly cookie (no body) and resends the call with the new token', async () => {
+      const api = loadSignedInApi();
+      jest.spyOn(api, 'post').mockResolvedValue(axiosResponse({ token: 'new-access-token' }));
+      jest.spyOn(api, 'request').mockResolvedValue(axiosResponse('ok'));
+      const error = unauthorized(URLS[0]);
 
-      await expect(rejected(error)).rejects.toEqual(error);
+      await expect(getResponseInterceptorRejected(api)(error)).resolves.toEqual(axiosResponse('ok'));
+
+      expect(api.post).toHaveBeenCalledWith('/auth/refresh', undefined, { headers: { [SKIP_REFRESH_HEADER]: 'true' } });
+      expect(sentToken(error)).toBe('Bearer new-access-token');
       expect(mockClearAuth).not.toHaveBeenCalled();
     });
 
-    it('clears auth and redirects to sign-in on 401 from non-auth endpoint when refresh fails', async () => {
-      setDev(true);
-      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
-      mockGetState.mockReturnValue({
-        accessToken: 'tok',
-        user: { id: '1', email: 'test@example.com', name: 'Test' },
-        clearAuth: mockClearAuth,
-        setAuth: mockSetAuth,
-      });
+    it('resends every call waiting on one refresh with the new token', async () => {
+      const api = loadSignedInApi();
+      const refresh = { succeed: (_res: AxiosResponse) => {} };
+      jest.spyOn(api, 'post').mockReturnValue(new Promise((resolve) => { refresh.succeed = resolve; }));
+      jest.spyOn(api, 'request').mockResolvedValue(axiosResponse('ok'));
+      const errors = URLS.map((url) => unauthorized(url));
 
-      const api = loadApi();
-      jest.spyOn(api, 'post').mockRejectedValue(new Error('refresh failed'));
+      const calls = errors.map((error) => getResponseInterceptorRejected(api)(error));
+      refresh.succeed(axiosResponse({ token: 'new-access-token' }));
 
-      const rejected = getResponseInterceptorRejected(api);
-      const error = { response: { status: 401 }, config: { url: '/lessons/1', headers: {} }, code: 'ERR_BAD_REQUEST' };
+      await expect(Promise.all(calls)).resolves.toEqual([axiosResponse('ok'), axiosResponse('ok')]);
+      expect(api.post).toHaveBeenCalledTimes(1);
+      expect(errors.map(sentToken)).toEqual(['Bearer new-access-token', 'Bearer new-access-token']);
+    });
 
-      await expect(rejected(error)).rejects.toEqual(error);
+    it.each([401, 403])('a 401, then the refresh gets a %i: sign-out, and the call rejects with its own error', async (status) => {
+      const api = loadSignedInApi();
+      jest.spyOn(api, 'post').mockRejectedValue(axiosError('ERR_BAD_REQUEST', status));
+      const error = unauthorized(URLS[0]);
+
+      await expect(getResponseInterceptorRejected(api)(error)).rejects.toBe(error);
       expect(mockClearAuth).toHaveBeenCalled();
       expect(mockClearSessionData).toHaveBeenCalledWith(mockQueryClient);
       expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/sign-in');
     });
 
-    // 105b — only a refusal from the server signs the person out.
-    describe('a refresh that does not reach the server', () => {
-      const ORIGINAL_URLS = ['/lessons/1', '/lessons/2'] as const;
+    it('does NOT sign out when a background request 401s and the refresh is refused', async () => {
+      const api = loadSignedInApi();
+      jest.spyOn(api, 'post').mockRejectedValue(axiosError('ERR_BAD_REQUEST', 401));
+      const error = unauthorized('/users/profile', true);
 
-      function originalError(url: string) {
-        return { response: { status: 401 }, config: { url, headers: {} as Record<string, string> }, code: 'ERR_BAD_REQUEST' };
-      }
+      await expect(getResponseInterceptorRejected(api)(error)).rejects.toBe(error);
+      expect(mockClearAuth).not.toHaveBeenCalled();
+    });
 
-      function refreshFailure(code: string, status?: number): AxiosError {
-        const response = status === undefined ? undefined : { ...axiosResponse(null), status };
-        return new AxiosError('refresh failed', code, undefined, undefined, response);
-      }
+    it('two calls waiting on one refresh the server refuses: each rejects with its own error, and one sign-out', async () => {
+      const api = loadSignedInApi();
+      const refresh = holdRefresh(api);
+      const errors = URLS.map((url) => unauthorized(url));
 
-      function loadSignedInApi(): AxiosInstance {
-        setDev(true);
-        process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
-        return loadApi();
-      }
+      const calls = errors.map((error) => getResponseInterceptorRejected(api)(error));
+      refresh.fail(axiosError('ERR_BAD_REQUEST', 401));
 
-      it('a 401, then the refresh times out: no sign-out, and the call rejects with the network error', async () => {
+      await expect(calls[0]).rejects.toBe(errors[0]);
+      await expect(calls[1]).rejects.toBe(errors[1]);
+      expect(mockClearAuth).toHaveBeenCalledTimes(1);
+    });
+
+    // A background call never decides the session is over, but a foreground call waiting on the
+    // same refused refresh does: without that, the person stays signed in on a dead session.
+    it('a background call starts the refresh, a foreground call waits, the server refuses: one sign-out', async () => {
+      const api = loadSignedInApi();
+      const refresh = holdRefresh(api);
+      const background = unauthorized('/users/profile', true);
+      const foreground = unauthorized(URLS[0]);
+
+      const calls = [background, foreground].map((error) => getResponseInterceptorRejected(api)(error));
+      refresh.fail(axiosError('ERR_BAD_REQUEST', 401));
+
+      await expect(calls[0]).rejects.toBe(background);
+      await expect(calls[1]).rejects.toBe(foreground);
+      expect(mockClearAuth).toHaveBeenCalledTimes(1);
+      expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/sign-in');
+    });
+
+    // Only a refusal from the server signs the person out (ADR-021 Decision 1).
+    describe('a refresh that does not get a refusal', () => {
+      it.each([
+        ['times out', axiosError('ECONNABORTED')],
+        ['gets a 5xx', axiosError('ERR_BAD_RESPONSE', 503)],
+        ['gets a 429', axiosError('ERR_BAD_REQUEST', 429)],
+      ])('a 401, then the refresh %s: no sign-out, and the call rejects with that error', async (_name, failure) => {
         const api = loadSignedInApi();
-        const timeout = refreshFailure('ECONNABORTED');
-        jest.spyOn(api, 'post').mockRejectedValue(timeout);
+        jest.spyOn(api, 'post').mockRejectedValue(failure);
 
-        const rejected = getResponseInterceptorRejected(api);
-
-        await expect(rejected(originalError(ORIGINAL_URLS[0]))).rejects.toBe(timeout);
+        await expect(getResponseInterceptorRejected(api)(unauthorized(URLS[0]))).rejects.toBe(failure);
         expect(mockClearAuth).not.toHaveBeenCalled();
         expect(mockClearSessionData).not.toHaveBeenCalled();
         expect(mockRouterReplace).not.toHaveBeenCalled();
       });
 
-      it('a 401, then the refresh gets a 5xx: no sign-out', async () => {
-        const api = loadSignedInApi();
-        const serverError = refreshFailure('ERR_BAD_RESPONSE', 503);
-        jest.spyOn(api, 'post').mockRejectedValue(serverError);
-
-        const rejected = getResponseInterceptorRejected(api);
-
-        await expect(rejected(originalError(ORIGINAL_URLS[0]))).rejects.toBe(serverError);
-        expect(mockClearAuth).not.toHaveBeenCalled();
-        expect(mockRouterReplace).not.toHaveBeenCalled();
-      });
-
-      it.each([401, 403])('a 401, then the refresh gets a %i: sign-out, as today', async (status) => {
-        const api = loadSignedInApi();
-        jest.spyOn(api, 'post').mockRejectedValue(refreshFailure('ERR_BAD_REQUEST', status));
-
-        const rejected = getResponseInterceptorRejected(api);
-        const error = originalError(ORIGINAL_URLS[0]);
-
-        await expect(rejected(error)).rejects.toEqual(error);
-        expect(mockClearAuth).toHaveBeenCalled();
-        expect(mockClearSessionData).toHaveBeenCalledWith(mockQueryClient);
-        expect(mockRouterReplace).toHaveBeenCalledWith('/(auth)/sign-in');
-      });
-
       it('two calls waiting on one refresh that fails for a network reason: both reject, no sign-out', async () => {
         const api = loadSignedInApi();
-        const timeout = refreshFailure('ECONNABORTED');
-        const refresh = { fail: (_err: AxiosError) => {} };
-        jest.spyOn(api, 'post').mockReturnValue(new Promise((_resolve, reject) => { refresh.fail = reject; }));
+        const refresh = holdRefresh(api);
+        const timeout = axiosError('ECONNABORTED');
 
-        const rejected = getResponseInterceptorRejected(api);
-        const first = rejected(originalError(ORIGINAL_URLS[0]));
-        const second = rejected(originalError(ORIGINAL_URLS[1]));
+        const calls = URLS.map((url) => getResponseInterceptorRejected(api)(unauthorized(url)));
         refresh.fail(timeout);
 
-        await expect(first).rejects.toBe(timeout);
-        await expect(second).rejects.toBe(timeout);
+        await expect(calls[0]).rejects.toBe(timeout);
+        await expect(calls[1]).rejects.toBe(timeout);
         expect(mockClearAuth).not.toHaveBeenCalled();
         expect(mockRouterReplace).not.toHaveBeenCalled();
       });
 
       it('after a failed refresh, the next 401 starts a new refresh', async () => {
         const api = loadSignedInApi();
-        const timeout = refreshFailure('ECONNABORTED');
+        const timeout = axiosError('ECONNABORTED');
         const post = jest.spyOn(api, 'post').mockRejectedValue(timeout);
         jest.spyOn(api, 'request').mockResolvedValue(axiosResponse('ok'));
 
         const rejected = getResponseInterceptorRejected(api);
-        await expect(rejected(originalError(ORIGINAL_URLS[0]))).rejects.toBe(timeout);
+        await expect(rejected(unauthorized(URLS[0]))).rejects.toBe(timeout);
         post.mockResolvedValue(axiosResponse({ token: 'new-access-token' }));
 
-        await expect(rejected(originalError(ORIGINAL_URLS[1]))).resolves.toEqual(axiosResponse('ok'));
+        await expect(rejected(unauthorized(URLS[1]))).resolves.toEqual(axiosResponse('ok'));
       });
     });
 
-    it('refreshes via the httpOnly cookie (no body) and retries the original request on 401', async () => {
-      setDev(true);
-      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
-      mockGetState.mockReturnValue({
-        accessToken: 'expired-tok',
-        user: { id: '1', email: 'test@example.com', name: 'Test' },
-        clearAuth: mockClearAuth,
-        setAuth: mockSetAuth,
-      });
+    it('passes a 401 from an /auth/ endpoint straight to the caller (wrong credentials)', async () => {
+      const api = loadSignedInApi();
+      const error = unauthorized('/auth/login');
 
-      const api = loadApi();
-      jest.spyOn(api, 'post').mockResolvedValue(axiosResponse({ token: 'new-access-token' }));
-      jest.spyOn(api, 'request').mockResolvedValue(axiosResponse('ok'));
-
-      const rejected = getResponseInterceptorRejected(api);
-      const error = { response: { status: 401 }, config: { url: '/lessons/1', headers: {} as Record<string, string> }, code: 'ERR_BAD_REQUEST' };
-
-      await rejected(error);
-
-      expect(api.post).toHaveBeenCalledWith('/auth/refresh', undefined, expect.objectContaining({
-        headers: { 'X-Skip-Refresh': 'true' },
-      }));
-      expect(mockClearAuth).not.toHaveBeenCalled();
-      expect(error.config.headers['Authorization']).toBe('Bearer new-access-token');
-    });
-
-    it('passes 401 from /auth/ endpoint directly to caller (wrong credentials)', async () => {
-      setDev(true);
-      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
-
-      const api = loadApi();
-
-      const rejected = getResponseInterceptorRejected(api);
-      const error = { response: { status: 401 }, config: { url: '/auth/login' }, code: 'ERR_BAD_REQUEST' };
-
-      await expect(rejected(error)).rejects.toEqual(error);
+      await expect(getResponseInterceptorRejected(api)(error)).rejects.toBe(error);
       expect(mockClearAuth).not.toHaveBeenCalled();
       expect(mockRouterReplace).not.toHaveBeenCalled();
     });
 
-    it('passes through network errors without triggering logout', async () => {
-      setDev(true);
-      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
+    it('passes network errors through without refreshing or signing out', async () => {
+      const api = loadSignedInApi();
+      const post = jest.spyOn(api, 'post');
+      const error = axiosError('ECONNABORTED');
 
-      const api = loadApi();
-
-      const rejected = getResponseInterceptorRejected(api);
-      const error = { code: 'ECONNABORTED' };
-
-      await expect(rejected(error)).rejects.toEqual(error);
+      await expect(getResponseInterceptorRejected(api)(error)).rejects.toBe(error);
+      expect(post).not.toHaveBeenCalled();
       expect(mockClearAuth).not.toHaveBeenCalled();
     });
   });

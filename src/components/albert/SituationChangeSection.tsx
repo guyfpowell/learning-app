@@ -25,6 +25,7 @@ import { Icon } from '@/components/ui/Icon';
 import { useCreateSituationChange, useLatestSituationChange } from '@/hooks/useSituationChange';
 import { errorCode } from '@/lib/errors';
 import { PATHS_QUERY_KEY, proposalQueryKey } from '@/lib/queryKeys';
+import { isSignalDrop } from '@/lib/offlineWrites';
 
 interface Props {
   planId: string;
@@ -39,7 +40,10 @@ interface Props {
 function noticeFor(
   { sendError, loadFailed, watched, outcome, pathFinished }: { sendError: unknown; loadFailed: boolean; watched: boolean; outcome: SituationChangeOutcome | null; pathFinished: boolean },
 ): SituationNotice | null {
-  if (sendError) return errorCode(sendError) === ERROR_CODES.SUBSCRIPTION_INACTIVE ? SITUATION_NOTICE.upgrade : SITUATION_NOTICE.sendError;
+  if (sendError) {
+    if (isSignalDrop(sendError)) return SITUATION_NOTICE.noSignal;
+    return errorCode(sendError) === ERROR_CODES.SUBSCRIPTION_INACTIVE ? SITUATION_NOTICE.upgrade : SITUATION_NOTICE.sendError;
+  }
   if (loadFailed) return SITUATION_NOTICE.loadError;
   if (!watched || !outcome) return null;
   return situationNoticeOf(outcome, pathFinished);

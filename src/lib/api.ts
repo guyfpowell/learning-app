@@ -1,97 +1,89 @@
-import axios from 'axios';
-import type { RegisterPushTokenRequest } from '@learning/shared';
-import Constants from 'expo-constants';
+import axios, { type AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
+import * as Device from 'expo-device';
 import { router } from 'expo-router';
+import { CLIENT_HEADER, CLIENT_MOBILE, DEVICE_HEADER, DEVICE_PHONE, DEVICE_TABLET, type AuthResponse } from '@learning/shared';
+import { API_BASE_URL } from '@/lib/apiUrl';
+import { BACKGROUND_HEADER, SKIP_REFRESH_HEADER } from '@/lib/requestHeaders';
 import { useAuthStore } from '@/store/auth.store';
-import { queryClient } from '@/providers/QueryProvider';
-import { clearSessionData, isRetryableWriteError } from '@/lib/offlineWrites';
+import { queryClient } from '@/lib/queryClient';
+import { clearSessionData } from '@/lib/offlineWrites';
 import * as Sentry from '@sentry/react-native';
 
-// Dev fallback: the API runs on the same machine as Metro, so take the host the
-// phone already used to reach Metro (`hostUri`, e.g. "192.168.1.130:8081"). It is
-// always current — no IP is ever written into a file. On the simulator hostUri is
-// localhost, so it behaves exactly as before. Production never uses this: it must
-// set EXPO_PUBLIC_API_URL (checked below).
-function devApiUrl(): string {
-  const host = Constants.expoConfig?.hostUri?.split(':')[0];
-  return `http://${host || 'localhost'}:3000/api`;
-}
+/** A request that hasn't answered by then fails as a timeout. */
+const REQUEST_TIMEOUT_MS = 15_000;
 
-const BASE_URL: string = process.env.EXPO_PUBLIC_API_URL ?? devApiUrl();
-
-// Throw at module load in production if URL is explicitly localhost — surfaces
-// build configuration errors immediately rather than during user interactions.
-if (!__DEV__ && (!BASE_URL || BASE_URL === 'http://localhost:3000/api')) {
-  throw new Error(
-    '[api] EXPO_PUBLIC_API_URL is not set or is localhost. ' +
-    'This is a build configuration error. ' +
-    `Current value: ${BASE_URL}`
-  );
-}
+// Read once: a phone doesn't become a tablet while the app runs. An unknown type counts as a
+// phone. The server keeps one session for each kind of device (`docs/architecture/auth.md`).
+const DEVICE_KIND = Device.deviceType === Device.DeviceType.TABLET ? DEVICE_TABLET : DEVICE_PHONE;
 
 // withCredentials lets the native HTTP stack store and resend the httpOnly
 // refresh_token cookie the API sets on login/register/refresh (same cookie-based
 // refresh flow as the web client — see AuthController.setRefreshTokenCookie).
-const api = axios.create({ baseURL: BASE_URL, timeout: 15000, withCredentials: true });
+const api = axios.create({ baseURL: API_BASE_URL, timeout: REQUEST_TIMEOUT_MS, withCredentials: true });
 
 // ─── Request: security check + inject Bearer token ───────────────────────────
 api.interceptors.request.use((config) => {
-  if (!__DEV__ && !BASE_URL.startsWith('https://')) {
-    console.warn(`[api] Insecure API URL in production: ${BASE_URL}`);
-    return Promise.reject(new Error(`[api] Insecure API URL in production: ${BASE_URL}`));
+  if (!__DEV__ && !API_BASE_URL.startsWith('https://')) {
+    console.warn(`[api] Insecure API URL in production: ${API_BASE_URL}`);
+    return Promise.reject(new Error(`[api] Insecure API URL in production: ${API_BASE_URL}`));
   }
 
-  // See the same header on web: which surface, stated not inferred.
-  config.headers['X-Client'] = 'mobile';
+  // See the same header on web: which surface, stated not inferred, and which kind of device.
+  config.headers[CLIENT_HEADER] = CLIENT_MOBILE;
+  config.headers[DEVICE_HEADER] = DEVICE_KIND;
 
   const { accessToken } = useAuthStore.getState();
   if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
+    config.headers.Authorization = bearer(accessToken);
   }
   return config;
 });
 
-/**
- * Marks a request as non-critical background work — ticket 069 A1.
- *
- * Such a request still refreshes on a 401 (so it succeeds whenever it can), but
- * it must **never** be the thing that signs the user out. `syncTimezone()` on
- * register was: a fire-and-forget profile PATCH whose failure ran
- * `signOutAndRedirect()` and bounced a brand-new user to sign-in on the happiest
- * path in the product. A caller's own `.catch()` cannot prevent that — the
- * interceptor fires first.
- *
- * Safety: this does not strand a dead session. If the session is genuinely gone,
- * the next foreground request 401s, fails refresh, and signs out properly. This
- * only stops a background ping being what decides it.
- *
- * Spread into any fire-and-forget call: `api.patch(url, body, BACKGROUND_REQUEST)`.
- */
-export const BACKGROUND_REQUEST = { headers: { 'X-Background': 'true' } } as const;
-
-// ─── Response: on 401 → try refresh, then sign out only if the server refuses it ─
-let isRefreshing = false;
-interface RefreshWaiter {
-  retryWith: (token: string) => void;
-  fail: (err: unknown) => void;
+function bearer(token: string): string {
+  return `Bearer ${token}`;
 }
-let refreshQueue: RefreshWaiter[] = [];
+
+// ─── Response: on 401 → refresh, then sign out only if the server refuses it ──
+
+/** One refresh at a time: every 401 that arrives while it runs waits on the same one. */
+interface Refresh {
+  /** The new access token, or null when the server refused (`tryRefresh`). */
+  token: Promise<string | null>;
+  /** Set once a foreground call has signed out after this refresh was refused. */
+  signedOut: boolean;
+}
+
+let currentRefresh: Refresh | null = null;
+
+function sharedRefresh(): Refresh {
+  if (currentRefresh) return currentRefresh;
+  const started: Refresh = {
+    token: tryRefresh().finally(() => { currentRefresh = null; }),
+    signedOut: false,
+  };
+  currentRefresh = started;
+  return started;
+}
+
+/** Only these answers from `/auth/refresh` mean the session is over. */
+const REFRESH_REFUSAL_STATUSES: readonly number[] = [401, 403];
+
+function isRefreshRefusal(err: unknown): boolean {
+  return axios.isAxiosError(err) && err.response !== undefined && REFRESH_REFUSAL_STATUSES.includes(err.response.status);
+}
 
 /**
  * The new access token, or null when the server refused the refresh (the session is over).
- * A refresh that never reached the server (network error, timeout, 5xx) throws that error
+ * Any other failure (network error, timeout, 5xx, a 429 or another 4xx) throws that error
  * instead, so the caller can fail without signing anyone out (ADR-021, Decision 1).
  */
 async function tryRefresh(): Promise<string | null> {
   try {
     // No body — the refresh token travels only as the httpOnly cookie.
-    const res = await api.post('/auth/refresh', undefined, {
-      // Skip the interceptor for this request
-      headers: { 'X-Skip-Refresh': 'true' },
-    });
-    const { token: newToken } = res.data;
-    const { user } = useAuthStore.getState();
-    if (user) useAuthStore.getState().setAuth(user, newToken);
+    const res = await api.post<Pick<AuthResponse, 'token'>>('/auth/refresh', undefined, { headers: { [SKIP_REFRESH_HEADER]: 'true' } });
+    const newToken = res.data.token;
+    const { user, setAuth } = useAuthStore.getState();
+    if (user) setAuth(user, newToken);
     return newToken;
   } catch (err) {
     Sentry.addBreadcrumb({
@@ -100,8 +92,8 @@ async function tryRefresh(): Promise<string | null> {
       level: 'warning',
       data: { err: String(err) },
     });
-    if (isRetryableWriteError(err)) throw err;
-    return null;
+    if (isRefreshRefusal(err)) return null;
+    throw err;
   }
 }
 
@@ -114,6 +106,31 @@ function signOutAndRedirect() {
   useAuthStore.getState().clearAuth();
   void clearSessionData(queryClient);
   router.replace('/(auth)/sign-in');
+}
+
+/** A 401 a new access token could fix: not a wrong password on an auth route, and not the refresh call itself. */
+function needsRefresh(error: AxiosError, config: InternalAxiosRequestConfig): boolean {
+  if (error.response?.status !== 401) return false;
+  return !(config.url ?? '').startsWith('/auth/') && !config.headers[SKIP_REFRESH_HEADER];
+}
+
+/**
+ * Waits on the shared refresh and sends the call again with the new token. A refresh that failed
+ * without a refusal rejects here with its error, and nobody signs out. After a refusal each call
+ * rejects with its own 401, and the first foreground call signs out; a background call never does.
+ */
+async function refreshAndResend(error: AxiosError, config: InternalAxiosRequestConfig): Promise<AxiosResponse> {
+  const refresh = sharedRefresh();
+  const token = await refresh.token;
+  if (token) {
+    config.headers.Authorization = bearer(token);
+    return api.request(config);
+  }
+  if (!refresh.signedOut && !config.headers[BACKGROUND_HEADER]) {
+    refresh.signedOut = true;
+    signOutAndRedirect();
+  }
+  throw error;
 }
 
 api.interceptors.response.use(
@@ -131,68 +148,12 @@ api.interceptors.response.use(
     }
     return response;
   },
-  async (error) => {
-    if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') {
+  (error: unknown) => {
+    if (!axios.isAxiosError(error) || error.config === undefined || !needsRefresh(error, error.config)) {
       return Promise.reject(error);
     }
-
-    // Auth endpoint 401s (wrong credentials) and refresh requests pass directly to caller.
-    const url = error.config?.url ?? '';
-    if (error.response?.status === 401 && (url.startsWith('/auth/') || error.config?.headers?.['X-Skip-Refresh'])) {
-      return Promise.reject(error);
-    }
-
-    if (error.response?.status === 401) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          refreshQueue.push({
-            retryWith: (newToken: string) => {
-              error.config.headers['Authorization'] = `Bearer ${newToken}`;
-              api.request(error.config).then(resolve).catch(reject);
-            },
-            fail: reject,
-          });
-        });
-      }
-
-      isRefreshing = true;
-      let newToken: string | null;
-      try {
-        newToken = await tryRefresh();
-      } catch (refreshError) {
-        // Didn't reach the server: nobody signs out, every waiting call fails with this error.
-        isRefreshing = false;
-        const waiting = refreshQueue;
-        refreshQueue = [];
-        waiting.forEach(waiter => waiter.fail(refreshError));
-        return Promise.reject(refreshError);
-      }
-      isRefreshing = false;
-
-      if (newToken) {
-        refreshQueue.forEach(waiter => waiter.retryWith(newToken));
-        refreshQueue = [];
-        error.config.headers['Authorization'] = `Bearer ${newToken}`;
-        return api.request(error.config);
-      }
-
-      refreshQueue = [];
-      if (!error.config?.headers?.['X-Background']) {
-        signOutAndRedirect();
-      }
-    }
-
-    return Promise.reject(error);
+    return refreshAndResend(error, error.config);
   }
 );
-
-export async function registerPushToken(
-  token: string,
-  platform: 'expo' | 'web',
-  deviceId?: string
-): Promise<void> {
-  const body: RegisterPushTokenRequest = { token, platform, deviceId };
-  await api.post('/notifications/push-token', body);
-}
 
 export default api;

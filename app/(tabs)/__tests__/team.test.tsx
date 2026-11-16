@@ -10,6 +10,7 @@ import {
   useTeamLeaderboard,
 } from '@/hooks/useTeam';
 import { colors } from '@/theme';
+import { GENERIC_ERROR } from '@/lib/errors';
 import type { TeamSummary, MemberProgress, SkillGap, LeaderboardEntry } from '@learning/shared';
 
 jest.mock('@/hooks/useTeam', () => ({
@@ -126,7 +127,7 @@ describe('TeamScreen', () => {
     it('shows fallback message for plain Error instances', () => {
       (useTeamSummary as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, error: new Error('Network error') });
       render(<TeamScreen />);
-      expect(screen.getByText('Something went wrong. Please try again.')).toBeTruthy();
+      expect(screen.getByText(GENERIC_ERROR)).toBeTruthy();
     });
   });
 

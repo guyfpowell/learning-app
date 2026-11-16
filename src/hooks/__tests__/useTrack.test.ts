@@ -1,13 +1,14 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
-import { QueryClient, onlineManager } from '@tanstack/react-query';
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios';
+import { onlineManager } from '@tanstack/react-query';
+import { axiosError } from '@/test-utils/axios';
+import { createAppQueryClient } from '@/test-utils/appQueryClient';
 import { makeCustomPath, makeTrackPath } from '@/test-utils/paths';
 import { SET_ACTIVE_PATH_ERROR, type UserPath } from '@learning/shared';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { must } from '@/test-utils/must';
 import * as Sentry from '@sentry/react-native';
 import { useEnroll, usePaths, useSetActivePath, useSkip, useTopicFeedback } from '../useTrack';
-import { QUERY_CLIENT_DEFAULTS } from '@/lib/offlineWrites';
+import { NoSignalError } from '@/lib/offlineWrites';
 import { trackService } from '@/services/track.service';
 
 jest.mock('@/services/track.service', () => ({
@@ -171,12 +172,9 @@ describe('useSetActivePath on patchy signal (105a)', () => {
   const refB = { kind: 'custom', id: 'p1' } as const;
   const activeIds = (paths: UserPath[] | undefined) => paths?.filter((p) => p.isActive).map((p) => p.id);
 
-  const networkError = new AxiosError('Network Error', 'ERR_NETWORK');
-  const timeout = new AxiosError('timeout of 15000ms exceeded', 'ECONNABORTED');
-  function refusal(status: number): AxiosError {
-    const response: AxiosResponse = { data: null, status, statusText: '', headers: {}, config: { headers: new AxiosHeaders() } };
-    return new AxiosError(`Request failed with status code ${status}`, 'ERR_BAD_RESPONSE', undefined, undefined, response);
-  }
+  const networkError = axiosError('ERR_NETWORK');
+  const timeout = axiosError('ECONNABORTED');
+  const refusal = (status: number) => axiosError('ERR_BAD_RESPONSE', status);
 
   /** The service fails with `failWith` while `failing.on` is set; a failure can switch itself off after one. */
   const failing: { on: boolean; failWith: Error; once: boolean } = { on: false, failWith: networkError, once: false };
@@ -282,18 +280,16 @@ describe('useSetActivePath on patchy signal (105a)', () => {
   });
 });
 
-describe('every other mutation on patchy signal (105a)', () => {
-  const networkError = new AxiosError('Network Error', 'ERR_NETWORK');
+describe('every other mutation on patchy signal (105a, 105g)', () => {
+  const networkError = axiosError('ERR_NETWORK');
   const advance = (ms: number) => act(async () => { await jest.advanceTimersByTimeAsync(ms); });
-  // The app's own defaults, as `QueryProvider` builds the client; the test client's are not the same.
-  const appClient = () => new QueryClient({ defaultOptions: { ...QUERY_CLIENT_DEFAULTS, mutations: { ...QUERY_CLIENT_DEFAULTS.mutations, gcTime: Infinity } } });
 
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockTrackService.enroll.mockReset();
     mockTrackService.skip.mockReset();
-    act(() => onlineManager.setOnline(false));
+    mockTrackService.topicFeedback.mockReset();
   });
   afterEach(async () => {
     await advance(60_000);
@@ -301,25 +297,54 @@ describe('every other mutation on patchy signal (105a)', () => {
     jest.useRealTimers();
   });
 
-  it('sends enrol offline at once, fails, and never retries it', async () => {
-    mockTrackService.enroll.mockRejectedValue(networkError);
-    const { result } = renderHook(() => useEnroll(), { wrapper: queryWrapper(appClient()) });
+  it('with no signal, enrol sends nothing and fails at once with NoSignalError', async () => {
+    act(() => onlineManager.setOnline(false));
+    const { result } = renderHook(() => useEnroll(), { wrapper: queryWrapper(createAppQueryClient()) });
 
     act(() => result.current.mutate('skill-1'));
 
-    await waitFor(() => expect(result.current.isError).toBe(true));
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(NoSignalError));
     await advance(30_000);
-    expect(mockTrackService.enroll).toHaveBeenCalledTimes(1);
+    expect(mockTrackService.enroll).not.toHaveBeenCalled();
   });
 
-  it('sends a skip offline at once, fails, and never retries it', async () => {
+  it('with no signal, a skip sends nothing and fails at once with NoSignalError', async () => {
+    act(() => onlineManager.setOnline(false));
+    const { result } = renderHook(() => useSkip(), { wrapper: queryWrapper(createAppQueryClient()) });
+
+    act(() => result.current.skip(makeTrackPath({ id: 's1' }), 'lesson', 'not_now'));
+
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(NoSignalError));
+    await advance(30_000);
+    expect(mockTrackService.skip).not.toHaveBeenCalled();
+  });
+
+  it('with no signal, the topic answer sends nothing and fails at once with NoSignalError', async () => {
+    act(() => onlineManager.setOnline(false));
+    const { result } = renderHook(() => useTopicFeedback(), { wrapper: queryWrapper(createAppQueryClient()) });
+
+    await expect(result.current.submit('p1', { stableKey: 'k', dismissed: false })).rejects.toBeInstanceOf(NoSignalError);
+    expect(mockTrackService.topicFeedback).not.toHaveBeenCalled();
+  });
+
+  it('a skip that loses signal in flight fails with the network error, once, and never retries', async () => {
     mockTrackService.skip.mockRejectedValue(networkError);
-    const { result } = renderHook(() => useSkip(), { wrapper: queryWrapper(appClient()) });
+    const { result } = renderHook(() => useSkip(), { wrapper: queryWrapper(createAppQueryClient()) });
 
     act(() => result.current.skip(makeTrackPath({ id: 's1' }), 'lesson', 'not_now'));
 
     await waitFor(() => expect(result.current.error).toBe(networkError));
     await advance(30_000);
     expect(mockTrackService.skip).toHaveBeenCalledTimes(1);
+  });
+
+  it('online, enrol sends as it always did', async () => {
+    mockTrackService.enroll.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useEnroll(), { wrapper: queryWrapper(createAppQueryClient()) });
+
+    act(() => result.current.mutate('skill-1'));
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockTrackService.enroll).toHaveBeenCalledWith('skill-1');
   });
 });

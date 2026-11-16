@@ -35,6 +35,9 @@ export function lessonQueryKey(lessonId: string) {
   return [...LESSONS_QUERY_KEY, lessonId] as const;
 }
 
+/** The user's saved lessons (`GET /lessons/saved`). Invalidate it when a lesson is saved or unsaved. */
+export const SAVED_LESSONS_QUERY_KEY = ['lessons', 'saved'] as const;
+
 /** The user's profile (`useProfile`). Invalidate it when a write changes entitlement. */
 export const USER_PROFILE_QUERY_KEY = ['user-profile'] as const;
 
@@ -43,6 +46,12 @@ export const NOTIFICATION_PREFERENCES_QUERY_KEY = ['notifications', 'preferences
 
 /** The user's progress summary (`GET /users/progress`). */
 export const PROGRESS_QUERY_KEY = ['progress'] as const;
+
+/** The App Store offering with its monthly and annual packages (RevenueCat). */
+export const IAP_OFFERINGS_QUERY_KEY = ['iap', 'offerings'] as const;
+
+/** What deleting the account would cancel (`GET /users/me/delete-preflight`). */
+export const DELETE_PREFLIGHT_QUERY_KEY = ['delete-preflight'] as const;
 
 /** Every cached track-contents tree; one tree is `[...TRACK_CONTENTS_QUERY_KEY, kind, id]`. */
 export const TRACK_CONTENTS_QUERY_KEY = ['track-contents'] as const;

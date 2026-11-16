@@ -2,7 +2,9 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tansta
 import type { PurchasesPackage } from 'react-native-purchases';
 import { iapService } from '@/services/iap.service';
 import { subscriptionService } from '@/services/subscription.service';
+import { requireSignal } from '@/lib/offlineWrites';
 import {
+  IAP_OFFERINGS_QUERY_KEY,
   LESSONS_QUERY_KEY,
   PATHS_QUERY_KEY,
   TRACK_CONTENTS_QUERY_KEY,
@@ -12,6 +14,9 @@ import {
 // Re-export the types the paywall screen and tests need so they only import from here.
 export type { PurchasesPackage } from 'react-native-purchases';
 export type { IAPOffering } from '@/services/iap.service';
+
+/** Product prices change rarely, so the paywall renders from the cache without waiting. */
+const OFFERINGS_STALE_MS = 5 * 60 * 1000;
 
 /**
  * Invalidates every cache that reflects locked/unlocked lesson state or
@@ -34,9 +39,9 @@ async function invalidateEntitlementQueries(queryClient: QueryClient): Promise<v
  */
 export function useOfferings() {
   return useQuery({
-    queryKey: ['iap', 'offerings'],
-    queryFn:  () => iapService.getOfferings(),
-    staleTime: 5 * 60 * 1000, // 5 min
+    queryKey: IAP_OFFERINGS_QUERY_KEY,
+    queryFn: () => iapService.getOfferings(),
+    staleTime: OFFERINGS_STALE_MS,
   });
 }
 
@@ -57,12 +62,13 @@ export function useOfferings() {
 export function useRestorePurchases() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
+    // Payment is never paused or retried: with no signal it fails at once (ADR-021 Decision 6).
+    mutationFn: () => requireSignal(async () => {
       await iapService.restorePurchases();
       // Pass null/empty so the server skips the upsert and just returns the
       // current resolved entitlement — graceful behaviour already tested in Chunk 7.
       return subscriptionService.verifyPurchase({ originalTransactionId: null, productId: '' });
-    },
+    }),
     onSuccess: () => invalidateEntitlementQueries(queryClient),
   });
 }
@@ -84,10 +90,10 @@ export function useRestorePurchases() {
 export function usePurchase() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (pkg: PurchasesPackage) => {
+    mutationFn: (pkg: PurchasesPackage) => requireSignal(async () => {
       const purchaseResult = await iapService.purchasePackage(pkg);
       return subscriptionService.verifyPurchase(purchaseResult);
-    },
+    }),
     onSuccess: () => invalidateEntitlementQueries(queryClient),
   });
 }

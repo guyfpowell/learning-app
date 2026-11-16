@@ -28,7 +28,7 @@ export function ratingColor(r: LessonRating, selected: boolean) {
 /** Thumbs on a completed lesson. Tapping the selected thumb clears it; the other replaces it. */
 export function LessonRatingControl({ lessonId, rating, color }: LessonRatingControlProps) {
   const [current, setCurrent] = useState<LessonRating | null>(rating);
-  const setRating = useSetLessonRating();
+  const setRating = useSetLessonRating(lessonId);
 
   useEffect(() => { setCurrent(rating); }, [lessonId, rating]);
 

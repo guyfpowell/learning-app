@@ -18,7 +18,7 @@ import { colors, font, fontSize, press, radius, shadow, spacing, trackingEm } fr
 import { EdgeButton } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
 import { WordChoice } from '@/components/ui/WordChoice';
-import { extractError } from '@/lib/errors';
+import { writeError } from '@/lib/errors';
 
 /** How long the acknowledgement shows before the box closes itself. */
 const ACKNOWLEDGEMENT_MS = 2000;
@@ -62,7 +62,7 @@ export function TopicFeedback({ topicEnd, onSubmit, onClose }: TopicFeedbackProp
     try {
       await onSubmit(topicFeedbackRequest(topicEnd.stableKey, answer));
     } catch (err) {
-      setError(extractError(err));
+      setError(writeError(err));
       setSending(false);
       return;
     }

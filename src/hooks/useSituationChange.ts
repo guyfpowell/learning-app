@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/react-native';
 import { SITUATION_OUTCOME, SITUATION_POLL_MS } from '@learning/shared';
 import { situationChangeService } from '@/services/situationChange.service';
 import { situationChangeQueryKey } from '@/lib/queryKeys';
+import { requireSignal } from '@/lib/offlineWrites';
 
 // The words are personal (079h): the breadcrumbs carry the error, never the text or the response.
 function logFailure(message: string, err: unknown) {
@@ -36,7 +37,8 @@ export function useLatestSituationChange(planId: string, enabled: boolean) {
 export function useCreateSituationChange(planId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (text: string) => situationChangeService.create(planId, text),
+    // Never paused or retried: with no signal it fails at once (ADR-021 Decision 6).
+    mutationFn: (text: string) => requireSignal(() => situationChangeService.create(planId, text)),
     onSuccess: created => { queryClient.setQueryData(situationChangeQueryKey(planId), created); },
     onError: err => { logFailure('Situation change send failed', err); },
   });
