@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Sentry from '@sentry/react-native';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { isProposalGone } from '@learning/shared';
 import { proposalService, type ProposalCall } from '@/services/proposal.service';
 import { PATHS_QUERY_KEY, proposalQueryKey } from '@/lib/queryKeys';
@@ -11,7 +11,7 @@ async function loadProposal(planId: string) {
   try {
     return await proposalService.getProposal(planId);
   } catch (err) {
-    Sentry.addBreadcrumb({ category: 'albert', message: 'Proposal load failed', level: 'warning', data: { err: String(err) } });
+    warnBreadcrumb(BREADCRUMB_CATEGORY.albert, 'Proposal load failed', err);
     throw err;
   }
 }

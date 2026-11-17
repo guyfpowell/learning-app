@@ -4,7 +4,7 @@ import { AppState } from 'react-native';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { focusManager, onlineManager, type DefaultOptions, type DehydrateOptions, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
-import * as Sentry from '@sentry/react-native';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { DAY_MS, ERROR_CODES } from '@learning/shared';
 import { HEALTH_URL } from '@/lib/apiUrl';
 import { errorCode } from '@/lib/errorCode';
@@ -182,6 +182,6 @@ export async function clearSessionData(client: QueryClient): Promise<void> {
   try {
     await writePersister.removeClient();
   } catch (err) {
-    Sentry.addBreadcrumb({ category: 'auth', message: 'Clearing saved writes failed', level: 'warning', data: { err: String(err) } });
+    warnBreadcrumb(BREADCRUMB_CATEGORY.auth, 'Clearing saved writes failed', err);
   }
 }

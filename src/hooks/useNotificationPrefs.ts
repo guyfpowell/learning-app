@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import * as Sentry from '@sentry/react-native';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import type { NotificationPreference, UpdateNotificationPreferencesRequest } from '@learning/shared';
 import { notificationService } from '@/services/notification.service';
 import { NOTIFICATION_PREFERENCES_QUERY_KEY } from '@/lib/queryKeys';
@@ -18,7 +18,7 @@ async function loadPreferences(): Promise<NotificationPreference> {
   try {
     return await notificationService.getPreferences();
   } catch (err) {
-    Sentry.addBreadcrumb({ category: 'settings', message: 'Notification preferences load failed', level: 'warning', data: { err: String(err) } });
+    warnBreadcrumb(BREADCRUMB_CATEGORY.settings, 'Notification preferences load failed', err);
     throw err;
   }
 }

@@ -8,7 +8,7 @@ import { AlbertMark } from '@/components/albert/AlbertMark';
 import { Wordmark } from '@/components/ui/Wordmark';
 import { NewUserBadge, NewUserTracks, useFirstName } from '@/components/home/NewUserParts';
 import { BUILD_ROUTE } from '@/lib/routes';
-import { TRACK_STATEMENT_MAX } from '@learning/shared';
+import { BUILD_SCREEN_COPY, TRACK_STATEMENT_MAX } from '@learning/shared';
 import { colors, font, levelCard, radius } from '@/theme';
 
 const PLACEHOLDER = 'Your role, where you work, and what you want to get better at…';
@@ -74,7 +74,7 @@ export function NewUserAlbertFirst() {
               <EdgeButton
                 testID="new-user-build-btn"
                 look={{ face: colors.brand, label: colors.onBrand, edge: levelCard.intermediate.edge }}
-                label="Build my path"
+                label={BUILD_SCREEN_COPY.submit}
                 icon="next"
                 faceHeight={44}
                 onPress={() => router.push({ pathname: BUILD_ROUTE, params: statement.trim() ? { statement } : {} })}

@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { useRouter } from 'expo-router';
-import * as Sentry from '@sentry/react-native';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { ERROR_CODES,
   PROPOSAL_DECIDE_ERROR,
   PROPOSAL_LOAD_ERROR,
@@ -121,7 +121,7 @@ export function PathProposalSection({ path }: { path: CustomPath }) {
     decide.mutate({ proposalId: current.id, stage, decision }, {
       onError: (err) => {
         if (noticeFor(err) === DECIDE_NOTICE.decideError) {
-          Sentry.addBreadcrumb({ category: 'albert', message: 'Proposal decision failed', level: 'warning', data: { err: String(err) } });
+          warnBreadcrumb(BREADCRUMB_CATEGORY.albert, 'Proposal decision failed', err);
         }
       },
     });

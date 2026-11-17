@@ -16,3 +16,8 @@ export function lessonRoute(lessonId: string) {
 export function trackRoute(kind: UserPathKind, id: string, view: TrackView = {}) {
   return `/track/${kind}/${id}${trackViewQuery(view)}` as const;
 }
+
+/** The build screen showing one build the server holds: a finished one opened from a push or from the Albert tab (ticket 108). */
+export function buildRoute(buildId: string) {
+  return `${BUILD_ROUTE}?buildId=${buildId}` as const;
+}

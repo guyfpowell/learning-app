@@ -1,6 +1,6 @@
 import api from '@/lib/api';
 import type {
-  RequestChunk, BuildPlanRequest, RefinePlanRequest, CreateTrackPlanRequest, UpdateTrackPlanRequest, BuiltPlan, BuiltPlanTopic, RefinedPlan, TrackPlan,
+  RequestChunk, CreateTrackBuildRequest, RefinePlanRequest, CreateTrackPlanRequest, UpdateTrackPlanRequest, BuiltPlanTopic, RefinedPlan, TrackBuild, TrackBuildList, TrackPlan,
 } from '@learning/shared';
 
 /**
@@ -15,21 +15,32 @@ import type {
  */
 
 export const trackBuilderService = {
-  /** The server records the turn; the client only carries the session id back. */
-  async buildPlan(
-    statement: string, sessionId?: string | null,
-  ): Promise<BuiltPlan> {
-    const body: BuildPlanRequest = { statement, sessionId: sessionId ?? null };
-    const { data } = await api.post<BuiltPlan>('/track-builder/plan', body);
+  /**
+   * Starts a path build in the background (ADR-020). The id, last as every safe write's key is, is the client's,
+   * so sending it again returns the same build; the outcome is read with `getBuild`.
+   */
+  async startBuild(statement: string, id: string): Promise<TrackBuild> {
+    const body: CreateTrackBuildRequest = { id, statement };
+    const { data } = await api.post<TrackBuild>('/track-builder/builds', body);
     return data;
   },
 
-  /**
-   * Answer ONE open request. The others are untouched — an answer about which
-   * parts of AI says nothing about what understanding a tech lead means.
-   */
-  // `answerChunk` and `negateChunk` went on 2026-09-08 — 068 Chunk 6b. The
-  // routes behind them went with the local classifier's question loop.
+  /** One build and what it has come to so far. Owner only. */
+  async getBuild(id: string): Promise<TrackBuild> {
+    const { data } = await api.get<TrackBuild>(`/track-builder/builds/${id}`);
+    return data;
+  },
+
+  /** The finished builds the person has not been shown yet. The server holds the list, so a reinstall or a second phone finds them too (ADR-020 Decision 7). */
+  async listUnseenBuilds(): Promise<TrackBuild[]> {
+    const { data } = await api.get<TrackBuildList>('/track-builder/builds', { params: { unseen: true } });
+    return data.builds;
+  },
+
+  /** Records that the person has been shown a finished build. Sending it again is harmless. */
+  async markBuildSeen(id: string): Promise<void> {
+    await api.post(`/track-builder/builds/${id}/seen`);
+  },
 
   /**
    * Apply a follow-up to an existing plan.

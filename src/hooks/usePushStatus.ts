@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
-import * as Sentry from '@sentry/react-native';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { registerForPushNotifications } from './useNotifications';
 
 type PermissionStatus = 'granted' | 'denied' | 'undetermined';
@@ -21,7 +21,7 @@ export function usePushStatus() {
       setPermissionStatus(status);
       setError(null);
     } catch (err) {
-      Sentry.addBreadcrumb({ category: 'push', message: 'Push status check failed', level: 'warning', data: { err: String(err) } });
+      warnBreadcrumb(BREADCRUMB_CATEGORY.push, 'Push status check failed', err);
       setError(STATUS_ERROR);
     }
   }, []);
@@ -34,7 +34,7 @@ export function usePushStatus() {
     try {
       await registerForPushNotifications(queryClient);
     } catch (err) {
-      Sentry.addBreadcrumb({ category: 'push', message: 'Push registration failed', level: 'warning', data: { err: String(err) } });
+      warnBreadcrumb(BREADCRUMB_CATEGORY.push, 'Push registration failed', err);
       setError(REGISTER_ERROR);
       return;
     }

@@ -445,13 +445,23 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
             </View>
           </View>
         ) : (
-          <ResultButton
-            testID="result-action-btn"
-            tone={tone}
-            label={nextLessonId ? 'Next lesson' : 'Back to dashboard'}
-            icon="next"
-            onPress={() => handleNavigateAfterQuiz(nextLessonId)}
-          />
+          <View style={styles.unlockActions}>
+            {/* A small word beside the button, as Skip is beside "See achievement". With no next lesson the button itself goes Home. */}
+            {nextLessonId && (
+              <Pressable testID="result-home-btn" accessibilityRole="button" onPress={() => handleNavigateAfterQuiz(null)} style={styles.skipTouch}>
+                <Text style={[styles.skip, { color: results[tone].fg }]}>Home</Text>
+              </Pressable>
+            )}
+            <View style={styles.unlockButton}>
+              <ResultButton
+                testID="result-action-btn"
+                tone={tone}
+                label={nextLessonId ? 'Next lesson' : 'Back to dashboard'}
+                icon="next"
+                onPress={() => handleNavigateAfterQuiz(nextLessonId)}
+              />
+            </View>
+          </View>
         )}
         /* 079f: the result's lesson carries the stored verdict, so no refetch. */
         rating={<LessonRatingControl lessonId={lesson.id} rating={submit.data.lesson.rating ?? null} color={results[tone].fg} />}

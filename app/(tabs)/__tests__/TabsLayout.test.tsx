@@ -1,40 +1,44 @@
 import React from 'react';
 import { render, act, fireEvent } from '@testing-library/react-native';
-import { AppState, StyleSheet, type AppStateStatus, type StyleProp, type ViewStyle } from 'react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import { CURRENT_USER_QUERY_KEY } from '@/lib/queryKeys';
 import { must } from '@/test-utils/must';
 
 interface CapturedTabsProps {
   children?: React.ReactNode;
   screenListeners?: { focus?: () => void };
-  screenOptions?: {
-    tabBarStyle?: StyleProp<ViewStyle>;
-    tabBarItemStyle?: StyleProp<ViewStyle>;
-    tabBarButton?: (props: {
-      children: React.ReactNode;
-      accessibilityState?: { selected?: boolean };
-      testID?: string;
-    }) => React.ReactNode;
-    tabBarBackground?: () => React.ReactNode;
-  };
+  tintColor?: string;
 }
+interface CapturedTriggerProps { name: string; hidden?: boolean; children?: React.ReactNode }
 
-let capturedTabsProps: CapturedTabsProps | null = null;
+let mockCapturedTabsProps: CapturedTabsProps | null = null;
+let mockCapturedTriggers: CapturedTriggerProps[] = [];
 
-jest.mock('expo-router', () => ({
-  Tabs: Object.assign(
-    (props: CapturedTabsProps) => {
-      capturedTabsProps = props;
-      return props.children ?? null;
-    },
-    { Screen: () => null }
-  ),
-}));
-
-jest.mock('expo-blur', () => {
-  const { View: MockView } = jest.requireActual('react-native');
+// The native tab bar is the system's, so a test sees what the layout asks of it: the props on the bar
+// and on each trigger, and the badge it would draw.
+jest.mock('expo-router/native-tabs', () => {
+  const { View: MockView, Text: MockText } = jest.requireActual('react-native');
   const { createElement } = jest.requireActual('react');
-  return { BlurView: (props: object) => createElement(MockView, { testID: 'tab-bar-blur', ...props }) };
+  const Trigger = Object.assign(
+    (props: CapturedTriggerProps) => {
+      mockCapturedTriggers.push(props);
+      return createElement(MockView, null, props.children);
+    },
+    {
+      Icon: () => null,
+      Label: () => null,
+      Badge: ({ children }: { children?: string }) => createElement(MockText, { testID: 'albert-tab-badge' }, children),
+    }
+  );
+  return {
+    NativeTabs: Object.assign(
+      (props: CapturedTabsProps) => {
+        mockCapturedTabsProps = props;
+        return createElement(MockView, null, props.children);
+      },
+      { Trigger }
+    ),
+  };
 });
 
 jest.mock('@expo/vector-icons', () => ({
@@ -45,6 +49,7 @@ jest.mock('@/theme', () => ({
   colors: {
     teal: '#4F46E5',
     textMuted: '#9CA3AF',
+    textBody: '#2A2D3A',
     white: '#FFFFFF',
     border: '#E2E8F0',
     brand: '#1C66D2',
@@ -56,11 +61,15 @@ jest.mock('@/theme', () => ({
   font: { medium: 'Hanken_500Medium' },
   fontSize: { xs: 12 },
   spacing: { xs: 4, sm: 8, md: 16, lg: 24, xxl: 48 },
-  radius: { pill: 999 },
+  radius: { pill: 999, md: 16 },
   shadow: { md: {} },
 }));
 
-jest.mock('@/hooks/useAlbertSuggestion', () => ({ useHasAlbertSuggestion: () => false }));
+// Prefixed `mock` because jest only allows that in a module factory.
+let mockHasSuggestion = false;
+let mockHasUnseenBuild = false;
+jest.mock('@/hooks/useAlbertSuggestion', () => ({ useHasAlbertSuggestion: () => mockHasSuggestion }));
+jest.mock('@/hooks/useUnseenBuilds', () => ({ useHasUnseenBuild: () => mockHasUnseenBuild }));
 
 jest.mock('@/hooks/useNotifications', () => ({
   useNotifications: jest.fn(),
@@ -94,14 +103,17 @@ jest.mock('@tanstack/react-query', () => ({
 }));
 
 const tabFocusHandler = (): (() => void) =>
-  capturedTabsProps?.screenListeners?.focus
+  mockCapturedTabsProps?.screenListeners?.focus
   ?? (() => { throw new Error('Tabs was not given a screenListeners.focus handler'); })();
 
 describe('(tabs) layout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseCurrentUser.mockReturnValue({ data: undefined });
-    capturedTabsProps = null;
+    mockCapturedTabsProps = null;
+    mockCapturedTriggers = [];
+    mockHasSuggestion = false;
+    mockHasUnseenBuild = false;
   });
 
   it('renders without errors', () => {
@@ -112,67 +124,38 @@ describe('(tabs) layout', () => {
   it('declares tabs in order with Albert rightmost and no Settings tab (076b)', () => {
     const TabsLayout = require('../_layout').default;
     render(<TabsLayout />);
-    const names = React.Children.toArray(capturedTabsProps?.children)
-      .flatMap((c) => (React.isValidElement<{ name: string }>(c) ? [c.props.name] : []));
-    // Hidden tabs are redirected away from by Expo Router 58; non-tab screens are in the root Stack (ADR-016).
-    expect(names).toEqual(['lessons', 'progress', 'profile', 'tracks', 'team', 'albert']);
+    // Non-tab screens are in the root Stack (ADR-016).
+    expect(mockCapturedTriggers.map((t) => t.name)).toEqual(['lessons', 'progress', 'profile', 'tracks', 'team', 'albert']);
   });
 
-  describe('096 — floating tab bar', () => {
-    const screenOptionsOf = () => {
-      const options = capturedTabsProps?.screenOptions;
-      if (!options) throw new Error('Tabs was not given screenOptions');
-      return options;
-    };
-
-    it('floats a compact bar as a fully rounded pill, inset from the edges', () => {
+  describe('the native tab bar', () => {
+    it('tints the selected tab slate grey, not the action cobalt', () => {
       const TabsLayout = require('../_layout').default;
       render(<TabsLayout />);
-      const style = StyleSheet.flatten(screenOptionsOf().tabBarStyle);
-      expect(style).toMatchObject({
-        position: 'absolute',
-        start: 24,
-        end: 24,
-        bottom: 20,
-        height: 56,
-        paddingTop: 0,
-        paddingBottom: 0,
-        borderRadius: 999,
-        borderTopWidth: 0,
-        backgroundColor: 'transparent',
-      });
-    });
-
-    it('draws the glass with a blur background', () => {
-      const TabsLayout = require('../_layout').default;
-      render(<TabsLayout />);
-      const background = screenOptionsOf().tabBarBackground;
-      if (!background) throw new Error('Tabs was not given a tabBarBackground');
-      const { getByTestId } = render(<>{background()}</>);
-      expect(getByTestId('tab-bar-blur')).toBeTruthy();
-    });
-
-    it('does not highlight the selected tab: its filled icon marks it', () => {
-      const TabsLayout = require('../_layout').default;
-      render(<TabsLayout />);
-      const tabBarButton = capturedTabsProps?.screenOptions?.tabBarButton;
-      if (!tabBarButton) throw new Error('Tabs was not given a tabBarButton');
-      const selected = render(<>{tabBarButton({ children: null, accessibilityState: { selected: true }, testID: 'sel' })}</>);
-      const idle = render(<>{tabBarButton({ children: null, accessibilityState: { selected: false }, testID: 'idle' })}</>);
-      expect(StyleSheet.flatten(selected.getByTestId('sel').props.style).backgroundColor).toBeUndefined();
-      expect(StyleSheet.flatten(idle.getByTestId('idle').props.style).backgroundColor).toBeUndefined();
+      expect(mockCapturedTabsProps?.tintColor).toBe('#2A2D3A');
     });
 
     it('hides the Team tab from the bar while the team feature is off', () => {
       const TabsLayout = require('../_layout').default;
       render(<TabsLayout />);
-      const team = React.Children.toArray(capturedTabsProps?.children).flatMap((c) =>
-        React.isValidElement<{ name: string; options?: { href?: null } }>(c) && c.props.name === 'team'
-          ? [c.props.options]
-          : []
-      );
+      const team = mockCapturedTriggers.filter((t) => t.name === 'team');
       expect(team).toHaveLength(1);
-      expect(team[0]?.href).toBeNull();
+      expect(team[0]?.hidden).toBe(true);
+    });
+  });
+
+  describe('the Albert tab badge (ticket 108)', () => {
+    it.each([
+      { suggestion: false, unseen: false, dot: false },
+      { suggestion: true, unseen: false, dot: true },
+      { suggestion: false, unseen: true, dot: true },
+      { suggestion: true, unseen: true, dot: true },
+    ])('suggestion $suggestion, unseen build $unseen: badge $dot', ({ suggestion, unseen, dot }) => {
+      mockHasSuggestion = suggestion;
+      mockHasUnseenBuild = unseen;
+      const TabsLayout = require('../_layout').default;
+      const { queryByTestId } = render(<TabsLayout />);
+      expect(queryByTestId('albert-tab-badge') !== null).toBe(dot);
     });
   });
 

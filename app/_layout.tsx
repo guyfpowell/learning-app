@@ -29,6 +29,7 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { useAuthStore } from '@/store/auth.store';
 import * as Sentry from '@sentry/react-native';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { HOME_ROUTE } from '@/lib/routes';
 
 Sentry.init({
@@ -64,7 +65,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 // record it for diagnosis instead of letting it go unhandled.
 function logSplashFailure(call: string) {
   return (err: unknown) => {
-    Sentry.addBreadcrumb({ category: 'splash', message: `${call} failed`, level: 'warning', data: { err: String(err) } });
+    warnBreadcrumb(BREADCRUMB_CATEGORY.splash, `${call} failed`, err);
   };
 }
 

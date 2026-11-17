@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Sentry from '@sentry/react-native';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { LESSON_RATINGS, LESSON_RATING_LABELS, nextLessonRating, type LessonRating } from '@learning/shared';
 import { useSetLessonRating } from '@/hooks/useLesson';
 import { colors } from '@/theme';
@@ -39,7 +39,7 @@ export function LessonRatingControl({ lessonId, rating, color }: LessonRatingCon
     setCurrent(next);
     setRating.mutate({ lessonId, rating: next }, {
       onError: (err) => {
-        Sentry.addBreadcrumb({ category: 'lesson', message: 'Rating save failed; reverted', level: 'warning', data: { err: String(err) } });
+        warnBreadcrumb(BREADCRUMB_CATEGORY.lesson, 'Rating save failed; reverted', err);
         setCurrent(previous);
       },
     });

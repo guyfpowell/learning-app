@@ -11,6 +11,7 @@ import { PremiumModal } from '@/components/ui/PremiumModal';
 import { usePaths } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
+import { UnseenBuildsSection } from '@/components/albert/UnseenBuildsSection';
 import { errorCode, writeError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { PathProposalSection } from '@/components/albert/PathProposalSection';
@@ -18,7 +19,7 @@ import { SituationChangeSection } from '@/components/albert/SituationChangeSecti
 import { BuildPathCard, type BuildCardState } from '@/components/albert/BuildPathCard';
 import { AlbertProgress, AlbertSteps, albertBarStatuses, albertStepStatuses } from '@/components/albert/AlbertSteps';
 import { ALBERT_PATH_ACTIONS_UNLOADED, ERROR_CODES, albertPathActions, isAlbertLocked, type AlbertPathActions, type SessionUser, type UserPath } from '@learning/shared';
-import { BUILD_ROUTE, trackRoute } from '@/lib/routes';
+import { BUILD_ROUTE, buildRoute, trackRoute } from '@/lib/routes';
 
 /** Which build card to show; the loading state comes first so the no-paths card never flashes. */
 function buildCardState(
@@ -136,6 +137,9 @@ export default function AlbertScreen() {
         {hasPath
           ? <AlbertProgress statuses={albertBarStatuses(cardState, proposalPaths.length > 0)} />
           : <AlbertSteps statuses={albertStepStatuses(cardState, proposalPaths.length > 0)} />}
+
+        {/* ── A path build that finished while the person was away ── */}
+        <UnseenBuildsSection onOpen={(buildId) => router.push(buildRoute(buildId))} />
 
         {/* ── Albert's suggestions: one per custom path that has one, finished or not ── */}
         {proposalPaths.map(p => <PathProposalSection key={p.id} path={p} />)}

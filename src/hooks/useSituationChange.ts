@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Sentry from '@sentry/react-native';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { SITUATION_OUTCOME, SITUATION_POLL_MS } from '@learning/shared';
 import { situationChangeService } from '@/services/situationChange.service';
 import { situationChangeQueryKey } from '@/lib/queryKeys';
@@ -7,7 +7,7 @@ import { requireSignal } from '@/lib/offlineWrites';
 
 // The words are personal (079h): the breadcrumbs carry the error, never the text or the response.
 function logFailure(message: string, err: unknown) {
-  Sentry.addBreadcrumb({ category: 'albert', message, level: 'warning', data: { err: String(err) } });
+  warnBreadcrumb(BREADCRUMB_CATEGORY.albert, message, err);
 }
 
 async function loadLatest(planId: string) {

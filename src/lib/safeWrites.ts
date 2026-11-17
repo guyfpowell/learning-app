@@ -2,7 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import {
   LESSON_RATINGS, NOTIFICATION_TOGGLE_KEYS, isLessonPhase,
   type ActivePathRef, type Lesson, type LessonPhase, type LessonRating, type NotificationPreference,
-  type QuizResult, type RegisterPushTokenRequest, type SubmitQuizRequest, type UpdateNotificationPreferencesRequest,
+  type QuizResult, type RegisterPushTokenRequest, type TrackBuild, type SubmitQuizRequest, type UpdateNotificationPreferencesRequest,
   type UpdateProfileRequest,
 } from '@learning/shared';
 import { trackService } from '@/services/track.service';
@@ -10,13 +10,14 @@ import { quizService } from '@/services/quiz.service';
 import { lessonService } from '@/services/lesson.service';
 import { notificationService } from '@/services/notification.service';
 import { userService } from '@/services/user.service';
+import { trackBuilderService } from '@/services/trackBuilder.service';
 import {
   NOTIFICATION_PREFERENCES_QUERY_KEY, PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, SAVED_LESSONS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, lessonQueryKey,
 } from '@/lib/queryKeys';
 import {
   PATHS_WRITE_SCOPE, PREFERENCES_WRITE_SCOPE, PROFILE_WRITE_SCOPE, PUSH_TOKEN_MUTATION_KEY, PUSH_TOKEN_WRITE_SCOPE, SAVE_LESSON_MUTATION_KEY,
   SAVE_POSITION_MUTATION_KEY, SET_ACTIVE_PATH_MUTATION_KEY, SET_RATING_MUTATION_KEY, SUBMIT_QUIZ_MUTATION_KEY, UNSAVE_LESSON_MUTATION_KEY,
-  UPDATE_PREFERENCES_MUTATION_KEY, UPDATE_PROFILE_MUTATION_KEY,
+  START_TRACK_BUILD_MUTATION_KEY, UPDATE_PREFERENCES_MUTATION_KEY, UPDATE_PROFILE_MUTATION_KEY,
 } from '@/lib/mutationKeys';
 import { SAFE_WRITE_OPTIONS, assertWriteNotDiscarded } from '@/lib/offlineWrites';
 import { newIdempotencyKey } from '@/lib/idempotencyKey';
@@ -227,6 +228,26 @@ export const PUSH_TOKEN_WRITE: SafeWrite<void> = {
   mutationFn: keyedRequest(pushTokenInputOf, (body, key) => notificationService.registerPushToken(body, key)),
 };
 
+// ─── Starting a path build ───────────────────────────────────────────────────
+
+export interface StartTrackBuildInput {
+  statement: string;
+}
+
+function startTrackBuildInputOf(input: unknown): StartTrackBuildInput {
+  if (isRecord(input) && typeof input.statement === 'string') return { statement: input.statement };
+  throw new Error('A saved path build has no words');
+}
+
+/**
+ * The one Albert action that is saved through a drop (ADR-021 Amendment 1): the tap's key is the build's
+ * id, and the server returns the existing build for a repeated id. Every other Albert action keeps `requireSignal`.
+ */
+export const START_TRACK_BUILD_WRITE: SafeWrite<TrackBuild> = {
+  mutationKey: START_TRACK_BUILD_MUTATION_KEY,
+  mutationFn: keyedRequest(startTrackBuildInputOf, ({ statement }, buildId) => trackBuilderService.startBuild(statement, buildId)),
+};
+
 export const SAFE_WRITES: readonly SafeWrite[] = [
   SET_ACTIVE_PATH_WRITE,
   SUBMIT_QUIZ_WRITE,
@@ -237,6 +258,7 @@ export const SAFE_WRITES: readonly SafeWrite[] = [
   UPDATE_PREFERENCES_WRITE,
   UPDATE_PROFILE_WRITE,
   PUSH_TOKEN_WRITE,
+  START_TRACK_BUILD_WRITE,
 ];
 
 /** Gives a write restored after a restart its request, its retry rule and its settle step. */

@@ -415,6 +415,21 @@ describe('QuizModal', () => {
     expect(screen.queryByText('DONE')).toBeNull();
   });
 
+  it('offers Home as a small word beside Next lesson, and goes Home when pressed', () => {
+    setQuizMock({ data: { ...mockResult, nextLessonId: 'lesson-2' } });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    expect(within(screen.getByTestId('result-action-btn')).getByText('Next lesson')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('result-home-btn'));
+    expect(onClose).toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/lessons');
+  });
+
+  it('has no Home beside "Back to dashboard", which already goes Home', () => {
+    setQuizMock({ data: { ...mockResult, nextLessonId: null } });
+    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+    expect(screen.queryByTestId('result-home-btn')).toBeNull();
+  });
+
   it('the result action is a pinned white button on the colour, with the page scrolling behind it', () => {
     setQuizMock({ data: { ...mockResult, nextLessonId: 'lesson-2' } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);

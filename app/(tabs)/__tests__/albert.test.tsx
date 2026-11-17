@@ -7,7 +7,10 @@ import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
 import { ALBERT_STEPS, ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, type SessionUser, type UserPath } from '@learning/shared';
 import { makeCustomPath, makeNextLesson, makeTrackPath } from '@/test-utils/paths';
-import { BUILD_ROUTE } from '@/lib/routes';
+import { BUILD_ROUTE, buildRoute } from '@/lib/routes';
+import { useUnseenBuilds } from '@/hooks/useUnseenBuilds';
+import { makeDoneBuild, makeBuiltPlan } from '@/test-utils/trackBuilds';
+import { TRACK_BUILD_PUSH, TRACK_BUILD_STATUS, UNSEEN_BUILDS_LOAD_ERROR } from '@learning/shared';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -18,6 +21,10 @@ jest.mock('@/hooks/useTrack', () => ({
 
 jest.mock('@/hooks/useEmailVerification', () => ({
   useCurrentUser: jest.fn(),
+}));
+
+jest.mock('@/hooks/useUnseenBuilds', () => ({
+  useUnseenBuilds: jest.fn(),
 }));
 
 jest.mock('@/hooks/useTrackBuilder', () => ({
@@ -106,6 +113,29 @@ describe('AlbertScreen', () => {
     setUser('spent');
     setPaths([]);
     setUpdatePlan();
+    (useUnseenBuilds as jest.Mock).mockReturnValue({ data: [] });
+  });
+
+  describe('a path build that finished while the person was away (ticket 108)', () => {
+    it('offers the finished build, and opening it opens that build on the build screen', () => {
+      (useUnseenBuilds as jest.Mock).mockReturnValue({ data: [makeDoneBuild('b1', 'I lead a team', makeBuiltPlan())] });
+      render(<AlbertScreen />);
+      expect(screen.getByText(TRACK_BUILD_PUSH[TRACK_BUILD_STATUS.done].title)).toBeTruthy();
+      fireEvent.press(screen.getByTestId('unseen-build-b1'));
+      expect(mockPush).toHaveBeenCalledWith(buildRoute('b1'));
+    });
+
+    it('offers nothing when no build is unseen', () => {
+      render(<AlbertScreen />);
+      expect(screen.queryByText(TRACK_BUILD_PUSH[TRACK_BUILD_STATUS.done].title)).toBeNull();
+    });
+
+    it('says so when the finished builds could not be read, never an empty list', () => {
+      (useUnseenBuilds as jest.Mock).mockReturnValue({ data: [makeDoneBuild('b1', 'I lead a team', makeBuiltPlan())], isError: true });
+      render(<AlbertScreen />);
+      expect(screen.getByText(UNSEEN_BUILDS_LOAD_ERROR)).toBeTruthy();
+      expect(screen.queryByTestId('unseen-build-b1')).toBeNull();
+    });
   });
 
   // ── Existing behaviour (no custom paths) ────────────────────────────────

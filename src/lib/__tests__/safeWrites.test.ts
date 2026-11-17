@@ -14,13 +14,14 @@ import { quizService } from '@/services/quiz.service';
 import { lessonService } from '@/services/lesson.service';
 import { notificationService } from '@/services/notification.service';
 import { userService } from '@/services/user.service';
+import { trackBuilderService } from '@/services/trackBuilder.service';
 import { makeCustomPath, makeTrackPath } from '@/test-utils/paths';
 import { newIdempotencyKey } from '../idempotencyKey';
 import { lessonWriteScope } from '../mutationKeys';
 import { PERSIST_MAX_AGE_MS, writePersister } from '../offlineWrites';
 import {
   PUSH_TOKEN_WRITE, SAVE_LESSON_WRITE, SAVE_POSITION_WRITE, SET_ACTIVE_PATH_WRITE, SET_RATING_WRITE, SUBMIT_QUIZ_WRITE,
-  UNSAVE_LESSON_WRITE, UPDATE_PREFERENCES_WRITE, UPDATE_PROFILE_WRITE, registerSafeWrites,
+  START_TRACK_BUILD_WRITE, UNSAVE_LESSON_WRITE, UPDATE_PREFERENCES_WRITE, UPDATE_PROFILE_WRITE, registerSafeWrites,
 } from '../safeWrites';
 import type { SafeWrite } from '../writeSettle';
 
@@ -33,6 +34,7 @@ jest.mock('@/services/notification.service', () => ({
   notificationService: { updatePreferences: jest.fn(), registerPushToken: jest.fn() },
 }));
 jest.mock('@/services/user.service', () => ({ userService: { updateProfile: jest.fn() } }));
+jest.mock('@/services/trackBuilder.service', () => ({ trackBuilderService: { startBuild: jest.fn() } }));
 
 const mockTrackService = trackService as jest.Mocked<typeof trackService>;
 const ref = { kind: 'custom', id: 'p1' } as const;
@@ -93,6 +95,10 @@ const CASES: WriteCase[] = [
   {
     name: 'push token', write: PUSH_TOKEN_WRITE, scope: PUSH_TOKEN_WRITE.scope,
     input: { token: 't1', platform: 'expo' }, unreadableInput: { token: 1, platform: 'expo' }, request: jest.mocked(notificationService.registerPushToken),
+  },
+  {
+    name: 'path build start', write: START_TRACK_BUILD_WRITE, scope: START_TRACK_BUILD_WRITE.scope,
+    input: { statement: 'I lead a team' }, unreadableInput: { statement: 5 }, request: jest.mocked(trackBuilderService.startBuild),
   },
 ];
 

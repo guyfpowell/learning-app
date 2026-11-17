@@ -1,21 +1,50 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import * as Sentry from '@sentry/react-native';
-import type { RegisterPushTokenRequest } from '@learning/shared';
+import { useRouter } from 'expo-router';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
+import { trackBuildPushDataOf, type RegisterPushTokenRequest } from '@learning/shared';
 import { PUSH_TOKEN_WRITE, runSafeWrite } from '@/lib/safeWrites';
+import { invalidateBuildQueries } from '@/lib/buildInvalidation';
+import { buildRoute } from '@/lib/routes';
+import { isShownBuild } from '@/lib/shownBuild';
+
+/** The build a push is about, or null for any other push. */
+function buildIdOf(notification: Notifications.Notification): string | null {
+  return trackBuildPushDataOf(notification.request.content.data)?.buildId ?? null;
+}
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    // The build screen showing this build shows the result itself, so its push is not displayed (ADR-020 Decision 7).
+    const buildId = buildIdOf(notification);
+    const show = buildId === null || !isShownBuild(buildId);
+    return {
+      shouldShowAlert: show,
+      shouldPlaySound: show,
+      shouldSetBadge: false,
+      shouldShowBanner: show,
+      shouldShowList: show,
+    };
+  },
 });
+
+/** Responses already acted on, so a tap that launched the app is not acted on again if the tabs mount again. */
+const handledResponses = new Set<string>();
+
+/** A tapped build push opens that build (ticket 108); any other push just opens the app. */
+function openTappedBuild(client: QueryClient, openBuild: (buildId: string) => void, response: Notifications.NotificationResponse): void {
+  const id = response.notification.request.identifier;
+  if (handledResponses.has(id)) return;
+  handledResponses.add(id);
+  const buildId = buildIdOf(response.notification);
+  if (buildId === null) return;
+  void invalidateBuildQueries(client, buildId);
+  // The build screen is already showing it and shows the result itself.
+  if (!isShownBuild(buildId)) openBuild(buildId);
+}
 
 /**
  * Requests push notification permissions on first mount, obtains the
@@ -26,18 +55,29 @@ Notifications.setNotificationHandler({
  */
 export function useNotifications() {
   const queryClient = useQueryClient();
-  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const router = useRouter();
+  const openTapped = useEffectEvent((response: Notifications.NotificationResponse) =>
+    openTappedBuild(queryClient, (buildId) => router.push(buildRoute(buildId)), response));
 
   useEffect(() => {
     // Background registration has no screen to report to: log, and never block app load.
     registerForPushNotifications(queryClient).catch((err) => {
-      Sentry.addBreadcrumb({ category: 'push', message: 'Push registration failed', level: 'warning', data: { err: String(err) } });
+      warnBreadcrumb(BREADCRUMB_CATEGORY.push, 'Push registration failed', err);
     });
 
+    // A push that arrives while the app is open: the server has a finished build to read.
+    const received = Notifications.addNotificationReceivedListener((notification) => {
+      const buildId = buildIdOf(notification);
+      if (buildId !== null) void invalidateBuildQueries(queryClient, buildId);
+    });
+    const tapped = Notifications.addNotificationResponseReceivedListener(openTapped);
+    // The tap that launched the app arrived before the listener existed.
+    const launching = Notifications.getLastNotificationResponse();
+    if (launching !== null) openTapped(launching);
+
     return () => {
-      notificationListener.current?.remove();
-      responseListener.current?.remove();
+      received.remove();
+      tapped.remove();
     };
   }, [queryClient]);
 }
@@ -81,6 +121,6 @@ export async function registerForPushNotifications(client: QueryClient): Promise
     await sendPushToken(client, tokenData.data);
   } catch (err) {
     // Non-blocking — do not prevent app load
-    Sentry.addBreadcrumb({ category: 'push', message: 'Push token registration failed', level: 'warning', data: { err: String(err) } });
+    warnBreadcrumb(BREADCRUMB_CATEGORY.push, 'Push token registration failed', err);
   }
 }

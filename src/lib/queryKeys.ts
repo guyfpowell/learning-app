@@ -55,3 +55,11 @@ export const DELETE_PREFLIGHT_QUERY_KEY = ['delete-preflight'] as const;
 
 /** Every cached track-contents tree; one tree is `[...TRACK_CONTENTS_QUERY_KEY, kind, id]`. */
 export const TRACK_CONTENTS_QUERY_KEY = ['track-contents'] as const;
+
+/** One path build and its outcome (`GET /track-builder/builds/:id`); `undefined` before a build has been started. */
+export function trackBuildQueryKey(buildId: string | undefined) {
+  return ['track-build', buildId] as const;
+}
+
+/** The user's finished path builds not yet shown to them (`GET /track-builder/builds?unseen=true`). It drives the Albert tab's badge and entry. */
+export const UNSEEN_BUILDS_QUERY_KEY = ['track-builds', 'unseen'] as const;

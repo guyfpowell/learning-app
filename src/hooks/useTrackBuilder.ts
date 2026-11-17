@@ -1,29 +1,106 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { trackBuilderService } from '@/services/trackBuilder.service';
 import { errorCode } from '@/lib/errors';
-import { requireSignal } from '@/lib/offlineWrites';
-import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, TRACK_PLANS_QUERY_KEY } from '@/lib/queryKeys';
-import { ERROR_CODES, type BuildPlanRequest, type CreateTrackPlanRequest, type RefinePlanRequest, type UpdateTrackPlanRequest } from '@learning/shared';
+import { isRetryableError, requireSignal } from '@/lib/offlineWrites';
+import { invalidateBuildQueries } from '@/lib/buildInvalidation';
+import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, TRACK_PLANS_QUERY_KEY, trackBuildQueryKey } from '@/lib/queryKeys';
+import { START_TRACK_BUILD_WRITE, type StartTrackBuildInput } from '@/lib/safeWrites';
+import { BUILD_PHASE, OPENED_START, buildProgressOf, type BuildProgress } from '@/lib/buildProgress';
+import { useSafeWrite } from '@/hooks/useSafeWrite';
+import {
+  ERROR_CODES, TRACK_BUILD_POLL_MS, isFinishedTrackBuild,
+  type CreateTrackPlanRequest, type TrackBuild, type RefinePlanRequest, type UpdateTrackPlanRequest,
+} from '@learning/shared';
 
 /**
- * Track builder hooks — ticket 049 Chunk 5.
- *
- * Building and refining are mutations, not queries: they are user actions with
- * side effects on the server (every turn is recorded), and caching them by
- * statement would silently return a stale plan after a retrain.
+ * Track builder hooks. Starting a build, refining and saving are mutations: they are user actions
+ * with side effects on the server, never cached by statement. Only a started build's outcome is a
+ * query, read by its id until it finishes.
  */
 
-export function useBuildPlan() {
+// The words are personal: the breadcrumb carries the error, never the build.
+async function loadBuild(buildId: string): Promise<TrackBuild> {
+  try {
+    return await trackBuilderService.getBuild(buildId);
+  } catch (err) {
+    warnBreadcrumb(BREADCRUMB_CATEGORY.albert, 'Path build load failed', err);
+    throw err;
+  }
+}
+
+/** A read error that ends the wait. A dropped signal or a server hiccup is waited out, so it gives null. */
+function readErrorOf(error: unknown): unknown {
+  return error !== null && !isRetryableError(error) ? error : null;
+}
+
+/**
+ * Keeps asking until the build has finished, including before the first read has answered, unless
+ * reading it failed in a way that is not worth waiting out. With no build id the query is off, so this never runs.
+ */
+function pollIntervalOf(build: TrackBuild | undefined, error: unknown): number | false {
+  if (build !== undefined && isFinishedTrackBuild(build)) return false;
+  return readErrorOf(error) === null ? TRACK_BUILD_POLL_MS : false;
+}
+
+/**
+ * Builds a path in the background (ADR-020, ticket 106). `start` sends the words with a new build id
+ * (paused and saved if there is no signal, ADR-021 Amendment 1), and the app then asks for the build
+ * every `TRACK_BUILD_POLL_MS` until it has finished. No request is held open, so the global timeout stays.
+ * A retry is a `start` again: a new build id with the same words.
+ */
+export function useBuildPath(): { progress: BuildProgress; buildId: string | null; start: (statement: string) => void } {
+  const startWrite = useSafeWrite<StartTrackBuildInput, TrackBuild>(START_TRACK_BUILD_WRITE);
+  const started = startWrite.data;
+  const build = useQuery({
+    queryKey: trackBuildQueryKey(started?.id),
+    queryFn: started === undefined ? skipToken : () => loadBuild(started.id),
+    initialData: started,
+    refetchInterval: (query) => pollIntervalOf(query.state.data, query.state.error),
+  });
+  return {
+    progress: buildProgressOf({ start: startWrite, build: build.data, readError: readErrorOf(build.error) }),
+    buildId: started?.id ?? null,
+    start: (statement) => {
+      startWrite.reset();
+      startWrite.mutate({ statement });
+    },
+  };
+}
+
+/**
+ * One build the server holds, opened from a push or the Albert tab (ticket 108), as the build screen's progress.
+ * Its words come from the server (`statement`), never from the device. Asks again while it is still going.
+ */
+export function useBuild(buildId: string | undefined): { progress: BuildProgress; statement: string | null } {
+  const build = useQuery({
+    queryKey: trackBuildQueryKey(buildId),
+    queryFn: buildId === undefined ? skipToken : () => loadBuild(buildId),
+    refetchInterval: (query) => pollIntervalOf(query.state.data, query.state.error),
+  });
+  if (buildId === undefined) return { progress: { phase: BUILD_PHASE.idle }, statement: null };
+  return {
+    progress: buildProgressOf({ start: OPENED_START, build: build.data, readError: readErrorOf(build.error) }),
+    statement: build.data?.statement ?? null,
+  };
+}
+
+/**
+ * Records that a finished build has been shown, and refreshes the queries it affects so the badge clears.
+ * Background housekeeping: a failure is logged and the next unseen read shows the build again.
+ */
+export function useMarkBuildSeen() {
+  const queryClient = useQueryClient();
   return useMutation({
-    // Albert's actions are never paused or retried: with no signal they fail at once (ADR-021 Decision 6).
-    mutationFn: (v: BuildPlanRequest) => requireSignal(() => trackBuilderService.buildPlan(v.statement, v.sessionId)),
+    mutationFn: (buildId: string) => requireSignal(() => trackBuilderService.markBuildSeen(buildId)),
+    onError: (err) => {
+      warnBreadcrumb(BREADCRUMB_CATEGORY.albert, 'Marking a build seen failed', err);
+    },
+    onSettled: (_data, _err, buildId) => invalidateBuildQueries(queryClient, buildId),
   });
 }
 
-// `useAnswerChunk` and `useNegateChunk` went on 2026-09-08 — 068 Chunk 6b,
-// with the question loop they drove. Refinement stays: it runs on cue words
-// ("take out", "drop", "keep"), which never needed the model.
-
+/** Applies a follow-up to a plan. It runs on cue words ("take out", "drop", "keep"), which never need the model. */
 export function useRefinePlan() {
   return useMutation({
     mutationFn: (v: RefinePlanRequest) =>

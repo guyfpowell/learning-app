@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { AccessibilityInfo, Animated, Easing } from 'react-native';
-import * as Sentry from '@sentry/react-native';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 
 /** How long a block takes to appear, and how far below its place it starts. */
 const REVEAL_MS = 320;
@@ -26,7 +26,7 @@ export function Reveal({ delay, children }: { delay: number; children: ReactNode
     let cancelled = false;
     void AccessibilityInfo.isReduceMotionEnabled()
       .catch((err) => {
-        Sentry.addBreadcrumb({ category: 'ui', message: 'Reduce-motion check failed', level: 'warning', data: { err: String(err) } });
+        warnBreadcrumb(BREADCRUMB_CATEGORY.ui, 'Reduce-motion check failed', err);
         return false;
       })
       .then((reduce) => {

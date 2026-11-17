@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Sentry from '@sentry/react-native';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { trackService, type SkipCall } from '@/services/track.service';
 import { SET_ACTIVE_PATH_ERROR } from '@learning/shared';
 import type { ActivePathRef, SkipReason, SkipScope, TopicFeedbackRequest, UserPath, UserPathKind } from '@learning/shared';
@@ -35,7 +35,7 @@ async function loadPaths(): Promise<UserPath[]> {
   try {
     return await trackService.getPaths();
   } catch (err) {
-    Sentry.addBreadcrumb({ category: 'paths', message: 'Paths load failed', level: 'warning', data: { err: String(err) } });
+    warnBreadcrumb(BREADCRUMB_CATEGORY.paths, 'Paths load failed', err);
     throw err;
   }
 }

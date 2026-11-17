@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, PATHS_LOAD_ERROR, type AlbertPathActions, type UserPath } from '@learning/shared';
+import {
+  BUILD_SCREEN_COPY, ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, PATHS_LOAD_ERROR, type AlbertPathActions, type UserPath,
+} from '@learning/shared';
 import { colors, font, fontSize, levelCard, radius, spacing } from '@/theme';
 import { EdgeButton } from '@/components/ui/EdgeButton';
 import { LevelHero } from '@/components/home/LevelHero';
@@ -165,7 +167,7 @@ function NoPathBody(props: BuildPathCardProps) {
   const offer = buildOfferOf(actions);
   return (
     <>
-      <Text style={styles.cardTitle}>Build my own path</Text>
+      <Text style={styles.cardTitle}>{BUILD_SCREEN_COPY.title}</Text>
       <Text style={[styles.buildBody, styles.onCard]}>Tell me your role and what you want to get better at.</Text>
       {actions.trialOver && <TrialOver onCard />}
       {showsAllowanceUsed(props) && <AllowanceUsed onCard />}
