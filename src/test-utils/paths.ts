@@ -1,23 +1,9 @@
 import type { CustomPath, PathNextLesson, TrackPath } from '@learning/shared';
-
-const TIMESTAMP = '2026-01-01T00:00:00Z';
+import { FIXTURE_TIMESTAMP as TIMESTAMP, lessonBase } from './lessons';
 
 /** A complete next lesson for a path; `overrides` replace any field. */
 export function makeNextLesson(overrides: Partial<PathNextLesson> = {}): PathNextLesson {
-  return {
-    id:              'lesson-1',
-    skillPathId:     'sp-1',
-    lessonNumber:    1,
-    title:           'Introduction to Product Management',
-    content:         'Lesson content.',
-    durationMinutes: 3,
-    difficulty:      'beginner',
-    isTeaser:        false,
-    createdAt:       TIMESTAMP,
-    updatedAt:       TIMESTAMP,
-    resumePhase:     null,
-    ...overrides,
-  };
+  return { ...lessonBase(), resumePhase: null, ...overrides };
 }
 
 /** A complete curated-track path; `overrides` replace any field. */

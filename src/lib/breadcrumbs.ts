@@ -14,7 +14,10 @@ export const BREADCRUMB_CATEGORY = {
 } as const;
 export type BreadcrumbCategory = typeof BREADCRUMB_CATEGORY[keyof typeof BREADCRUMB_CATEGORY];
 
-/** Logs a fail-soft failure (the path keeps its fallback). It carries the error only, never a body or the person's words. */
-export function warnBreadcrumb(category: BreadcrumbCategory, message: string, err: unknown): void {
-  Sentry.addBreadcrumb({ category, message, level: 'warning', data: { err: String(err) } });
+/** What a breadcrumb may carry beside the error: ids and flags, never a body or the person's words. */
+export type BreadcrumbData = Record<string, string | number | boolean>;
+
+/** Logs a fail-soft failure (the path keeps its fallback). It carries the error and `data` only. */
+export function warnBreadcrumb(category: BreadcrumbCategory, message: string, err: unknown, data: BreadcrumbData = {}): void {
+  Sentry.addBreadcrumb({ category, message, level: 'warning', data: { ...data, err: String(err) } });
 }

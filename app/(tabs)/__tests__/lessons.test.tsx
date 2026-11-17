@@ -5,8 +5,9 @@ import LessonsScreen from '../lessons';
 import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
-import type { SessionUser } from '@learning/shared';
-import { makeCustomPath } from '@/test-utils/paths';
+import { usePreloadLesson } from '@/hooks/usePreloadLesson';
+import { makeCustomPath, makeNextLesson, makeTrackPath } from '@/test-utils/paths';
+import { makeSessionUser } from '@/test-utils/users';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { TRACKS_ROUTE, trackRoute } from '@/lib/routes';
 import { TAB_BAR_CLEARANCE } from '@/lib/safeArea';
@@ -33,6 +34,9 @@ jest.mock('@/hooks/useTrack', () => ({
   useSkills: () => ({ data: undefined }),
   useTrackContents: () => ({ data: undefined }),
 }));
+
+// Its own suite covers the premium check and the fetch; here Home only has to pass the card's lesson.
+jest.mock('@/hooks/usePreloadLesson', () => ({ usePreloadLesson: jest.fn() }));
 
 jest.mock('@/hooks/useProgress', () => ({
   useProgress: jest.fn(),
@@ -145,7 +149,7 @@ function setProgressMock(data?: unknown) {
 }
 
 function setUser(isPremium: boolean) {
-  (useCurrentUser as jest.Mock).mockReturnValue({ data: { isPremium } as SessionUser });
+  (useCurrentUser as jest.Mock).mockReturnValue({ data: makeSessionUser({ isPremium }) });
 }
 
 const mockCustomPlan = {
@@ -920,6 +924,39 @@ describe('LessonsScreen', () => {
       setCustomPlansMock([finished]);
       render(<LessonsScreen />);
       expect(screen.queryByTestId(/^stub-path-end-/)).toBeNull();
+    });
+  });
+
+  describe('next-lesson preload', () => {
+    it('preloads the active path\'s next lesson', () => {
+      setEnrollmentsMock([makeTrackPath({ isActive: true, nextLesson: makeNextLesson({ id: 'L2' }) })]);
+      render(<LessonsScreen />);
+      expect(usePreloadLesson).toHaveBeenLastCalledWith('L2');
+    });
+
+    it('preloads the revisit\'s lesson, not the forward one, while a revisit is set', () => {
+      setCustomPlansMock([makeCustomPath({
+        isActive: true,
+        nextLesson: makeNextLesson({ id: 'forward' }),
+        revisit: { topicKey: 't', topicTitle: 'Topic', nextLesson: makeNextLesson({ id: 'revisit' }), isRetake: true },
+      })]);
+      render(<LessonsScreen />);
+      expect(usePreloadLesson).toHaveBeenLastCalledWith('revisit');
+    });
+
+    it('preloads the last path\'s lesson when no path is active', () => {
+      setEnrollmentsMock([makeTrackPath({ isActive: false, nextLesson: makeNextLesson({ id: 'last' }) })]);
+      render(<LessonsScreen />);
+      expect(usePreloadLesson).toHaveBeenLastCalledWith('last');
+    });
+
+    it('preloads nothing when the card has no next lesson, or before paths load', () => {
+      setEnrollmentsMock([makeTrackPath({ isActive: true, nextLesson: null })]);
+      render(<LessonsScreen />);
+      expect(usePreloadLesson).toHaveBeenLastCalledWith(undefined);
+      setEnrollmentsMock(undefined);
+      render(<LessonsScreen />);
+      expect(usePreloadLesson).toHaveBeenLastCalledWith(undefined);
     });
   });
 });

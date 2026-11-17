@@ -12,6 +12,7 @@ import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/us
 import { TopicFeedback } from '@/components/ui/TopicFeedback';
 import { writeError } from '@/lib/errors';
 import { useProgress } from '@/hooks/useProgress';
+import { usePreloadLesson } from '@/hooks/usePreloadLesson';
 import { useAutoDismiss } from '@/hooks/useAutoDismiss';
 import { NewUserHome } from '@/components/home/NewUserHome';
 import { PathCard } from '@/components/ui/PathCard';
@@ -20,7 +21,7 @@ import { MomentumCard } from '@/components/home/MomentumCard';
 import { PathEndSection } from '@/components/albert/PathEndSection';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
-import { PATHS_LOAD_ERROR, type SkipReason, type SkipScope, type UserPath } from '@learning/shared';
+import { PATHS_LOAD_ERROR, continueLessonOf, type SkipReason, type SkipScope, type UserPath } from '@learning/shared';
 import { TRACKS_ROUTE, lessonRoute, trackRoute } from '@/lib/routes';
 
 /** Home's side gutters (the design's 20: there is no 20 token). */
@@ -59,6 +60,8 @@ export default function LessonsScreen() {
   // word; the path shown is the active one, or the most recent when none is active.
   const shownPath = activePath ?? lastPath;
   const pathEnd = !topicEnd && shownPath?.kind === 'custom' && shownPath.isFinished ? shownPath : null;
+  // The lesson the card offers, loaded ahead of the tap (premium only).
+  usePreloadLesson(shownPath && continueLessonOf(shownPath).lesson?.id);
 
   return (
     <SafeAreaView style={styles.container} edges={TAB_SCREEN_EDGES}>

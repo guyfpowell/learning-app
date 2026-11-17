@@ -7,9 +7,11 @@ import { headerRowBox } from '@/components/quiz/QuizResultFrame';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react-native';
 import { PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
 import { QUESTION_RANGE } from '@/components/quiz/QuizHeroCard';
-import { QuizModal, burstShift } from '../QuizModal';
+import { QuizModal } from '../QuizModal';
+import { burstShift } from '@/components/quiz/ResultHeading';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
 import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
+import { usePreloadLesson } from '@/hooks/usePreloadLesson';
 import { useRouter } from 'expo-router';
 import { useRefreshPaths, useTopicFeedback } from '@/hooks/useTrack';
 
@@ -18,6 +20,7 @@ jest.mock('@/hooks/useLesson', () => ({
   useSaveLesson: jest.fn(),
   useUnsaveLesson: jest.fn(),
 }));
+jest.mock('@/hooks/usePreloadLesson', () => ({ usePreloadLesson: jest.fn() }));
 jest.mock('@/hooks/useTrack', () => ({
   useTopicFeedback: jest.fn(),
   useRefreshPaths: jest.fn(),
@@ -1244,6 +1247,35 @@ describe('QuizModal', () => {
       expect(mockTopicSubmit).toHaveBeenCalledWith('plan-1', { stableKey: 'topic-a', dismissed: true });
       expect(screen.queryByTestId('topic-feedback')).toBeNull();
       expect(mockRefreshPaths).toHaveBeenCalledTimes(1);
+    });
+  });
+  describe('115a: preload the next lesson', () => {
+    it('asks for the next lesson once a submit finalises the lesson', () => {
+      setQuizMock({ data: { ...mockResult, nextLessonId: 'L3' } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(usePreloadLesson).toHaveBeenLastCalledWith('L3');
+    });
+
+    it('asks for nothing after a partial (not finalised) submit', () => {
+      setQuizMock({ data: { ...q1CorrectNotFinalized, nextLessonId: 'L3' } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(usePreloadLesson).not.toHaveBeenCalledWith('L3');
+    });
+
+    it('asks for the next lesson when the already-completed view shows', () => {
+      render(<QuizModal visible={true} lesson={{ ...singleQuizLesson, quizCompleted: true, nextLessonId: 'L4' }} onClose={onClose} />);
+      expect(usePreloadLesson).toHaveBeenLastCalledWith('L4');
+    });
+
+    it('asks for nothing on the already-completed view with no next lesson', () => {
+      render(<QuizModal visible={true} lesson={{ ...singleQuizLesson, quizCompleted: true, nextLessonId: null }} onClose={onClose} />);
+      expect(usePreloadLesson).not.toHaveBeenCalledWith('L4');
+      expect(usePreloadLesson).toHaveBeenLastCalledWith(null);
+    });
+
+    it('asks for nothing while the modal is closed', () => {
+      render(<QuizModal visible={false} lesson={{ ...singleQuizLesson, quizCompleted: true, nextLessonId: 'L4' }} onClose={onClose} />);
+      expect(usePreloadLesson).not.toHaveBeenCalledWith('L4');
     });
   });
 });

@@ -9,17 +9,12 @@ import { LevelHero } from '@/components/home/LevelHero';
 import { LevelBar } from '@/components/home/LevelBar';
 import { flooredPct } from '@/components/ui/PathCard';
 import { colors, font, fontSize, levelCard, lineHeight, spacing, trackingEm } from '@/theme';
-import { revisitingLabel, type SkipReason, type SkipScope, type UserPath } from '@learning/shared';
+import { continueLessonOf, continueVerb, revisitingLabel, type SkipReason, type SkipScope, type UserPath } from '@learning/shared';
 
 /** The lesson bar's segments: the lessons done are solid, the current one is part-lit, the rest are faint. */
 const SEGMENT_HEIGHT = 5;
 const SEGMENT_CURRENT = 'rgba(255,255,255,0.55)';
 const SEGMENT_AHEAD = 'rgba(255,255,255,0.22)';
-
-function ctaLabel(isRevisit: boolean, resumePhase: boolean): string {
-  if (isRevisit) return 'Revisit lesson';
-  return resumePhase ? 'Continue lesson' : 'Start lesson';
-}
 
 /**
  * The skip links, in the order they show. Lesson skips are on by default (feature:skip-lesson);
@@ -65,10 +60,7 @@ interface HomePathProps {
 export function HomePath({ path, onStartLesson, onSkip, skipPending, onOpen }: HomePathProps) {
   const [choosing, setChoosing] = useState<SkipScope | null>(null);
   const pct = flooredPct(path);
-  // The server decides a revisit; the client never derives one. While it is set the continue target is
-  // its own lesson, and the skip links (which act on the forward position) are not offered.
-  const revisit = path.kind === 'custom' ? path.revisit : null;
-  const nextLesson = revisit ? revisit.nextLesson : path.nextLesson;
+  const { revisit, lesson: nextLesson } = continueLessonOf(path);
   // A lesson with no level takes the middle one's colour.
   const cardLevel = nextLesson?.skillPath?.level ?? 'intermediate';
   const position = nextLesson?.topicName && nextLesson.lessonIndex != null && nextLesson.totalLessons != null
@@ -120,7 +112,7 @@ export function HomePath({ path, onStartLesson, onSkip, skipPending, onOpen }: H
             <EdgeButton
               testID={`next-lesson-btn-${path.id}`}
               look={{ face: colors.white, label: levelCard[cardLevel].base, edge: levelCard[cardLevel].edge }}
-              label={ctaLabel(Boolean(revisit), Boolean(nextLesson.resumePhase))}
+              label={`${continueVerb(revisit, nextLesson)} lesson`}
               icon="next"
               onPress={() => onStartLesson(nextLesson.id)}
             />

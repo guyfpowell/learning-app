@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge, LEVEL_BADGE_VARIANT } from '@/components/ui/Badge';
 import { TrackMap } from '@/components/ui/TrackMap';
 import { SkipReasonPicker } from '@/components/ui/SkipReasonPicker';
-import { revisitingLabel, type SkipReason, type SkipScope, type UserPath } from '@learning/shared';
+import { continueLessonOf, continueVerb, revisitingLabel, type SkipReason, type SkipScope, type UserPath } from '@learning/shared';
 
 export function flooredPct(path: Pick<UserPath, 'completedLessons' | 'percentComplete'>): number {
   return path.completedLessons > 0 ? Math.max(1, Math.round(path.percentComplete)) : 0;
@@ -18,11 +18,6 @@ function motivation(path: UserPath, pct: number): string {
   const lessonsLeft = path.totalLessons - path.completedLessons;
   if (lessonsLeft <= 20) return `Only ${lessonsLeft} lessons to complete ${path.name}!`;
   return `You're ${pct}% through ${path.name}. Keep going!`;
-}
-
-function ctaLabel(isRevisit: boolean, resumePhase: boolean): string {
-  if (isRevisit) return 'Revisit Lesson';
-  return resumePhase ? 'Continue Lesson' : 'Start Lesson';
 }
 
 /**
@@ -70,10 +65,7 @@ export function PathCard({
 }: PathCardProps) {
   const [choosing, setChoosing] = useState<SkipScope | null>(null);
   const pct = flooredPct(path);
-  // The server decides a revisit; the client never derives one. While it is set the continue target is
-  // its own lesson, and the skip controls (which act on the forward position) are not offered.
-  const revisit = path.kind === 'custom' ? path.revisit : null;
-  const nextLesson = revisit ? revisit.nextLesson : path.nextLesson;
+  const { revisit, lesson: nextLesson } = continueLessonOf(path);
   const level = nextLesson?.skillPath?.level;
   const levelLabel = nextLesson?.skillPath?.levelLabel;
 
@@ -183,7 +175,7 @@ export function PathCard({
 
             <Button
               testID={`next-lesson-btn-${path.id}`}
-              label={ctaLabel(Boolean(revisit), Boolean(nextLesson.resumePhase))}
+              label={`${continueVerb(revisit, nextLesson)} Lesson`}
               variant="primary"
               style={styles.continueBtn}
               onPress={() => onStartLesson(nextLesson.id)}

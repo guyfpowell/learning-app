@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Sentry from '@sentry/react-native';
 import type { Lesson } from '@learning/shared';
 import { lessonService } from '@/services/lesson.service';
 import { SAVED_LESSONS_QUERY_KEY, lessonQueryKey } from '@/lib/queryKeys';
+import { lessonQueryOptions } from '@/lib/lessonQuery';
 import { lessonWriteScope } from '@/lib/mutationKeys';
 import {
   SAVE_LESSON_WRITE, SAVE_POSITION_WRITE, SET_RATING_WRITE, UNSAVE_LESSON_WRITE,
@@ -12,20 +12,9 @@ import { useSafeWrite } from '@/hooks/useSafeWrite';
 
 export function useLesson(id: string) {
   return useQuery({
-    queryKey: lessonQueryKey(id),
-    queryFn: () => loadLesson(id),
+    ...lessonQueryOptions(id),
     enabled: !!id,
   });
-}
-
-/** The lesson fetch, logged on failure; the screen shows the query's error state. */
-async function loadLesson(id: string): Promise<Lesson> {
-  try {
-    return await lessonService.getLesson(id);
-  } catch (err) {
-    Sentry.addBreadcrumb({ category: 'lesson', message: 'Lesson load failed', level: 'warning', data: { lessonId: id, err: String(err) } });
-    throw err;
-  }
 }
 
 export function useStartRetake() {

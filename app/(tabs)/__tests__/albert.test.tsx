@@ -5,8 +5,9 @@ import AlbertScreen from '../albert';
 import { usePaths } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
-import { ALBERT_STEPS, ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, type SessionUser, type UserPath } from '@learning/shared';
+import { ALBERT_STEPS, ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, type UserPath } from '@learning/shared';
 import { makeCustomPath, makeNextLesson, makeTrackPath } from '@/test-utils/paths';
+import { makeSessionUser } from '@/test-utils/users';
 import { BUILD_ROUTE, buildRoute } from '@/lib/routes';
 import { useUnseenBuilds } from '@/hooks/useUnseenBuilds';
 import { makeDoneBuild, makeBuiltPlan } from '@/test-utils/trackBuilds';
@@ -71,11 +72,11 @@ type UserState = 'premium' | 'unspent' | 'spent';
 
 /** premium: subscriber · unspent: free, no path saved yet · spent: free, the one path is saved (079a). */
 function setUser(state: UserState, capstones = 0) {
-  const user = {
+  const user = makeSessionUser({
     isPremium: state === 'premium',
     albertAllowance: { used: state === 'unspent' ? 0 : 1, total: 1 },
     freshPathTrial: { capstones, total: 2 },
-  } as SessionUser;
+  });
   (useCurrentUser as jest.Mock).mockReturnValue({ data: user, isLoading: false });
 }
 
