@@ -2,13 +2,14 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
+import { createStaleTimeTestQueryClient } from '@/test-utils/appQueryClient';
 import { must } from '@/test-utils/must';
 import { makeLesson } from '@/test-utils/lessons';
 import { makeSessionUser } from '@/test-utils/users';
 import { usePreloadLesson } from '../usePreloadLesson';
 import { useLesson } from '../useLesson';
 import { CURRENT_USER_QUERY_KEY, lessonQueryKey } from '@/lib/queryKeys';
-import { QUERY_STALE_MS, dehydrateOptionsFor } from '@/lib/offlineWrites';
+import { dehydrateOptionsFor } from '@/lib/offlineWrites';
 import { SAFE_WRITES } from '@/lib/safeWrites';
 import { lessonService } from '@/services/lesson.service';
 
@@ -24,8 +25,7 @@ const lessonOf = (id: string) => makeLesson({ id, title: `Lesson ${id}` });
 
 /** A test client with the app's staleness, signed in as a free or premium user. */
 function clientFor(isPremium: boolean): QueryClient {
-  const client = createTestQueryClient();
-  client.setDefaultOptions({ queries: { ...client.getDefaultOptions().queries, staleTime: QUERY_STALE_MS } });
+  const client = createStaleTimeTestQueryClient();
   client.setQueryData(CURRENT_USER_QUERY_KEY, makeSessionUser({ isPremium }));
   return client;
 }

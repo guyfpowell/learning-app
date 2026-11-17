@@ -18,6 +18,7 @@ import { TrackRow } from '@/components/tracks/TrackRow';
 import { AlbertMark } from '@/components/albert/AlbertMark';
 import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTrack';
 import { useAutoDismiss } from '@/hooks/useAutoDismiss';
+import { usePrefetchNextScreens } from '@/hooks/usePrefetchNextScreens';
 import type { ActivePathRef, SkillWithAccess, UserPath } from '@learning/shared';
 import { extractError, writeError } from '@/lib/errors';
 import { capitalize } from '@/lib/capitalize';
@@ -104,6 +105,7 @@ export default function TracksScreen() {
   const router = useRouter();
   const { data: skills, isLoading: skillsLoading, isError: skillsError, error: skillsErr } = useSkills();
   const { data: paths, isLoading: pathsLoading, isError: pathsError, error: pathsErr } = usePaths();
+  usePrefetchNextScreens('tracks', paths);
   const enroll = useEnroll();
   const { setActive, isPendingFor, failure, dismissFailure } = useSetActivePath();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);

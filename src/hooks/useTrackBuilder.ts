@@ -1,5 +1,5 @@
 import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
+import { BREADCRUMB_CATEGORY, loggedLoad, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { trackBuilderService } from '@/services/trackBuilder.service';
 import { errorCode } from '@/lib/errors';
 import { isRetryableError, requireSignal } from '@/lib/offlineWrites';
@@ -20,13 +20,8 @@ import {
  */
 
 // The words are personal: the breadcrumb carries the error, never the build.
-async function loadBuild(buildId: string): Promise<TrackBuild> {
-  try {
-    return await trackBuilderService.getBuild(buildId);
-  } catch (err) {
-    warnBreadcrumb(BREADCRUMB_CATEGORY.albert, 'Path build load failed', err);
-    throw err;
-  }
+function loadBuild(buildId: string): Promise<TrackBuild> {
+  return loggedLoad(BREADCRUMB_CATEGORY.albert, 'Path build load failed', () => trackBuilderService.getBuild(buildId));
 }
 
 /** A read error that ends the wait. A dropped signal or a server hiccup is waited out, so it gives null. */

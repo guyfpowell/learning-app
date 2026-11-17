@@ -9,6 +9,7 @@ import { AlbertTile } from '@/components/albert/AlbertTile';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { PremiumModal } from '@/components/ui/PremiumModal';
 import { usePaths } from '@/hooks/useTrack';
+import { usePrefetchNextScreens } from '@/hooks/usePrefetchNextScreens';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
 import { UnseenBuildsSection } from '@/components/albert/UnseenBuildsSection';
@@ -44,6 +45,7 @@ export default function AlbertScreen() {
   const router = useRouter();
   const { data: user, isLoading: userLoading } = useCurrentUser();
   const { data: paths, isLoading: pathsLoading, isError: pathsFailed } = usePaths();
+  usePrefetchNextScreens('albert', paths);
   const updatePlan = useUpdateTrackPlan();
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);

@@ -6,6 +6,7 @@ import TrackDetailScreen from '../[id]';
 import { useTrackContents, usePaths, useEnroll, useSkills } from '@/hooks/useTrack';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
 import { lessonRoute, trackRoute } from '@/lib/routes';
+import { GENERIC_ERROR } from '@/lib/errors';
 import type { TrackContents, UserPath } from '@learning/shared';
 
 const mockPush = jest.fn();
@@ -277,6 +278,13 @@ describe('TrackDetailScreen', () => {
     setMocks({ contentsError: true, contents: undefined });
     render(<TrackDetailScreen />);
     expect(screen.getByTestId('track-detail-error')).toBeTruthy();
+  });
+
+  it('shows the error, and asks for nothing, when the link names a path kind that does not exist', () => {
+    mockParams = { kind: 'bogus', id: 'skill-1' };
+    render(<TrackDetailScreen />);
+    expect(screen.getByText(GENERIC_ERROR)).toBeTruthy();
+    expect(useTrackContents).not.toHaveBeenCalled();
   });
 
   // ── No primary action when enrolled ────────────────────────────────────────

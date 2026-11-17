@@ -7,6 +7,7 @@ import { trackService } from '@/services/track.service';
 import { makeTrackPath } from '@/test-utils/paths';
 import { must } from '@/test-utils/must';
 import TracksScreen from '../tracks';
+import { usePrefetchNextScreens } from '@/hooks/usePrefetchNextScreens';
 import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTrack';
 import { NO_SIGNAL_ERROR, SET_ACTIVE_PATH_ERROR, type ActivePathRef, type SkillWithAccess, type UserPath } from '@learning/shared';
 import { makeCustomPath } from '@/test-utils/paths';
@@ -14,6 +15,8 @@ import { NoSignalError } from '@/lib/offlineWrites';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+
+jest.mock('@/hooks/usePrefetchNextScreens', () => ({ usePrefetchNextScreens: jest.fn() }));
 
 jest.mock('@/hooks/useTrack', () => ({
   useSkills:         jest.fn(),
@@ -142,6 +145,13 @@ describe('TracksScreen', () => {
 
   it('renders without errors', () => {
     expect(() => render(<TracksScreen />)).not.toThrow();
+  });
+
+  it('115f: loads the next screens\' data in the background for the enrolled paths', () => {
+    const enrollments = [makeTrackPath({ id: 'skill-1' }), makeCustomPath({ id: 'plan-1' })];
+    setMocks({ enrollments });
+    render(<TracksScreen />);
+    expect(usePrefetchNextScreens).toHaveBeenCalledWith('tracks', enrollments);
   });
 
   it('096: has no "Tracks" heading: the selected tab already says where you are', () => {

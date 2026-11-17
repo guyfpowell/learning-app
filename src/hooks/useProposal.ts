@@ -1,28 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { isProposalGone } from '@learning/shared';
 import { proposalService, type ProposalCall } from '@/services/proposal.service';
 import { PATHS_QUERY_KEY, proposalQueryKey } from '@/lib/queryKeys';
+import { proposalQueryOptions } from '@/lib/proposalQuery';
 import { errorCode } from '@/lib/errors';
 import { requireSignal } from '@/lib/offlineWrites';
 
-/** The proposal fetch, logged on failure; the section shows the load error from the query's error state. */
-async function loadProposal(planId: string) {
-  try {
-    return await proposalService.getProposal(planId);
-  } catch (err) {
-    warnBreadcrumb(BREADCRUMB_CATEGORY.albert, 'Proposal load failed', err);
-    throw err;
-  }
-}
-
 /** The checked proposal on one custom path. Fetched only while the path's badge (`hasProposal`) is on. */
 export function useProposal(planId: string, enabled: boolean) {
-  return useQuery({
-    queryKey: proposalQueryKey(planId),
-    queryFn: () => loadProposal(planId),
-    enabled,
-  });
+  return useQuery({ ...proposalQueryOptions(planId), enabled });
 }
 
 /**

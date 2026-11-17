@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
+import { BREADCRUMB_CATEGORY, loggedLoad } from '@/lib/breadcrumbs';
 import { trackService, type SkipCall } from '@/services/track.service';
 import { SET_ACTIVE_PATH_ERROR } from '@learning/shared';
 import type { ActivePathRef, SkipReason, SkipScope, TopicFeedbackRequest, UserPath, UserPathKind } from '@learning/shared';
-import { PATHS_QUERY_KEY, SKILLS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY } from '@/lib/queryKeys';
+import { PATHS_QUERY_KEY, SKILLS_QUERY_KEY } from '@/lib/queryKeys';
+import { trackContentsQueryOptions } from '@/lib/trackContentsQuery';
 import { SET_ACTIVE_PATH_WRITE } from '@/lib/safeWrites';
 import { requireSignal } from '@/lib/offlineWrites';
 import { invalidatePathQueries } from '@/lib/pathInvalidation';
@@ -12,7 +13,7 @@ import { useOptimisticMutation } from '@/hooks/useOptimisticMutation';
 export function useSkills() {
   return useQuery({
     queryKey: SKILLS_QUERY_KEY,
-    queryFn: () => trackService.getSkills(),
+    queryFn: () => loggedLoad(BREADCRUMB_CATEGORY.paths, 'Skills load failed', () => trackService.getSkills()),
   });
 }
 
@@ -31,13 +32,8 @@ export function usePaths() {
 }
 
 /** The paths fetch, logged on failure; callers show `PATHS_LOAD_ERROR` from the query's error state. */
-async function loadPaths(): Promise<UserPath[]> {
-  try {
-    return await trackService.getPaths();
-  } catch (err) {
-    warnBreadcrumb(BREADCRUMB_CATEGORY.paths, 'Paths load failed', err);
-    throw err;
-  }
+function loadPaths(): Promise<UserPath[]> {
+  return loggedLoad(BREADCRUMB_CATEGORY.paths, 'Paths load failed', () => trackService.getPaths());
 }
 
 /**
@@ -125,10 +121,6 @@ export function useRefreshPaths() {
  * Full lesson tree for a path of either kind. A finished lesson invalidates every tree (the quiz
  * answer's settle step, `SUBMIT_QUIZ_WRITE`), so the tree shows progress when the user returns.
  */
-export function useTrackContents(kind: UserPathKind, id: string, options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: [...TRACK_CONTENTS_QUERY_KEY, kind, id],
-    queryFn: () => trackService.getTrackContents(kind, id),
-    enabled: (options?.enabled ?? true) && !!kind && !!id,
-  });
+export function useTrackContents(kind: UserPathKind, id: string, enabled: boolean) {
+  return useQuery({ ...trackContentsQueryOptions(kind, id), enabled });
 }

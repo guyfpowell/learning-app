@@ -1,16 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
+import { BREADCRUMB_CATEGORY, loggedLoad } from '@/lib/breadcrumbs';
 import { trackBuilderService } from '@/services/trackBuilder.service';
 import { UNSEEN_BUILDS_QUERY_KEY } from '@/lib/queryKeys';
 
 // The words are personal: the breadcrumb carries the error, never the builds.
-async function loadUnseenBuilds() {
-  try {
-    return await trackBuilderService.listUnseenBuilds();
-  } catch (err) {
-    warnBreadcrumb(BREADCRUMB_CATEGORY.albert, 'Unseen builds load failed', err);
-    throw err;
-  }
+function loadUnseenBuilds() {
+  return loggedLoad(BREADCRUMB_CATEGORY.albert, 'Unseen builds load failed', () => trackBuilderService.listUnseenBuilds());
 }
 
 /**

@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, type NativeStackNavigationOptions } from 'expo-router';
 import { colors, font, fontSize, levelCard, press, radius, spacing } from '@/theme';
 import { levelOfGroup } from '@/lib/groupLevel';
 import { EdgeButton } from '@/components/ui/EdgeButton';
@@ -27,23 +27,42 @@ import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
 import { useDetailHeader } from '@/hooks/useDetailHeader';
 import { extractError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
-import type { TrackContents, TrackContentsLesson, UserPathKind } from '@learning/shared';
+import { isUserPathKind, type TrackContents, type TrackContentsLesson, type UserPathKind } from '@learning/shared';
 import { lessonRoute, trackRoute } from '@/lib/routes';
 import { resolveTrackView, trackViewOfParams, type ResolvedTrackView, type TrackView } from '@/lib/trackView';
 
+type TrackParams = { kind: string; id: string; group?: string; topic?: string; lesson?: string };
+
 export default function TrackDetailScreen() {
-  const router = useRouter();
   const header = useDetailHeader('Track');
-  const params = useLocalSearchParams<{ kind: string; id: string; group?: string; topic?: string; lesson?: string }>();
-  const { kind, id } = params;
-  const pathKind = kind as UserPathKind;
+  const params = useLocalSearchParams<TrackParams>();
+  // A link whose kind names no path never reaches the server.
+  if (!isUserPathKind(params.kind)) return <TrackDetailError header={header} error={null} />;
+  return <TrackDetail header={header} pathKind={params.kind} params={params} />;
+}
+
+/** The error view, for a failed load or a link to no path. */
+function TrackDetailError({ header, error }: { header: NativeStackNavigationOptions; error: unknown }) {
+  return (
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <Stack.Screen options={header} />
+      <View testID="track-detail-error" style={styles.centred}>
+        <Text style={styles.errorText}>{extractError(error)}</Text>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function TrackDetail({ header, pathKind, params }: { header: NativeStackNavigationOptions; pathKind: UserPathKind; params: TrackParams }) {
+  const router = useRouter();
+  const { id } = params;
 
   const {
     data: contents,
     isLoading,
     isError,
     error,
-  } = useTrackContents(pathKind, id);
+  } = useTrackContents(pathKind, id, true);
 
   const { data: paths } = usePaths();
   const { data: skills } = useSkills();
@@ -88,16 +107,7 @@ export default function TrackDetailScreen() {
     );
   }
 
-  if (isError || !contents) {
-    return (
-      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <Stack.Screen options={header} />
-        <View testID="track-detail-error" style={styles.centred}>
-          <Text style={styles.errorText}>{extractError(error)}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  if (isError || !contents) return <TrackDetailError header={header} error={error} />;
 
   // ── The step asked for ────────────────────────────────────────────────────
 

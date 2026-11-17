@@ -3,6 +3,7 @@ import { Alert, type AlertButton } from 'react-native';
 import { render, screen, fireEvent, act, within } from '@testing-library/react-native';
 import AlbertScreen from '../albert';
 import { usePaths } from '@/hooks/useTrack';
+import { usePrefetchNextScreens } from '@/hooks/usePrefetchNextScreens';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useUpdateTrackPlan } from '@/hooks/useTrackBuilder';
 import { ALBERT_STEPS, ERROR_CODES, ERROR_MESSAGES, FRESH_PATH_TRIAL_NOTE, type UserPath } from '@learning/shared';
@@ -15,6 +16,8 @@ import { TRACK_BUILD_PUSH, TRACK_BUILD_STATUS, UNSEEN_BUILDS_LOAD_ERROR } from '
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+
+jest.mock('@/hooks/usePrefetchNextScreens', () => ({ usePrefetchNextScreens: jest.fn() }));
 
 jest.mock('@/hooks/useTrack', () => ({
   usePaths: jest.fn(),
@@ -115,6 +118,13 @@ describe('AlbertScreen', () => {
     setPaths([]);
     setUpdatePlan();
     (useUnseenBuilds as jest.Mock).mockReturnValue({ data: [] });
+  });
+
+  it('115f: loads the custom path\'s next screens in the background', () => {
+    const paths = [makeCustomPath({ id: 'plan-1', hasProposal: true })];
+    setPaths(paths);
+    render(<AlbertScreen />);
+    expect(usePrefetchNextScreens).toHaveBeenCalledWith('albert', paths);
   });
 
   describe('a path build that finished while the person was away (ticket 108)', () => {

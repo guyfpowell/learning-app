@@ -8,6 +8,7 @@ import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Spinner } from '@/components/ui/Spinner';
 import { useProgress } from '@/hooks/useProgress';
 import { usePaths } from '@/hooks/useTrack';
+import { usePrefetchNextScreens } from '@/hooks/usePrefetchNextScreens';
 import { useXp } from '@/hooks/useXp';
 import { Progress } from '@/components/ui/Progress';
 import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
@@ -45,6 +46,7 @@ export default function ProgressScreen() {
   const router = useRouter();
   const { data, isLoading, isError } = useProgress();
   const { data: paths, isError: pathsFailed } = usePaths();
+  usePrefetchNextScreens('progress', paths);
   const { data: xpData } = useXp();
   const xpProgress = xpData ? xpProgressOf(xpData) : null;
 

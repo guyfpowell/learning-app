@@ -21,3 +21,13 @@ export type BreadcrumbData = Record<string, string | number | boolean>;
 export function warnBreadcrumb(category: BreadcrumbCategory, message: string, err: unknown, data: BreadcrumbData = {}): void {
   Sentry.addBreadcrumb({ category, message, level: 'warning', data: { ...data, err: String(err) } });
 }
+
+/** Runs a load and logs a failure before rethrowing it, so the query that called it keeps its error state. */
+export async function loggedLoad<T>(category: BreadcrumbCategory, message: string, load: () => Promise<T>, data: BreadcrumbData = {}): Promise<T> {
+  try {
+    return await load();
+  } catch (err) {
+    warnBreadcrumb(category, message, err, data);
+    throw err;
+  }
+}

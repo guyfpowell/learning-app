@@ -1,3 +1,5 @@
+import type { UserPathKind } from '@learning/shared';
+
 /**
  * The cache key for the signed-in user (`GET /auth/me`). Invalidate it when a write
  * changes what /me reports. Its own module, not the hook's: screen tests mock
@@ -53,8 +55,13 @@ export const IAP_OFFERINGS_QUERY_KEY = ['iap', 'offerings'] as const;
 /** What deleting the account would cancel (`GET /users/me/delete-preflight`). */
 export const DELETE_PREFLIGHT_QUERY_KEY = ['delete-preflight'] as const;
 
-/** Every cached track-contents tree; one tree is `[...TRACK_CONTENTS_QUERY_KEY, kind, id]`. */
+/** Every cached track-contents tree; one tree is `trackContentsQueryKey(kind, id)`. */
 export const TRACK_CONTENTS_QUERY_KEY = ['track-contents'] as const;
+
+/** One path's cached contents tree (`GET /enrollments/:kind/:id/contents`). */
+export function trackContentsQueryKey(kind: UserPathKind, id: string) {
+  return [...TRACK_CONTENTS_QUERY_KEY, kind, id] as const;
+}
 
 /** One path build and its outcome (`GET /track-builder/builds/:id`); `undefined` before a build has been started. */
 export function trackBuildQueryKey(buildId: string | undefined) {

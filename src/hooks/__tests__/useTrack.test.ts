@@ -7,12 +7,12 @@ import { SET_ACTIVE_PATH_ERROR, type UserPath } from '@learning/shared';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { must } from '@/test-utils/must';
 import * as Sentry from '@sentry/react-native';
-import { useEnroll, usePaths, useSetActivePath, useSkip, useTopicFeedback } from '../useTrack';
+import { useEnroll, usePaths, useSetActivePath, useSkills, useSkip, useTopicFeedback } from '../useTrack';
 import { NoSignalError } from '@/lib/offlineWrites';
 import { trackService } from '@/services/track.service';
 
 jest.mock('@/services/track.service', () => ({
-  trackService: { getPaths: jest.fn(), setActivePath: jest.fn(), skip: jest.fn(), topicFeedback: jest.fn(), enroll: jest.fn() },
+  trackService: { getPaths: jest.fn(), getSkills: jest.fn(), setActivePath: jest.fn(), skip: jest.fn(), topicFeedback: jest.fn(), enroll: jest.fn() },
 }));
 
 const mockTrackService = trackService as jest.Mocked<typeof trackService>;
@@ -26,6 +26,15 @@ describe('usePaths', () => {
     const { result } = renderHook(() => usePaths(), { wrapper: queryWrapper() });
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ message: 'Paths load failed' }));
+  });
+});
+
+describe('useSkills', () => {
+  it('logs a failed load and leaves it in the error state', async () => {
+    mockTrackService.getSkills.mockRejectedValue(new Error('boom'));
+    const { result } = renderHook(() => useSkills(), { wrapper: queryWrapper() });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ message: 'Skills load failed' }));
   });
 });
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { PATHS_LOAD_ERROR } from '@learning/shared';
 import { render, screen, fireEvent, within } from '@testing-library/react-native';
 import ProgressScreen from '../progress';
+import { usePrefetchNextScreens } from '@/hooks/usePrefetchNextScreens';
 import { useProgress } from '@/hooks/useProgress';
 import { usePaths } from '@/hooks/useTrack';
 import { useXp } from '@/hooks/useXp';
@@ -12,6 +13,7 @@ jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 
 jest.mock('@/hooks/useProgress', () => ({ useProgress: jest.fn() }));
 jest.mock('@/hooks/useTrack', () => ({ usePaths: jest.fn() }));
+jest.mock('@/hooks/usePrefetchNextScreens', () => ({ usePrefetchNextScreens: jest.fn() }));
 jest.mock('@/hooks/useXp', () => ({ useXp: jest.fn() }));
 jest.mock('@/hooks/useAchievements', () => ({ useAchievements: jest.fn(() => ({ data: undefined, isLoading: false })) }));
 let capturedEdges: string[] | undefined;
@@ -79,6 +81,13 @@ describe('ProgressScreen', () => {
   it('renders without errors', () => {
     setMock();
     expect(() => render(<ProgressScreen />)).not.toThrow();
+  });
+
+  it('115f: loads the next screens\' data in the background for the enrolled paths', () => {
+    setMock();
+    (usePaths as jest.Mock).mockReturnValue({ data: [mockActiveEnrollment, mockCompletedEnrollment] });
+    render(<ProgressScreen />);
+    expect(usePrefetchNextScreens).toHaveBeenCalledWith('progress', [mockActiveEnrollment, mockCompletedEnrollment]);
   });
 
   // Parity with web refactor R5.

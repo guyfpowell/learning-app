@@ -40,7 +40,7 @@ function alignOf(index: number): 'left' | 'center' | 'right' {
 function useStarterLesson() {
   const { data: skills } = useSkills();
   const first = skills?.length ? [...skills].sort((a, b) => a.order - b.order)[0] : undefined;
-  const { data: contents } = useTrackContents('track', first?.id ?? '', { enabled: !!first });
+  const { data: contents } = useTrackContents('track', first?.id ?? '', !!first);
   const group = contents?.groups[0];
   const lesson = group?.topics.find(t => t.lessons.length > 0)?.lessons[0];
   if (!contents || !group || !lesson) return null;
