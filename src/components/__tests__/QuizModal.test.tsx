@@ -14,6 +14,12 @@ import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { usePreloadLesson } from '@/hooks/usePreloadLesson';
 import { useRouter } from 'expo-router';
 import { useRefreshPaths, useTopicFeedback } from '@/hooks/useTrack';
+import { useCurrentUser } from '@/hooks/useEmailVerification';
+import { useRefreshLesson } from '@/hooks/useRefreshLesson';
+import { makeSessionUser } from '@/test-utils/users';
+import { axiosError } from '@/test-utils/axios';
+import { nextFeedbackPhrase } from '@/lib/quizFeedbackPhrase';
+import { ERROR_CODES } from '@learning/shared';
 
 jest.mock('@/hooks/useQuiz', () => ({ useSubmitQuiz: jest.fn() }));
 jest.mock('@/hooks/useLesson', () => ({
@@ -25,6 +31,8 @@ jest.mock('@/hooks/useTrack', () => ({
   useTopicFeedback: jest.fn(),
   useRefreshPaths: jest.fn(),
 }));
+jest.mock('@/hooks/useEmailVerification', () => ({ useCurrentUser: jest.fn() }));
+jest.mock('@/hooks/useRefreshLesson', () => ({ useRefreshLesson: jest.fn() }));
 jest.mock('expo-router', () => ({ useRouter: jest.fn() }));
 jest.mock('@/components/ui/LessonRatingControl', () => {
   const { Text } = require('react-native');
@@ -42,6 +50,12 @@ const mockReplace = jest.fn();
 const mockBack = jest.fn();
 const mockTopicSubmit = jest.fn();
 const mockRefreshPaths = jest.fn();
+const mockRefreshLesson = jest.fn();
+
+const SUBMIT_FAILED_MESSAGE = 'Failed to submit answer';
+/** The server refusing an answer to a lesson it already counts as finished. */
+const alreadyCompletedError = () => axiosError('ERR_BAD_REQUEST', 409, { code: ERROR_CODES.LESSON_ALREADY_COMPLETED });
+const submitFailedError = () => axiosError('ERR_BAD_RESPONSE', 500, { message: SUBMIT_FAILED_MESSAGE });
 
 function setQuizMock(overrides: Record<string, unknown> = {}) {
   (useSubmitQuiz as jest.Mock).mockReturnValue({
@@ -175,7 +189,7 @@ const q1CorrectNotFinalized = {
 };
 
 jest.mock('@/lib/quizFeedbackPhrase', () => ({
-  nextFeedbackPhrase: (correct: boolean) => (correct ? 'Correct!' : 'Incorrect'),
+  nextFeedbackPhrase: jest.fn((correct: boolean) => (correct ? 'Correct!' : 'Incorrect')),
 }));
 
 describe('QuizModal', () => {
@@ -190,6 +204,9 @@ describe('QuizModal', () => {
     (useTopicFeedback as jest.Mock).mockReturnValue({ submit: mockTopicSubmit });
     (useRefreshPaths as jest.Mock).mockReturnValue(mockRefreshPaths);
     mockTopicSubmit.mockResolvedValue(undefined);
+    (useCurrentUser as jest.Mock).mockReturnValue({ data: makeSessionUser({ isPremium: false }) });
+    (useRefreshLesson as jest.Mock).mockReturnValue(mockRefreshLesson);
+    mockRefreshLesson.mockResolvedValue(undefined);
   });
 
   it('does not render content when visible=false', () => {
@@ -379,10 +396,10 @@ describe('QuizModal', () => {
   it('shows API error message when submission fails with API-provided message', () => {
     setQuizMock({
       isError: true,
-      error: { response: { data: { message: 'Failed to submit answer' } } },
+      error: submitFailedError(),
     });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('Failed to submit answer')).toBeTruthy();
+    expect(screen.getByText(SUBMIT_FAILED_MESSAGE)).toBeTruthy();
   });
 
   it('shows "no quiz" message when lesson has no quizzes', () => {
@@ -596,7 +613,7 @@ describe('QuizModal', () => {
       const resetMock = jest.fn();
       (useSubmitQuiz as jest.Mock).mockReturnValue({
         mutate: jest.fn((_, { onError }) =>
-          onError({ response: { status: 409, data: { code: 'LESSON_003' } } })
+          onError(alreadyCompletedError())
         ),
         reset: resetMock,
         isPending: false,
@@ -680,7 +697,7 @@ describe('QuizModal', () => {
       const resetMock = jest.fn();
       (useSubmitQuiz as jest.Mock).mockReturnValue({
         mutate: jest.fn((_, { onError }) =>
-          onError({ response: { status: 409, data: { code: 'LESSON_003' } } })
+          onError(alreadyCompletedError())
         ),
         reset: resetMock,
         isPending: false,
@@ -1278,5 +1295,158 @@ describe('QuizModal', () => {
       expect(usePreloadLesson).not.toHaveBeenCalledWith('L4');
     });
   });
-});
 
+  // ─── 115e: a premium user sees each answer's result before the server replies ───
+  describe('115e instant answer (premium)', () => {
+    const capstone = { ...mockLesson, quizzes: [mockQuiz1, mockQuiz2] };
+
+    beforeEach(() => {
+      (useCurrentUser as jest.Mock).mockReturnValue({ data: makeSessionUser({ isPremium: true }) });
+    });
+
+    function answer(option: string) {
+      fireEvent.press(screen.getByText(option));
+      fireEvent.press(screen.getByText('Submit'));
+    }
+
+    /** The options passed to the nth `mutate` call: the callbacks of the answer that was sent. */
+    function optionsOfCall(n: number): { onError?: (error: unknown) => void; onSuccess?: (data: unknown) => void } | undefined {
+      return must(mockMutate.mock.calls[n], 'mutate call')[1];
+    }
+
+    it('correct, one question: the heading shows while pending, the button loads, and the reply fills the rest', () => {
+      const view = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      answer('Option A');
+      expect(screen.getByTestId('result-heading')).toBeTruthy();
+      const button = screen.getByTestId('result-action-btn');
+      expect(button.props.accessibilityState.disabled).toBe(true);
+      expect(screen.queryByTestId('result-home-btn')).toBeNull();
+      expect(screen.queryByText('90%')).toBeNull();
+      setQuizMock({ data: { ...mockResult, feedbacks: [mockResult.feedbacks[0]], nextLessonId: 'lesson-9' } });
+      view.rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      expect(screen.getByText('90%')).toBeTruthy();
+      expect(screen.getByTestId('result-home-btn')).toBeTruthy();
+      fireEvent.press(within(screen.getByTestId('result-action-btn')).getByText('Next lesson'));
+      expect(mockReplace).toHaveBeenCalledWith('/lesson/lesson-9');
+    });
+
+    it('the heading keeps its phrase and does not burst again when the reply arrives', () => {
+      const headingStyle = () => StyleSheet.flatten(screen.getByTestId('result-heading').props.style);
+      const view = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      answer('Option A');
+      expect(headingStyle().transform).toHaveLength(2);
+      setQuizMock({ data: { ...mockResult, feedbacks: [mockResult.feedbacks[0]] } });
+      view.rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      expect(screen.getByText('90%')).toBeTruthy();
+      expect(nextFeedbackPhrase).toHaveBeenCalledTimes(1);
+      expect(headingStyle().transform).toBeUndefined();
+    });
+
+    it('wrong first attempt: Try again with the key takeaway at once, no correct answer, then the retry is sent as a retake', () => {
+      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      answer('Option B');
+      expect(screen.getByText('Try again')).toBeTruthy();
+      expect(screen.getByText('Fit beats features.')).toBeTruthy();
+      expect(screen.queryByText('Option A')).toBeNull();
+      fireEvent.press(screen.getByText('Try again'));
+      answer('Option C');
+      expect(mockMutate).toHaveBeenLastCalledWith(
+        expect.objectContaining({ answers: { 'q-1': 'Option C' }, isRetake: true }),
+        expect.anything(),
+      );
+    });
+
+    it('capstone: Q1 right shows its feedback at once, and Q2 can be answered before Q1 is answered by the server', () => {
+      render(<QuizModal visible={true} lesson={capstone} onClose={onClose} />);
+      answer('Option A');
+      expect(screen.getByText('Next question')).toBeTruthy();
+      fireEvent.press(screen.getByText('Next question'));
+      answer('Minimum Viable Product');
+      expect(mockMutate.mock.calls.map(c => must(c[0], 'input').answers)).toEqual([
+        { 'q-1': 'Option A' },
+        { 'q-2': 'Minimum Viable Product' },
+      ]);
+      expect(screen.getByTestId('result-heading')).toBeTruthy();
+    });
+
+    it('capstone: Q1 wrong on the second attempt shows its feedback at once, with the correct answer', () => {
+      render(<QuizModal visible={true} lesson={capstone} onClose={onClose} />);
+      answer('Option B');
+      fireEvent.press(screen.getByText('Try again'));
+      answer('Option C');
+      expect(screen.getByText('Next question')).toBeTruthy();
+      expect(screen.getByText('Option A')).toBeTruthy();
+    });
+
+    it('a question already resolved on the server counts toward the last one', () => {
+      render(<QuizModal visible={true} lesson={{ ...capstone, resolvedQuizIds: ['q-1'] }} onClose={onClose} />);
+      answer('Minimum Viable Product');
+      expect(screen.getByTestId('result-heading')).toBeTruthy();
+      expect(screen.queryByText('Next question')).toBeNull();
+    });
+
+    it('last reply fails: the lesson is refetched, the quiz resumes at the first unresolved question, and the error shows', async () => {
+      const resumed = { ...capstone, resolvedQuizIds: [] };
+      mockRefreshLesson.mockResolvedValue(resumed);
+      render(<QuizModal visible={true} lesson={{ ...capstone, resolvedQuizIds: ['q-1'] }} onClose={onClose} />);
+      answer('Minimum Viable Product');
+      setQuizMock({ isError: true, error: submitFailedError() });
+      await act(async () => { must(optionsOfCall(0)?.onError, 'onError')(new Error('x')); });
+      expect(mockRefreshLesson).toHaveBeenCalled();
+      expect(screen.getByText('What is product-market fit?')).toBeTruthy();
+      expect(screen.getByTestId('submit-error')).toBeTruthy();
+      expect(screen.getByText(SUBMIT_FAILED_MESSAGE)).toBeTruthy();
+    });
+
+    it('last reply not finalised: the lesson is refetched and the quiz resumes at the first unresolved question', async () => {
+      mockRefreshLesson.mockResolvedValue({ ...capstone, resolvedQuizIds: ['q-1'] });
+      render(<QuizModal visible={true} lesson={capstone} onClose={onClose} />);
+      answer('Option A');
+      fireEvent.press(screen.getByText('Next question'));
+      answer('Minimum Viable Product');
+      await act(async () => { must(optionsOfCall(1)?.onSuccess, 'onSuccess')(q1CorrectNotFinalized); });
+      expect(mockRefreshLesson).toHaveBeenCalled();
+      expect(screen.getByText('What does MVP stand for?')).toBeTruthy();
+      expect(screen.queryByTestId('result-heading')).toBeNull();
+    });
+
+    it('last reply LESSON_ALREADY_COMPLETED: the already-completed view shows', async () => {
+      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      answer('Option A');
+      await act(async () => { must(optionsOfCall(0)?.onError, 'onError')(alreadyCompletedError()); });
+      expect(screen.getByText('Already Completed')).toBeTruthy();
+      expect(mockRefreshLesson).not.toHaveBeenCalled();
+    });
+
+    it('an answer before the last is sent with no reply handlers, so its failure changes nothing', () => {
+      render(<QuizModal visible={true} lesson={capstone} onClose={onClose} />);
+      answer('Option A');
+      expect(optionsOfCall(0)).toBeUndefined();
+    });
+
+    it('never shows the question as submitting', () => {
+      setQuizMock({ isPending: true });
+      render(<QuizModal visible={true} lesson={capstone} onClose={onClose} />);
+      fireEvent.press(screen.getByText('Option A'));
+      expect(screen.getByText('Submit')).toBeTruthy();
+    });
+  });
+
+  describe('115e free user', () => {
+    it('shows nothing until the submit resolves', () => {
+      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      fireEvent.press(screen.getByText('Option A'));
+      fireEvent.press(screen.getByText('Submit'));
+      expect(screen.queryByTestId('result-heading')).toBeNull();
+      expect(screen.getByText('Submit')).toBeTruthy();
+    });
+
+    it('a user still loading counts as free', () => {
+      (useCurrentUser as jest.Mock).mockReturnValue({ data: undefined });
+      render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
+      fireEvent.press(screen.getByText('Option A'));
+      fireEvent.press(screen.getByText('Submit'));
+      expect(screen.queryByTestId('result-heading')).toBeNull();
+    });
+  });
+});

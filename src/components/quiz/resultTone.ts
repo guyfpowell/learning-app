@@ -28,3 +28,8 @@ export const TONE_LOOK = {
 export function toneRule(tone: ResultTone): string {
   return `${results[tone].tint}${RULE_ALPHA}`;
 }
+
+/** A finished answer's tone: green when it was right, red when it wasn't. */
+export function verdictTone(correct: boolean): ResultTone {
+  return correct ? 'correct' : 'incorrect';
+}

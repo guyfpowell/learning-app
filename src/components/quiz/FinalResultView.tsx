@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { QuizFeedback, QuizResult } from '@learning/shared';
+import type { AchievementKey, Lesson, QuizResult } from '@learning/shared';
 import { ACHIEVEMENTS_BY_KEY } from '@learning/shared';
 import { Text } from '@/components/ui/Text';
 import { TopicFeedback } from '@/components/ui/TopicFeedback';
@@ -12,20 +12,27 @@ import { AchievementUnlock } from '@/components/quiz/AchievementUnlock';
 import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
 import { QuizResultFrame, headerRowBox } from '@/components/quiz/QuizResultFrame';
 import { ResultButton } from '@/components/quiz/ResultButton';
-import { ResultHeading } from '@/components/quiz/ResultHeading';
+import { ResultHeading, useResultHeadline, type ResultHeadline } from '@/components/quiz/ResultHeading';
 import { CoachingCard, MilestoneCard, TrackAverageBadge, XpAward } from '@/components/quiz/QuizResultParts';
 import { nextLessonLabel } from '@/components/quiz/nextLessonLabel';
-import type { ResultTone } from '@/components/quiz/resultTone';
+import { verdictTone, type ResultTone } from '@/components/quiz/resultTone';
 import { useRefreshPaths, useTopicFeedback } from '@/hooks/useTrack';
 import { colors, font, radius, results, spacing } from '@/theme';
 
 /** The milestone card grows in from this scale when the lesson is finalised. */
 const MILESTONE_START_SCALE = 0.8;
 
+/** How the score badge and the milestone card spring into place. */
+const SPRING_IN: Animated.SpringAnimationConfig = { toValue: 1, friction: 5, tension: 80, useNativeDriver: true };
+
 interface FinalResultViewProps {
-  /** A submit that finalised the lesson. The view mounts fresh for each one, so its state starts clean. */
-  result: QuizResult;
+  /** A submit that finalised the lesson; none while the server's reply is awaited (a premium user's instant result, 115e). */
+  result: QuizResult | undefined;
+  /** This answer's correctness, which tones the view. */
+  correct: boolean;
   lessonId: string;
+  /** The lesson's rating as the screen has it, for the control until the reply carries the stored one. */
+  lessonRating: Lesson['rating'];
   /** The answer was a second try, which the average badge says. */
   retakeUsed: boolean;
   saved: boolean;
@@ -36,88 +43,106 @@ interface FinalResultViewProps {
   onNavigate: (nextLessonId: string | null | undefined) => void;
 }
 
+/**
+ * The finished view. The heading shows at once; the rest needs the server's reply to the last
+ * answer, so it is a child that mounts when the reply arrives and starts with clean state. The
+ * headline is held here, so the heading keeps its words when the reply lands and doesn't burst again.
+ */
+export function FinalResultView({ result, correct, lessonRating, ...rest }: FinalResultViewProps) {
+  const { lessonId, saved, onToggleSave, onLeave } = rest;
+  const headline = useResultHeadline(verdictTone(correct));
+  const [replyAwaited] = useState(result === undefined);
+  if (result) return <FinalResultBody result={result} headline={replyAwaited ? { ...headline, burst: false } : headline} {...rest} />;
+  const { tone } = headline;
+  return (
+    <QuizResultFrame
+      saved={saved}
+      onToggleSave={onToggleSave}
+      onClose={onLeave}
+      tone={tone}
+      action={<ResultButton testID="result-action-btn" tone={tone} label={nextLessonLabel(null)} icon="next" onPress={() => undefined} loading />}
+      rating={<LessonRatingControl lessonId={lessonId} rating={lessonRating ?? null} color={results[tone].fg} />}
+    >
+      <ResultHeading headline={headline} />
+    </QuizResultFrame>
+  );
+}
+
+/** The achievements a finished lesson earned, shown one screen at a time before the way on. */
+interface AchievementUnlocks {
+  /** Some are not yet seen or skipped, so they come before the way on. */
+  pending: boolean;
+  count: number;
+  /** The unlock screen that is up, if any. */
+  shown: AchievementKey | undefined;
+  start: () => void;
+  skip: () => void;
+  /** The next unlock screen, or back to the result after the last. */
+  next: () => void;
+}
+
+function useAchievementUnlocks(keys: readonly AchievementKey[]): AchievementUnlocks {
+  /** Which unlock screen is up (null: the result itself), and whether they have all been seen or skipped. */
+  const [step, setStep] = useState<number | null>(null);
+  const [done, setDone] = useState(false);
+  function next() {
+    if (step !== null && step + 1 < keys.length) {
+      setStep(step + 1);
+      return;
+    }
+    setStep(null);
+    setDone(true);
+  }
+  return {
+    pending: keys.length > 0 && !done,
+    count: keys.length,
+    shown: step === null ? undefined : keys[step],
+    start: () => setStep(0),
+    skip: () => setDone(true),
+    next,
+  };
+}
+
+type FinalResultBodyProps = Omit<FinalResultViewProps, 'result' | 'correct' | 'lessonRating'> & { result: QuizResult; headline: ResultHeadline };
+
 /** The finished lesson's verdict, with the XP chip, earned achievements, coaching and any end-of-topic feedback. */
-export function FinalResultView({ result, lessonId, retakeUsed, saved, onToggleSave, onLeave, onNavigate }: FinalResultViewProps) {
+function FinalResultBody({ result, headline, lessonId, retakeUsed, saved, onToggleSave, onLeave, onNavigate }: FinalResultBodyProps) {
   const { feedbacks, coaching, streak, milestone, trackAverage, previousAverage, xpAwarded, nextLessonId } = result;
+  const { tone } = headline;
   const xpEarned = xpAwarded != null && xpAwarded > 0;
-  const tone: ResultTone = result.correct ? 'correct' : 'incorrect';
-  const unlockedKeys = (result.achievementsUnlocked ?? []).filter(key => ACHIEVEMENTS_BY_KEY[key]);
+  const unlocks = useAchievementUnlocks((result.achievementsUnlocked ?? []).filter(key => ACHIEVEMENTS_BY_KEY[key]));
   const insets = useSafeAreaInsets();
   const topicFeedback = useTopicFeedback();
   const refreshPaths = useRefreshPaths();
   const [xpChipShown, setXpChipShown] = useState(xpEarned);
   // Where the XP chip sits on the screen, so the XP animation can fly back onto it.
   const [xpRect, setXpRect] = useState<ScreenRect | null>(null);
-  /** Which unlock screen is up (null: the result itself), and whether they have all been seen or skipped. */
-  const [unlockStep, setUnlockStep] = useState<number | null>(null);
-  const [unlocksDone, setUnlocksDone] = useState(false);
   const [topicFeedbackClosed, setTopicFeedbackClosed] = useState(false);
   const scoreAnim = useRef(new Animated.Value(0)).current;
   const milestoneAnim = useRef(new Animated.Value(MILESTONE_START_SCALE)).current;
 
   useEffect(() => {
-    Animated.spring(scoreAnim, { toValue: 1, friction: 5, tension: 80, useNativeDriver: true }).start();
+    Animated.spring(scoreAnim, SPRING_IN).start();
     if (!milestone) return;
-    Animated.spring(milestoneAnim, { toValue: 1, friction: 5, tension: 80, useNativeDriver: true }).start();
+    Animated.spring(milestoneAnim, SPRING_IN).start();
   }, [scoreAnim, milestoneAnim, milestone]);
 
   const topicEnd = topicFeedbackClosed ? null : result.topicEnd;
   // Where the page's tail (topic feedback and the button) comes in: after every block above it.
   const tailStep = feedbacks.length + (coaching ? 1 : 0);
-  const unlocksPending = unlockedKeys.length > 0 && !unlocksDone;
-  const shownUnlock = unlockStep === null ? undefined : unlockedKeys[unlockStep];
-
-  function continueUnlocks() {
-    if (unlockStep !== null && unlockStep + 1 < unlockedKeys.length) {
-      setUnlockStep(unlockStep + 1);
-      return;
-    }
-    setUnlockStep(null);
-    setUnlocksDone(true);
-  }
 
   const overlay = (
     <>
       {xpChipShown && xpEarned && (
         <XpChipOverlay visible xp={xpAwarded} anchor={headerRowBox(insets.top)} returnTo={xpRect} onDismiss={() => setXpChipShown(false)} />
       )}
-      {shownUnlock && (
+      {unlocks.shown && (
         // Over the result, which stays mounted underneath so coming back does not replay it.
         <View style={StyleSheet.absoluteFill}>
-          <AchievementUnlock key={shownUnlock} achievement={shownUnlock} onContinue={continueUnlocks} />
+          <AchievementUnlock key={unlocks.shown} achievement={unlocks.shown} onContinue={unlocks.next} />
         </View>
       )}
     </>
-  );
-
-  const action = unlocksPending ? (
-    // Earned achievements come before the way on: view them one by one, or skip them.
-    <View style={styles.actions}>
-      <Pressable testID="achievements-skip-btn" accessibilityRole="button" onPress={() => setUnlocksDone(true)} style={styles.smallTouch}>
-        <Text style={[styles.smallWord, { color: results[tone].tint }]}>Skip</Text>
-      </Pressable>
-      <View style={styles.mainButton}>
-        <ResultButton
-          testID="result-action-btn"
-          tone={tone}
-          label={unlockedKeys.length === 1 ? 'See achievement' : `See ${unlockedKeys.length} achievements`}
-          icon="next"
-          onPress={() => setUnlockStep(0)}
-        />
-      </View>
-    </View>
-  ) : (
-    <View style={styles.actions}>
-      {/* A small word beside the button, as Skip is beside "See achievement". With no next lesson the button itself goes Home. */}
-      {nextLessonId && (
-        <Pressable testID="result-home-btn" accessibilityRole="button" onPress={() => onNavigate(null)} style={styles.smallTouch}>
-          <Text style={[styles.smallWord, { color: results[tone].fg }]}>Home</Text>
-        </Pressable>
-      )}
-      <View style={styles.mainButton}>
-        <ResultButton testID="result-action-btn" tone={tone} label={nextLessonLabel(nextLessonId)} icon="next" onPress={() => onNavigate(nextLessonId)} />
-      </View>
-    </View>
   );
 
   return (
@@ -127,11 +152,11 @@ export function FinalResultView({ result, lessonId, retakeUsed, saved, onToggleS
       onClose={onLeave}
       overlay={overlay}
       tone={tone}
-      action={action}
+      action={<FinalResultActions tone={tone} unlocks={unlocks} nextLessonId={nextLessonId} onNavigate={onNavigate} />}
       /* 079f: the result's lesson carries the stored verdict, so no refetch. */
       rating={<LessonRatingControl lessonId={lessonId} rating={result.lesson.rating ?? null} color={results[tone].fg} />}
     >
-      <ResultHeading tone={tone}>
+      <ResultHeading headline={headline}>
         <View style={styles.statsRow}>
           {xpEarned && <XpAward xp={xpAwarded} tone={tone} onMeasure={setXpRect} />}
           <Animated.View style={{ transform: [{ scale: scoreAnim }] }}>
@@ -141,7 +166,7 @@ export function FinalResultView({ result, lessonId, retakeUsed, saved, onToggleS
       </ResultHeading>
       {milestone && <MilestoneCard milestone={milestone} streak={streak} scale={milestoneAnim} />}
       {/* The rest arrives block by block, after the heading (096, experiment 53). */}
-      {feedbacks.map((fb: QuizFeedback, i: number) => (
+      {feedbacks.map((fb, i) => (
         <Reveal key={fb.quizId} delay={revealDelay(i)}><QuizFeedbackCard fb={fb} tone={tone} showQuestion={feedbacks.length > 1} /></Reveal>
       ))}
       {coaching && <Reveal delay={revealDelay(feedbacks.length)}><CoachingCard coaching={coaching} /></Reveal>}
@@ -160,6 +185,46 @@ export function FinalResultView({ result, lessonId, retakeUsed, saved, onToggleS
         )}
       </Reveal>
     </QuizResultFrame>
+  );
+}
+
+/** The pinned actions: earned achievements first (view them one by one, or skip them), then the way on. */
+function FinalResultActions({ tone, unlocks, nextLessonId, onNavigate }: {
+  tone: ResultTone;
+  unlocks: AchievementUnlocks;
+  nextLessonId: string | null | undefined;
+  onNavigate: (nextLessonId: string | null | undefined) => void;
+}) {
+  if (unlocks.pending) {
+    return (
+      <View style={styles.actions}>
+        <Pressable testID="achievements-skip-btn" accessibilityRole="button" onPress={unlocks.skip} style={styles.smallTouch}>
+          <Text style={[styles.smallWord, { color: results[tone].tint }]}>Skip</Text>
+        </Pressable>
+        <View style={styles.mainButton}>
+          <ResultButton
+            testID="result-action-btn"
+            tone={tone}
+            label={unlocks.count === 1 ? 'See achievement' : `See ${unlocks.count} achievements`}
+            icon="next"
+            onPress={unlocks.start}
+          />
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View style={styles.actions}>
+      {/* A small word beside the button, as Skip is beside "See achievement". With no next lesson the button itself goes Home. */}
+      {nextLessonId && (
+        <Pressable testID="result-home-btn" accessibilityRole="button" onPress={() => onNavigate(null)} style={styles.smallTouch}>
+          <Text style={[styles.smallWord, { color: results[tone].fg }]}>Home</Text>
+        </Pressable>
+      )}
+      <View style={styles.mainButton}>
+        <ResultButton testID="result-action-btn" tone={tone} label={nextLessonLabel(nextLessonId)} icon="next" onPress={() => onNavigate(nextLessonId)} />
+      </View>
+    </View>
   );
 }
 

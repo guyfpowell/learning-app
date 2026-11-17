@@ -1,4 +1,4 @@
-import React, { type ReactNode } from 'react';
+import React, { type ComponentProps, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +29,9 @@ export function headerRowBox(topInset: number) {
 export function frameContentStyle(bottomInset: number) {
   return [quizFrameStyles.content, { paddingBottom: bottomInset + spacing.md }];
 }
+
+/** The header controls every result view passes through: ✕, and the bookmark. */
+export type ResultFrameControls = Pick<ComponentProps<typeof QuizResultFrame>, 'onClose' | 'saved' | 'onToggleSave'>;
 
 /**
  * The frame every non-question quiz view shares: an inset-aware header with the

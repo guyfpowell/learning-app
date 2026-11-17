@@ -11,14 +11,14 @@ export function resultButtonLook(tone: ResultTone) {
     : { face: colors.white, label: colors.textStrong, edge: results[tone].edge };
 }
 
-/** The verdict screen's one pinned button. */
-export function ResultButton({ tone, label, icon, onPress, testID, accessibilityLabel }: {
+/** The verdict screen's one pinned button. `loading` shows a spinner and can't be pressed. */
+export function ResultButton({ tone, label, icon, onPress, testID, loading }: {
   tone: ResultTone;
   label: string;
   icon: IconName;
   onPress: () => void;
   testID?: string;
-  accessibilityLabel?: string;
+  loading?: boolean;
 }) {
-  return <EdgeButton look={resultButtonLook(tone)} label={label} icon={icon} onPress={onPress} testID={testID} accessibilityLabel={accessibilityLabel} />;
+  return <EdgeButton look={resultButtonLook(tone)} label={label} icon={icon} onPress={onPress} testID={testID} loading={loading} />;
 }

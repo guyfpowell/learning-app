@@ -52,14 +52,32 @@ function useHeadingBurst(enabled: boolean, boxWidth: number, textWidth: number) 
   return { opacity, transformOrigin: 'left center', transform: [{ translateX: Animated.multiply(left, centred) }, { scale }] };
 }
 
+/** A result screen's headline: its tone, its words and whether it bursts in. */
+export interface ResultHeadline {
+  tone: ResultTone;
+  phrase: string;
+  burst: boolean;
+}
+
+/**
+ * The headline, picked once when a result screen appears, so a re-render never changes the word.
+ * A screen whose heading is drawn again (the finished view when the reply lands) holds it and
+ * passes it down, so the words stay and the burst doesn't play twice.
+ */
+export function useResultHeadline(tone: ResultTone): ResultHeadline {
+  const [headline] = useState(() => {
+    const correct = tone === 'correct';
+    return { tone, phrase: nextFeedbackPhrase(correct), burst: correct };
+  });
+  return headline;
+}
+
 /** The verdict screen's top: the verdict mark, the headline, then whatever sits under it (XP, average, a nudge). */
-export function ResultHeading({ tone, children }: { tone: ResultTone; children?: React.ReactNode }) {
-  const correct = tone === 'correct';
-  // The phrase is picked once when a result screen appears, so a re-render never changes the word.
-  const [phrase] = useState(() => nextFeedbackPhrase(correct));
+export function ResultHeading({ headline, children }: { headline: ResultHeadline; children?: React.ReactNode }) {
+  const { tone, phrase } = headline;
   const [boxWidth, setBoxWidth] = useState(0);
   const [textWidth, setTextWidth] = useState(0);
-  const burst = useHeadingBurst(correct, boxWidth, textWidth);
+  const burst = useHeadingBurst(headline.burst, boxWidth, textWidth);
   return (
     <View testID="result-headline" style={styles.verdictTop} onLayout={e => setBoxWidth(e.nativeEvent.layout.width)}>
       <VerdictMark tone={tone} />

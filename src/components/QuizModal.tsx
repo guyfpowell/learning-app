@@ -1,29 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { LayoutAnimation, Modal, StyleSheet, View } from 'react-native';
+import { LayoutAnimation, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
-import type { Lesson, QuizFeedback, QuizResult } from '@learning/shared';
+import type { Lesson, QuizResult } from '@learning/shared';
 import { ERROR_CODES } from '@learning/shared';
-import { Text } from '@/components/ui/Text';
 import { useSubmitQuiz } from '@/hooks/useQuiz';
 import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { usePreloadLesson } from '@/hooks/usePreloadLesson';
+import { useCurrentUser } from '@/hooks/useEmailVerification';
+import { useRefreshLesson } from '@/hooks/useRefreshLesson';
 import { errorCode, extractError } from '@/lib/errors';
 import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
-import { EdgeButton } from '@/components/ui/EdgeButton';
-import { Icon } from '@/components/ui/Icon';
-import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
-import { Reveal, revealDelay } from '@/components/ui/Reveal';
-import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
-import { QuizResultFrame } from '@/components/quiz/QuizResultFrame';
-import { HintSection } from '@/components/quiz/ResultSections';
-import { ResultButton } from '@/components/quiz/ResultButton';
-import { ResultHeading } from '@/components/quiz/ResultHeading';
+import type { ResultFrameControls } from '@/components/quiz/QuizResultFrame';
+import { RetryResultView } from '@/components/quiz/RetryResultView';
+import { FeedbackResultView } from '@/components/quiz/FeedbackResultView';
 import { FinalResultView } from '@/components/quiz/FinalResultView';
+import { AlreadyCompletedView } from '@/components/quiz/AlreadyCompletedView';
 import { QuizQuestionView } from '@/components/quiz/QuizQuestionView';
-import { nextLessonLabel } from '@/components/quiz/nextLessonLabel';
-import type { ResultTone } from '@/components/quiz/resultTone';
-import { colors, font, fontSize, press, results, spacing } from '@/theme';
+import { answerViewOf, replyViewOf, type AnswerView } from '@/components/quiz/answerView';
 
 interface QuizModalProps {
   visible: boolean;
@@ -55,6 +49,11 @@ function nextLessonToPreload(result: QuizResult | undefined, showingCompleted: b
   return showingCompleted ? lesson.nextLessonId : null;
 }
 
+/** The server already counts the lesson as finished, so the answer wasn't needed. */
+function isLessonAlreadyCompleted(error: unknown): boolean {
+  return errorCode(error) === ERROR_CODES.LESSON_ALREADY_COMPLETED;
+}
+
 function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps) {
   const [currentQuizIndex, setCurrentQuizIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | undefined>(undefined);
@@ -64,24 +63,36 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   const [isSaved, setIsSaved] = useState(false);
   const router = useRouter();
   const submit = useSubmitQuiz(lesson.id);
+  const refreshLesson = useRefreshLesson(lesson.id);
+  const { data: user } = useCurrentUser();
+  // A premium user's answer shows its result at once (115e); a free user's waits for `submit.data`.
+  const isPremium = user?.isPremium === true;
+  const [instant, setInstant] = useState<AnswerView | null>(null);
   const saveLesson = useSaveLesson(lesson.id);
   const unsaveLesson = useUnsaveLesson(lesson.id);
   // "Next lesson" is on the finished result, or on the already-completed view; load it now (premium only).
   usePreloadLesson(nextLessonToPreload(submit.data, visible && alreadyCompleted, lesson));
   const quizzes = lesson.quizzes;
 
+  /** Start the quiz from `source`, resuming at its first unresolved question. */
+  function resumeFrom(source: Lesson) {
+    const sourceQuizzes = source.quizzes;
+    const resolved = new Set<string>(source.resolvedQuizIds ?? []);
+    setResolvedIds(resolved);
+    const finished = (!!source.quizCompleted && !source.lessonRetakeInProgress) || sourceQuizzes.every(q => resolved.has(q.id));
+    setAlreadyCompleted(sourceQuizzes.length > 0 && finished);
+    const startIdx = sourceQuizzes.findIndex(q => !resolved.has(q.id));
+    setCurrentQuizIndex(startIdx === -1 ? 0 : startIdx);
+    setSelectedAnswer(undefined);
+    setWrongAnswer(undefined);
+    setInstant(null);
+  }
+
   // Reset state each time the modal opens; resume from first unresolved question. The finished
   // result's own state starts clean on its own: `submit.reset()` unmounts it.
   useEffect(() => {
     if (!visible) return;
-    const resolved = new Set<string>(lesson.resolvedQuizIds ?? []);
-    setResolvedIds(resolved);
-    const allResolved = quizzes.length > 0 && quizzes.every(q => resolved.has(q.id));
-    setAlreadyCompleted(quizzes.length > 0 && ((!!lesson.quizCompleted && !lesson.lessonRetakeInProgress) || allResolved));
-    const startIdx = quizzes.findIndex(q => !resolved.has(q.id));
-    setCurrentQuizIndex(startIdx === -1 ? 0 : startIdx);
-    setSelectedAnswer(undefined);
-    setWrongAnswer(undefined);
+    resumeFrom(lesson);
     setIsSaved(!!lesson.isSaved);
     submit.reset();
   }, [visible, lesson.id, lesson.isSaved]);
@@ -120,33 +131,51 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
     }
     setSelectedAnswer(undefined);
     setWrongAnswer(undefined);
+    setInstant(null);
     submit.reset();
   }
 
-  // An already-answered question advances instead of erroring; anything else shows `submit-error`.
-  function handleQuizError(error: unknown) {
-    if (errorCode(error) === ERROR_CODES.LESSON_ALREADY_COMPLETED) {
-      advanceToNextUnresolved(current?.id);
-    }
+  /** The last answer did not finish the lesson: ask the server what it has, and resume the quiz from that. */
+  async function resumeFromServer() {
+    resumeFrom((await refreshLesson()) ?? lesson);
+  }
+
+  /**
+   * A refused answer. An already-answered question advances (to "Already Completed" when none is
+   * left). Any other failure: `resume` (a premium user's last answer) resumes from what the server
+   * has; otherwise the question view shows `submit-error`.
+   */
+  function handleQuizError(error: unknown, resume: boolean) {
+    if (isLessonAlreadyCompleted(error)) advanceToNextUnresolved(current?.id);
+    else if (resume) void resumeFromServer();
+  }
+
+  function handleLastReply(reply: QuizResult) {
+    if (!reply.lessonFinalized) void resumeFromServer();
   }
 
   function handleSubmit() {
     if (!current || !selectedAnswer) return;
-    const answers: Record<string, string> = { [current.id]: selectedAnswer };
-    submit.mutate(
-      {
-        lessonId: lesson.id,
-        answers,
-        ...(wrongAnswer !== undefined ? { isRetake: true } : {}),
-        ...(completionTime ? { completionTime: completionTime() } : {}),
-      },
-      { onError: handleQuizError }
-    );
+    const input = {
+      lessonId: lesson.id,
+      answers: { [current.id]: selectedAnswer },
+      ...(wrongAnswer !== undefined ? { isRetake: true } : {}),
+      ...(completionTime ? { completionTime: completionTime() } : {}),
+    };
+    if (!isPremium) {
+      submit.mutate(input, { onError: error => handleQuizError(error, false) });
+      return;
+    }
+    // The result shows now; the answer is sent in the background, and only the last one's reply is acted on.
+    const view = answerViewOf({ quiz: current, quizzes, answer: selectedAnswer, retake: wrongAnswer !== undefined, resolvedIds });
+    setInstant(view);
+    submit.mutate(input, view.kind === 'final' ? { onSuccess: handleLastReply, onError: error => handleQuizError(error, true) } : undefined);
   }
 
   function handleTryAgain() {
     setWrongAnswer(selectedAnswer);
     setSelectedAnswer(undefined);
+    setInstant(null);
     submit.reset();
   }
 
@@ -162,85 +191,35 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
     else router.replace(HOME_ROUTE);
   }
 
-  const frame = { onClose, saved: isSaved, onToggleSave: handleToggleSave };
+  const frame: ResultFrameControls = { onClose, saved: isSaved, onToggleSave: handleToggleSave };
+  const view = isPremium ? instant : replyViewOf(submit.data, current?.id);
 
-  // ─── Wrong first attempt — retry offer ("Try again") ─────────────────────────
-  if (submit.data && !submit.data.correct && submit.data.retakeAvailable) {
-    return (
-      <QuizResultFrame
-        {...frame}
-        tone="retry"
-        closable={false}
-        action={<ResultButton testID="result-action-btn" tone="retry" label="Try again" icon="retake" onPress={handleTryAgain} />}
-      >
-        <ResultHeading tone="retry">
-          <Text style={[styles.nudge, { color: results.retry.tint }]}>Have another go. Here's a nudge.</Text>
-        </ResultHeading>
-        {lesson.keyTakeaway && <Reveal delay={revealDelay(0)}><HintSection tone="retry" text={lesson.keyTakeaway} /></Reveal>}
-      </QuizResultFrame>
-    );
+  switch (view?.kind) {
+    case 'retry':
+      return <RetryResultView frame={frame} keyTakeaway={lesson.keyTakeaway} onTryAgain={handleTryAgain} />;
+    case 'feedback':
+      return <FeedbackResultView frame={frame} fb={view.fb} onNext={() => advanceToNextUnresolved(current?.id)} />;
+    case 'final':
+      // The heading at once; the rest when the server's reply finalises the lesson.
+      return (
+        <FinalResultView
+          result={submit.data?.lessonFinalized ? submit.data : undefined}
+          correct={view.correct}
+          lessonId={lesson.id}
+          lessonRating={lesson.rating}
+          retakeUsed={wrongAnswer !== undefined}
+          saved={isSaved}
+          onToggleSave={handleToggleSave}
+          onLeave={handleLeaveLesson}
+          onNavigate={handleNavigateAfterQuiz}
+        />
+      );
   }
 
-  // ─── Per-question feedback — mid-capstone, lesson not yet finalized ───────────
-  if (submit.data && !submit.data.lessonFinalized) {
-    const fb = submit.data.feedbacks.find((f: QuizFeedback) => f.quizId === current?.id) ?? submit.data.feedbacks[0];
-    const tone: ResultTone = fb?.isCorrect === true ? 'correct' : 'incorrect';
-    return (
-      <QuizResultFrame
-        {...frame}
-        tone={tone}
-        action={<ResultButton testID="result-action-btn" tone={tone} label="Next question" icon="next" onPress={() => advanceToNextUnresolved(current?.id)} />}
-      >
-        <ResultHeading tone={tone} />
-        {fb && <Reveal delay={revealDelay(0)}><QuizFeedbackCard fb={fb} tone={tone} /></Reveal>}
-      </QuizResultFrame>
-    );
-  }
-
-  // ─── Terminal / results view — lesson finalized ───────────────────────────────
-  if (submit.data) {
-    return (
-      <FinalResultView
-        result={submit.data}
-        lessonId={lesson.id}
-        retakeUsed={wrongAnswer !== undefined}
-        saved={isSaved}
-        onToggleSave={handleToggleSave}
-        onLeave={handleLeaveLesson}
-        onNavigate={handleNavigateAfterQuiz}
-      />
-    );
-  }
-
-  // ─── Already completed — no unresolved question left, and no fresh result to show ──
   if (alreadyCompleted) {
-    return (
-      <QuizResultFrame
-        {...frame}
-        onClose={handleLeaveLesson}
-        rating={lesson.quizCompleted ? <LessonRatingControl lessonId={lesson.id} rating={lesson.rating ?? null} /> : undefined}
-        action={
-          <EdgeButton
-            testID="result-action-btn"
-            look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
-            label={nextLessonLabel(lesson.nextLessonId)}
-            icon="next"
-            onPress={() => handleNavigateAfterQuiz(lesson.nextLessonId)}
-          />
-        }
-      >
-        <View style={styles.completedBlock}>
-          <View style={styles.completedTile}>
-            <Icon name="check" size={30} color={colors.textStrong} strokeWidth={2.6} />
-          </View>
-          <Text style={styles.resultHeading}>Already Completed</Text>
-          <Text style={styles.completedBody}>You've already finished this lesson's quiz.</Text>
-        </View>
-      </QuizResultFrame>
-    );
+    return <AlreadyCompletedView frame={{ ...frame, onClose: handleLeaveLesson }} lesson={lesson} onNavigate={handleNavigateAfterQuiz} />;
   }
 
-  // ─── Quiz view ───────────────────────────────────────────────────────────────
   return (
     <QuizQuestionView
       quizzes={quizzes}
@@ -248,7 +227,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
       selectedAnswer={selectedAnswer}
       wrongAnswer={wrongAnswer}
       submitError={submit.isError ? extractError(submit.error) : null}
-      submitting={submit.isPending}
+      submitting={!isPremium && submit.isPending}
       onToggleOption={handleToggleOption}
       onChangeAnswer={setSelectedAnswer}
       onSubmit={handleSubmit}
@@ -256,26 +235,3 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
     />
   );
 }
-
-const styles = StyleSheet.create({
-  nudge:    { fontFamily: font.medium, fontSize: fontSize.md, marginTop: spacing.xs },
-  // The message sits centred in the space above the pinned button.
-  completedBlock: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: spacing.lg, paddingBottom: 90 },
-  completedTile:  { width: 64, height: 64, borderRadius: 22, backgroundColor: colors.surfaceSunken, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
-  completedBody: {
-    fontFamily: font.regular,
-    fontSize:   17,
-    lineHeight: 17 * 1.45,
-    color:      colors.textBody,
-    textAlign:  'center',
-    maxWidth:   280,
-  },
-  resultHeading: {
-    fontFamily:    font.black,
-    fontSize:      32,
-    lineHeight:    32 * 1.05,
-    letterSpacing: -0.035 * 32,
-    color:         colors.textStrong,
-    textAlign:     'center',
-  },
-});
