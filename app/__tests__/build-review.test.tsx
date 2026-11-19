@@ -94,6 +94,8 @@ jest.mock('@learning/shared', () => ({
 import BuildReviewScreen from '../build-review';
 import { ERROR_CODES, ERROR_MESSAGES, type RefinedPlan } from '@learning/shared';
 import { BUILD_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
+import { makeTrackPlan } from '@/test-utils/paths';
+import { makeRewards } from '@/test-utils/achievements';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 
 function setUser(state: 'premium' | 'unspent' | 'spent', capstones = 0) {
@@ -111,7 +113,7 @@ beforeEach(() => setUser('unspent'));
 
 /** 076f-unfuck — the user names the path; nothing arrives to prefill it. */
 describe('the path name is always typed by the user', () => {
-  beforeEach(() => mockCreate.mockReset().mockResolvedValue({ id: 'plan-1' }));
+  beforeEach(() => mockCreate.mockReset().mockResolvedValue({ plan: makeTrackPlan({ id: 'plan-1' }), rewards: makeRewards() }));
 
   it('starts blank with the placeholder, capped at 27, description shown beneath', () => {
     render(<BuildReviewScreen />);
@@ -171,7 +173,7 @@ describe('the allowance at save (079a)', () => {
     Object.assign(new Error(message), { response: { data: { code, message } } });
 
   beforeEach(() => {
-    mockCreate.mockReset().mockResolvedValue({ id: 'plan-1' });
+    mockCreate.mockReset().mockResolvedValue({ plan: makeTrackPlan({ id: 'plan-1' }), rewards: makeRewards() });
     mockPush.mockReset();
     mockReplace.mockReset();
   });
@@ -267,7 +269,7 @@ describe('the follow-up box', () => {
     mockUpdateResult.mockReset();
     mockClearDraft.mockReset();
     mockReplace.mockReset();
-    mockCreate.mockReset().mockResolvedValue({ id: 'plan-1' });
+    mockCreate.mockReset().mockResolvedValue({ plan: makeTrackPlan({ id: 'plan-1' }), rewards: makeRewards() });
   });
 
   async function send(words: string) {

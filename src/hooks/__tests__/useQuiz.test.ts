@@ -30,9 +30,8 @@ const mockResult: QuizResult = {
   trackAverage: null,
   previousAverage: null,
   lessonFinalized: false,
-  xpAwarded: null,
   topicEnd: null,
-  achievementsUnlocked: null,
+  rewards: null,
 };
 
 describe('useSubmitQuiz', () => {

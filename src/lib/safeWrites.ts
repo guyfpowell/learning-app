@@ -1,8 +1,8 @@
 import type { QueryClient } from '@tanstack/react-query';
 import {
-  LESSON_RATINGS, NOTIFICATION_TOGGLE_KEYS, isLessonPhase,
-  type ActivePathRef, type Lesson, type LessonPhase, type LessonRating, type NotificationPreference,
-  type QuizResult, type RegisterPushTokenRequest, type TrackBuild, type SubmitQuizRequest, type UpdateNotificationPreferencesRequest,
+  ACHIEVEMENTS_BY_KEY, LESSON_RATINGS, NOTIFICATION_TOGGLE_KEYS, isLessonPhase,
+  isAchievementKey, type AchievementKey, type ActivePathRef, type Lesson, type LessonPhase, type LessonRating, type NotificationPreference,
+  type QuizResult, type RegisterPushTokenRequest, type SaveLessonResponse, type TrackBuild, type SubmitQuizRequest, type UpdateNotificationPreferencesRequest,
   type UpdateProfileRequest,
 } from '@learning/shared';
 import { trackService } from '@/services/track.service';
@@ -11,19 +11,22 @@ import { lessonService } from '@/services/lesson.service';
 import { notificationService } from '@/services/notification.service';
 import { userService } from '@/services/user.service';
 import { trackBuilderService } from '@/services/trackBuilder.service';
+import { achievementService } from '@/services/achievement.service';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import {
-  NOTIFICATION_PREFERENCES_QUERY_KEY, PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, SAVED_LESSONS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, lessonQueryKey,
+  ALTITUDE_QUERY_KEY, NOTIFICATION_PREFERENCES_QUERY_KEY, PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, SAVED_LESSONS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, lessonQueryKey,
 } from '@/lib/queryKeys';
 import {
   PATHS_WRITE_SCOPE, PREFERENCES_WRITE_SCOPE, PROFILE_WRITE_SCOPE, PUSH_TOKEN_MUTATION_KEY, PUSH_TOKEN_WRITE_SCOPE, SAVE_LESSON_MUTATION_KEY,
   SAVE_POSITION_MUTATION_KEY, SET_ACTIVE_PATH_MUTATION_KEY, SET_RATING_MUTATION_KEY, SUBMIT_QUIZ_MUTATION_KEY, UNSAVE_LESSON_MUTATION_KEY,
-  START_TRACK_BUILD_MUTATION_KEY, UPDATE_PREFERENCES_MUTATION_KEY, UPDATE_PROFILE_MUTATION_KEY,
+  START_TRACK_BUILD_MUTATION_KEY, MARK_ACHIEVEMENT_SEEN_MUTATION_KEY, UPDATE_PREFERENCES_MUTATION_KEY, UPDATE_PROFILE_MUTATION_KEY,
 } from '@/lib/mutationKeys';
 import { SAFE_WRITE_OPTIONS, assertWriteNotDiscarded } from '@/lib/offlineWrites';
 import { newIdempotencyKey } from '@/lib/idempotencyKey';
 import { isOptionalBoolean, isOptionalNumber, isOptionalString, isRecord, isStringRecord } from '@/lib/guards';
 import { scopeOption, settleWhenLast, type OptimisticWrite, type SafeWrite, type SafeWriteVariables, type WriteOutcome } from '@/lib/writeSettle';
 import { invalidatePathQueries } from '@/lib/pathInvalidation';
+import { enqueueRewardsOf } from '@/lib/rewards';
 
 /**
  * Every write that uses the patchy-signal mechanism (ADR-019 Decision 6, ADR-021 Decisions 4 and 5):
@@ -108,11 +111,11 @@ function submitQuizInputOf(input: unknown): SubmitQuizInput {
 export const SUBMIT_QUIZ_WRITE: SafeWrite<QuizResult> = {
   mutationKey: SUBMIT_QUIZ_MUTATION_KEY,
   mutationFn: keyedRequest(submitQuizInputOf, ({ lessonId, answers, ...options }, key) => quizService.submitQuiz(lessonId, answers, options, key)),
-  // A finalised lesson moves the paths, progress, the lesson and the track tree (its progress marks).
+  // A finalised lesson moves the paths, progress, the lesson, the track tree (its progress marks) and the altitude it paid.
   settle: async (client, outcome) => {
     if (outcome.error !== null || !isRecord(outcome.data) || outcome.data.lessonFinalized !== true) return;
     const { lessonId } = lessonInputOf(variablesOf(outcome.variables).input);
-    await invalidateOnSuccess(client, outcome, [PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, lessonQueryKey(lessonId), TRACK_CONTENTS_QUERY_KEY]);
+    await invalidateOnSuccess(client, outcome, [PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, lessonQueryKey(lessonId), TRACK_CONTENTS_QUERY_KEY, ALTITUDE_QUERY_KEY]);
   },
 };
 
@@ -160,10 +163,15 @@ export const SET_RATING_WRITE: SafeWrite<void> = {
 
 // ─── Save and unsave ─────────────────────────────────────────────────────────
 
-export const SAVE_LESSON_WRITE: SafeWrite<{ saved: true }> = {
+export const SAVE_LESSON_WRITE: SafeWrite<SaveLessonResponse> = {
   mutationKey: SAVE_LESSON_MUTATION_KEY,
   mutationFn: keyedRequest(lessonInputOf, ({ lessonId }, key) => lessonService.saveLesson(lessonId, key)),
-  settle: (client, outcome) => invalidateOnSuccess(client, outcome, [SAVED_LESSONS_QUERY_KEY]),
+  // Saving can unlock Pocketed: its rewards go to the celebration queue, for a write restored after a restart too.
+  settle: async (client, outcome) => {
+    if (outcome.error !== null) return;
+    enqueueRewardsOf(outcome.data);
+    await invalidateOnSuccess(client, outcome, [SAVED_LESSONS_QUERY_KEY]);
+  },
 };
 
 export const UNSAVE_LESSON_WRITE: SafeWrite<void> = {
@@ -248,6 +256,35 @@ export const START_TRACK_BUILD_WRITE: SafeWrite<TrackBuild> = {
   mutationFn: keyedRequest(startTrackBuildInputOf, ({ statement }, buildId) => trackBuilderService.startBuild(statement, buildId)),
 };
 
+// ─── Marking an unlock seen ──────────────────────────────────────────────────
+
+export interface MarkAchievementSeenInput {
+  key: AchievementKey;
+}
+
+function markSeenInputOf(input: unknown): MarkAchievementSeenInput {
+  if (isRecord(input) && typeof input.key === 'string' && isAchievementKey(input.key)) return { key: input.key };
+  throw new Error('A saved "seen" write names no achievement');
+}
+
+/**
+ * Sent when a celebration is dismissed. The queue has already stopped showing the unlock, so a failure
+ * (after the retries) is only logged: it is never shown again this session (ADR-022 Decision 5).
+ */
+export const MARK_ACHIEVEMENT_SEEN_WRITE: SafeWrite<void> = {
+  mutationKey: MARK_ACHIEVEMENT_SEEN_MUTATION_KEY,
+  mutationFn: keyedRequest(markSeenInputOf, ({ key }, idempotencyKey) => achievementService.markSeen(key, idempotencyKey)),
+  settle: async (client, outcome) => {
+    const { key } = markSeenInputOf(variablesOf(outcome.variables).input);
+    if (outcome.error !== null) {
+      warnBreadcrumb(BREADCRUMB_CATEGORY.ui, 'Marking an achievement seen failed', outcome.error, { key });
+      return;
+    }
+    // A landmark seen is no longer the altitude's `newLandmark`, so the badge slot moves on to the next one.
+    if (ACHIEVEMENTS_BY_KEY[key].kind === 'landmark') await client.invalidateQueries({ queryKey: ALTITUDE_QUERY_KEY });
+  },
+};
+
 export const SAFE_WRITES: readonly SafeWrite[] = [
   SET_ACTIVE_PATH_WRITE,
   SUBMIT_QUIZ_WRITE,
@@ -259,6 +296,7 @@ export const SAFE_WRITES: readonly SafeWrite[] = [
   UPDATE_PROFILE_WRITE,
   PUSH_TOKEN_WRITE,
   START_TRACK_BUILD_WRITE,
+  MARK_ACHIEVEMENT_SEEN_WRITE,
 ];
 
 /** Gives a write restored after a restart its request, its retry rule and its settle step. */

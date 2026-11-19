@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import type { EnrollTrackRequest, ActivePathRef, SkipRequest, SkipScope, SkillWithAccess, TopicFeedbackRequest, TrackContents, UserPath, UserPathKind } from '@learning/shared';
+import type { EnrollResponse, EnrollTrackRequest, ActivePathRef, SkipRequest, SkipScope, SkillWithAccess, TopicFeedbackRequest, TrackContents, UserPath, UserPathKind } from '@learning/shared';
 
 /** One skip: which path, how much of it, and the reason the person picked (079c). */
 export type SkipCall = ActivePathRef & SkipRequest & { scope: SkipScope };
@@ -21,9 +21,11 @@ export const trackService = {
     return data ?? [];
   },
 
-  async enroll(skillId: string): Promise<void> {
+  /** The enrolment and what it earned, side by side (ADR-022 Amendment 2). */
+  async enroll(skillId: string): Promise<EnrollResponse> {
     const body: EnrollTrackRequest = { skillId };
-    await api.post('/enrollments', body);
+    const { data } = await api.post<EnrollResponse>('/enrollments', body);
+    return data;
   },
 
   /** Makes a path of either kind the active one. */

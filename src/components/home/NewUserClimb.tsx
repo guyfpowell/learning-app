@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
+import { ACHIEVEMENTS_BY_KEY } from '@learning/shared';
 import { Text } from '@/components/ui/Text';
 import { EdgeButton } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
@@ -21,12 +22,10 @@ const LEVEL_NAMES = { beginner: 'Beginner', intermediate: 'Intermediate', advanc
 const TRAIL_PATH = 'M10 140 C70 140 80 104 120 100 S180 70 210 62 S280 30 335 12';
 const TRAIL_STOPS = [{ x: 10, y: 140, r: 9 }, { x: 120, y: 100, r: 7 }, { x: 210, y: 62, r: 7 }, { x: 335, y: 12, r: 7 }];
 
-/** What a person earns first: three badges and what each is for. */
+/** What a person earns first: a medal and what it is for. Its name is the catalogue's. */
 const FIRST_BADGES = [
-  { key: 'first-light', name: 'First Light', what: 'Your first lesson' },
-  { key: 'hat-trick', name: 'Hat-Trick', what: 'Three right first time' },
-  { key: 'foothills', name: 'Foothills', what: 'Your first XP level' },
-];
+  { key: 'hat-trick', what: 'Three right first time' },
+] as const;
 
 const ON_PETROL = 'rgba(255,255,255,0.82)';
 
@@ -116,8 +115,8 @@ export function NewUserClimb() {
         <View style={styles.badgeGrid}>
           {FIRST_BADGES.map(badge => (
             <View key={badge.key} style={styles.badge}>
-              <Medal achievement={badge.key} size={58} />
-              <Text style={styles.badgeName}>{badge.name}</Text>
+              <Medal definition={ACHIEVEMENTS_BY_KEY[badge.key]} size={58} />
+              <Text style={styles.badgeName}>{ACHIEVEMENTS_BY_KEY[badge.key].name}</Text>
               <Text style={styles.badgeWhat}>{badge.what}</Text>
             </View>
           ))}

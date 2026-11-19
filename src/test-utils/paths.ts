@@ -1,4 +1,4 @@
-import type { CustomPath, PathNextLesson, TrackPath } from '@learning/shared';
+import type { CustomPath, PathNextLesson, TrackPath, TrackPlan, UserTrackEnrollment } from '@learning/shared';
 import { FIXTURE_TIMESTAMP as TIMESTAMP, lessonBase } from './lessons';
 
 /** A complete next lesson for a path; `overrides` replace any field. */
@@ -68,4 +68,17 @@ export function makeCustomPath(overrides: Partial<CustomPath> = {}): CustomPath 
     isFinished:       false,
     ...overrides,
   };
+}
+
+/** A complete custom-path record as `POST /track-plans` returns it; `overrides` replace any field. */
+export function makeTrackPlan(overrides: Partial<TrackPlan> = {}): TrackPlan {
+  return {
+    id: 'plan-1', name: 'My path', description: null, status: 'active',
+    planJson: { topics: [] }, createdAt: TIMESTAMP, updatedAt: TIMESTAMP, ...overrides,
+  };
+}
+
+/** A complete enrolment record as `POST /enrollments` returns it; `overrides` replace any field. */
+export function makeEnrollment(overrides: Partial<UserTrackEnrollment> = {}): UserTrackEnrollment {
+  return { id: 'enrol-1', userId: 'user-1', skillId: 'skill-1', enrolledAt: TIMESTAMP, completedAt: null, ...overrides };
 }

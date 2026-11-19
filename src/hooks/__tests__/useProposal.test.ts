@@ -3,6 +3,8 @@ import { onlineManager } from '@tanstack/react-query';
 import { NoSignalError } from '@/lib/offlineWrites';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { makeCustomPath } from '@/test-utils/paths';
+import { makeRewardUnlock, makeRewards } from '@/test-utils/achievements';
+import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
 import { useDecideProposal, useProposal } from '../useProposal';
 import { proposalService } from '@/services/proposal.service';
 import { ERROR_CODES } from '@learning/shared';
@@ -34,7 +36,7 @@ describe('useDecideProposal (079g7)', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('refetches the paths and that plan\'s proposal after a decision', async () => {
-    mockService.decide.mockResolvedValue(makeCustomPath({ id: 'plan-1' }));
+    mockService.decide.mockResolvedValue({ path: makeCustomPath({ id: 'plan-1' }), rewards: makeRewards() });
     const client = createTestQueryClient();
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     const { result } = renderHook(() => useDecideProposal('plan-1'), { wrapper: queryWrapper(client) });
@@ -45,6 +47,18 @@ describe('useDecideProposal (079g7)', () => {
     expect(mockService.decide).toHaveBeenCalledWith({ proposalId: 'prop-1', stage: 'change', decision: 'accept' });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: PATHS_QUERY_KEY });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: proposalQueryKey('plan-1') });
+  });
+
+  it('queues the rewards the decision carries', async () => {
+    useCelebrationQueueStore.getState().clear();
+    const yourCall = makeRewardUnlock('your-call');
+    mockService.decide.mockResolvedValue({ path: makeCustomPath({ id: 'plan-1' }), rewards: makeRewards({ unlocked: [yourCall] }) });
+    const { result } = renderHook(() => useDecideProposal('plan-1'), { wrapper: queryWrapper() });
+
+    act(() => result.current.mutate({ proposalId: 'prop-1', stage: 'change', decision: 'accept' }));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(useCelebrationQueueStore.getState().queue).toEqual([yourCall]);
   });
 
   it('refetches when the proposal has moved on (409), and not on another failure', async () => {

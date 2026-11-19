@@ -1,38 +1,37 @@
 import React from 'react';
 import { render, screen, within } from '@testing-library/react-native';
-import { DAY_MS, type AchievementsResponse, type XpResponse } from '@learning/shared';
-import { useXp } from '@/hooks/useXp';
-import { useAchievements } from '@/hooks/useAchievements';
+import { ALTITUDE_LOAD_ERROR, landmarkInCopy, newLandmarkCopy, type AltitudeResponse } from '@learning/shared';
+import { useAltitude } from '@/hooks/useAltitude';
 import { STREAK_COPY } from '@/lib/momentum';
 import { MomentumCard } from '../MomentumCard';
 
-jest.mock('@/hooks/useXp', () => ({ useXp: jest.fn() }));
-jest.mock('@/hooks/useAchievements', () => ({ useAchievements: jest.fn() }));
-
-const xp: XpResponse = {
-  totalXp: 1170,
-  nextMilestone: null,
-  tier: { key: 'base-camp', name: 'Base Camp', level: 1, label: 'Base Camp I', floor: 1000, ceiling: 1600 },
-};
-
-const achievements = (unlockedDaysAgo: number | null): AchievementsResponse => ({
-  unlocked: unlockedDaysAgo === null ? [] : [{
-    key: 'clean-sheet', name: 'Clean Sheet', description: 'Got 10 quizzes right first time', axis: 'accuracy',
-    unlockedAt: new Date(Date.now() - unlockedDaysAgo * DAY_MS).toISOString(),
-  }],
-  locked: [{ key: 'warm-up', name: 'Warm Up', description: 'Completed 3 lessons', axis: 'session', ladder: 'session-volume' }],
-  totalUnlocked: unlockedDaysAgo === null ? 0 : 1,
-  totalAvailable: 2,
+jest.mock('@/hooks/useAltitude', () => ({ useAltitude: jest.fn() }));
+// A stub that shows whether the medal was drawn locked; Medal.test.tsx covers the drawing.
+jest.mock('@/components/ui/Medal', () => {
+  const { View } = jest.requireActual('react-native');
+  return {
+    Medal: ({ definition, locked }: { definition: { key: string }; locked?: boolean }) => (
+      <View testID={`medal-${definition.key}`} accessibilityValue={{ text: locked ? 'locked' : 'coloured' }} />
+    ),
+  };
 });
 
-function setData(x: XpResponse | undefined, a: AchievementsResponse | undefined) {
-  (useXp as jest.Mock).mockReturnValue({ data: x });
-  (useAchievements as jest.Mock).mockReturnValue({ data: a });
+const altitude: AltitudeResponse = {
+  metres: 1_120,
+  level: 10,
+  nextLevel: { level: 11, startsAt: 1_270, metresToGo: 150 },
+  lessonsToNextLevel: 5,
+  nextLandmark: { key: 'ben-nevis', name: 'Ben Nevis', height: 1_345, metresToGo: 225 },
+  newLandmark: null,
+};
+
+function setData(data: AltitudeResponse | undefined) {
+  (useAltitude as jest.Mock).mockReturnValue({ data });
 }
 
 describe('MomentumCard', () => {
   it('shows the streak as a flame with its count, and one line for its stage', () => {
-    setData(undefined, undefined);
+    setData(undefined);
     render(<MomentumCard streak={4} />);
     expect(within(screen.getByTestId('streak-chip')).getByText('4')).toBeTruthy();
     expect(screen.getByLabelText('4 day streak')).toBeTruthy();
@@ -40,7 +39,7 @@ describe('MomentumCard', () => {
   });
 
   it('keeps the same line when the card re-renders, and changes stage with the streak', () => {
-    setData(undefined, undefined);
+    setData(undefined);
     const { rerender } = render(<MomentumCard streak={4} />);
     const shown = STREAK_COPY.building.find(line => screen.queryByText(line) !== null);
     rerender(<MomentumCard streak={5} />);
@@ -49,56 +48,98 @@ describe('MomentumCard', () => {
     expect(screen.getByText('Complete a lesson to start your streak')).toBeTruthy();
   });
 
-  it('shows the XP level, total and what is left, with a bar', () => {
-    setData(xp, undefined);
+  it('shows the level, the metres, the bar and the lessons to the next level', () => {
+    setData(altitude);
     render(<MomentumCard streak={1} />);
-    const row = within(screen.getByTestId('momentum-xp'));
-    expect(row.getByText('Base Camp')).toBeTruthy();
-    expect(row.queryByText('Base Camp I')).toBeNull();
-    expect(row.getByText('430 XP to the next level')).toBeTruthy();
-    expect(row.getByText(/1,170/)).toBeTruthy();
-    expect(screen.getByTestId('momentum-xp-bar')).toBeTruthy();
+    const block = within(screen.getByTestId('altitude-block'));
+    expect(block.getByText('Level 10')).toBeTruthy();
+    expect(block.getByText('1,120m')).toBeTruthy();
+    expect(block.getByText('About 5 lessons to Level 11')).toBeTruthy();
+    expect(screen.getByTestId('altitude-bar')).toBeTruthy();
   });
 
-  it('shows the step in a level as the trail beside the name', () => {
-    setData({ ...xp, tier: { key: 'base-camp', name: 'Base Camp', level: 3, label: 'Base Camp III', floor: 2200, ceiling: 2800 } }, undefined);
+  it('shows no caption when the lessons to the next level are null', () => {
+    setData({ ...altitude, lessonsToNextLevel: null });
     render(<MomentumCard streak={1} />);
-    expect(within(screen.getByTestId('momentum-xp')).getByLabelText('Level 3 of 5')).toBeTruthy();
+    expect(screen.queryByTestId('altitude-caption')).toBeNull();
+    expect(screen.getByText('Level 10')).toBeTruthy();
   });
 
-  it('shows no trail before the first level (under 150 XP): the next milestone only', () => {
-    setData({ totalXp: 40, nextMilestone: { key: 'foothills', name: 'Foothills', xpRequired: 150, xpRemaining: 110 }, tier: null }, undefined);
+  it('leaves the altitude block out until altitude has loaded', () => {
+    setData(undefined);
     render(<MomentumCard streak={1} />);
-    expect(screen.getByText('Foothills')).toBeTruthy();
+    expect(screen.queryByTestId('altitude-block')).toBeNull();
+  });
+
+  it('says the altitude could not be loaded, in place of the block, even over an older reading', () => {
+    (useAltitude as jest.Mock).mockReturnValue({ data: altitude, isError: true });
+    render(<MomentumCard streak={1} />);
+    expect(screen.getByText(ALTITUDE_LOAD_ERROR)).toBeTruthy();
+    expect(screen.queryByTestId('altitude-block')).toBeNull();
+  });
+
+  it('shows the next landmark in the badge slot: its medal in colour, as the design draws it, and "Ben Nevis in 225m"', () => {
+    setData(altitude);
+    render(<MomentumCard streak={1} />);
+    const slot = within(screen.getByTestId('badge-slot'));
+    expect(slot.getByTestId('medal-ben-nevis').props.accessibilityValue).toEqual({ text: 'coloured' });
+    expect(slot.getByText(landmarkInCopy('Ben Nevis', 225))).toBeTruthy();
+  });
+
+  it('puts the badge slot on the caption row of the altitude block, under the bar, never above the level', () => {
+    setData(altitude);
+    render(<MomentumCard streak={1} />);
+    const row = within(screen.getByTestId('altitude-footer'));
+    expect(row.getByTestId('altitude-caption')).toBeTruthy();
+    expect(row.getByTestId('badge-slot')).toBeTruthy();
+  });
+
+  it('still shows the badge slot when there is no caption', () => {
+    setData({ ...altitude, lessonsToNextLevel: null });
+    render(<MomentumCard streak={1} />);
+    expect(within(screen.getByTestId('altitude-footer')).getByTestId('badge-slot')).toBeTruthy();
+  });
+
+  it('with a landmark not yet seen, shows its medal and "New: Yr Wyddfa" in place of the next landmark', () => {
+    setData({ ...altitude, newLandmark: { key: 'yr-wyddfa', name: 'Yr Wyddfa' } });
+    render(<MomentumCard streak={1} />);
+    const slot = within(screen.getByTestId('badge-slot'));
+    expect(slot.getByTestId('medal-yr-wyddfa').props.accessibilityValue).toEqual({ text: 'coloured' });
+    expect(slot.getByText(newLandmarkCopy('Yr Wyddfa'))).toBeTruthy();
+    expect(slot.queryByTestId('medal-ben-nevis')).toBeNull();
+    expect(slot.queryByText(landmarkInCopy('Ben Nevis', 225))).toBeNull();
+  });
+
+  it('shows the new landmark even when there is no next landmark', () => {
+    setData({ ...altitude, nextLandmark: null, newLandmark: { key: 'yr-wyddfa', name: 'Yr Wyddfa' } });
+    render(<MomentumCard streak={1} />);
+    expect(within(screen.getByTestId('badge-slot')).getByText(newLandmarkCopy('Yr Wyddfa'))).toBeTruthy();
+  });
+
+  it('shows nothing in the badge slot when nextLandmark is null', () => {
+    setData({ ...altitude, nextLandmark: null });
+    render(<MomentumCard streak={1} />);
+    expect(screen.queryByTestId('badge-slot')).toBeNull();
+    expect(screen.getByText('Level 10')).toBeTruthy();
+  });
+
+  it('shows nothing in the badge slot when altitude failed to refresh, even over an older reading', () => {
+    (useAltitude as jest.Mock).mockReturnValue({ data: altitude, isError: true });
+    render(<MomentumCard streak={1} />);
+    expect(screen.queryByTestId('badge-slot')).toBeNull();
+  });
+
+  it('shows nothing in the badge slot until altitude has loaded', () => {
+    setData(undefined);
+    render(<MomentumCard streak={1} />);
+    expect(screen.queryByTestId('badge-slot')).toBeNull();
+  });
+
+  it('shows no mini trail and no achievement line', () => {
+    setData(altitude);
+    render(<MomentumCard streak={1} />);
     expect(screen.queryByLabelText(/^Level \d of 5$/)).toBeNull();
-  });
-
-  it('leaves the XP row out until XP has loaded', () => {
-    setData(undefined, undefined);
-    render(<MomentumCard streak={1} />);
-    expect(screen.queryByTestId('momentum-xp')).toBeNull();
-  });
-
-  it('celebrates a recent unlock with its medal', () => {
-    setData(xp, achievements(1));
-    render(<MomentumCard streak={1} />);
-    const line = within(screen.getByTestId('momentum-achievement'));
-    expect(line.getByText('New: Clean Sheet')).toBeTruthy();
-    expect(line.getByTestId('medal-clean-sheet')).toBeTruthy();
-  });
-
-  it('shows the next achievement when nothing is new: its name only, with its medal', () => {
-    setData(xp, achievements(20));
-    render(<MomentumCard streak={1} />);
-    const line = within(screen.getByTestId('momentum-achievement'));
-    expect(line.getByText('Next up: Warm Up')).toBeTruthy();
-    expect(line.queryByText(/Completed 3 lessons/)).toBeNull();
-    expect(line.getByTestId('medal-warm-up')).toBeTruthy();
-  });
-
-  it('leaves the achievement line out until achievements have loaded', () => {
-    setData(xp, undefined);
-    render(<MomentumCard streak={1} />);
     expect(screen.queryByTestId('momentum-achievement')).toBeNull();
+    expect(screen.queryByText(/^(New|Next up):/)).toBeNull();
   });
 });

@@ -5,6 +5,7 @@ import { PATHS_QUERY_KEY, proposalQueryKey } from '@/lib/queryKeys';
 import { proposalQueryOptions } from '@/lib/proposalQuery';
 import { errorCode } from '@/lib/errors';
 import { requireSignal } from '@/lib/offlineWrites';
+import { enqueueRewards } from '@/lib/rewards';
 
 /** The checked proposal on one custom path. Fetched only while the path's badge (`hasProposal`) is on. */
 export function useProposal(planId: string, enabled: boolean) {
@@ -25,7 +26,10 @@ export function useDecideProposal(planId: string) {
   return useMutation({
     // Never paused or retried: with no signal it fails at once (ADR-021 Decision 6).
     mutationFn: (call: ProposalCall) => requireSignal(() => proposalService.decide(call)),
-    onSuccess: refetch,
+    onSuccess: ({ rewards }) => {
+      enqueueRewards(rewards);
+      refetch();
+    },
     onError: (err) => { if (isProposalGone(errorCode(err))) refetch(); },
   });
 }

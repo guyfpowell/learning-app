@@ -63,7 +63,7 @@ function PushPermissionStatus({
   }
   return (
     <Pressable testID="push-status-prompt" onPress={onRegister} style={styles.notice} accessibilityRole="button">
-      <Icon name="reminder" size={20} color={colors.xpDark} />
+      <Icon name="reminder" size={20} color={colors.altitudeDark} />
       <Text style={styles.noticeText}>Notifications are off on this phone</Text>
       <Text style={styles.turnOn}>Turn on</Text>
     </Pressable>

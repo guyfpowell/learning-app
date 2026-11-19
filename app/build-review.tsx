@@ -86,10 +86,10 @@ export default function BuildReviewScreen() {
   const onAccept = async () => {
     setError(null);
     try {
-      const created = await createPlan.mutateAsync(toCreateTrackPlanRequest(name, draft));
+      const { plan } = await createPlan.mutateAsync(toCreateTrackPlanRequest(name, draft));
       accepted.current = true;
       clearDraft();
-      router.replace(`${HOME_ROUTE}?plan=${created.id}`);
+      router.replace(`${HOME_ROUTE}?plan=${plan.id}`);
     } catch (err) {
       const code = errorCode(err);
       const refused = refusedSaveLock(code);

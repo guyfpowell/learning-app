@@ -4,6 +4,7 @@ import { trackBuilderService } from '@/services/trackBuilder.service';
 import { errorCode } from '@/lib/errors';
 import { isRetryableError, requireSignal } from '@/lib/offlineWrites';
 import { invalidateBuildQueries } from '@/lib/buildInvalidation';
+import { enqueueRewards } from '@/lib/rewards';
 import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, TRACK_PLANS_QUERY_KEY, trackBuildQueryKey } from '@/lib/queryKeys';
 import { START_TRACK_BUILD_WRITE, type StartTrackBuildInput } from '@/lib/safeWrites';
 import { BUILD_PHASE, OPENED_START, buildProgressOf, type BuildProgress } from '@/lib/buildProgress';
@@ -107,7 +108,8 @@ export function useCreateTrackPlan() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (v: CreateTrackPlanRequest) => requireSignal(() => trackBuilderService.createPlan(v)),
-    onSuccess: () => {
+    onSuccess: ({ rewards }) => {
+      enqueueRewards(rewards);
       // Custom plans take precedence on the home surface, so both caches move.
       void queryClient.invalidateQueries({ queryKey: TRACK_PLANS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });

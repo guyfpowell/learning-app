@@ -2,7 +2,9 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { onlineManager } from '@tanstack/react-query';
 import { axiosError } from '@/test-utils/axios';
 import { createAppQueryClient } from '@/test-utils/appQueryClient';
-import { makeCustomPath, makeTrackPath } from '@/test-utils/paths';
+import { makeCustomPath, makeEnrollment, makeTrackPath } from '@/test-utils/paths';
+import { makeRewardUnlock, makeRewards } from '@/test-utils/achievements';
+import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
 import { SET_ACTIVE_PATH_ERROR, type UserPath } from '@learning/shared';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { must } from '@/test-utils/must';
@@ -348,12 +350,24 @@ describe('every other mutation on patchy signal (105a, 105g)', () => {
   });
 
   it('online, enrol sends as it always did', async () => {
-    mockTrackService.enroll.mockResolvedValue(undefined);
+    mockTrackService.enroll.mockResolvedValue({ enrollment: makeEnrollment(), rewards: makeRewards() });
     const { result } = renderHook(() => useEnroll(), { wrapper: queryWrapper(createAppQueryClient()) });
 
     act(() => result.current.mutate('skill-1'));
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mockTrackService.enroll).toHaveBeenCalledWith('skill-1');
+  });
+
+  it('enrol queues the rewards its response carries', async () => {
+    useCelebrationQueueStore.getState().clear();
+    const offTheMark = makeRewardUnlock('off-the-mark');
+    mockTrackService.enroll.mockResolvedValue({ enrollment: makeEnrollment(), rewards: makeRewards({ unlocked: [offTheMark] }) });
+    const { result } = renderHook(() => useEnroll(), { wrapper: queryWrapper(createAppQueryClient()) });
+
+    act(() => result.current.mutate('skill-1'));
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(useCelebrationQueueStore.getState().queue).toEqual([offTheMark]);
   });
 });

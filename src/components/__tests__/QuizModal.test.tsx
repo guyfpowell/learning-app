@@ -19,7 +19,9 @@ import { useRefreshLesson } from '@/hooks/useRefreshLesson';
 import { makeSessionUser } from '@/test-utils/users';
 import { axiosError } from '@/test-utils/axios';
 import { nextFeedbackPhrase } from '@/lib/quizFeedbackPhrase';
-import { ERROR_CODES } from '@learning/shared';
+import { ERROR_CODES, metresChipCopy } from '@learning/shared';
+import { makeRewardUnlock, makeRewards } from '@/test-utils/achievements';
+import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
 
 jest.mock('@/hooks/useQuiz', () => ({ useSubmitQuiz: jest.fn() }));
 jest.mock('@/hooks/useLesson', () => ({
@@ -123,8 +125,8 @@ const wrongPendingResult = {
   nextLessonId: null,
   trackAverage: null,
   previousAverage: null,
-  xpAwarded: null,
   topicEnd: null,
+  rewards: null,
 };
 
 // Full finalized result
@@ -138,8 +140,8 @@ const mockResult = {
   nextLessonId: null,
   trackAverage: 90,
   previousAverage: 80,
-  xpAwarded: null,
   topicEnd: null,
+  rewards: makeRewards(),
   feedbacks: [
     {
       quizId: 'q-1',
@@ -173,7 +175,7 @@ const q1CorrectNotFinalized = {
   nextLessonId: null,
   trackAverage: null,
   previousAverage: null,
-  xpAwarded: null,
+  rewards: null,
   feedbacks: [
     {
       quizId: 'q-1',
@@ -1083,37 +1085,37 @@ describe('QuizModal', () => {
       expect(bookmark).toMatchObject({ width: close.width, height: close.height, borderRadius: close.borderRadius });
     });
 
-    it('anchors the XP animation on the header row', () => {
-      setQuizMock({ data: { ...mockResult, streak: 4, xpAwarded: 20, achievementsUnlocked: [] } });
+    it('anchors the metres animation on the header row', () => {
+      setQuizMock({ data: { ...mockResult, streak: 4, rewards: makeRewards({ metresClimbed: 20 }) } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       const { top, height } = headerRowBox(44); // the mocked top inset
-      expect(StyleSheet.flatten(screen.getByTestId('xp-chip-overlay').props.style)).toMatchObject({ top, height });
+      expect(StyleSheet.flatten(screen.getByTestId('metres-chip-overlay').props.style)).toMatchObject({ top, height });
     });
 
-    it('puts the XP award and the track average under the heading', () => {
-      setQuizMock({ data: { ...mockResult, xpAwarded: 20 } });
+    it('puts the metres chip and the track average under the heading', () => {
+      setQuizMock({ data: { ...mockResult, rewards: makeRewards({ metresClimbed: 20 }) } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       const headline = within(screen.getByTestId('result-headline'));
       expect(headline.getByText('track average')).toBeTruthy();
       expect(headline.getByText('Correct!')).toBeTruthy();
-      expect(headline.getByTestId('xp-chip')).toBeTruthy();
+      expect(headline.getByTestId('metres-chip')).toBeTruthy();
     });
 
-    it('keeps the heading in the headline row when there is no XP award', () => {
-      setQuizMock({ data: { ...mockResult, xpAwarded: null } });
+    it('keeps the heading in the headline row when there is no metres chip', () => {
+      setQuizMock({ data: { ...mockResult, rewards: null } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(within(screen.getByTestId('result-headline')).getByText('Correct!')).toBeTruthy();
     });
 
     it('has no streak on the result page: not in the header and not beside the heading', () => {
-      setQuizMock({ data: { ...mockResult, streak: 4, xpAwarded: 20 } });
+      setQuizMock({ data: { ...mockResult, streak: 4, rewards: makeRewards({ metresClimbed: 20 }) } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(screen.queryByTestId('streak-calendar')).toBeNull();
       expect(within(screen.getByTestId('result-headline')).queryByText(/streak/i)).toBeNull();
     });
 
     it('brings the feedback, the takeaway and the button in block by block, after the heading', () => {
-      setQuizMock({ data: { ...mockResult, xpAwarded: 20 } });
+      setQuizMock({ data: { ...mockResult, rewards: makeRewards({ metresClimbed: 20 }) } });
       render(<QuizModal visible={true} lesson={{ ...mockLesson, keyTakeaway: 'Match effort to the tier.' }} onClose={onClose} />);
       const reveals = screen.getAllByTestId('reveal');
       expect(reveals.length).toBeGreaterThanOrEqual(3); // the feedback card, the takeaway, the button
@@ -1121,89 +1123,78 @@ describe('QuizModal', () => {
     });
   });
 
-  describe('Ticket 070 — XP chip', () => {
-    it('shows XP chip when xpAwarded > 0 on finalization', () => {
-      setQuizMock({ data: { ...mockResult, xpAwarded: 150 } });
+  describe('Ticket 118ae — metres chip', () => {
+    it('reads "+34m · Level 4" for a pass paying 34 with a level-up to 4', () => {
+      setQuizMock({ data: { ...mockResult, rewards: makeRewards({ metresClimbed: 34, levelUp: { from: 3, to: 4 } }) } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByTestId('xp-chip')).toBeTruthy();
+      expect(within(screen.getByTestId('metres-chip')).getByText(metresChipCopy(34, 4))).toBeTruthy();
     });
 
-    it('hides XP chip when xpAwarded is null', () => {
-      setQuizMock({ data: { ...mockResult, xpAwarded: null } });
+    it('reads "+34m" for a pass paying 34 with no level-up', () => {
+      setQuizMock({ data: { ...mockResult, rewards: makeRewards({ metresClimbed: 34 }) } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.queryByTestId('xp-chip')).toBeNull();
+      expect(within(screen.getByTestId('metres-chip')).getByText(metresChipCopy(34, null))).toBeTruthy();
     });
 
-    it('hides XP chip when xpAwarded is 0', () => {
-      setQuizMock({ data: { ...mockResult, xpAwarded: 0 } });
+    it('shows no chip and no line for a failed pass (0 metres)', () => {
+      setQuizMock({ data: { ...mockResult, rewards: makeRewards({ metresClimbed: 0 }) } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.queryByTestId('xp-chip')).toBeNull();
+      expect(screen.queryByTestId('metres-chip')).toBeNull();
+      expect(screen.queryByTestId('metres-chip-animated')).toBeNull();
+      expect(screen.queryByText(/\+\d+m/)).toBeNull();
+    });
+
+    it('shows no chip when the result carries no rewards', () => {
+      setQuizMock({ data: { ...mockResult, rewards: null } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(screen.queryByTestId('metres-chip')).toBeNull();
     });
   });
 
-  describe('Ticket 072c — celebration queue', () => {
-    beforeEach(() => jest.useFakeTimers());
-    afterEach(() => jest.useRealTimers());
+  describe('Ticket 120af — rewards go to the celebration queue', () => {
+    const medal = makeRewardUnlock('first-light');
+    const landmark = makeRewardUnlock('yr-wyddfa');
+    const queued = () => useCelebrationQueueStore.getState().queue;
+    beforeEach(() => useCelebrationQueueStore.getState().clear());
 
-    it('offers See achievement, with Skip, instead of Next lesson when one was earned', () => {
-      setQuizMock({ data: { ...mockResult, achievementsUnlocked: ['first-light'] } });
-      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(within(screen.getByTestId('result-action-btn')).getByText('See achievement')).toBeTruthy();
-      expect(screen.getByTestId('achievements-skip-btn')).toBeTruthy();
-      expect(screen.queryByText('Next lesson')).toBeNull();
-      expect(screen.queryByTestId('achievement-unlock')).toBeNull();
-    });
-
-    it('says how many when several were earned', () => {
-      setQuizMock({ data: { ...mockResult, achievementsUnlocked: ['first-light', 'good-innings'] } });
-      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByText('See 2 achievements')).toBeTruthy();
-    });
-
-    it('shows each earned achievement one after another, then the result with Next lesson', () => {
-      setQuizMock({ data: { ...mockResult, achievementsUnlocked: ['first-light', 'good-innings'] } });
-      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      fireEvent.press(screen.getByTestId('result-action-btn'));
-      expect(screen.getByTestId('achievement-unlock-name').props.children).toBe('First Light');
-      fireEvent.press(screen.getByTestId('achievement-continue-btn'));
-      expect(screen.getByTestId('achievement-unlock-name').props.children).toBe('Good Innings');
-      fireEvent.press(screen.getByTestId('achievement-continue-btn'));
+    it('enqueues the medal first, then the landmark, once each, and shows no unlock screen itself', () => {
+      setQuizMock({ data: { ...mockResult, rewards: makeRewards({ unlocked: [medal], landmarksPassed: [landmark], metresClimbed: 34 }) } });
+      const { rerender } = render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      rerender(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
+      expect(queued()).toEqual([medal, landmark]);
       expect(screen.queryByTestId('achievement-unlock')).toBeNull();
       expect(screen.queryByTestId('achievements-skip-btn')).toBeNull();
+    });
+
+    it('keeps the way on available while unlocks wait: no "See achievement" step', () => {
+      setQuizMock({ data: { ...mockResult, rewards: makeRewards({ unlocked: [medal] }) } });
+      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(within(screen.getByTestId('result-action-btn')).getByText(/Next lesson|Back to dashboard/)).toBeTruthy();
     });
 
-    it('Skip goes straight to Next lesson without showing any achievement', () => {
-      setQuizMock({ data: { ...mockResult, achievementsUnlocked: ['first-light'] } });
+    it('holds the metres chip until the queue is empty, then shows it', () => {
+      setQuizMock({ data: { ...mockResult, rewards: makeRewards({ unlocked: [medal], landmarksPassed: [landmark], metresClimbed: 34 }) } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      fireEvent.press(screen.getByTestId('achievements-skip-btn'));
-      expect(screen.queryByTestId('achievement-unlock')).toBeNull();
-      expect(screen.queryByTestId('achievements-skip-btn')).toBeNull();
-      expect(within(screen.getByTestId('result-action-btn')).getByText(/Next lesson|Back to dashboard/)).toBeTruthy();
+      expect(screen.queryByTestId('metres-chip')).toBeNull();
+      expect(screen.queryByTestId('metres-chip-animated')).toBeNull();
+      act(() => useCelebrationQueueStore.getState().dismiss(medal.key));
+      expect(screen.queryByTestId('metres-chip')).toBeNull();
+      act(() => useCelebrationQueueStore.getState().dismiss(landmark.key));
+      expect(within(screen.getByTestId('metres-chip')).getByText(metresChipCopy(34, null))).toBeTruthy();
+      expect(screen.getByTestId('metres-chip-animated')).toBeTruthy();
     });
 
-    it('shows Next lesson straight away when nothing was earned', () => {
-      setQuizMock({ data: { ...mockResult, achievementsUnlocked: [] } });
+    it('shows the chip at once when nothing was unlocked', () => {
+      setQuizMock({ data: { ...mockResult, rewards: makeRewards({ metresClimbed: 75 }) } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.queryByTestId('achievements-skip-btn')).toBeNull();
+      expect(screen.getByTestId('metres-chip-animated')).toBeTruthy();
     });
 
-    it('shows XP chip overlay when xpAwarded > 0 and no achievements', () => {
-      setQuizMock({ data: { ...mockResult, xpAwarded: 75, achievementsUnlocked: [] } });
+    it('shows no overlay when the result carries no metres and no unlocks', () => {
+      setQuizMock({ data: { ...mockResult, rewards: makeRewards() } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByTestId('xp-chip-animated')).toBeTruthy();
-    });
-
-    it('does not show any overlay when achievementsUnlocked is empty and xpAwarded is null', () => {
-      setQuizMock({ data: { ...mockResult, xpAwarded: null, achievementsUnlocked: [] } });
-      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.queryByTestId('xp-chip-animated')).toBeNull();
-    });
-
-    it('still shows the XP chip when achievements were earned: they wait behind the button', () => {
-      setQuizMock({ data: { ...mockResult, xpAwarded: 50, achievementsUnlocked: ['first-light'] } });
-      render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByTestId('xp-chip-animated')).toBeTruthy();
+      expect(screen.queryByTestId('metres-chip-animated')).toBeNull();
+      expect(queued()).toEqual([]);
     });
   });
 

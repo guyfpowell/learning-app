@@ -1,6 +1,6 @@
 import api from '@/lib/api';
 import type {
-  RequestChunk, CreateTrackBuildRequest, RefinePlanRequest, CreateTrackPlanRequest, UpdateTrackPlanRequest, BuiltPlanTopic, RefinedPlan, TrackBuild, TrackBuildList, TrackPlan,
+  RequestChunk, CreateTrackBuildRequest, RefinePlanRequest, CreateTrackPlanRequest, CreateTrackPlanResponse, UpdateTrackPlanRequest, BuiltPlanTopic, RefinedPlan, TrackBuild, TrackBuildList, TrackPlan,
 } from '@learning/shared';
 
 /**
@@ -58,8 +58,9 @@ export const trackBuilderService = {
     return data;
   },
 
-  async createPlan(input: CreateTrackPlanRequest): Promise<TrackPlan> {
-    const { data } = await api.post<TrackPlan>('/track-plans', input);
+  /** The plan and what saving it earned, side by side (ADR-022 Amendment 2). */
+  async createPlan(input: CreateTrackPlanRequest): Promise<CreateTrackPlanResponse> {
+    const { data } = await api.post<CreateTrackPlanResponse>('/track-plans', input);
     return data;
   },
 

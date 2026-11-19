@@ -5,6 +5,7 @@ import { useLesson, useSaveLesson, useUnsaveLesson, useSavedLessons, useStartRet
 import { lessonQueryKey } from '@/lib/queryKeys';
 import { lessonService } from '@/services/lesson.service';
 import type { Lesson } from '@learning/shared';
+import { makeRewards } from '@/test-utils/achievements';
 
 jest.mock('@/services/lesson.service', () => ({
   lessonService: {
@@ -53,7 +54,7 @@ describe('useSaveLesson (ticket 017 chunk 3)', () => {
   beforeEach(() => { jest.clearAllMocks(); Object.values(mockLessonService).forEach((fn) => fn.mockReset()); });
 
   it('calls lessonService.saveLesson with the lesson id', async () => {
-    mockLessonService.saveLesson.mockResolvedValue({ saved: true });
+    mockLessonService.saveLesson.mockResolvedValue({ saved: true, rewards: makeRewards() });
     const { result } = renderHook(() => useSaveLesson('lesson-1'), { wrapper: queryWrapper() });
 
     act(() => { result.current.mutate({ lessonId: 'lesson-1' }); });

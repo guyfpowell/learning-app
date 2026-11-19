@@ -31,6 +31,7 @@ import { useAuthStore } from '@/store/auth.store';
 import * as Sentry from '@sentry/react-native';
 import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { HOME_ROUTE } from '@/lib/routes';
+import { CelebrationQueue } from '@/components/achievements/CelebrationQueue';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -182,6 +183,7 @@ function RootLayout() {
           <Stack.Screen name="quiz-already-completed-preview" />
           <Stack.Screen name="old-style-preview" />
         </Stack>
+        <CelebrationQueue />
       </QueryProvider>
     </GestureHandlerRootView>
   );

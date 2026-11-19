@@ -1,33 +1,38 @@
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { ACHIEVEMENTS_BY_KEY, landmarkInCopy, newLandmarkCopy, type AltitudeResponse, type LandmarkKey } from '@learning/shared';
 import { Text } from '@/components/ui/Text';
-import { xpProgressOf } from '@learning/shared';
-import { colors, font, fontSize, spacing, trackingEm } from '@/theme';
-import { Icon } from '@/components/ui/Icon';
 import { Medal } from '@/components/ui/Medal';
-import { Progress } from '@/components/ui/Progress';
-import { SubLevel } from '@/components/ui/SubLevel';
-import { useXp } from '@/hooks/useXp';
-import { useAchievements } from '@/hooks/useAchievements';
-import { achievementLineOf, nextStreakCopy, streakStageOf, xpLineOf, type AchievementLine } from '@/lib/momentum';
+import { useAltitude } from '@/hooks/useAltitude';
+import { colors, font, fontSize, spacing } from '@/theme';
+import { Icon } from '@/components/ui/Icon';
+import { AltitudeSection } from '@/components/altitude/AltitudeSection';
+import { nextStreakCopy, streakStageOf } from '@/lib/momentum';
 
-const XP_BAR_HEIGHT = 12;
-const MEDAL_SIZE = 26;
 const FLAME_SIZE = 20;
+const SLOT_MEDAL_SIZE = 26;
+const SLOT_TEXT_SIZE = 15;
 
-function achievementText(line: AchievementLine): string {
-  return line.kind === 'new' ? `New: ${line.name}` : `Next up: ${line.name}`;
+/** What the badge slot shows: a landmark's medal, always in colour as the design draws it, and its words. */
+interface BadgeSlot {
+  key: LandmarkKey;
+  copy: string;
 }
 
-/** Home's top: a line about the streak and the streak itself, then the level, its XP and one achievement. */
+/** The landmark passed and not yet seen (its medal, "New: Yr Wyddfa"), else the next landmark (how far it is), else nothing. */
+function badgeSlotOf(altitude: AltitudeResponse | undefined): BadgeSlot | null {
+  if (altitude?.newLandmark) return { key: altitude.newLandmark.key, copy: newLandmarkCopy(altitude.newLandmark.name) };
+  const next = altitude?.nextLandmark;
+  return next ? { key: next.key, copy: landmarkInCopy(next.name, next.metresToGo) } : null;
+}
+
+/** Home's top: a line about the streak and the streak itself, then the level, its metres and bar, and the lessons to go with the badge slot beside them. */
 export function MomentumCard({ streak }: { streak: number }) {
-  const { data: xp } = useXp();
-  const { data: achievements } = useAchievements();
   // One line per stage, picked when the stage is first shown, so a re-render never changes the words.
   const stage = streakStageOf(streak);
   const copy = useMemo(() => nextStreakCopy(stage), [stage]);
-  const xpLine = xp ? xpLineOf(xpProgressOf(xp)) : null;
-  const achievementLine = achievements ? achievementLineOf(achievements, Date.now()) : null;
+  const { data: altitude, isError } = useAltitude();
+  const slot = isError ? null : badgeSlotOf(altitude);
 
   return (
     <View testID="momentum-card" style={styles.card}>
@@ -39,35 +44,14 @@ export function MomentumCard({ streak }: { streak: number }) {
         </View>
       </View>
 
-      {xp && xpLine && (
-        <View testID="momentum-xp" style={styles.xp}>
-          <View style={styles.xpHeader}>
-            {/* A level shows its name and, beside it, its step as a trail ("Foothills" and the second stop). */}
-            <View style={styles.xpName}>
-              <Text style={styles.xpTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                {xp.tier ? xp.tier.name : xpLine.title}
-              </Text>
-              {xp.tier && <SubLevel level={xp.tier.level} />}
-            </View>
-            <Text style={styles.xpTotal}>
-              {xp.totalXp.toLocaleString('en-GB')}
-              <Text style={styles.xpUnit}> XP</Text>
-            </Text>
+      <AltitudeSection
+        trailing={slot && (
+          <View testID="badge-slot" style={styles.slot}>
+            <Medal definition={ACHIEVEMENTS_BY_KEY[slot.key]} size={SLOT_MEDAL_SIZE} />
+            <Text style={styles.slotText} numberOfLines={1}>{slot.copy}</Text>
           </View>
-          <Progress testID="momentum-xp-bar" value={xpLine.percent} tone="xp" height={XP_BAR_HEIGHT} trackColor={colors.xpTrack} />
-          <View style={styles.caption}>
-            <Text style={styles.xpCaption}>{xpLine.caption}</Text>
-            {achievementLine && (
-              <View testID="momentum-achievement" style={styles.achievement}>
-                <View testID="momentum-achievement-icon">
-                  <Medal achievement={achievementLine.key} locked={achievementLine.kind === 'next'} size={MEDAL_SIZE} />
-                </View>
-                <Text style={styles.achievementText} numberOfLines={1}>{achievementText(achievementLine)}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      )}
+        )}
+      />
     </View>
   );
 }
@@ -76,22 +60,8 @@ const styles = StyleSheet.create({
   card:        { gap: spacing.md, marginBottom: spacing.md },
   header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   motto:       { flex: 1, fontFamily: font.bold, fontSize: fontSize.md, color: colors.textMuted },
+  slot:        { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  slotText:    { fontFamily: font.bold, fontSize: SLOT_TEXT_SIZE, color: colors.brand },
   streak:      { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   streakCount: { fontFamily: font.extrabold, fontSize: fontSize.md, color: colors.textStrong },
-  xp:          { gap: spacing.sm },
-  xpHeader:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
-  xpName:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  xpTitle: {
-    flexShrink:    1,
-    fontFamily:    font.display,
-    fontSize:      fontSize.xxl,
-    letterSpacing: trackingEm.display * fontSize.xxl,
-    color:         colors.textStrong,
-  },
-  xpTotal:     { fontFamily: font.black, fontSize: fontSize.xl + 4, letterSpacing: trackingEm.title * (fontSize.xl + 4), color: colors.xpDark },
-  xpUnit:      { fontFamily: font.extrabold, fontSize: fontSize.sm, letterSpacing: 0, color: colors.xpDark },
-  caption:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  xpCaption:   { flexShrink: 1, fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
-  achievement: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexShrink: 1 },
-  achievementText: { flexShrink: 1, fontFamily: font.extrabold, fontSize: fontSize.sm, color: colors.brand },
 });

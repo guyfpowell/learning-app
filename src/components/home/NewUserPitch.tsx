@@ -4,7 +4,7 @@ import { Text } from '@/components/ui/Text';
 import { EdgeButton } from '@/components/ui/EdgeButton';
 import { HeroBackground } from '@/components/ui/HeroBackground';
 import { Wordmark } from '@/components/ui/Wordmark';
-import { NewUserBadge, NewUserHeading, NewUserTracks, useFirstName } from '@/components/home/NewUserParts';
+import { NewUserHeading, NewUserTracks, useFirstName } from '@/components/home/NewUserParts';
 import { BUILD_ROUTE } from '@/lib/routes';
 import { colors, font, levelCard } from '@/theme';
 
@@ -63,8 +63,6 @@ export function NewUserPitch() {
             </View>
           ))}
         </View>
-
-        <NewUserBadge />
       </View>
     </View>
   );

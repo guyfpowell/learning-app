@@ -1,11 +1,11 @@
 import React from 'react';
-import { PATHS_LOAD_ERROR } from '@learning/shared';
+import { ALTITUDE_LOAD_ERROR, PATHS_LOAD_ERROR, PROGRESS_LOAD_ERROR, type AltitudeResponse } from '@learning/shared';
 import { render, screen, fireEvent, within } from '@testing-library/react-native';
 import ProgressScreen from '../progress';
 import { usePrefetchNextScreens } from '@/hooks/usePrefetchNextScreens';
 import { useProgress } from '@/hooks/useProgress';
 import { usePaths } from '@/hooks/useTrack';
-import { useXp } from '@/hooks/useXp';
+import { useAltitude } from '@/hooks/useAltitude';
 import { TRACKS_ROUTE } from '@/lib/routes';
 
 const mockPush = jest.fn();
@@ -14,7 +14,7 @@ jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('@/hooks/useProgress', () => ({ useProgress: jest.fn() }));
 jest.mock('@/hooks/useTrack', () => ({ usePaths: jest.fn() }));
 jest.mock('@/hooks/usePrefetchNextScreens', () => ({ usePrefetchNextScreens: jest.fn() }));
-jest.mock('@/hooks/useXp', () => ({ useXp: jest.fn() }));
+jest.mock('@/hooks/useAltitude', () => ({ useAltitude: jest.fn() }));
 jest.mock('@/hooks/useAchievements', () => ({ useAchievements: jest.fn(() => ({ data: undefined, isLoading: false })) }));
 let capturedEdges: string[] | undefined;
 jest.mock('react-native-safe-area-context', () => ({
@@ -75,7 +75,7 @@ describe('ProgressScreen', () => {
     jest.clearAllMocks();
     capturedEdges = undefined;
     (usePaths as jest.Mock).mockReturnValue({ data: undefined });
-    (useXp as jest.Mock).mockReturnValue({ data: undefined });
+    (useAltitude as jest.Mock).mockReturnValue({ data: undefined });
   });
 
   it('renders without errors', () => {
@@ -107,7 +107,7 @@ describe('ProgressScreen', () => {
   it('shows error message when fetch fails', () => {
     setMock({ isError: true });
     render(<ProgressScreen />);
-    expect(screen.getByText('Unable to load progress. Please try again.')).toBeTruthy();
+    expect(screen.getByText(PROGRESS_LOAD_ERROR)).toBeTruthy();
   });
 
   it('shows no data message when data is null', () => {
@@ -175,7 +175,7 @@ describe('ProgressScreen — enrollment cards', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useProgress as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: false });
-    (useXp as jest.Mock).mockReturnValue({ data: undefined });
+    (useAltitude as jest.Mock).mockReturnValue({ data: undefined });
   });
 
   it('shows active enrollment card with the track name, no percentage', () => {
@@ -303,7 +303,7 @@ describe('ProgressScreen — P6 TrackMap segmented bar', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (usePaths as jest.Mock).mockReturnValue({ data: undefined });
-    (useXp as jest.Mock).mockReturnValue({ data: undefined });
+    (useAltitude as jest.Mock).mockReturnValue({ data: undefined });
   });
 
   it('renders segmented level nodes on active enrollment card when levels provided', () => {
@@ -335,102 +335,56 @@ describe('ProgressScreen — P6 TrackMap segmented bar', () => {
   });
 });
 
-describe('ProgressScreen — Ticket 070 XP card', () => {
+describe('ProgressScreen — altitude block (118ad)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (usePaths as jest.Mock).mockReturnValue({ data: undefined });
     setMock({ data: mockStats });
   });
 
-  it('shows XP total when xp data is available', () => {
-    (useXp as jest.Mock).mockReturnValue({
-      data: { totalXp: 1250, nextMilestone: null },
-    });
+  const altitude: AltitudeResponse = {
+    metres: 1_120,
+    level: 10,
+    nextLevel: { level: 11, startsAt: 1_270, metresToGo: 150 },
+    lessonsToNextLevel: 5,
+    nextLandmark: null,
+    newLandmark: null,
+  };
+
+  it('shows the level, the metres, the bar and the lessons to the next level', () => {
+    (useAltitude as jest.Mock).mockReturnValue({ data: altitude });
     render(<ProgressScreen />);
-    expect(screen.getByTestId('xp-card')).toBeTruthy();
-    expect(screen.getByTestId('xp-total')).toBeTruthy();
-    expect(screen.getByText('1,250 XP')).toBeTruthy();
+    const block = within(screen.getByTestId('altitude-block'));
+    expect(block.getByText('Level 10')).toBeTruthy();
+    expect(block.getByText('1,120m')).toBeTruthy();
+    expect(block.getByText('About 5 lessons to Level 11')).toBeTruthy();
+    expect(screen.getByTestId('altitude-bar')).toBeTruthy();
   });
 
-  it('shows next milestone label and remaining XP when nextMilestone is set', () => {
-    (useXp as jest.Mock).mockReturnValue({
-      data: {
-        totalXp: 500,
-        nextMilestone: { key: 'base-camp', name: 'Base Camp', xpRequired: 2000, xpRemaining: 1500 },
-      },
-    });
+  it('shows no caption when the lessons to the next level are null', () => {
+    (useAltitude as jest.Mock).mockReturnValue({ data: { ...altitude, lessonsToNextLevel: null } });
     render(<ProgressScreen />);
-    expect(screen.getByTestId('xp-next-label')).toBeTruthy();
-    expect(screen.getByText('Base Camp in 1,500 XP')).toBeTruthy();
-    expect(screen.getByTestId('xp-progress-bar')).toBeTruthy();
+    expect(screen.getByText('Level 10')).toBeTruthy();
+    expect(screen.queryByTestId('altitude-caption')).toBeNull();
   });
 
-  it('hides XP card when xp data is not available', () => {
-    (useXp as jest.Mock).mockReturnValue({ data: undefined });
+  it('shows no mini trail', () => {
+    (useAltitude as jest.Mock).mockReturnValue({ data: altitude });
     render(<ProgressScreen />);
-    expect(screen.queryByTestId('xp-card')).toBeNull();
+    expect(screen.queryByLabelText(/^Level \d of 5$/)).toBeNull();
   });
 
-  it('does not show progress bar when nextMilestone is null and tier is absent', () => {
-    (useXp as jest.Mock).mockReturnValue({
-      data: { totalXp: 200000, nextMilestone: null, tier: null },
-    });
+  it('says the altitude could not be loaded, in place of the block, even over an older reading', () => {
+    (useAltitude as jest.Mock).mockReturnValue({ data: altitude, isError: true });
     render(<ProgressScreen />);
-    expect(screen.getByTestId('xp-card')).toBeTruthy();
-    expect(screen.queryByTestId('xp-progress-bar')).toBeNull();
+    expect(screen.getByText(ALTITUDE_LOAD_ERROR)).toBeTruthy();
+    expect(screen.queryByTestId('altitude-block')).toBeNull();
   });
 
-  // ── Ticket 070a — tier / level display ─────────────────────────────────────
-
-  it('shows tier label when tier is provided', () => {
-    (useXp as jest.Mock).mockReturnValue({
-      data: {
-        totalXp: 2200,
-        nextMilestone: { key: 'ridgeline', name: 'Ridgeline', xpRequired: 4000, xpRemaining: 1800 },
-        tier: { key: 'base-camp', name: 'Base Camp', level: 3, label: 'Base Camp III', floor: 2200, ceiling: 2800 },
-      },
-    });
+  it('hides the block until altitude has loaded', () => {
+    (useAltitude as jest.Mock).mockReturnValue({ data: undefined });
     render(<ProgressScreen />);
-    expect(screen.getByTestId('xp-tier-label')).toBeTruthy();
-    expect(screen.getByText('Base Camp III')).toBeTruthy();
-  });
-
-  it('shows level progress bar (current level) when tier is set', () => {
-    (useXp as jest.Mock).mockReturnValue({
-      data: {
-        totalXp: 2200,
-        nextMilestone: { key: 'ridgeline', name: 'Ridgeline', xpRequired: 4000, xpRemaining: 1800 },
-        tier: { key: 'base-camp', name: 'Base Camp', level: 3, label: 'Base Camp III', floor: 2200, ceiling: 2800 },
-      },
-    });
-    render(<ProgressScreen />);
-    expect(screen.getByTestId('xp-progress-bar')).toBeTruthy();
-  });
-
-  it('shows "to next level" hint when tier is active', () => {
-    (useXp as jest.Mock).mockReturnValue({
-      data: {
-        totalXp: 2200,
-        nextMilestone: { key: 'ridgeline', name: 'Ridgeline', xpRequired: 4000, xpRemaining: 1800 },
-        tier: { key: 'base-camp', name: 'Base Camp', level: 3, label: 'Base Camp III', floor: 2200, ceiling: 2800 },
-      },
-    });
-    render(<ProgressScreen />);
-    expect(screen.getByTestId('xp-level-hint')).toBeTruthy();
-    expect(screen.getByText('600 XP to next level')).toBeTruthy();
-  });
-
-  it('falls back to next-milestone label when tier is null', () => {
-    (useXp as jest.Mock).mockReturnValue({
-      data: {
-        totalXp: 100,
-        nextMilestone: { key: 'foothills', name: 'Foothills', xpRequired: 150, xpRemaining: 50 },
-        tier: null,
-      },
-    });
-    render(<ProgressScreen />);
-    expect(screen.getByTestId('xp-next-label')).toBeTruthy();
-    expect(screen.queryByTestId('xp-tier-label')).toBeNull();
+    expect(screen.queryByTestId('altitude-block')).toBeNull();
   });
 });
 
@@ -440,7 +394,7 @@ describe('ProgressScreen — Ticket 072j safe-area edges', () => {
     capturedEdges = undefined;
     (useProgress as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: false });
     (usePaths as jest.Mock).mockReturnValue({ data: undefined });
-    (useXp as jest.Mock).mockReturnValue({ data: undefined });
+    (useAltitude as jest.Mock).mockReturnValue({ data: undefined });
   });
 
   it('uses edges=[left,right] so the tab layout owns the top inset and the tab bar the bottom one (090)', () => {
@@ -455,7 +409,7 @@ describe('ProgressScreen — path cards open their detail (096)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useProgress as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: false });
-    (useXp as jest.Mock).mockReturnValue({ data: undefined });
+    (useAltitude as jest.Mock).mockReturnValue({ data: undefined });
   });
 
   it('tapping an in-progress path card opens that path\'s detail', () => {
@@ -488,7 +442,7 @@ describe('ProgressScreen — 076e custom path progress bar', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useProgress as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: false });
-    (useXp as jest.Mock).mockReturnValue({ data: undefined });
+    (useAltitude as jest.Mock).mockReturnValue({ data: undefined });
   });
 
   it('shows a progress bar on custom path card (levels empty)', () => {

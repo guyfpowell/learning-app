@@ -43,3 +43,6 @@ export const PUSH_TOKEN_WRITE_SCOPE = 'push-token-write';
 
 /** Starting a path build (`POST /track-builder/builds`). The idempotency key made at the tap is the build's id (ADR-020 Decision 5, ADR-021 Amendment 1). */
 export const START_TRACK_BUILD_MUTATION_KEY = ['start-track-build'] as const;
+
+/** Marking an unlock seen after its celebration is dismissed (`POST /achievements/:key/seen`). */
+export const MARK_ACHIEVEMENT_SEEN_MUTATION_KEY = ['mark-achievement-seen'] as const;

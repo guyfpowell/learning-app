@@ -85,7 +85,7 @@ export default function LessonsScreen() {
           </View>
         )}
 
-        {/* Momentum — the streak, XP and one achievement: a reason to keep going. */}
+        {/* Momentum — the streak and the altitude: a reason to keep going. */}
         {progress && !hasNoContent && <MomentumCard streak={progress.currentStreak} />}
 
         {/* A failed skip says so (079c refactor R1: it used to stop the spinner and show nothing). */}

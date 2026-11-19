@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 // From the 2026-11-11 design handoff (learning-project/docs/design_handoff_nov11).
 // A Dark theme (Night Climb) will follow in its own ticket; it is not here.
 //
-// Rules: cobalt is the ONLY action colour. Gold = XP only. Coral = streak only.
+// Rules: cobalt is the ONLY action colour. Gold = altitude only. Coral = streak only.
 // Green and red = correct and incorrect only.
 //
 // Use the semantic aliases in product code; reach for the scale tokens only when
@@ -69,12 +69,12 @@ export const colors = {
   onBrand:    '#FFFFFF',
 
   // Gamification
-  xp:        '#F2B52F',
-  xpDark:    '#C98A0C',
-  xpEdge:    '#E3A11B',  // the rim of a gold waypoint
-  xpText:    '#7A5000',
-  xpSoft:    '#FFF3D3',
-  xpTrack:   '#F1ECE1',
+  altitude:      '#F2B52F',
+  altitudeDark:  '#C98A0C',
+  altitudeEdge:  '#E3A11B',  // the rim of a gold waypoint
+  altitudeText:  '#7A5000',
+  altitudeSoft:  '#FFF3D3',
+  altitudeTrack: '#F1ECE1',
   coral:     '#FF6B3D',  // streak only
   coralDark: '#D84B20',
   coralSoft: '#FFE9E0',
@@ -282,11 +282,7 @@ export const results = {
 
 // ─── Achievement medals ──────────────────────────────────────────────────────
 export const medal = {
-  cobalt: cobalt[600], gold: '#F2B52F', locked: '#E6E1D8',
-  // Medal finish: the dark glyph on a gold (XP) medal, a locked medal's glyph and lower tone, and the shade mixed into edges.
-  // The text on the gold unlock screen (a dark brown, read on gold).
-  goldText: '#4A3500',
-  xpGlyph: '#5A3A00', lockedGlyph: '#A9A59C', lockedBottom: '#E2DCD2', shade: '#000000',
-  tiered: { trail: '#3A6CF2', ridge: cobalt[600], summit: '#1840B8', xpTrail: '#F6C453', xpRidge: '#F2B52F', xpSummit: '#E3A11B' },
-  jewel: { milestones: '#1C4FD8', session: '#127A84', accuracy: '#5B3CC4', improvement: '#A1336F', depth: '#2C3192', breadth: '#3E5872', curation: '#6E2A5C', return: '#1D6FA3', social: '#B8456B' },
+  // A reward with no medal art, and the shade the unlock screen mixes into its edges.
+  // The medal's own finish is shared `MEDAL_FINISH`.
+  cobalt: cobalt[600], shade: '#000000',
 } as const;

@@ -9,6 +9,9 @@ import { trackBuilderService } from '@/services/trackBuilder.service';
 import { ERROR_CODES, TRACK_BUILD_POLL_MS, TRACK_BUILD_STATUS, type TrackBuild } from '@learning/shared';
 import { BUILD_PHASE } from '@/lib/buildProgress';
 import { axiosError } from '@/test-utils/axios';
+import { makeTrackPlan } from '@/test-utils/paths';
+import { makeRewardUnlock, makeRewards } from '@/test-utils/achievements';
+import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
 import { makeBuiltPlan, makeDoneBuild, makeFailedBuild, makeInFlightBuild, makeNeedsMoreBuild } from '@/test-utils/trackBuilds';
 
 jest.mock('@/services/trackBuilder.service', () => ({
@@ -29,11 +32,22 @@ describe('useCreateTrackPlan', () => {
   }
 
   it('refreshes the signed-in user after a save, which spends the Albert allowance (079a)', async () => {
-    createPlan.mockResolvedValue({ id: 'p1' });
+    createPlan.mockResolvedValue({ plan: makeTrackPlan({ id: 'p1' }), rewards: makeRewards() });
     const { result, invalidate } = setup();
     act(() => result.current.mutate(plan));
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: CURRENT_USER_QUERY_KEY });
+  });
+
+  it('queues the rewards the response carries and hands back the plan from its field', async () => {
+    useCelebrationQueueStore.getState().clear();
+    const firstChapter = makeRewardUnlock('first-chapter');
+    createPlan.mockResolvedValue({ plan: makeTrackPlan({ id: 'p1' }), rewards: makeRewards({ unlocked: [firstChapter] }) });
+    const { result } = setup();
+    act(() => result.current.mutate(plan));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.plan.id).toBe('p1');
+    expect(useCelebrationQueueStore.getState().queue).toEqual([firstChapter]);
   });
 
   it('refreshes the signed-in user after a refused save too: the cached allowance was stale', async () => {

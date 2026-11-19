@@ -20,7 +20,7 @@ const CONTOUR_HEIGHT = 420;
 /** The header's controls row: tall enough for a 44pt touch target. */
 const HEADER_ROW_HEIGHT = CIRCLE_BUTTON_SIZE;
 
-/** Where the header row sits on screen, so an overlay (the XP chip) can land in the middle of it. */
+/** Where the header row sits on screen, so an overlay (the metres chip) can land in the middle of it. */
 export function headerRowBox(topInset: number) {
   return { top: topInset + spacing.sm, height: HEADER_ROW_HEIGHT };
 }

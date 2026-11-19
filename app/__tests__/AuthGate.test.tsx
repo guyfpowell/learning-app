@@ -47,6 +47,7 @@ jest.mock('expo-splash-screen', () => ({
 }));
 
 jest.mock('expo-status-bar', () => ({ StatusBar: () => null }));
+jest.mock('@/components/achievements/CelebrationQueue', () => ({ CelebrationQueue: () => null }));
 
 jest.mock('react-native-gesture-handler', () => ({
   GestureHandlerRootView: ({ children }: { children?: React.ReactNode }) => children,

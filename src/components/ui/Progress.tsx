@@ -9,7 +9,7 @@ import React from 'react';
 import { StyleSheet, View, ViewProps } from 'react-native';
 import { colors } from '@/theme';
 
-export type ProgressTone = 'brand' | 'coral' | 'success' | 'xp';
+export type ProgressTone = 'brand' | 'coral' | 'success' | 'altitude';
 
 interface ProgressProps extends Omit<ViewProps, 'children'> {
   /** Completion percentage 0–100. Values outside the range are clamped. */
@@ -25,7 +25,7 @@ const fillColor: Record<ProgressTone, string> = {
   brand:   colors.brand,
   coral:   colors.coral,
   success: colors.success,
-  xp:      colors.xp,
+  altitude: colors.altitude,
 };
 
 export function Progress({

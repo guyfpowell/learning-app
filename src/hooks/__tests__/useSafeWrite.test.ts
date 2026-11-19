@@ -1,6 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { onlineManager } from '@tanstack/react-query';
 import { AxiosError, AxiosHeaders } from 'axios';
+import type { SaveLessonResponse } from '@learning/shared';
+import { makeRewards } from '@/test-utils/achievements';
 import { lessonService } from '@/services/lesson.service';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { must } from '@/test-utils/must';
@@ -15,13 +17,15 @@ const mockSave = jest.mocked(lessonService.saveLesson);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function useSave(lessonId: string) {
-  return useSafeWrite<{ lessonId: string }, { saved: true }>(SAVE_LESSON_WRITE, lessonWriteScope(lessonId));
+  return useSafeWrite<{ lessonId: string }, SaveLessonResponse>(SAVE_LESSON_WRITE, lessonWriteScope(lessonId));
 }
+
+const REPLY: SaveLessonResponse = { saved: true, rewards: makeRewards() };
 
 describe('useSafeWrite', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockSave.mockResolvedValue({ saved: true });
+    mockSave.mockResolvedValue(REPLY);
   });
   afterEach(() => act(() => onlineManager.setOnline(true)));
 
@@ -34,7 +38,7 @@ describe('useSafeWrite', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(mockSave).toHaveBeenCalledWith('l1', expect.stringMatching(UUID));
-    expect(result.current.data).toEqual({ saved: true });
+    expect(result.current.data).toEqual(REPLY);
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: SAVED_LESSONS_QUERY_KEY }));
   });
 

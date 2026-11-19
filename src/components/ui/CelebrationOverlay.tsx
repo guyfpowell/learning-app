@@ -24,7 +24,7 @@ const COLLAPSE_MS = 480;
 const MIN_RETURN_SCALE = 0.3;
 
 /** How far, and how small, the chip goes to land on the score: the centre of the chip to the centre of the score. */
-export function xpFlight(opts: {
+export function chipFlight(opts: {
   anchor: { top: number; height: number };
   returnTo: ScreenRect;
   chipWidth: number;
@@ -38,26 +38,27 @@ export function xpFlight(opts: {
   };
 }
 
-/** Animated chip for ordinary XP awards: lighter than the full overlay. */
-interface XpChipOverlayProps {
-  xp: number;
+/** Animated chip for a pass's metres: lighter than the full overlay. */
+interface MetresChipOverlayProps {
+  /** The chip's words (`metresChipCopy`). */
+  copy: string;
   visible: boolean;
   onDismiss: () => void;
   autoDismissMs?: number;
   /** A box (top and height) to centre the chip in, instead of the default spot. */
   anchor?: { top: number; height: number };
-  /** Where the XP score sits on the screen: the chip collapses back onto it as it goes. Without it, the chip fades. */
+  /** Where the metres chip sits on the screen: the overlay collapses back onto it as it goes. Without it, the chip fades. */
   returnTo?: ScreenRect | null;
 }
 
-export function XpChipOverlay({ xp, visible, onDismiss, autoDismissMs = 2000, anchor, returnTo }: XpChipOverlayProps) {
+export function MetresChipOverlay({ copy, visible, onDismiss, autoDismissMs = 2000, anchor, returnTo }: MetresChipOverlayProps) {
   const anim = useRef(new Animated.Value(0)).current;
   const collapse = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [chipWidth, setChipWidth] = useState<number | null>(null);
 
   const flight = anchor && returnTo && chipWidth
-    ? xpFlight({ anchor, returnTo, chipWidth, windowWidth: Dimensions.get('window').width })
+    ? chipFlight({ anchor, returnTo, chipWidth, windowWidth: Dimensions.get('window').width })
     : null;
   // The auto-dismiss timer is set once, on the first render, before the chip or the score has been measured.
   // It reads the flight from here, so it sees the latest one when it fires.
@@ -116,24 +117,24 @@ export function XpChipOverlay({ xp, visible, onDismiss, autoDismissMs = 2000, an
 
   return (
     <Pressable
-      testID="xp-chip-overlay"
-      style={[styles.xpChipContainer, anchor && { ...anchor, justifyContent: 'center' }]}
+      testID="metres-chip-overlay"
+      style={[styles.chipContainer, anchor && { ...anchor, justifyContent: 'center' }]}
       onPress={dismiss}
-      accessibilityLabel="Dismiss XP award"
+      accessibilityLabel="Dismiss metres climbed"
     >
       <Animated.View
-        testID="xp-chip-animated"
+        testID="metres-chip-animated"
         onLayout={(e: LayoutChangeEvent) => setChipWidth(e.nativeEvent.layout.width)}
-        style={[styles.xpChip, style]}
+        style={[styles.chip, style]}
       >
-        <Text testID="xp-chip-text" style={styles.xpChipText}>+{xp} XP</Text>
+        <Text testID="metres-chip-text" style={styles.chipText}>{copy}</Text>
       </Animated.View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  xpChipContainer: {
+  chipContainer: {
     position: 'absolute',
     top: 80,
     left: 0,
@@ -141,13 +142,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 50,
   },
-  xpChip: {
+  chip: {
     backgroundColor: '#FEF3C7',
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  xpChipText: {
+  chipText: {
     fontFamily: font.semibold,
     fontSize: fontSize.lg,
     color: '#B45309',

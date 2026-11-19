@@ -57,7 +57,7 @@ export function DeleteAccountModal({ onClose }: { onClose: () => void }) {
 
               <View style={deleteStyles.bulletList}>
                 {[
-                  'Your learning progress and XP',
+                  'Your learning progress and metres climbed',
                   'Your achievements',
                   'Your track enrolments',
                   'Your saved lessons',

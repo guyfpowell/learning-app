@@ -8,7 +8,7 @@ export const lessonService = {
     return data;
   },
 
-  async saveLesson(lessonId: string, idempotencyKey: string): Promise<{ saved: true }> {
+  async saveLesson(lessonId: string, idempotencyKey: string): Promise<SaveLessonResponse> {
     const { data } = await api.post<SaveLessonResponse>(`/lessons/${lessonId}/save`, undefined, withIdempotencyKey(idempotencyKey));
     return data;
   },

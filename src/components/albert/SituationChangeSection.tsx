@@ -174,7 +174,7 @@ function Box({ testID, finished, invite, locked = false, onPressHead, headTestID
           <Text style={styles.invite}>My situation has changed</Text>
           <Text style={styles.inviteSub}>New role or new goal? Albert adjusts.</Text>
         </View>
-        {locked && <Icon name="premium" size={20} color={colors.xpEdge} />}
+        {locked && <Icon name="premium" size={20} color={colors.altitudeEdge} />}
       </Pressable>
       {expanded && children}
     </View>

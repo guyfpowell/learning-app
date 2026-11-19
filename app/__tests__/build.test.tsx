@@ -65,6 +65,7 @@ import {
 import { isShownBuild } from '@/lib/shownBuild';
 import { BUILD_LEAVE_LABEL } from '@learning/shared';
 import { makeBuiltPlan, makeDoneBuild, makeFailedBuild, makeNeedsMoreBuild } from '@/test-utils/trackBuilds';
+import { queryWrapper } from '@/test-utils/queryClient';
 
 const STATEMENT =
   'I am a senior product manager at a health tech, been here 4 years, '
@@ -85,7 +86,7 @@ beforeEach(() => {
 
 describe('the build screen heading', () => {
   it('has the heading and the box, with no line of explanation between them', () => {
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(screen.getByText('Describe where you are and what you want.')).toBeTruthy();
     expect(screen.queryByText(/put together a path from the whole curriculum/)).toBeNull();
   });
@@ -93,7 +94,7 @@ describe('the build screen heading', () => {
 
 describe('tapping build', () => {
   it('starts a build with the words in the box', () => {
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     type();
     fireEvent.press(screen.getByTestId('build-submit'));
     expect(mockStart).toHaveBeenCalledWith(STATEMENT);
@@ -110,7 +111,7 @@ describe('tapping build', () => {
 describe('when the build fails', () => {
   it('shows the error and no slow message, keeps the words, and tapping build again sends them again', () => {
     mockProgress = finished(makeFailedBuild('b1', STATEMENT));
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     type();
 
     expect(screen.getByTestId('build-error').props.children).toBe(ERROR_MESSAGES[ERROR_CODES.TRACK_BUILDER_UNAVAILABLE]);
@@ -127,7 +128,7 @@ describe('when the build fails', () => {
       phase: BUILD_PHASE.error,
       error: { response: { data: { error: 'No more builds today.', code: ERROR_CODES.TRACK_BUILD_LIMIT_REACHED } } },
     };
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(screen.getByTestId('build-error').props.children).toContain('No more builds today.');
   });
 
@@ -140,7 +141,7 @@ describe('when the build fails', () => {
         code: ERROR_CODES.TRACK_STATEMENT_TOO_THIN,
       } } },
     };
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(screen.getByTestId('build-notice').props.children).toContain('how I read that');
     expect(screen.queryByTestId('build-error')).toBeNull();
   });
@@ -149,7 +150,7 @@ describe('when the build fails', () => {
 describe('when the model needs more', () => {
   it('shows the "tell me more" message as a notice on the build screen', () => {
     mockProgress = finished(makeNeedsMoreBuild('b1', STATEMENT, 'Tell me a bit more about your role'));
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(screen.getByTestId('build-notice').props.children).toBe('Tell me a bit more about your role');
     expect(screen.queryByTestId('build-error')).toBeNull();
     expect(mockPush).not.toHaveBeenCalled();
@@ -160,7 +161,7 @@ describe('when the build is done', () => {
   it('opens the review with the plan, once', () => {
     const plan = makeBuiltPlan();
     mockProgress = finished(makeDoneBuild('b1', STATEMENT, plan));
-    const { rerender } = render(<BuildScreen />);
+    const { rerender } = render(<BuildScreen />, { wrapper: queryWrapper() });
 
     expect(mockSetDraft).toHaveBeenCalledWith({ statement: STATEMENT, sessionId: null, result: plan });
     expect(mockPush).toHaveBeenCalledWith(BUILD_REVIEW_ROUTE);
@@ -174,7 +175,7 @@ describe('when the build is done', () => {
 
 describe('the statement box', () => {
   it('stops at a paragraph, so nobody is told their words are too long after writing them', () => {
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(screen.getByTestId('build-statement').props.maxLength).toBe(TRACK_STATEMENT_MAX);
   });
 });
@@ -187,7 +188,7 @@ describe('while a build is running', () => {
 
   it('says what is happening rather than only greying the button', () => {
     mockProgress = { phase: BUILD_PHASE.building };
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(screen.getByTestId('build-waiting')).toBeTruthy();
     expect(screen.getByText(BUILD_WAIT_COPY[BUILD_WAIT_STAGE.normal])).toBeTruthy();
     // No percentage: latency tracks how long the track turns out to be, so a
@@ -197,7 +198,7 @@ describe('while a build is running', () => {
 
   it('says it is taking longer at the slow threshold, still waiting', () => {
     mockProgress = { phase: BUILD_PHASE.building };
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     advance(BUILD_WAIT_SLOW_MS - 1);
     expect(screen.getByText(BUILD_WAIT_COPY[BUILD_WAIT_STAGE.normal])).toBeTruthy();
     advance(1);
@@ -207,20 +208,20 @@ describe('while a build is running', () => {
 
   it('says the person need not wait at the long threshold, with no spinner', () => {
     mockProgress = { phase: BUILD_PHASE.building };
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     advance(BUILD_WAIT_LONG_MS);
     expect(screen.getByText(BUILD_WAIT_COPY[BUILD_WAIT_STAGE.long])).toBeTruthy();
     expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
   });
 
   it('says nothing while idle', () => {
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(screen.queryByTestId('build-waiting')).toBeNull();
   });
 
   it('while the start waits for signal, says so, and never shows the slow messages', () => {
     mockProgress = { phase: BUILD_PHASE.paused };
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     advance(BUILD_WAIT_LONG_MS * 2);
     expect(screen.getByText(BUILD_OFFLINE_COPY)).toBeTruthy();
     expect(screen.queryByText(BUILD_WAIT_COPY[BUILD_WAIT_STAGE.slow])).toBeNull();
@@ -229,7 +230,7 @@ describe('while a build is running', () => {
 
   it('keeps the words and the button locked while waiting', () => {
     mockProgress = { phase: BUILD_PHASE.building };
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(screen.getByTestId('build-statement').props.editable).toBe(false);
   });
 });
@@ -247,7 +248,7 @@ describe('getting out', () => {
 
   it('falls back to Tracks when there is nothing on the stack', () => {
     mockCanGoBack = false;
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     fireEvent.press(screen.getByTestId('build-back'));
     expect(mockReplace).toHaveBeenCalledWith(TRACKS_ROUTE);
     expect(mockBack).not.toHaveBeenCalled();
@@ -255,7 +256,7 @@ describe('getting out', () => {
 
   it('pops the stack when there is somewhere to go back to', () => {
     mockCanGoBack = true;
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     fireEvent.press(screen.getByTestId('build-back'));
     expect(mockBack).toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
@@ -263,7 +264,7 @@ describe('getting out', () => {
 
   it('starts the box with what the person typed on Home, and sends nothing until they build', () => {
     mockParams.statement = 'Designer moving into product';
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(screen.getByTestId('build-statement').props.value).toBe('Designer moving into product');
     expect(mockPush).not.toHaveBeenCalled();
     delete mockParams.statement;
@@ -278,7 +279,7 @@ describe('leaving a slow build (ticket 108)', () => {
   it('offers a button to leave only from the long stage, and it takes the person out of the screen', () => {
     mockProgress = { phase: BUILD_PHASE.building };
     mockCanGoBack = true;
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     advance(BUILD_WAIT_SLOW_MS);
     expect(screen.queryByText(BUILD_LEAVE_LABEL)).toBeNull();
     advance(BUILD_WAIT_LONG_MS - BUILD_WAIT_SLOW_MS);
@@ -297,7 +298,7 @@ describe('a finished build opened from the server (ticket 108)', () => {
   it('done: opens the review with that build\'s plan and marks it seen', () => {
     const plan = makeBuiltPlan();
     open(makeDoneBuild('b1', STATEMENT, plan));
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(mockSetDraft).toHaveBeenCalledWith({ statement: STATEMENT, sessionId: null, result: plan });
     expect(mockPush).toHaveBeenCalledWith(BUILD_REVIEW_ROUTE);
     expect(mockMarkSeen).toHaveBeenCalledWith('b1');
@@ -305,7 +306,7 @@ describe('a finished build opened from the server (ticket 108)', () => {
 
   it('needs_more: shows their words from the server and the message, and marks it seen', () => {
     open(makeNeedsMoreBuild('b2', STATEMENT, 'Tell me a bit more about your role'));
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(screen.getByTestId('build-statement').props.value).toBe(STATEMENT);
     expect(screen.getByTestId('build-notice').props.children).toBe('Tell me a bit more about your role');
     expect(mockMarkSeen).toHaveBeenCalledWith('b2');
@@ -314,7 +315,7 @@ describe('a finished build opened from the server (ticket 108)', () => {
 
   it('failed: shows their words and the failure message, and trying again is a new build with the same words', () => {
     open(makeFailedBuild('b3', STATEMENT));
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(screen.getByTestId('build-statement').props.value).toBe(STATEMENT);
     expect(screen.getByTestId('build-error').props.children).toBe(ERROR_MESSAGES[ERROR_CODES.TRACK_BUILDER_UNAVAILABLE]);
     fireEvent.press(screen.getByTestId('build-submit'));
@@ -324,13 +325,13 @@ describe('a finished build opened from the server (ticket 108)', () => {
 
   it('does not mark a build seen that is already seen', () => {
     open({ ...makeFailedBuild('b4', STATEMENT), seen: true });
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(mockMarkSeen).not.toHaveBeenCalled();
   });
 
   it('marks a build seen when its result shows on this screen without being opened', () => {
     mockProgress = finished(makeFailedBuild('b5', STATEMENT));
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(mockMarkSeen).toHaveBeenCalledWith('b5');
   });
 });
@@ -338,7 +339,7 @@ describe('a finished build opened from the server (ticket 108)', () => {
 describe('the build on screen (ticket 108)', () => {
   it('is the one whose push is not displayed, until the screen goes', () => {
     mockOwnBuildId = 'b6';
-    const { unmount } = render(<BuildScreen />);
+    const { unmount } = render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(isShownBuild('b6')).toBe(true);
     unmount();
     expect(isShownBuild('b6')).toBe(false);
@@ -346,7 +347,7 @@ describe('the build on screen (ticket 108)', () => {
 
   it('is the opened build too', () => {
     mockParams.buildId = 'b7';
-    render(<BuildScreen />);
+    render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(isShownBuild('b7')).toBe(true);
   });
 });

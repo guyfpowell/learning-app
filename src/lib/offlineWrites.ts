@@ -8,6 +8,7 @@ import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { DAY_MS, ERROR_CODES } from '@learning/shared';
 import { HEALTH_URL } from '@/lib/apiUrl';
 import { errorCode } from '@/lib/errorCode';
+import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
 
 /**
  * Patchy-signal support (ADR-019 Decision 6, ADR-021): offline detection, the one retry rule for
@@ -179,6 +180,7 @@ export async function clearSessionData(client: QueryClient): Promise<void> {
     if (typeof mutation.state.variables === 'object' && mutation.state.variables !== null) discardedWrites.add(mutation.state.variables);
   }
   client.clear();
+  useCelebrationQueueStore.getState().clear();
   try {
     await writePersister.removeClient();
   } catch (err) {

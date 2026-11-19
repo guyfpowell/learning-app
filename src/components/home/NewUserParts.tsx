@@ -2,7 +2,6 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Text } from '@/components/ui/Text';
 import { Icon } from '@/components/ui/Icon';
-import { Medal } from '@/components/ui/Medal';
 import { TrackIcon } from '@/components/ui/TrackIcon';
 import { useSkills } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
@@ -56,19 +55,6 @@ export function NewUserTracks({ heading }: { heading: string }) {
   );
 }
 
-/** "Your first badge is one lesson away": First Light and the first XP. */
-export function NewUserBadge() {
-  return (
-    <View testID="new-user-milestone" style={styles.badge}>
-      <Medal achievement="first-light" size={56} />
-      <View style={styles.badgeText}>
-        <Text style={styles.badgeTitle}>Your first badge is one lesson away</Text>
-        <Text style={styles.badgeBody}>Finish any lesson to earn First Light and your first XP.</Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   block:   { gap: 12 },
   heading: { fontFamily: font.black, fontSize: 24, letterSpacing: -0.03 * 24, color: colors.textStrong },
@@ -86,15 +72,4 @@ const styles = StyleSheet.create({
   trackHeadline: { fontFamily: font.regular, fontSize: 13, lineHeight: 13 * 1.35, color: colors.textMuted },
   browse: { paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border },
   link:   { fontFamily: font.extrabold, fontSize: 15, color: colors.brand },
-  badge: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    gap:             16,
-    paddingVertical: 18,
-    borderTopWidth:  1,
-    borderTopColor:  colors.border,
-  },
-  badgeText:  { flex: 1, gap: 3 },
-  badgeTitle: { fontFamily: font.extrabold, fontSize: 17, color: colors.textStrong },
-  badgeBody:  { fontFamily: font.regular, fontSize: 14, lineHeight: 14 * 1.4, color: colors.textBody },
 });

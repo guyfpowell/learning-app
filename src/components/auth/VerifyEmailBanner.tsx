@@ -5,7 +5,7 @@ import { colors, font } from '@/theme';
 
 /**
  * Under the status bar while the email is unverified (board 22, 3a and 3b): a neutral sand pill, so it is
- * not mistaken for an error or XP. "Resend" asks again; once sent it says so, with nothing left to press.
+ * not mistaken for an error or a reward. "Resend" asks again; once sent it says so, with nothing left to press.
  */
 export function VerifyEmailBanner({ sent, sending, onResend }: { sent: boolean; sending: boolean; onResend: () => void }) {
   return (

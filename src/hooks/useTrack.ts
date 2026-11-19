@@ -7,6 +7,7 @@ import { PATHS_QUERY_KEY, SKILLS_QUERY_KEY } from '@/lib/queryKeys';
 import { trackContentsQueryOptions } from '@/lib/trackContentsQuery';
 import { SET_ACTIVE_PATH_WRITE } from '@/lib/safeWrites';
 import { requireSignal } from '@/lib/offlineWrites';
+import { enqueueRewards } from '@/lib/rewards';
 import { invalidatePathQueries } from '@/lib/pathInvalidation';
 import { useOptimisticMutation } from '@/hooks/useOptimisticMutation';
 
@@ -50,7 +51,10 @@ export function useEnroll() {
   return useMutation({
     // Not safe to send twice: with no signal it fails at once (ADR-021 Decision 6).
     mutationFn: (skillId: string) => requireSignal(() => trackService.enroll(skillId)),
-    onSuccess: invalidate,
+    onSuccess: ({ rewards }) => {
+      enqueueRewards(rewards);
+      return invalidate();
+    },
   });
 }
 

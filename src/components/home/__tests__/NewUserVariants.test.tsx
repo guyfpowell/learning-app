@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
-import type { Skill, TrackContents } from '@learning/shared';
+import type { TrackContents } from '@learning/shared';
+import { makeSkill } from '@/test-utils/skills';
 import { NewUserHome } from '../NewUserHome';
 import { useSkills, useTrackContents } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
@@ -12,7 +13,6 @@ jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('@/hooks/useTrack', () => ({ useSkills: jest.fn(), useTrackContents: jest.fn() }));
 jest.mock('@/hooks/useEmailVerification', () => ({ useCurrentUser: jest.fn() }));
 
-const skill = (id: string, name: string, order: number) => ({ id, name, order, trackId: order, headline: `${name} headline` }) as Skill;
 const contents: TrackContents = {
   kind: 'track',
   id: 's1',
@@ -40,7 +40,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   useNewUserHomeStore.setState({ variant: DEFAULT_NEW_USER_HOME });
   (useCurrentUser as jest.Mock).mockReturnValue({ data: { name: 'Alex Smith' } });
-  (useSkills as jest.Mock).mockReturnValue({ data: [skill('s1', 'Product Strategy', 1), skill('s2', 'AI Fundamentals', 2), skill('s3', 'User Research', 3)] });
+  (useSkills as jest.Mock).mockReturnValue({ data: [makeSkill('s1', 'Product Strategy', 1), makeSkill('s2', 'AI Fundamentals', 2), makeSkill('s3', 'User Research', 3)] });
   (useTrackContents as jest.Mock).mockReturnValue({ data: contents });
 });
 
@@ -72,13 +72,13 @@ describe('1a, the pitch', () => {
     expect(mockPush).toHaveBeenCalledWith(BUILD_ROUTE);
   });
 
-  it('offers tracks, four numbered reasons, and the first badge', () => {
+  it('offers tracks, and four numbered reasons', () => {
     render(<NewUserHome />);
     expect(screen.getByText('Or start a track now')).toBeTruthy();
     expect(screen.getByText('Why it sticks')).toBeTruthy();
     expect(screen.getByText('01')).toBeTruthy();
     expect(screen.getByText('Ready for AI')).toBeTruthy();
-    expect(screen.getByText('Your first badge is one lesson away')).toBeTruthy();
+    expect(screen.queryByText('Your first badge is one lesson away')).toBeNull();
   });
 });
 
@@ -105,11 +105,13 @@ describe('1c, the climb', () => {
     expect(screen.queryByTestId('new-user-starter')).toBeNull();
   });
 
-  it('puts Albert second, and names the first three badges', () => {
+  it('puts Albert second, and names the one medal it shows', () => {
     render(<NewUserHome />);
     fireEvent.press(screen.getByTestId('new-user-albert-row'));
     expect(mockPush).toHaveBeenCalledWith(BUILD_ROUTE);
-    for (const name of ['First Light', 'Hat-Trick', 'Foothills']) expect(screen.getByText(name)).toBeTruthy();
+    expect(screen.getByText('Hat-Trick')).toBeTruthy();
+    expect(screen.queryByText('First Light')).toBeNull();
+    expect(screen.queryByText('Foothills')).toBeNull();
     expect(screen.getByText('Pick your mountain')).toBeTruthy();
   });
 });

@@ -4,7 +4,9 @@ import { persistQueryClientRestore } from '@tanstack/react-query-persist-client'
 import { waitFor } from '@testing-library/react-native';
 import { axiosError } from '@/test-utils/axios';
 import { ERROR_CODES, LESSON_PHASES, LESSON_RATINGS } from '@learning/shared';
-import { PATHS_QUERY_KEY, SKILLS_QUERY_KEY } from '@/lib/queryKeys';
+import { makeRewardUnlock, makeRewards } from '@/test-utils/achievements';
+import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
+import { ALTITUDE_QUERY_KEY, PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, SKILLS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, lessonQueryKey } from '@/lib/queryKeys';
 import { createTestQueryClient } from '@/test-utils/queryClient';
 import { createAppQueryClient } from '@/test-utils/appQueryClient';
 import { pauseSetActiveWrite, saveToDevice } from '@/test-utils/pausedWrite';
@@ -21,7 +23,8 @@ import { lessonWriteScope } from '../mutationKeys';
 import { PERSIST_MAX_AGE_MS, writePersister } from '../offlineWrites';
 import {
   PUSH_TOKEN_WRITE, SAVE_LESSON_WRITE, SAVE_POSITION_WRITE, SET_ACTIVE_PATH_WRITE, SET_RATING_WRITE, SUBMIT_QUIZ_WRITE,
-  START_TRACK_BUILD_WRITE, UNSAVE_LESSON_WRITE, UPDATE_PREFERENCES_WRITE, UPDATE_PROFILE_WRITE, registerSafeWrites,
+  START_TRACK_BUILD_WRITE, MARK_ACHIEVEMENT_SEEN_WRITE, UNSAVE_LESSON_WRITE, UPDATE_PREFERENCES_WRITE, UPDATE_PROFILE_WRITE, registerSafeWrites,
+  startRegisteredWrite,
 } from '../safeWrites';
 import type { SafeWrite } from '../writeSettle';
 
@@ -305,5 +308,61 @@ describe('a write restored after a restart', () => {
   it('refuses a saved write that has no path, instead of sending a guess', async () => {
     await expect(Promise.resolve().then(() => SET_ACTIVE_PATH_WRITE.mutationFn({ kind: 'custom' }))).rejects.toThrow('has no path');
     expect(mockTrackService.setActivePath).not.toHaveBeenCalled();
+  });
+});
+
+describe('the quiz answer settle step', () => {
+  it('refreshes the altitude with the paths, progress, lesson and track tree when a lesson is finalised', async () => {
+    const client = createTestQueryClient();
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    const settle = must(SUBMIT_QUIZ_WRITE.settle, 'quiz settle step');
+    await settle(client, { data: { lessonFinalized: true }, error: null, variables: { input: { lessonId: 'l1', answers: { q1: 'a' } }, idempotencyKey: KEY } });
+    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([
+      PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, lessonQueryKey('l1'), TRACK_CONTENTS_QUERY_KEY, ALTITUDE_QUERY_KEY,
+    ]);
+  });
+});
+
+describe('the save settle step', () => {
+  beforeEach(() => useCelebrationQueueStore.getState().clear());
+
+  it('queues what saving a first lesson earned: the Pocketed step from the response', async () => {
+    const client = createTestQueryClient();
+    const pocketed = makeRewardUnlock('pocketed');
+    const settle = must(SAVE_LESSON_WRITE.settle, 'save settle step');
+    await settle(client, { data: { saved: true, rewards: makeRewards({ unlocked: [pocketed] }) }, error: null, variables: { input: { lessonId: 'l1' }, idempotencyKey: KEY } });
+    expect(useCelebrationQueueStore.getState().queue).toEqual([pocketed]);
+  });
+
+  it('queues nothing when the save failed', async () => {
+    const client = createTestQueryClient();
+    const settle = must(SAVE_LESSON_WRITE.settle, 'save settle step');
+    await settle(client, { data: undefined, error: new Error('no'), variables: { input: { lessonId: 'l1' }, idempotencyKey: KEY } });
+    expect(useCelebrationQueueStore.getState().queue).toEqual([]);
+  });
+
+  it('a save restored after a restart queues its rewards through the same step', async () => {
+    const client = appClient();
+    jest.mocked(lessonService.saveLesson).mockResolvedValue({ saved: true, rewards: makeRewards({ unlocked: [makeRewardUnlock('pocketed')] }) });
+    await startRegisteredWrite(client, SAVE_LESSON_WRITE, { input: { lessonId: 'l1' }, idempotencyKey: KEY });
+    await waitFor(() => expect(useCelebrationQueueStore.getState().queue).toEqual([makeRewardUnlock('pocketed')]));
+  });
+});
+
+describe('the "seen" settle step', () => {
+  const seen = (key: string) => ({ data: undefined, error: null, variables: { input: { key }, idempotencyKey: KEY } });
+
+  it('refreshes the altitude when a landmark was marked seen, so the badge slot moves on', async () => {
+    const client = createTestQueryClient();
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    await must(MARK_ACHIEVEMENT_SEEN_WRITE.settle, 'seen settle step')(client, seen('yr-wyddfa'));
+    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([ALTITUDE_QUERY_KEY]);
+  });
+
+  it('leaves the altitude alone when a medal was marked seen', async () => {
+    const client = createTestQueryClient();
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    await must(MARK_ACHIEVEMENT_SEEN_WRITE.settle, 'seen settle step')(client, seen('first-light'));
+    expect(invalidate).not.toHaveBeenCalled();
   });
 });

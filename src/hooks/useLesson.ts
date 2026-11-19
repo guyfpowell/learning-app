@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Lesson } from '@learning/shared';
+import type { Lesson, SaveLessonResponse } from '@learning/shared';
 import { lessonService } from '@/services/lesson.service';
 import { SAVED_LESSONS_QUERY_KEY, lessonQueryKey } from '@/lib/queryKeys';
 import { lessonQueryOptions } from '@/lib/lessonQuery';
@@ -35,7 +35,7 @@ export function useStartRetake() {
 // The screen changes nothing ahead of the server; the settle steps are in `safeWrites.ts`.
 
 export function useSaveLesson(lessonId: string) {
-  return useSafeWrite<LessonInput, { saved: true }>(SAVE_LESSON_WRITE, lessonWriteScope(lessonId));
+  return useSafeWrite<LessonInput, SaveLessonResponse>(SAVE_LESSON_WRITE, lessonWriteScope(lessonId));
 }
 
 export function useUnsaveLesson(lessonId: string) {

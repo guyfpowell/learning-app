@@ -70,3 +70,9 @@ export function trackBuildQueryKey(buildId: string | undefined) {
 
 /** The user's finished path builds not yet shown to them (`GET /track-builder/builds?unseen=true`). It drives the Albert tab's badge and entry. */
 export const UNSEEN_BUILDS_QUERY_KEY = ['track-builds', 'unseen'] as const;
+
+/** The achievements the person has unlocked but not been shown (`GET /achievements/unseen`). The celebration queue reads it on start, on foreground and when a finished build is shown. */
+export const UNSEEN_ACHIEVEMENTS_QUERY_KEY = ['achievements', 'unseen'] as const;
+
+/** The user's metres and level (`GET /users/altitude`). Invalidate it when a lesson pays. */
+export const ALTITUDE_QUERY_KEY = ['altitude'] as const;

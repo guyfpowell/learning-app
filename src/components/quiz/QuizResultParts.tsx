@@ -35,19 +35,19 @@ export function TrackAverageBadge({ average, previous, retakeUsed, tone }: { ave
   );
 }
 
-/** The XP award chip. It reports where it sits on the screen, so the XP animation can fly back onto it. */
-export function XpAward({ xp, tone, onMeasure }: { xp: number; tone: ResultTone; onMeasure?: (rect: ScreenRect) => void }) {
+/** The metres chip ("+34m · Level 4"). It reports where it sits on the screen, so the chip animation can fly back onto it. */
+export function MetresAward({ copy, tone, onMeasure }: { copy: string; tone: ResultTone; onMeasure?: (rect: ScreenRect) => void }) {
   const ref = useRef<ComponentRef<typeof View>>(null);
   return (
     <View
       ref={ref}
       collapsable={false}
-      testID="xp-chip"
-      style={[styles.xpChip, { shadowColor: results[tone].edge }]}
+      testID="metres-chip"
+      style={[styles.chip, { shadowColor: results[tone].edge }]}
       onLayout={() => ref.current?.measureInWindow((x, y, width, height) => onMeasure?.({ x, y, width, height }))}
     >
-      <Icon name="xp" size={GEM_SIZE} color={colors.xpDark} fill={colors.xp} />
-      <Text style={styles.xpChipText}>+{xp} XP</Text>
+      <Icon name="gem" size={GEM_SIZE} color={colors.altitudeDark} fill={colors.altitude} />
+      <Text style={styles.chipText}>{copy}</Text>
     </View>
   );
 }
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     fontFamily: font.medium,
     fontSize:   fontSize.sm,
   },
-  xpChip: {
+  chip: {
     flexDirection:     'row',
     alignItems:        'center',
     gap:               spacing.sm,
@@ -97,10 +97,10 @@ const styles = StyleSheet.create({
     shadowRadius:      0,
     elevation:         press.edge,
   },
-  xpChipText: {
+  chipText: {
     fontFamily: font.extrabold,
     fontSize:   fontSize.md,
-    color:      colors.xpText,
+    color:      colors.altitudeText,
   },
   milestoneCard: {
     backgroundColor: colors.coral,

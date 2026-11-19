@@ -93,7 +93,7 @@ export function QuizQuestionView({
           <>
             {wrongAnswer !== undefined && current.type === 'multiple-choice' && (
               <View testID="second-try-note" style={styles.secondTry}>
-                <Icon name="retake" size={fontSize.md} color={colors.xpText} />
+                <Icon name="retake" size={fontSize.md} color={colors.altitudeText} />
                 <Text style={styles.secondTryText}>Retry</Text>
               </View>
             )}
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   // Over the plain page the close button is a bare cross, not a box.
   closeBtn: { width: CIRCLE_BUTTON_SIZE, height: CIRCLE_BUTTON_SIZE, alignItems: 'center', justifyContent: 'center' },
   secondTry: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-  secondTryText: { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.xpText },
+  secondTryText: { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.altitudeText },
   contentGrow: { flexGrow: 1 },
   options:  { gap: spacing.sm3, marginBottom: spacing.lg },
   // The one picked answer sits midway between the question and Submit.

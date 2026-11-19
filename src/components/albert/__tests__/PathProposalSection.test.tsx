@@ -12,6 +12,7 @@ import {
 import { PathProposalSection } from '../PathProposalSection';
 import { proposalService } from '@/services/proposal.service';
 import { makeCustomPath } from '@/test-utils/paths';
+import { makeRewards } from '@/test-utils/achievements';
 import { queryWrapper } from '@/test-utils/queryClient';
 
 const mockPush = jest.fn();
@@ -66,7 +67,7 @@ let serverProposal: PathProposal | null;
 function decideThen(next: PathProposal | null) {
   mockService.decide.mockImplementation(async () => {
     serverProposal = next;
-    return makeCustomPath({ id: 'plan-1', hasProposal: next !== null });
+    return { path: makeCustomPath({ id: 'plan-1', hasProposal: next !== null }), rewards: makeRewards() };
   });
 }
 

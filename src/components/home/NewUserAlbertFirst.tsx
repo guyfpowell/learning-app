@@ -6,7 +6,7 @@ import { EdgeButton } from '@/components/ui/EdgeButton';
 import { HeroBackground } from '@/components/ui/HeroBackground';
 import { AlbertMark } from '@/components/albert/AlbertMark';
 import { Wordmark } from '@/components/ui/Wordmark';
-import { NewUserBadge, NewUserTracks, useFirstName } from '@/components/home/NewUserParts';
+import { NewUserTracks, useFirstName } from '@/components/home/NewUserParts';
 import { BUILD_ROUTE } from '@/lib/routes';
 import { BUILD_SCREEN_COPY, TRACK_STATEMENT_MAX } from '@learning/shared';
 import { colors, font, levelCard, radius } from '@/theme';
@@ -34,7 +34,7 @@ const LEVEL_LABEL = { beginner: 'Beginner', intermediate: 'Intermediate' } as co
 /**
  * Home for someone with no path yet, "Albert first" (board 22, 1b): the box to tell Albert about
  * yourself is the first thing on the page, with starter chips; then what a path looks like, a few
- * ready-made tracks, and the first badge. The statement goes to the builder, which has not yet sent it.
+ * steps, and ready-made tracks. The statement goes to the builder, which has not yet sent it.
  */
 export function NewUserAlbertFirst() {
   const router = useRouter();
@@ -115,8 +115,6 @@ export function NewUserAlbertFirst() {
         </View>
 
         <NewUserTracks heading="Prefer a set route?" />
-
-        <NewUserBadge />
       </View>
     </View>
   );

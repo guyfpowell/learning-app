@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
-import type { Skill } from '@learning/shared';
+import { makeSkill } from '@/test-utils/skills';
 import { NewUserHome } from '../NewUserHome';
 import { useSkills } from '@/hooks/useTrack';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
@@ -12,9 +12,8 @@ jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('@/hooks/useTrack', () => ({ useSkills: jest.fn() }));
 jest.mock('@/hooks/useEmailVerification', () => ({ useCurrentUser: jest.fn() }));
 
-const skill = (id: string, name: string, order: number) => ({ id, name, order, trackId: order, headline: `${name} headline` }) as Skill;
 
-function setup({ name = 'Sam Jones', skills = [skill('s1', 'Product Strategy', 1), skill('s2', 'AI Fundamentals', 2), skill('s3', 'User Research', 3), skill('s4', 'Product Metrics', 4)] } = {}) {
+function setup({ name = 'Sam Jones', skills = [makeSkill('s1', 'Product Strategy', 1), makeSkill('s2', 'AI Fundamentals', 2), makeSkill('s3', 'User Research', 3), makeSkill('s4', 'Product Metrics', 4)] } = {}) {
   (useCurrentUser as jest.Mock).mockReturnValue({ data: name ? { name } : undefined });
   (useSkills as jest.Mock).mockReturnValue({ data: skills });
 }
@@ -92,10 +91,10 @@ describe('NewUserHome (Albert first)', () => {
     expect(mockPush).toHaveBeenCalledWith(TRACKS_ROUTE);
   });
 
-  it('names the first badge and the first XP', () => {
+  it('has no First Light card: First Light is a Trailhead step now', () => {
     setup();
     render(<NewUserHome />);
-    expect(screen.getByText('Your first badge is one lesson away')).toBeTruthy();
-    expect(screen.getByText('Finish any lesson to earn First Light and your first XP.')).toBeTruthy();
+    expect(screen.queryByText('Your first badge is one lesson away')).toBeNull();
+    expect(screen.queryByTestId('new-user-milestone')).toBeNull();
   });
 });
