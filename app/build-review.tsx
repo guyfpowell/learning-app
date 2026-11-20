@@ -12,6 +12,7 @@ import { ReviewSaveArea } from '@/components/trackBuilder/ReviewSaveArea';
 import { useDraftStore } from '@/store/trackBuilder.store';
 import { useRefinePlan, useCreateTrackPlan } from '@/hooks/useTrackBuilder';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
+import { useGoBack } from '@/hooks/useGoBack';
 import { errorCode, writeError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import {
@@ -70,10 +71,7 @@ export default function BuildReviewScreen() {
   const accepted = useRef(false);
 
   /** Back: pop the stack (lands on /build) if there is somewhere to go, else Tracks. */
-  const handleBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace(TRACKS_ROUTE);
-  };
+  const handleBack = useGoBack(TRACKS_ROUTE);
 
   useEffect(() => {
     if (draft || accepted.current) return;

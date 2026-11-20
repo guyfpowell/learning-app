@@ -11,7 +11,7 @@ import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
 import { UNSEEN_ACHIEVEMENTS_QUERY_KEY } from '@/lib/queryKeys';
 import { clearSessionData } from '@/lib/offlineWrites';
 import { CelebrationQueue } from '../CelebrationQueue';
-import { ACHIEVEMENTS_BY_KEY, CELEBRATION_CONTINUE, JUST_EARNED, SMALL_MESSAGE_MS, TRAILHEAD_STEP_KEYS, celebrationEyebrow, smallMessageCount, smallMessageLine, trailheadStepMessage, type UnseenAchievement } from '@learning/shared';
+import { ACHIEVEMENTS_BY_KEY, CELEBRATION_CONTINUE, JUST_EARNED, SMALL_MESSAGE_MS, TRAILHEAD_STEP_KEYS, celebrationEyebrow, smallMessageCountOf, smallMessageLine, smallMessageOf, type UnseenAchievement } from '@learning/shared';
 import { SWIPE_UP_DISTANCE } from '@/components/celebrations/SmallMessage';
 
 jest.mock('expo-status-bar', () => ({ StatusBar: () => null }));
@@ -178,13 +178,13 @@ describe('CelebrationQueue', () => {
     it('shows one of two with "1 of 2", then the next alone', async () => {
       serverUnseen = [toastMedal, toastStep];
       renderQueue();
-      expect((await screen.findByTestId('small-message-count')).props.children).toBe(smallMessageCount(1, 2));
+      expect((await screen.findByTestId('small-message-count')).props.children).toBe(smallMessageCountOf([toastMedal, toastStep]));
       expect(screen.getByTestId('small-message-line').props.children).toBe(smallMessageLine(toastMedal));
       fireEvent(screen.getByTestId('small-message-swipe'), 'touchStart', { nativeEvent: { pageY: 100 } });
       fireEvent(screen.getByTestId('small-message-swipe'), 'touchEnd', { nativeEvent: { pageY: 100 - SWIPE_UP_DISTANCE } });
       await waitFor(() => expect(seenSent).toEqual([toastMedal.key]));
       expect((await screen.findByTestId('small-message-line')).props.children)
-        .toBe(trailheadStepMessage(5, TRAILHEAD_STEP_KEYS.length, toastStep.description));
+        .toBe(smallMessageOf(toastStep));
       expect(screen.queryByTestId('small-message-count')).toBeNull();
     });
   });

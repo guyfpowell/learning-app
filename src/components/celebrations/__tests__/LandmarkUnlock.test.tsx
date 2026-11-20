@@ -1,9 +1,9 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { HEIGHT_BANDS, LANDMARKS, LANDMARK_EYEBROW, CELEBRATION_CONTINUE, heightBandOf, metresLabel, type LandmarkKey } from '@learning/shared';
+import { LANDMARK_EYEBROW, CELEBRATION_CONTINUE, landmarkByKey, landmarkLookOf, metresLabel, type LandmarkKey } from '@learning/shared';
 import { makeRewardUnlock } from '@/test-utils/achievements';
 import { must } from '@/test-utils/must';
-import { LANDMARK_LOOKS, LandmarkUnlock, landmarkLookOf } from '../LandmarkUnlock';
+import { LANDMARK_COLOURS, LandmarkUnlock } from '../LandmarkUnlock';
 
 jest.mock('expo-status-bar', () => ({ StatusBar: () => null }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -15,7 +15,7 @@ function renderLandmark(key: LandmarkKey, onContinue = jest.fn()) {
 }
 
 function landmarkOf(key: LandmarkKey) {
-  return must(LANDMARKS.find((l) => l.key === key), key);
+  return must(landmarkByKey(key), key);
 }
 
 describe('LandmarkUnlock', () => {
@@ -66,33 +66,9 @@ describe('LandmarkUnlock', () => {
   });
 });
 
-describe('landmarkLookOf', () => {
-  it('has one look per height band, in the band order', () => {
-    expect(LANDMARK_LOOKS.length).toBe(HEIGHT_BANDS.length);
-  });
-
-  it('follows the height band of every landmark', () => {
-    const idOf = (key: LandmarkKey) => landmarkLookOf(landmarkOf(key)).id;
-    expect(idOf('big-ben')).toBe('uk-hills');
-    expect(idOf('ben-nevis')).toBe('uk-hills');
-    expect(idOf('mont-blanc')).toBe('mountains');
-    expect(idOf('kilimanjaro')).toBe('mountains');
-    expect(idOf('everest')).toBe('everest');
-    expect(idOf('cruising-altitude')).toBe('sky');
-    expect(idOf('stratopause')).toBe('sky');
-    expect(idOf('meteors')).toBe('space');
-    expect(idOf('karman-line')).toBe('space');
-    expect(idOf('orbit')).toBe('space');
-  });
-
-  it('gives every landmark the look of its height band, Everest apart', () => {
-    const others = LANDMARKS.filter((l) => l.key !== 'everest');
-    const looksIn = (band: string) => [...new Set(others.filter((l) => heightBandOf(l.height).name === band).map((l) => landmarkLookOf(l).id))];
-    expect(HEIGHT_BANDS.map((band) => looksIn(band.name).length)).toEqual([1, 1, 1, 1]);
-  });
-
+describe('LANDMARK_COLOURS', () => {
   it('keeps dark text on the light backgrounds and white text on cobalt and navy', () => {
-    const barOf = (key: LandmarkKey) => landmarkLookOf(landmarkOf(key)).statusBar;
+    const barOf = (key: LandmarkKey) => LANDMARK_COLOURS[landmarkLookOf(landmarkOf(key))].statusBar;
     expect(barOf('big-ben')).toBe('dark');
     expect(barOf('everest')).toBe('dark');
     expect(barOf('mont-blanc')).toBe('dark');

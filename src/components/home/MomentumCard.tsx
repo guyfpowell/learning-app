@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
+import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { ACHIEVEMENTS_BY_KEY, landmarkInCopy, newLandmarkCopy, type AltitudeResponse, type LandmarkKey } from '@learning/shared';
+import { ACHIEVEMENTS_BY_KEY, badgeSlotOf } from '@learning/shared';
 import { Text } from '@/components/ui/Text';
 import { Medal } from '@/components/ui/Medal';
 import { useAltitude } from '@/hooks/useAltitude';
@@ -8,31 +9,20 @@ import { colors, font, fontSize, spacing } from '@/theme';
 import { Icon } from '@/components/ui/Icon';
 import { AltitudeSection } from '@/components/altitude/AltitudeSection';
 import { nextStreakCopy, streakStageOf } from '@/lib/momentum';
+import { ALTITUDE_ROUTE } from '@/lib/routes';
 
 const FLAME_SIZE = 20;
 const SLOT_MEDAL_SIZE = 26;
 const SLOT_TEXT_SIZE = 15;
 
-/** What the badge slot shows: a landmark's medal, always in colour as the design draws it, and its words. */
-interface BadgeSlot {
-  key: LandmarkKey;
-  copy: string;
-}
-
-/** The landmark passed and not yet seen (its medal, "New: Yr Wyddfa"), else the next landmark (how far it is), else nothing. */
-function badgeSlotOf(altitude: AltitudeResponse | undefined): BadgeSlot | null {
-  if (altitude?.newLandmark) return { key: altitude.newLandmark.key, copy: newLandmarkCopy(altitude.newLandmark.name) };
-  const next = altitude?.nextLandmark;
-  return next ? { key: next.key, copy: landmarkInCopy(next.name, next.metresToGo) } : null;
-}
-
-/** Home's top: a line about the streak and the streak itself, then the level, its metres and bar, and the lessons to go with the badge slot beside them. */
+/** Home's top: a line about the streak and the streak itself, then the level, its metres and bar, and the lessons to go with the badge slot beside them. Tapping the level block anywhere opens the Altitude chart. */
 export function MomentumCard({ streak }: { streak: number }) {
   // One line per stage, picked when the stage is first shown, so a re-render never changes the words.
   const stage = streakStageOf(streak);
   const copy = useMemo(() => nextStreakCopy(stage), [stage]);
+  const router = useRouter();
   const { data: altitude, isError } = useAltitude();
-  const slot = isError ? null : badgeSlotOf(altitude);
+  const slot = isError || altitude === undefined ? null : badgeSlotOf(altitude);
 
   return (
     <View testID="momentum-card" style={styles.card}>
@@ -45,6 +35,7 @@ export function MomentumCard({ streak }: { streak: number }) {
       </View>
 
       <AltitudeSection
+        onPress={() => router.push(ALTITUDE_ROUTE)}
         trailing={slot && (
           <View testID="badge-slot" style={styles.slot}>
             <Medal definition={ACHIEVEMENTS_BY_KEY[slot.key]} size={SLOT_MEDAL_SIZE} />

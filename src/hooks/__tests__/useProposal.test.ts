@@ -8,7 +8,7 @@ import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
 import { useDecideProposal, useProposal } from '../useProposal';
 import { proposalService } from '@/services/proposal.service';
 import { ERROR_CODES } from '@learning/shared';
-import { PATHS_QUERY_KEY, proposalQueryKey } from '@/lib/queryKeys';
+import { ACHIEVEMENTS_QUERY_KEY, PATHS_QUERY_KEY, proposalQueryKey } from '@/lib/queryKeys';
 
 jest.mock('@/services/proposal.service', () => ({
   proposalService: { getProposal: jest.fn(), decide: jest.fn() },
@@ -35,7 +35,7 @@ describe('useProposal (079g7)', () => {
 describe('useDecideProposal (079g7)', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('refetches the paths and that plan\'s proposal after a decision', async () => {
+  it('refetches the paths, that plan\'s proposal and the achievements after a decision', async () => {
     mockService.decide.mockResolvedValue({ path: makeCustomPath({ id: 'plan-1' }), rewards: makeRewards() });
     const client = createTestQueryClient();
     const invalidate = jest.spyOn(client, 'invalidateQueries');
@@ -47,6 +47,7 @@ describe('useDecideProposal (079g7)', () => {
     expect(mockService.decide).toHaveBeenCalledWith({ proposalId: 'prop-1', stage: 'change', decision: 'accept' });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: PATHS_QUERY_KEY });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: proposalQueryKey('plan-1') });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ACHIEVEMENTS_QUERY_KEY });
   });
 
   it('queues the rewards the decision carries', async () => {

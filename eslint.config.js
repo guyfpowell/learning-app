@@ -68,7 +68,11 @@ export default [
       'standards/as-unknown-as': 'error',
       'standards/as-never': 'error',
       'standards/expect-typeof': 'error',
-      'standards/optional-onpress': 'error'
+      'standards/optional-onpress': 'error',
+
+      // Existing hits are capped by --max-warnings in package.json until their clean-up ticket clears them.
+      'standards/as-object': 'warn',
+      'standards/pressable-label-with-text': 'warn'
     }
   },
   {

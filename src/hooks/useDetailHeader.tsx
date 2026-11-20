@@ -1,10 +1,10 @@
 import { Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import type { NativeStackNavigationOptions } from 'expo-router';
 import { colors, font, fontSize, radius } from '@/theme';
 import { circleButtonStyle, headerButtonStyle } from '@/components/ui/circleButtonStyle';
 import { HOME_ROUTE } from '@/lib/routes';
+import { useGoBack } from '@/hooks/useGoBack';
 
 /**
  * Native Stack header with a back button, for a detail screen in the root Stack (ADR-016).
@@ -19,12 +19,7 @@ const ON_COLOUR_BUTTON = { backgroundColor: 'rgba(255,255,255,0.18)', borderRadi
  * and the back button is drawn for it.
  */
 export function useDetailHeader(title: string, onColour = false): NativeStackNavigationOptions {
-  const router = useRouter();
-
-  const handleBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace(HOME_ROUTE);
-  };
+  const handleBack = useGoBack(HOME_ROUTE);
 
   const backButton = (
     <Pressable

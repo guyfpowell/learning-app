@@ -71,6 +71,13 @@ export function trackBuildQueryKey(buildId: string | undefined) {
 /** The user's finished path builds not yet shown to them (`GET /track-builder/builds?unseen=true`). It drives the Albert tab's badge and entry. */
 export const UNSEEN_BUILDS_QUERY_KEY = ['track-builds', 'unseen'] as const;
 
+/**
+ * The ladders and the Trailhead (`GET /achievements`). Every write that can earn a medal or move a
+ * rung's count invalidates it. Not a prefix of the unseen key, so refreshing it never fetches the
+ * celebrations again.
+ */
+export const ACHIEVEMENTS_QUERY_KEY = ['achievements', 'ladders'] as const;
+
 /** The achievements the person has unlocked but not been shown (`GET /achievements/unseen`). The celebration queue reads it on start, on foreground and when a finished build is shown. */
 export const UNSEEN_ACHIEVEMENTS_QUERY_KEY = ['achievements', 'unseen'] as const;
 

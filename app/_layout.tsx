@@ -30,7 +30,7 @@ import { QueryProvider } from '@/providers/QueryProvider';
 import { useAuthStore } from '@/store/auth.store';
 import * as Sentry from '@sentry/react-native';
 import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
-import { HOME_ROUTE } from '@/lib/routes';
+import { HOME_ROUTE, PROGRESS_ROUTE } from '@/lib/routes';
 import { CelebrationQueue } from '@/components/achievements/CelebrationQueue';
 
 Sentry.init({
@@ -153,7 +153,7 @@ function RootLayout() {
       if (screen === 'lessons' || !screen) {
         router.replace(HOME_ROUTE);
       } else if (screen === 'progress') {
-        router.replace('/(tabs)/progress');
+        router.replace(PROGRESS_ROUTE);
       }
     });
 
@@ -175,6 +175,7 @@ function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="altitude" />
           <Stack.Screen name="lesson/[id]" />
           <Stack.Screen name="track/[kind]/[id]" />
           <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />

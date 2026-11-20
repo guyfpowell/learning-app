@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
+import { ACHIEVEMENTS_HEADING } from '@learning/shared';
 import ProfileScreen from '../profile';
 import { useAuthStore } from '@/store/auth.store';
 import { useLogout } from '@/hooks/useAuth';
@@ -101,7 +102,7 @@ describe('ProfileScreen', () => {
     render(<ProfileScreen />);
     expect(screen.queryByTestId('profile-streak')).toBeNull();
     expect(screen.queryByTestId('profile-lessons')).toBeNull();
-    expect(screen.queryByText('Achievements')).toBeNull();
+    expect(screen.queryByText(ACHIEVEMENTS_HEADING)).toBeNull();
     expect(screen.queryByText('Track progress')).toBeNull();
   });
 

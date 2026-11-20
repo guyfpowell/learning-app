@@ -14,7 +14,7 @@ import { trackBuilderService } from '@/services/trackBuilder.service';
 import { achievementService } from '@/services/achievement.service';
 import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import {
-  ALTITUDE_QUERY_KEY, NOTIFICATION_PREFERENCES_QUERY_KEY, PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, SAVED_LESSONS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, lessonQueryKey,
+  ACHIEVEMENTS_QUERY_KEY, ALTITUDE_QUERY_KEY, NOTIFICATION_PREFERENCES_QUERY_KEY, PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, SAVED_LESSONS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, lessonQueryKey,
 } from '@/lib/queryKeys';
 import {
   PATHS_WRITE_SCOPE, PREFERENCES_WRITE_SCOPE, PROFILE_WRITE_SCOPE, PUSH_TOKEN_MUTATION_KEY, PUSH_TOKEN_WRITE_SCOPE, SAVE_LESSON_MUTATION_KEY,
@@ -111,11 +111,11 @@ function submitQuizInputOf(input: unknown): SubmitQuizInput {
 export const SUBMIT_QUIZ_WRITE: SafeWrite<QuizResult> = {
   mutationKey: SUBMIT_QUIZ_MUTATION_KEY,
   mutationFn: keyedRequest(submitQuizInputOf, ({ lessonId, answers, ...options }, key) => quizService.submitQuiz(lessonId, answers, options, key)),
-  // A finalised lesson moves the paths, progress, the lesson, the track tree (its progress marks) and the altitude it paid.
+  // A finalised lesson moves the paths, progress, the lesson, the track tree (its progress marks), the altitude it paid and the achievements.
   settle: async (client, outcome) => {
     if (outcome.error !== null || !isRecord(outcome.data) || outcome.data.lessonFinalized !== true) return;
     const { lessonId } = lessonInputOf(variablesOf(outcome.variables).input);
-    await invalidateOnSuccess(client, outcome, [PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, lessonQueryKey(lessonId), TRACK_CONTENTS_QUERY_KEY, ALTITUDE_QUERY_KEY]);
+    await invalidateOnSuccess(client, outcome, [PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, lessonQueryKey(lessonId), TRACK_CONTENTS_QUERY_KEY, ALTITUDE_QUERY_KEY, ACHIEVEMENTS_QUERY_KEY]);
   },
 };
 
@@ -166,18 +166,18 @@ export const SET_RATING_WRITE: SafeWrite<void> = {
 export const SAVE_LESSON_WRITE: SafeWrite<SaveLessonResponse> = {
   mutationKey: SAVE_LESSON_MUTATION_KEY,
   mutationFn: keyedRequest(lessonInputOf, ({ lessonId }, key) => lessonService.saveLesson(lessonId, key)),
-  // Saving can unlock Pocketed: its rewards go to the celebration queue, for a write restored after a restart too.
+  // Saving can unlock Pocketed and moves Magpie's count: its rewards go to the celebration queue, for a write restored after a restart too.
   settle: async (client, outcome) => {
     if (outcome.error !== null) return;
     enqueueRewardsOf(outcome.data);
-    await invalidateOnSuccess(client, outcome, [SAVED_LESSONS_QUERY_KEY]);
+    await invalidateOnSuccess(client, outcome, [SAVED_LESSONS_QUERY_KEY, ACHIEVEMENTS_QUERY_KEY]);
   },
 };
 
 export const UNSAVE_LESSON_WRITE: SafeWrite<void> = {
   mutationKey: UNSAVE_LESSON_MUTATION_KEY,
   mutationFn: keyedRequest(lessonInputOf, ({ lessonId }, key) => lessonService.unsaveLesson(lessonId, key)),
-  settle: (client, outcome) => invalidateOnSuccess(client, outcome, [SAVED_LESSONS_QUERY_KEY]),
+  settle: (client, outcome) => invalidateOnSuccess(client, outcome, [SAVED_LESSONS_QUERY_KEY, ACHIEVEMENTS_QUERY_KEY]),
 };
 
 // ─── Notification preferences ────────────────────────────────────────────────

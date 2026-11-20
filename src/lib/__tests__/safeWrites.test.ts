@@ -6,7 +6,7 @@ import { axiosError } from '@/test-utils/axios';
 import { ERROR_CODES, LESSON_PHASES, LESSON_RATINGS } from '@learning/shared';
 import { makeRewardUnlock, makeRewards } from '@/test-utils/achievements';
 import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
-import { ALTITUDE_QUERY_KEY, PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, SKILLS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, lessonQueryKey } from '@/lib/queryKeys';
+import { ACHIEVEMENTS_QUERY_KEY, ALTITUDE_QUERY_KEY, PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, SAVED_LESSONS_QUERY_KEY, SKILLS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, UNSEEN_ACHIEVEMENTS_QUERY_KEY, lessonQueryKey } from '@/lib/queryKeys';
 import { createTestQueryClient } from '@/test-utils/queryClient';
 import { createAppQueryClient } from '@/test-utils/appQueryClient';
 import { pauseSetActiveWrite, saveToDevice } from '@/test-utils/pausedWrite';
@@ -303,6 +303,7 @@ describe('a write restored after a restart', () => {
     expect(mockTrackService.setActivePath).toHaveBeenCalledWith(ref);
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: PATHS_QUERY_KEY }));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: SKILLS_QUERY_KEY });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ACHIEVEMENTS_QUERY_KEY });
   });
 
   it('refuses a saved write that has no path, instead of sending a guess', async () => {
@@ -312,14 +313,23 @@ describe('a write restored after a restart', () => {
 });
 
 describe('the quiz answer settle step', () => {
-  it('refreshes the altitude with the paths, progress, lesson and track tree when a lesson is finalised', async () => {
+  it('refreshes the altitude and the achievements with the paths, progress, lesson and track tree when a lesson is finalised', async () => {
     const client = createTestQueryClient();
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     const settle = must(SUBMIT_QUIZ_WRITE.settle, 'quiz settle step');
     await settle(client, { data: { lessonFinalized: true }, error: null, variables: { input: { lessonId: 'l1', answers: { q1: 'a' } }, idempotencyKey: KEY } });
     expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([
-      PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, lessonQueryKey('l1'), TRACK_CONTENTS_QUERY_KEY, ALTITUDE_QUERY_KEY,
+      PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, lessonQueryKey('l1'), TRACK_CONTENTS_QUERY_KEY, ALTITUDE_QUERY_KEY, ACHIEVEMENTS_QUERY_KEY,
     ]);
+  });
+
+  it('refreshing the achievements leaves the unseen unlocks alone, so no celebration is fetched again', async () => {
+    const client = createTestQueryClient();
+    client.setQueryData(ACHIEVEMENTS_QUERY_KEY, null);
+    client.setQueryData(UNSEEN_ACHIEVEMENTS_QUERY_KEY, null);
+    await client.invalidateQueries({ queryKey: ACHIEVEMENTS_QUERY_KEY });
+    expect(client.getQueryState(ACHIEVEMENTS_QUERY_KEY)?.isInvalidated).toBe(true);
+    expect(client.getQueryState(UNSEEN_ACHIEVEMENTS_QUERY_KEY)?.isInvalidated).toBe(false);
   });
 });
 
@@ -332,6 +342,22 @@ describe('the save settle step', () => {
     const settle = must(SAVE_LESSON_WRITE.settle, 'save settle step');
     await settle(client, { data: { saved: true, rewards: makeRewards({ unlocked: [pocketed] }) }, error: null, variables: { input: { lessonId: 'l1' }, idempotencyKey: KEY } });
     expect(useCelebrationQueueStore.getState().queue).toEqual([pocketed]);
+  });
+
+  it('refreshes the saved lessons and the achievements (Pocketed, Magpie\'s count)', async () => {
+    const client = createTestQueryClient();
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    const settle = must(SAVE_LESSON_WRITE.settle, 'save settle step');
+    await settle(client, { data: { saved: true, rewards: makeRewards() }, error: null, variables: { input: { lessonId: 'l1' }, idempotencyKey: KEY } });
+    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([SAVED_LESSONS_QUERY_KEY, ACHIEVEMENTS_QUERY_KEY]);
+  });
+
+  it('an unsave refreshes the saved lessons and the achievements (Magpie\'s count)', async () => {
+    const client = createTestQueryClient();
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    const settle = must(UNSAVE_LESSON_WRITE.settle, 'unsave settle step');
+    await settle(client, { data: undefined, error: null, variables: { input: { lessonId: 'l1' }, idempotencyKey: KEY } });
+    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([SAVED_LESSONS_QUERY_KEY, ACHIEVEMENTS_QUERY_KEY]);
   });
 
   it('queues nothing when the save failed', async () => {

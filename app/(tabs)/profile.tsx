@@ -11,7 +11,7 @@ import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
 import { settingsRow, CHEVRON_SIZE } from '@/components/profile/settingsRow';
 import type { ClockTime, NotificationToggleKey, NotificationToggles } from '@learning/shared';
 import {
-  DEFAULT_REMINDER_TIME, formatPreferredTime, notificationTogglesOf,
+  DEFAULT_REMINDER_TIME, formatPreferredTime, initialsOf, notificationTogglesOf,
   parsePreferredTime,
 } from '@learning/shared';
 import { colors, font, fontSize, press, spacing } from '@/theme';
@@ -35,15 +35,6 @@ import { NotificationSettings } from '@/components/profile/NotificationSettings'
 import { lessonRoute } from '@/lib/routes';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function initials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(w => w[0]?.toUpperCase() ?? '')
-    .join('');
-}
 
 function PushPermissionStatus({
   status,
@@ -142,7 +133,7 @@ export default function ProfileScreen() {
       <View style={styles.header}>
         <View style={styles.avatarEdge}>
           <View style={styles.avatar} testID="avatar-initials">
-            <Text style={styles.avatarText}>{user ? initials(user.name) : '?'}</Text>
+            <Text style={styles.avatarText}>{user ? initialsOf(user.name) : '?'}</Text>
           </View>
         </View>
         {user && (

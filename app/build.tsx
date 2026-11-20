@@ -8,6 +8,7 @@ import { AlbertTile } from '@/components/albert/AlbertTile';
 import { EdgeButton } from '@/components/ui/EdgeButton';
 import { useBuildScreenProgress } from '@/hooks/useBuildScreenProgress';
 import { useSlowWait } from '@/hooks/useSlowWait';
+import { useGoBack } from '@/hooks/useGoBack';
 import {
   BUILD_SCREEN_COPY, BUILD_WAIT_STAGE, ERROR_CODES, ERROR_MESSAGES, TRACK_BUILD_STATUS, TRACK_STATEMENT_MAX, isTrackStatementTooShort,
 } from '@learning/shared';
@@ -63,10 +64,7 @@ export default function BuildScreen() {
   const cloud = doneBuild?.plan.cloud ?? [];
 
   /** Back: pop the stack if there is somewhere to go, otherwise land on Tracks. */
-  const handleBack = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace(TRACKS_ROUTE);
-  };
+  const handleBack = useGoBack(TRACKS_ROUTE);
 
   // Opens the review once, when this build is done: not again when the person edits their words.
   const openReview = useEffectEvent(() => {

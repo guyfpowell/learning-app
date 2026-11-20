@@ -5,7 +5,7 @@ import { errorCode } from '@/lib/errors';
 import { isRetryableError, requireSignal } from '@/lib/offlineWrites';
 import { invalidateBuildQueries } from '@/lib/buildInvalidation';
 import { enqueueRewards } from '@/lib/rewards';
-import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, TRACK_PLANS_QUERY_KEY, trackBuildQueryKey } from '@/lib/queryKeys';
+import { ACHIEVEMENTS_QUERY_KEY, CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, TRACK_PLANS_QUERY_KEY, trackBuildQueryKey } from '@/lib/queryKeys';
 import { START_TRACK_BUILD_WRITE, type StartTrackBuildInput } from '@/lib/safeWrites';
 import { BUILD_PHASE, OPENED_START, buildProgressOf, type BuildProgress } from '@/lib/buildProgress';
 import { useSafeWrite } from '@/hooks/useSafeWrite';
@@ -110,9 +110,10 @@ export function useCreateTrackPlan() {
     mutationFn: (v: CreateTrackPlanRequest) => requireSignal(() => trackBuilderService.createPlan(v)),
     onSuccess: ({ rewards }) => {
       enqueueRewards(rewards);
-      // Custom plans take precedence on the home surface, so both caches move.
+      // Custom plans take precedence on the home surface, so both caches move; a plan can earn Off-Piste.
       void queryClient.invalidateQueries({ queryKey: TRACK_PLANS_QUERY_KEY });
       void queryClient.invalidateQueries({ queryKey: PATHS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: ACHIEVEMENTS_QUERY_KEY });
     },
     // A save spends the free Albert allowance, and a refused one (ALBERT_ALLOWANCE_USED)
     // means the cached count was stale: either way /me's `albertAllowance` has moved (079a).

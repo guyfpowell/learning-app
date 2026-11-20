@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { ACHIEVEMENTS_BY_KEY, CELEBRATION_CONTINUE, JUST_EARNED, celebrationEyebrow } from '@learning/shared';
+import { ACHIEVEMENTS_BY_KEY, CELEBRATION_CONTINUE, JUST_EARNED, MEDAL_SHEET_CLOSE, celebrationEyebrow, medalEarnedCopy } from '@learning/shared';
 import { makeRewardUnlock } from '@/test-utils/achievements';
 import { MedalSheet, celebrationItemOf } from '../MedalSheet';
 
@@ -23,7 +23,7 @@ describe('MedalSheet', () => {
       expect(screen.getByTestId('achievement-detail-just-earned').props.children).toBe(JUST_EARNED);
       expect(screen.queryByTestId('achievement-detail-earned-date')).toBeNull();
       expect(screen.getByText(CELEBRATION_CONTINUE)).toBeTruthy();
-      expect(screen.queryByText('Close')).toBeNull();
+      expect(screen.queryByText(MEDAL_SHEET_CLOSE)).toBeNull();
     });
 
     it('shows the category alone as its eyebrow, with no tier word', () => {
@@ -55,8 +55,8 @@ describe('MedalSheet', () => {
   describe('opened from the grid', () => {
     it('still shows the earned date and Close', () => {
       render(<MedalSheet item={earnedItem} celebrating={false} onClose={jest.fn()} />);
-      expect(screen.getByTestId('achievement-detail-earned-date')).toHaveTextContent('Earned 1 August 2026');
-      expect(screen.getByText('Close')).toBeTruthy();
+      expect(screen.getByTestId('achievement-detail-earned-date')).toHaveTextContent(medalEarnedCopy('2026-08-01T12:00:00Z'));
+      expect(screen.getByText(MEDAL_SHEET_CLOSE)).toBeTruthy();
       expect(screen.queryByTestId('achievement-detail-just-earned')).toBeNull();
       expect(screen.queryByText(CELEBRATION_CONTINUE)).toBeNull();
     });

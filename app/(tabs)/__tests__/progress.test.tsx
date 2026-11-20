@@ -6,7 +6,7 @@ import { usePrefetchNextScreens } from '@/hooks/usePrefetchNextScreens';
 import { useProgress } from '@/hooks/useProgress';
 import { usePaths } from '@/hooks/useTrack';
 import { useAltitude } from '@/hooks/useAltitude';
-import { TRACKS_ROUTE } from '@/lib/routes';
+import { ALTITUDE_ROUTE, TRACKS_ROUTE } from '@/lib/routes';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -350,6 +350,14 @@ describe('ProgressScreen — altitude block (118ad)', () => {
     nextLandmark: null,
     newLandmark: null,
   };
+
+  it('opens the Altitude screen when the Altitude header is tapped', () => {
+    setMock({ data: mockStats });
+    (useAltitude as jest.Mock).mockReturnValue({ data: altitude });
+    render(<ProgressScreen />);
+    fireEvent.press(screen.getByTestId('altitude-header-link'));
+    expect(mockPush).toHaveBeenCalledWith(ALTITUDE_ROUTE);
+  });
 
   it('shows the level, the metres, the bar and the lessons to the next level', () => {
     (useAltitude as jest.Mock).mockReturnValue({ data: altitude });

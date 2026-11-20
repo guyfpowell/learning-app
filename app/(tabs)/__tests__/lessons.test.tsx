@@ -1,12 +1,16 @@
 import React from 'react';
-import { PATHS_LOAD_ERROR } from '@learning/shared';
+import { ACHIEVEMENTS_LOAD_ERROR, PATHS_LOAD_ERROR, trailheadNextCopy } from '@learning/shared';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react-native';
 import LessonsScreen from '../lessons';
 import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
 import { useProgress } from '@/hooks/useProgress';
+import { useAchievements } from '@/hooks/useAchievements';
+import { makeLandmarks, makeTrailhead } from '@/test-utils/achievements';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { usePreloadLesson } from '@/hooks/usePreloadLesson';
 import { makeCustomPath, makeNextLesson, makeTrackPath } from '@/test-utils/paths';
+import { testIdsInOrder } from '@/test-utils/testIds';
+import { must } from '@/test-utils/must';
 import { makeSessionUser } from '@/test-utils/users';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { TRACKS_ROUTE, trackRoute } from '@/lib/routes';
@@ -37,6 +41,8 @@ jest.mock('@/hooks/useTrack', () => ({
 
 // Its own suite covers the premium check and the fetch; here Home only has to pass the card's lesson.
 jest.mock('@/hooks/usePreloadLesson', () => ({ usePreloadLesson: jest.fn() }));
+
+jest.mock('@/hooks/useAchievements', () => ({ useAchievements: jest.fn() }));
 
 jest.mock('@/hooks/useProgress', () => ({
   useProgress: jest.fn(),
@@ -134,6 +140,12 @@ function applyPathsMock() {
   (usePaths as jest.Mock).mockReturnValue({ data });
 }
 
+const TRAILHEAD_DONE = 4;
+
+function setTrailheadMock(trailhead: ReturnType<typeof makeTrailhead>) {
+  (useAchievements as jest.Mock).mockReturnValue({ data: { ladders: [], trailhead, totalUnlocked: 0, totalAvailable: 0, landmarks: makeLandmarks(0) }, isLoading: false, isError: false });
+}
+
 function setEnrollmentsMock(data?: unknown[]) {
   mockTrackPaths = data;
   applyPathsMock();
@@ -189,6 +201,7 @@ describe('LessonsScreen', () => {
     setCustomPlansMock(undefined);
     setProgressMock(undefined);
     setUser(true);
+    setTrailheadMock(makeTrailhead(TRAILHEAD_DONE, true));
     setSkipMock();
     (useTopicFeedback as jest.Mock).mockReturnValue({ submit: mockTopicSubmit });
     (useRefreshPaths as jest.Mock).mockReturnValue(mockRefreshPaths);
@@ -213,6 +226,34 @@ describe('LessonsScreen', () => {
     const { getAllByText, queryByTestId } = render(<LessonsScreen />);
     expect(getAllByText(mockEnrollment.name).length).toBeGreaterThanOrEqual(1);
     expect(queryByTestId('paths-load-error')).toBeNull();
+  });
+
+  describe('Trailhead card (122ad)', () => {
+    it('sits above the next-lesson card while the Trailhead is unfinished', () => {
+      setTrailheadMock(makeTrailhead(TRAILHEAD_DONE));
+      setEnrollmentsMock([mockEnrollment]);
+      render(<LessonsScreen />);
+      expect(screen.getByText(trailheadNextCopy(must(makeTrailhead(TRAILHEAD_DONE).steps[TRAILHEAD_DONE], 'the next step').name))).toBeTruthy();
+      const ids = testIdsInOrder(screen.toJSON());
+      const card = ids.indexOf('trailhead-card');
+      const lesson = ids.findIndex(id => id.startsWith('next-lesson-card-'));
+      expect(card).toBeGreaterThanOrEqual(0);
+      expect(lesson).toBeGreaterThan(card);
+    });
+
+    it('shows no card once the Trailhead is finished', () => {
+      setTrailheadMock(makeTrailhead(TRAILHEAD_DONE, true));
+      setEnrollmentsMock([mockEnrollment]);
+      render(<LessonsScreen />);
+      expect(screen.queryByTestId('trailhead-card')).toBeNull();
+    });
+
+    it('says a failed load, never a missing card', () => {
+      (useAchievements as jest.Mock).mockReturnValue({ data: undefined, isLoading: false, isError: true });
+      setEnrollmentsMock([mockEnrollment]);
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('trailhead-load-error').props.children).toBe(ACHIEVEMENTS_LOAD_ERROR);
+    });
   });
 
   describe('momentum card (096)', () => {

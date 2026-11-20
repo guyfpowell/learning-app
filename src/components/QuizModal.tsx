@@ -8,6 +8,7 @@ import { useSaveLesson, useUnsaveLesson } from '@/hooks/useLesson';
 import { usePreloadLesson } from '@/hooks/usePreloadLesson';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useRefreshLesson } from '@/hooks/useRefreshLesson';
+import { useGoBack } from '@/hooks/useGoBack';
 import { errorCode, extractError } from '@/lib/errors';
 import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
@@ -62,6 +63,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const router = useRouter();
+  const goBack = useGoBack(HOME_ROUTE);
   const submit = useSubmitQuiz(lesson.id);
   const refreshLesson = useRefreshLesson(lesson.id);
   const { data: user } = useCurrentUser();
@@ -187,8 +189,7 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
   /** ✕ on a finished quiz: leave the lesson for where it was opened from (Home if nowhere). */
   function handleLeaveLesson() {
     onClose();
-    if (router.canGoBack()) router.back();
-    else router.replace(HOME_ROUTE);
+    goBack();
   }
 
   const frame: ResultFrameControls = { onClose, saved: isSaved, onToggleSave: handleToggleSave };

@@ -41,7 +41,7 @@ export function Toast({ message, variant = 'info', visible, onDismiss, plain = f
   const { icon, color } = palette[variant];
 
   return (
-    <View style={[styles.container, plain && styles.plain, shadow.md as object]}>
+    <View style={[styles.container, plain && styles.plain, shadow.md]}>
       {!plain && <Icon name={icon} size={20} color={color} strokeWidth={2.2} />}
       <Text style={styles.message} numberOfLines={2}>
         {message}

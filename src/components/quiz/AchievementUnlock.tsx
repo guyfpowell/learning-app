@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   screen:  { flex: 1 },
   body:    { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
   eyebrow: { fontFamily: font.extrabold, fontSize: 12, letterSpacing: 0.14 * 12 },
-  medal:   { marginVertical: spacing.lg, ...(shadow.md as object) },
+  medal:   { marginVertical: spacing.lg, ...shadow.md },
   words:   { alignItems: 'center', gap: spacing.sm3 },
   wordsNoMedal: { marginTop: spacing.lg },
   chip:    { borderRadius: 999, paddingVertical: 6, paddingHorizontal: spacing.sm3 },

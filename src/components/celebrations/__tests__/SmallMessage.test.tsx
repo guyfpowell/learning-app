@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { SMALL_MESSAGE_MS, TRAILHEAD_STEP_KEYS, smallMessageCount, smallMessageLine, trailheadStepMessage } from '@learning/shared';
+import { SMALL_MESSAGE_MS, TRAILHEAD_STEP_KEYS, smallMessageCountOf, smallMessageLine, smallMessageOf } from '@learning/shared';
 import { makeRewardUnlock } from '@/test-utils/achievements';
 import { SmallMessage, SWIPE_UP_DISTANCE } from '../SmallMessage';
 
@@ -12,10 +12,12 @@ const medal = makeRewardUnlock('hat-trick', { celebration: 'toast' });
 const FIFTH = TRAILHEAD_STEP_KEYS[4];
 const step = makeRewardUnlock(FIFTH, { celebration: 'toast', stepsDone: 5 });
 
-function renderMessage(unlock = medal, waiting = 1) {
+const TWO_WAITING = smallMessageCountOf([medal, makeRewardUnlock('off-peak', { celebration: 'toast' })]);
+
+function renderMessage(unlock = medal, count: string | null = null) {
   const onDone = jest.fn();
   const onOpen = jest.fn();
-  render(<SmallMessage unlock={unlock} total={waiting} onDone={onDone} onOpen={onOpen} />);
+  render(<SmallMessage unlock={unlock} count={count} onDone={onDone} onOpen={onOpen} />);
   return { onDone, onOpen };
 }
 
@@ -55,14 +57,14 @@ describe('SmallMessage', () => {
 
   it('shows a Trailhead step as "Trailhead 5/7 · Saved a lesson" with its step icon and no medal', () => {
     renderMessage(step);
-    expect(screen.getByTestId('small-message-line').props.children).toBe(trailheadStepMessage(5, TRAILHEAD_STEP_KEYS.length, step.description));
+    expect(screen.getByTestId('small-message-line').props.children).toBe(smallMessageOf(step));
     expect(screen.getByTestId('small-message-step-icon')).toBeTruthy();
     expect(screen.queryByTestId(`medal-${step.key}`)).toBeNull();
   });
 
-  it('shows "1 of 2" when another waits, and no count when none does', () => {
-    renderMessage(medal, 2);
-    expect(screen.getByTestId('small-message-count').props.children).toBe(smallMessageCount(1, 2));
+  it('shows "1 of 2" and a peeking edge when another waits', () => {
+    renderMessage(medal, TWO_WAITING);
+    expect(screen.getByTestId('small-message-count').props.children).toBe(TWO_WAITING);
     expect(screen.getByTestId('small-message-peek')).toBeTruthy();
   });
 

@@ -3,9 +3,11 @@ import {
   ACHIEVEMENTS_BY_KEY,
   CELEBRATION_CONTINUE,
   JUST_EARNED,
+  MEDAL_SHEET_CLOSE,
   celebrationEyebrow,
   hasMedalArt,
-  type MedalGridItem,
+  medalEarnedCopy,
+  type MedalSheetItem,
   type RewardUnlock,
 } from '@learning/shared';
 import { SheetModal } from '@/components/ui/SheetModal';
@@ -17,12 +19,8 @@ import { colors, font, press, spacing } from '@/theme';
 
 const SHEET_MEDAL_SIZE = 112;
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
 /** A medal just earned, as the sheet shows it. The words come from the server's payload; the catalogue is read only to draw the medal. */
-export function celebrationItemOf({ key, name, description }: RewardUnlock): MedalGridItem {
+export function celebrationItemOf({ key, name, description }: RewardUnlock): MedalSheetItem {
   return { key, definition: ACHIEVEMENTS_BY_KEY[key], earned: true, name, description, unlockedAt: null };
 }
 
@@ -30,7 +28,7 @@ export function celebrationItemOf({ key, name, description }: RewardUnlock): Med
  * A medal's bottom sheet (brief section 4): its medal, its category, what it is and how it was (or is) earned.
  * `celebrating` is the sheet opened as a celebration: "Just earned" replaces the earned date, and Continue replaces Close.
  */
-export function MedalSheet({ item, celebrating, onClose }: { item: MedalGridItem; celebrating: boolean; onClose: () => void }) {
+export function MedalSheet({ item, celebrating, onClose }: { item: MedalSheetItem; celebrating: boolean; onClose: () => void }) {
   const { earned, definition, unlockedAt } = item;
   const eyebrow = hasMedalArt(definition) ? celebrationEyebrow(definition) : null;
   const eyebrowColor = earned ? medalJewelOf(definition) : colors.textMuted;
@@ -62,7 +60,7 @@ export function MedalSheet({ item, celebrating, onClose }: { item: MedalGridItem
             <EdgeButton
               testID="achievement-detail-close"
               look={{ face: colors.white, label: colors.textStrong, edge: press.secondaryEdge }}
-              label={celebrating ? CELEBRATION_CONTINUE : 'Close'}
+              label={celebrating ? CELEBRATION_CONTINUE : MEDAL_SHEET_CLOSE}
               onPress={onClose}
             />
           </View>
@@ -75,7 +73,7 @@ export function MedalSheet({ item, celebrating, onClose }: { item: MedalGridItem
 /** The line under the words: "Just earned" in a celebration, otherwise the earned date, or that it is not earned yet. */
 function SheetNote({ celebrating, earned, unlockedAt }: { celebrating: boolean; earned: boolean; unlockedAt: string | null }) {
   if (celebrating) return <Text testID="achievement-detail-just-earned" style={styles.sheetNote}>{JUST_EARNED}</Text>;
-  if (unlockedAt) return <Text testID="achievement-detail-earned-date" style={styles.sheetNote}>Earned {formatDate(unlockedAt)}</Text>;
+  if (unlockedAt) return <Text testID="achievement-detail-earned-date" style={styles.sheetNote}>{medalEarnedCopy(unlockedAt)}</Text>;
   return earned ? null : <Text style={styles.sheetNote}>Not earned yet</Text>;
 }
 

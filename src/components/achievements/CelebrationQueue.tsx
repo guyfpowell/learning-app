@@ -6,13 +6,7 @@ import { useSafeWrite } from '@/hooks/useSafeWrite';
 import { useUnseenAchievements } from '@/hooks/useUnseenAchievements';
 import { MARK_ACHIEVEMENT_SEEN_WRITE, type MarkAchievementSeenInput } from '@/lib/safeWrites';
 import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
-import type { RewardUnlock } from '@learning/shared';
-
-/** How many small messages are in line at the front, the one showing included. */
-function leadingToasts(queue: readonly RewardUnlock[]): number {
-  const end = queue.findIndex((item) => item.celebration !== 'toast');
-  return end === -1 ? queue.length : end;
-}
+import { smallMessageCountOf } from '@learning/shared';
 
 /**
  * The app's one celebration queue, mounted once at the root: it reads the unseen list and shows the next
@@ -23,7 +17,7 @@ function leadingToasts(queue: readonly RewardUnlock[]): number {
 export function CelebrationQueue() {
   useUnseenAchievements();
   const current = useCelebrationQueueStore((s) => s.queue[0]);
-  const smallMessagesInLine = useCelebrationQueueStore((s) => leadingToasts(s.queue));
+  const smallMessageCount = useCelebrationQueueStore((s) => smallMessageCountOf(s.queue));
   const dismiss = useCelebrationQueueStore((s) => s.dismiss);
   const openSheet = useCelebrationQueueStore((s) => s.openSheet);
   const markSeen = useSafeWrite<MarkAchievementSeenInput, void>(MARK_ACHIEVEMENT_SEEN_WRITE);
@@ -34,7 +28,7 @@ export function CelebrationQueue() {
     markSeen.mutate({ key: current.key });
   };
   if (current.celebration === 'toast') {
-    return <SmallMessage key={current.key} unlock={current} total={smallMessagesInLine} onDone={onContinue} onOpen={() => openSheet(current.key)} />;
+    return <SmallMessage key={current.key} unlock={current} count={smallMessageCount} onDone={onContinue} onOpen={() => openSheet(current.key)} />;
   }
   if (current.celebration === 'sheet') {
     return <MedalSheet key={current.key} item={celebrationItemOf(current)} celebrating onClose={onContinue} />;

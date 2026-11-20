@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { RewardUnlock } from '@learning/shared';
+import { freshUnlocks, type RewardUnlock } from '@learning/shared';
 
 type UnlockKey = RewardUnlock['key'];
 
@@ -26,13 +26,7 @@ export const useCelebrationQueueStore = create<CelebrationQueueState>()((set) =>
   queue: [],
   shown: [],
   enqueue: (unlocks) => set((state) => {
-    const known = new Set<UnlockKey>([...state.shown, ...state.queue.map((item) => item.key)]);
-    const added: RewardUnlock[] = [];
-    for (const unlock of unlocks) {
-      if (known.has(unlock.key)) continue;
-      known.add(unlock.key);
-      added.push(unlock);
-    }
+    const added = freshUnlocks(unlocks, new Set([...state.shown, ...state.queue.map((item) => item.key)]));
     return added.length === 0 ? state : { queue: [...state.queue, ...added] };
   }),
   dismiss: (key) => set((state) => ({

@@ -15,6 +15,7 @@ import { useProgress } from '@/hooks/useProgress';
 import { usePreloadLesson } from '@/hooks/usePreloadLesson';
 import { useAutoDismiss } from '@/hooks/useAutoDismiss';
 import { NewUserHome } from '@/components/home/NewUserHome';
+import { HomeTrailhead } from '@/components/trailhead/HomeTrailhead';
 import { PathCard } from '@/components/ui/PathCard';
 import { HomePath } from '@/components/home/HomePath';
 import { MomentumCard } from '@/components/home/MomentumCard';
@@ -107,6 +108,9 @@ export default function LessonsScreen() {
         {pathEnd && user && (
           <PathEndSection path={pathEnd} locked={!user.isPremium} onUpgrade={() => router.push(PAYWALL_ROUTE)} />
         )}
+
+        {/* The Trailhead sits above the next-lesson card, wherever that card shows (122ad). */}
+        {(activePath || lastPath) && <HomeTrailhead />}
 
         {/* Active path — the one path card Home shows (076g §1). */}
         {activePath && (

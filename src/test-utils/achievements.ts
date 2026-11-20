@@ -1,4 +1,42 @@
-import { ACHIEVEMENTS_BY_KEY, type AchievementKey, type Celebration, type RewardUnlock, type Rewards } from '@learning/shared';
+import {
+  ACHIEVEMENTS_BY_KEY,
+  landmarkOf,
+  listedLandmarks,
+  type AchievementAxis,
+  type AchievementsResponse,
+  type AchievementKey,
+  type Celebration,
+  type Ladder,
+  type LandmarkPassed,
+  type RewardUnlock,
+  type Rewards,
+  type Rung,
+  type Trailhead,
+  TRAILHEAD_STEP_KEYS,
+} from '@learning/shared';
+
+/** A complete rung as the server sends it, built from the catalogue entry for `key`: locked, not next, no progress, unless `overrides` say so. A locked secret has an empty name and description and its hint, as the server sends it. */
+export function makeRung(key: AchievementKey, overrides: Partial<Rung> = {}): Rung {
+  const { tier, name, description, secret } = ACHIEVEMENTS_BY_KEY[key];
+  const unlockedAt = overrides.unlockedAt ?? null;
+  const hiddenSecret = secret !== null && unlockedAt === null;
+  return {
+    key,
+    tier,
+    name: hiddenSecret ? '' : name,
+    description: hiddenSecret ? '' : description,
+    unlockedAt,
+    progress: null,
+    isNextRung: false,
+    hint: hiddenSecret ? secret.hint : null,
+    ...overrides,
+  };
+}
+
+/** A ladder of rungs, in the order given. */
+export function makeLadder(category: AchievementAxis, rungs: Rung[]): Ladder {
+  return { category, rungs };
+}
 
 /** What a test may set on a fixture unlock: the size the server chose, and a Trailhead step's count. */
 interface UnlockOverrides {
@@ -16,4 +54,24 @@ export function makeRewardUnlock(key: AchievementKey, { celebration = 'full', st
 /** A complete `Rewards` payload: nothing earned unless `overrides` say so. */
 export function makeRewards(overrides: Partial<Rewards> = {}): Rewards {
   return { unlocked: [], landmarksPassed: [], levelUp: null, metresClimbed: 0, boost: false, ...overrides };
+}
+
+/** The Trailhead as the server sends it: the first `done` steps done, in order, and `finished` as given (it is the medal's, never inferred from the count). */
+export function makeTrailhead(done: number, finished = false): Trailhead {
+  const steps = TRAILHEAD_STEP_KEYS.map((key, i) => ({ key, name: ACHIEVEMENTS_BY_KEY[key].name, done: i < done }));
+  return { steps, finished };
+}
+
+/** When a fixture landmark was passed. */
+const LANDMARK_PASSED_AT = '2026-11-04T12:00:00Z';
+
+/** The landmark list as the server sends it for a learner at `metres`: every listed landmark in height order, passed (with a date) or ahead (null). Orbit is listed only past the Kármán line. */
+export function makeLandmarks(metres: number): LandmarkPassed[] {
+  const karmanPassed = metres >= landmarkOf('karman-line').height;
+  return listedLandmarks(karmanPassed).map(({ key, height }) => ({ key, passedAt: height <= metres ? LANDMARK_PASSED_AT : null }));
+}
+
+/** A complete `AchievementsResponse` for a learner at `metres`: no medals, the Trailhead finished, every landmark in the list. */
+export function makeAchievementsResponse(metres: number, overrides: Partial<AchievementsResponse> = {}): AchievementsResponse {
+  return { ladders: [], trailhead: makeTrailhead(0, true), totalUnlocked: 0, totalAvailable: 0, landmarks: makeLandmarks(metres), ...overrides };
 }

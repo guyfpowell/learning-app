@@ -1,10 +1,13 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import { ALTITUDE_LOAD_ERROR, landmarkInCopy, newLandmarkCopy, type AltitudeResponse } from '@learning/shared';
 import { useAltitude } from '@/hooks/useAltitude';
 import { STREAK_COPY } from '@/lib/momentum';
+import { ALTITUDE_ROUTE } from '@/lib/routes';
 import { MomentumCard } from '../MomentumCard';
 
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('@/hooks/useAltitude', () => ({ useAltitude: jest.fn() }));
 // A stub that shows whether the medal was drawn locked; Medal.test.tsx covers the drawing.
 jest.mock('@/components/ui/Medal', () => {
@@ -21,7 +24,7 @@ const altitude: AltitudeResponse = {
   level: 10,
   nextLevel: { level: 11, startsAt: 1_270, metresToGo: 150 },
   lessonsToNextLevel: 5,
-  nextLandmark: { key: 'ben-nevis', name: 'Ben Nevis', height: 1_345, metresToGo: 225 },
+  nextLandmark: { key: 'ben-nevis', name: 'Ben Nevis', height: 1_345, metresToGo: 225, lessonsToGo: 7 },
   newLandmark: null,
 };
 
@@ -30,6 +33,8 @@ function setData(data: AltitudeResponse | undefined) {
 }
 
 describe('MomentumCard', () => {
+  beforeEach(() => mockPush.mockClear());
+
   it('shows the streak as a flame with its count, and one line for its stage', () => {
     setData(undefined);
     render(<MomentumCard streak={4} />);
@@ -141,5 +146,25 @@ describe('MomentumCard', () => {
     expect(screen.queryByLabelText(/^Level \d of 5$/)).toBeNull();
     expect(screen.queryByTestId('momentum-achievement')).toBeNull();
     expect(screen.queryByText(/^(New|Next up):/)).toBeNull();
+  });
+  describe('the level block', () => {
+    it('opens the Altitude chart from anywhere on it: the level, the caption, the metres, the badge slot and the bar', () => {
+      setData(altitude);
+      render(<MomentumCard streak={1} />);
+      fireEvent.press(screen.getByText('Level 10'));
+      fireEvent.press(screen.getByTestId('altitude-caption'));
+      fireEvent.press(screen.getByText('1,120m'));
+      fireEvent.press(screen.getByTestId('badge-slot'));
+      fireEvent.press(screen.getByTestId('altitude-bar'));
+      expect(mockPush.mock.calls).toEqual([[ALTITUDE_ROUTE], [ALTITUDE_ROUTE], [ALTITUDE_ROUTE], [ALTITUDE_ROUTE], [ALTITUDE_ROUTE]]);
+    });
+
+    it('is one button, named by the text inside it with no label of its own', () => {
+      setData(altitude);
+      render(<MomentumCard streak={1} />);
+      const buttons = screen.getAllByRole('button');
+      expect(buttons).toHaveLength(1);
+      expect(buttons[0].props.accessibilityLabel).toBeUndefined();
+    });
   });
 });

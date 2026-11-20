@@ -1,75 +1,55 @@
 import { useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { medalGridOf, type AchievementKey, type MedalGridItem } from '@learning/shared';
-import { colors, font, spacing } from '@/theme';
+import { ACHIEVEMENTS_HEADING, ACHIEVEMENTS_LOAD_ERROR, medalsEarnedCopy, rungItemOf, type AchievementKey } from '@learning/shared';
+import { colors, font, fontSize } from '@/theme';
 import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
 import { Spinner } from '@/components/ui/Spinner';
-import { Medal } from '@/components/ui/Medal';
 import { MedalSheet } from './MedalSheet';
+import { TrailheadCard } from '@/components/trailhead/TrailheadCard';
+import { LadderRow } from './LadderRow';
 import { useAchievements } from '@/hooks/useAchievements';
 
-/** Every achievement, earned ones lit and locked ones dim, with how many are earned. Moved from Profile (096). */
+/** One ladder per medal category, the next rung raised, with how many medals are earned. Moved from Profile (096). */
 export function AchievementsSection() {
-  const { data: achievements, isLoading } = useAchievements();
+  const { data, isLoading, isError } = useAchievements();
   const [selectedKey, setSelectedKey] = useState<AchievementKey | null>(null);
 
-  const all = achievements ? medalGridOf(achievements) : [];
-  const selectedItem = selectedKey ? (all.find(a => a.key === selectedKey) ?? null) : null;
-
-  const earned = all.filter(a => a.earned);
-  const toEarn = all.filter(a => !a.earned);
-  const total = achievements?.totalAvailable ?? all.length;
-  const earnedCount = achievements?.totalUnlocked ?? earned.length;
+  // A failed refetch keeps the last data, so the error is checked first.
+  const achievements = isError ? undefined : data;
+  const ladders = achievements?.ladders ?? [];
+  const selectedRung = ladders.flatMap(l => l.rungs).find(r => r.key === selectedKey) ?? null;
+  const total = achievements?.totalAvailable ?? 0;
+  const earnedCount = achievements?.totalUnlocked ?? 0;
   const pct = total > 0 ? (earnedCount / total) * 100 : 0;
 
   return (
     <View testID="achievements-section" style={styles.section}>
       <View style={styles.head}>
-        <Text style={styles.sectionHeading}>Achievements</Text>
+        <Text style={styles.sectionHeading}>{ACHIEVEMENTS_HEADING}</Text>
         {total > 0 && (
           <View style={styles.progress}>
             <View style={styles.bar}>
               <View style={[styles.barFill, { width: `${Math.min(100, pct)}%` }]} />
             </View>
-            <Text testID="achievements-count" style={styles.count}>
-              {earnedCount} of {total} earned · tap any to see how to earn it
-            </Text>
+            <Text testID="achievements-count" style={styles.count}>{medalsEarnedCopy(earnedCount, total)}</Text>
           </View>
         )}
       </View>
 
       {isLoading && <Spinner />}
+      {isError && <Text testID="achievements-load-error" style={styles.error}>{ACHIEVEMENTS_LOAD_ERROR}</Text>}
 
-      {!isLoading && earned.length > 0 && <MedalGrid label="EARNED" items={earned} onOpen={setSelectedKey} />}
-      {!isLoading && toEarn.length > 0 && <MedalGrid label="STILL TO EARN" items={toEarn} onOpen={setSelectedKey} />}
+      {achievements && <TrailheadCard trailhead={achievements.trailhead} />}
 
-      {selectedKey && selectedItem && (
-        <MedalSheet item={selectedItem} celebrating={false} onClose={() => setSelectedKey(null)} />
+      {!isLoading && ladders.map(ladder => <LadderRow key={ladder.category} ladder={ladder} onOpen={setSelectedKey} />)}
+
+      {selectedRung && (
+        <MedalSheet item={rungItemOf(selectedRung)} celebrating={false} onClose={() => setSelectedKey(null)} />
       )}
     </View>
   );
 }
-
-/** A labelled grid of medals, four to a row. */
-function MedalGrid({ label, items, onOpen }: { label: string; items: MedalGridItem[]; onOpen: (key: AchievementKey) => void }) {
-  return (
-    <View style={styles.group}>
-      <Text style={styles.groupLabel}>{label}</Text>
-      <View style={styles.achievementGrid}>
-        {items.map(a => (
-          <Pressable key={a.key} testID={`achievement-${a.key}`} onPress={() => onOpen(a.key)} style={styles.achievement}>
-            <Medal definition={a.definition} locked={!a.earned} size={MEDAL_SIZE} />
-            <Text style={[styles.achievementName, !a.earned && styles.achievementLocked]} numberOfLines={2}>{a.name}</Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-const GRID_COLS = 4;
-const MEDAL_SIZE = 62;
 
 const styles = StyleSheet.create({
   section: { gap: 22 },
@@ -83,35 +63,5 @@ const styles = StyleSheet.create({
     fontSize:   13,
     color:      colors.textBody,
   },
-  group: { gap: 14 },
-  groupLabel: {
-    paddingBottom:     8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    fontFamily:        font.extrabold,
-    fontSize:          12,
-    letterSpacing:     0.08 * 12,
-    color:             colors.textMuted,
-  },
-
-  // Achievements: medals on the page, four to a row
-  achievementGrid: {
-    flexDirection: 'row',
-    flexWrap:      'wrap',
-    rowGap:        18,
-  },
-  achievement: {
-    width:             `${100 / GRID_COLS}%`,
-    paddingHorizontal: spacing.xs,
-    alignItems:        'center',
-    gap:               6,
-  },
-  achievementName: {
-    fontFamily: font.bold,
-    fontSize:   12,
-    lineHeight: 12 * 1.2,
-    color:      colors.textStrong,
-    textAlign:  'center',
-  },
-  achievementLocked: { color: colors.textMuted },
+  error: { fontFamily: font.regular, fontSize: fontSize.base, color: colors.error },
 });

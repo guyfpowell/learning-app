@@ -5,12 +5,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ACHIEVEMENTS_BY_KEY,
   CELEBRATION_CONTINUE,
-  HEIGHT_BANDS,
-  LANDMARKS,
+  LANDMARK_CANVAS,
+  LANDMARK_CONTOURS,
+  LANDMARK_CONTOUR_STROKE,
+  LANDMARK_EARTH,
   LANDMARK_EYEBROW,
-  heightBandOf,
+  LANDMARK_STAR,
+  LANDMARK_STARS,
+  landmarkByKey,
+  landmarkLookOf,
   metresLabel,
-  type Landmark,
+  showsEarth,
+  type LandmarkLook,
   type RewardUnlock,
 } from '@learning/shared';
 import { Text } from '@/components/ui/Text';
@@ -19,15 +25,7 @@ import { Medal } from '@/components/ui/Medal';
 import { colors, font, shadow, spacing } from '@/theme';
 
 const MEDAL_SIZE = 196;
-/** The design's canvas, the units the contours, stars and Earth are drawn in. */
-const CANVAS_WIDTH = 393;
-const CANVAS_HEIGHT = 852;
-const CONTOUR_CENTRE = { x: 196, y: 330 };
-const CONTOUR_RADII = [50, 112, 174, 236, 298, 360, 422, 484, 546] as const;
-const CONTOUR_ASPECT = 0.78;
-const KARMAN_KEY = 'karman-line';
-/** Stars on the edge-of-space background: x, y, radius (design units). */
-const STARS = [[40, 120, 1.6], [320, 90, 1], [80, 300, 1], [350, 260, 1.6], [210, 70, 1], [140, 180, 1], [290, 420, 1.6], [30, 470, 1], [370, 500, 1]] as const;
+const VIEW_BOX = `0 0 ${LANDMARK_CANVAS.width} ${LANDMARK_CANVAS.height}`;
 const GRADIENT_ID = 'landmark-wash';
 
 type GradientStop = readonly [offset: number, color: string];
@@ -37,14 +35,9 @@ type Wash =
   | { kind: 'radial'; centreY: number; stops: readonly GradientStop[] }
   | { kind: 'linear'; stops: readonly GradientStop[] };
 
-/** Which of the five backgrounds a landmark's screen has. */
-export type LandmarkLookId = 'uk-hills' | 'mountains' | 'everest' | 'sky' | 'space';
-
 /** A landmark screen's colours, from the design (Ascent Celebrations F2 to F4) and the Height Chart's band colours. */
-export interface LandmarkLook {
-  id: LandmarkLookId;
+export interface LandmarkColours {
   wash: Wash;
-  contour: { stroke: string; opacity: number } | null;
   eyebrow: string;
   pill: string;
   text: string;
@@ -61,10 +54,8 @@ const COBALT_BUTTON: EdgeLook = { face: colors.white, label: '#1C4FD8', edge: '#
 const PAPER_BUTTON: EdgeLook = { face: '#1C4FD8', label: colors.white, edge: '#123A9E' };
 const WHITE_PILL = 'rgba(255,255,255,.16)';
 
-const UK_HILLS: LandmarkLook = {
-  id: 'uk-hills',
+const UK_HILLS: LandmarkColours = {
   wash: { kind: 'radial', centreY: 0.38, stops: [[0, '#FFFDF8'], [0.55, '#F3F1EC'], [1, '#E6DFD0']] },
-  contour: { stroke: '#E3C47A', opacity: 0.5 },
   eyebrow: CLOUDY_EYEBROW,
   pill: INK_PILL,
   text: INK,
@@ -73,24 +64,8 @@ const UK_HILLS: LandmarkLook = {
   statusBar: 'dark',
 };
 
-const MOUNTAINS: LandmarkLook = {
-  ...UK_HILLS,
-  id: 'mountains',
-  wash: { kind: 'radial', centreY: 0.38, stops: [[0, '#F1F5FC'], [0.55, '#E4EAF3'], [1, '#D3DFF4']] },
-  contour: { stroke: '#8FAEEA', opacity: 0.4 },
-};
-
-const EVEREST: LandmarkLook = {
-  ...UK_HILLS,
-  id: 'everest',
-  wash: { kind: 'radial', centreY: 0.36, stops: [[0, colors.white], [0.5, '#E4EDFA'], [1, '#B4C8EA']] },
-  contour: { stroke: '#8FAEEA', opacity: 0.5 },
-};
-
-const SKY: LandmarkLook = {
-  id: 'sky',
+const SKY: LandmarkColours = {
   wash: { kind: 'radial', centreY: 0.38, stops: [[0, '#2F62E8'], [0.5, '#1C4FD8'], [1, '#1A43C4']] },
-  contour: { stroke: colors.white, opacity: 0.12 },
   eyebrow: 'rgba(255,255,255,.85)',
   pill: WHITE_PILL,
   text: colors.white,
@@ -99,30 +74,18 @@ const SKY: LandmarkLook = {
   statusBar: 'light',
 };
 
-const SPACE: LandmarkLook = {
-  ...SKY,
-  id: 'space',
-  wash: { kind: 'linear', stops: [[0, '#05081C'], [0.6, '#0B1131'], [1, '#0F1A4A']] },
-  contour: null,
-  button: { face: colors.white, label: '#0B1131', edge: '#3A4A8A' },
+/** Each look's colours (the shared `landmarkLookOf` decides the look). */
+export const LANDMARK_COLOURS: Record<LandmarkLook, LandmarkColours> = {
+  'uk-hills': UK_HILLS,
+  mountains: { ...UK_HILLS, wash: { kind: 'radial', centreY: 0.38, stops: [[0, '#F1F5FC'], [0.55, '#E4EAF3'], [1, '#D3DFF4']] } },
+  everest: { ...UK_HILLS, wash: { kind: 'radial', centreY: 0.36, stops: [[0, colors.white], [0.5, '#E4EDFA'], [1, '#B4C8EA']] } },
+  sky: SKY,
+  space: {
+    ...SKY,
+    wash: { kind: 'linear', stops: [[0, '#05081C'], [0.6, '#0B1131'], [1, '#0F1A4A']] },
+    button: { face: colors.white, label: '#0B1131', edge: '#3A4A8A' },
+  },
 };
-
-/** One look per height band, in `HEIGHT_BANDS` order: UK hills, mountains of the world, the sky, the edge of space. */
-export const LANDMARK_LOOKS: readonly LandmarkLook[] = [UK_HILLS, MOUNTAINS, SKY, SPACE];
-
-/** The look for a landmark's screen: its height band's, and Everest's own cold blue-white. */
-export function landmarkLookOf(landmark: Landmark): LandmarkLook {
-  if (landmark.key === 'everest') return EVEREST;
-  return LANDMARK_LOOKS[HEIGHT_BANDS.indexOf(heightBandOf(landmark.height))] ?? SPACE;
-}
-
-/**
- * The landmark a landmark unlock is for, or null when the key isn't one. The unlock carries no height,
- * and the shared table is the single source of it (ADR-022).
- */
-export function landmarkOfUnlock(unlock: RewardUnlock): Landmark | null {
-  return LANDMARKS.find((l) => l.key === unlock.key) ?? null;
-}
 
 /**
  * The full screen for a landmark just passed (brief section 4): "LANDMARK REACHED", the landmark's medal
@@ -130,39 +93,40 @@ export function landmarkOfUnlock(unlock: RewardUnlock): Landmark | null {
  */
 export function LandmarkUnlock({ unlock, onContinue }: { unlock: RewardUnlock; onContinue: () => void }) {
   const insets = useSafeAreaInsets();
-  const landmark = landmarkOfUnlock(unlock);
+  const landmark = landmarkByKey(unlock.key);
   if (landmark === null) return null;
   const look = landmarkLookOf(landmark);
+  const colours = LANDMARK_COLOURS[look];
 
   return (
     <View testID="landmark-unlock" style={styles.screen}>
-      <StatusBar style={look.statusBar} />
-      <Background look={look} showEarth={landmark.key === KARMAN_KEY} />
+      <StatusBar style={colours.statusBar} />
+      <Background look={look} wash={colours.wash} showEarth={showsEarth(landmark)} />
       <View style={[styles.body, { paddingTop: insets.top }]}>
-        <Text testID="landmark-unlock-eyebrow" style={[styles.eyebrow, { color: look.eyebrow }]}>{LANDMARK_EYEBROW}</Text>
+        <Text testID="landmark-unlock-eyebrow" style={[styles.eyebrow, { color: colours.eyebrow }]}>{LANDMARK_EYEBROW}</Text>
         <View style={styles.medal}>
           <Medal definition={ACHIEVEMENTS_BY_KEY[landmark.key]} size={MEDAL_SIZE} />
         </View>
-        <View style={[styles.pill, { backgroundColor: look.pill }]}>
-          <Text testID="landmark-unlock-height" style={[styles.pillText, { color: look.text }]}>{metresLabel(landmark.height)}</Text>
+        <View style={[styles.pill, { backgroundColor: colours.pill }]}>
+          <Text testID="landmark-unlock-height" style={[styles.pillText, { color: colours.text }]}>{metresLabel(landmark.height)}</Text>
         </View>
-        <Text testID="landmark-unlock-name" style={[styles.name, { color: look.text }]}>{unlock.name}</Text>
-        <Text testID="landmark-unlock-line" style={[styles.line, { color: look.line }]}>{unlock.description}</Text>
+        <Text testID="landmark-unlock-name" style={[styles.name, { color: colours.text }]}>{unlock.name}</Text>
+        <Text testID="landmark-unlock-line" style={[styles.line, { color: colours.line }]}>{unlock.description}</Text>
       </View>
       <View style={[styles.action, { bottom: Math.max(insets.bottom, spacing.sm) + spacing.sm3 }]}>
-        <EdgeButton testID="achievement-continue-btn" look={look.button} label={CELEBRATION_CONTINUE} onPress={onContinue} />
+        <EdgeButton testID="achievement-continue-btn" look={colours.button} label={CELEBRATION_CONTINUE} onPress={onContinue} />
       </View>
     </View>
   );
 }
 
 /** The wash, the contours (or, on the edge of space, the stars) and, for the Kármán line, the Earth's curve. */
-function Background({ look, showEarth }: { look: LandmarkLook; showEarth: boolean }) {
-  const { wash, contour } = look;
-  const fill = `url(#${GRADIENT_ID})`;
+function Background({ look, wash, showEarth }: { look: LandmarkLook; wash: Wash; showEarth: boolean }) {
+  const contour = LANDMARK_CONTOUR_STROKE[look];
+  const { centre, radii, aspect } = LANDMARK_CONTOURS;
   return (
-    <View testID={`landmark-background-${look.id}`} pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width="100%" height="100%" viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`} preserveAspectRatio="xMidYMin slice">
+    <View testID={`landmark-background-${look}`} pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Svg width="100%" height="100%" viewBox={VIEW_BOX} preserveAspectRatio="xMidYMin slice">
         <Defs>
           {wash.kind === 'radial' ? (
             <RadialGradient id={GRADIENT_ID} cx="50%" cy={`${wash.centreY * 100}%`} rx="90%" ry="60%">
@@ -174,11 +138,11 @@ function Background({ look, showEarth }: { look: LandmarkLook; showEarth: boolea
             </LinearGradient>
           )}
         </Defs>
-        <Rect width={CANVAS_WIDTH} height={CANVAS_HEIGHT} fill={fill} />
-        {contour !== null && CONTOUR_RADII.map((radius) => (
-          <Ellipse key={radius} cx={CONTOUR_CENTRE.x} cy={CONTOUR_CENTRE.y} rx={radius} ry={radius * CONTOUR_ASPECT} fill="none" stroke={contour.stroke} strokeOpacity={contour.opacity} strokeWidth={1} />
+        <Rect width={LANDMARK_CANVAS.width} height={LANDMARK_CANVAS.height} fill={`url(#${GRADIENT_ID})`} />
+        {contour !== null && radii.map((radius) => (
+          <Ellipse key={radius} cx={centre.x} cy={centre.y} rx={radius} ry={radius * aspect} fill="none" stroke={contour.stroke} strokeOpacity={contour.opacity} strokeWidth={1} />
         ))}
-        {look.id === 'space' && STARS.map(([x, y, r]) => <Circle key={`${x}-${y}`} cx={x} cy={y} r={r} fill={colors.white} opacity={0.6} />)}
+        {look === 'space' && LANDMARK_STARS.map(([x, y, r]) => <Circle key={`${x}-${y}`} cx={x} cy={y} r={r} fill={LANDMARK_STAR.fill} opacity={LANDMARK_STAR.opacity} />)}
       </Svg>
       {showEarth && <Earth />}
     </View>
@@ -190,22 +154,21 @@ const ATMOSPHERE_ID = 'landmark-atmosphere';
 
 /** The Earth's curve under the Kármán line, with its atmosphere and the faint line above it (design F4). */
 function Earth() {
+  const { wash, globe, atmosphere, line } = LANDMARK_EARTH;
   return (
-    <Svg testID="landmark-earth" style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`} preserveAspectRatio="xMidYMin slice">
+    <Svg testID="landmark-earth" style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox={VIEW_BOX} preserveAspectRatio="xMidYMin slice">
       <Defs>
-        <RadialGradient id={EARTH_GRADIENT_ID} cx="50%" cy="0%" r="70%">
-          <Stop offset="0" stopColor="#2A5BE6" />
-          <Stop offset="0.5" stopColor="#123A9E" />
-          <Stop offset="1" stopColor="#0B1131" />
+        <RadialGradient id={EARTH_GRADIENT_ID} cx={wash.cx} cy={wash.cy} r={wash.r}>
+          {wash.stops.map(([offset, colour]) => <Stop key={offset} offset={offset} stopColor={colour} />)}
         </RadialGradient>
         <LinearGradient id={ATMOSPHERE_ID} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#7FA6FF" stopOpacity={0} />
-          <Stop offset="1" stopColor="#7FA6FF" stopOpacity={0.35} />
+          <Stop offset="0" stopColor={atmosphere.colour} stopOpacity={atmosphere.fromOpacity} />
+          <Stop offset="1" stopColor={atmosphere.colour} stopOpacity={atmosphere.toOpacity} />
         </LinearGradient>
       </Defs>
-      <Rect x={0} y={440} width={CANVAS_WIDTH} height={160} fill={`url(#${ATMOSPHERE_ID})`} />
-      <Circle cx={196} cy={1530} r={1000} fill={`url(#${EARTH_GRADIENT_ID})`} stroke="#9DB6F7" strokeOpacity={0.7} strokeWidth={2} />
-      <Path d="M-20 500Q196 420 413 500" fill="none" stroke={colors.white} strokeOpacity={0.22} strokeWidth={1} strokeDasharray="4 6" />
+      <Rect x={atmosphere.x} y={atmosphere.y} width={atmosphere.width} height={atmosphere.height} fill={`url(#${ATMOSPHERE_ID})`} />
+      <Circle cx={globe.cx} cy={globe.cy} r={globe.r} fill={`url(#${EARTH_GRADIENT_ID})`} stroke={globe.stroke} strokeOpacity={globe.strokeOpacity} strokeWidth={globe.strokeWidth} />
+      <Path d={line.d} fill="none" stroke={line.stroke} strokeOpacity={line.strokeOpacity} strokeWidth={line.strokeWidth} strokeDasharray={line.dash} />
     </Svg>
   );
 }
@@ -214,7 +177,7 @@ const styles = StyleSheet.create({
   screen:  { flex: 1 },
   body:    { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
   eyebrow: { fontFamily: font.extrabold, fontSize: 13, letterSpacing: 0.08 * 13 },
-  medal:   { marginTop: spacing.lg, marginBottom: spacing.lg, ...(shadow.md as object) },
+  medal:   { marginTop: spacing.lg, marginBottom: spacing.lg, ...shadow.md },
   pill:    { borderRadius: 999, paddingVertical: 7, paddingHorizontal: 14 },
   pillText: { fontFamily: font.extrabold, fontSize: 12, letterSpacing: 0.1 * 12 },
   name:    { fontFamily: font.black, fontSize: 50, lineHeight: 50, letterSpacing: -0.045 * 50, textAlign: 'center', marginTop: 14 },

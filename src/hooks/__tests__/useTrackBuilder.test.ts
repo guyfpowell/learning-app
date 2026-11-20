@@ -4,7 +4,7 @@ import { must } from '@/test-utils/must';
 import { onlineManager } from '@tanstack/react-query';
 import { NoSignalError } from '@/lib/offlineWrites';
 import { useBuild, useBuildPath, useCreateTrackPlan, useMarkBuildSeen, useRefinePlan, useUpdateTrackPlan } from '../useTrackBuilder';
-import { CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, TRACK_PLANS_QUERY_KEY, UNSEEN_BUILDS_QUERY_KEY, trackBuildQueryKey } from '@/lib/queryKeys';
+import { ACHIEVEMENTS_QUERY_KEY, CURRENT_USER_QUERY_KEY, PATHS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, TRACK_PLANS_QUERY_KEY, UNSEEN_BUILDS_QUERY_KEY, trackBuildQueryKey } from '@/lib/queryKeys';
 import { trackBuilderService } from '@/services/trackBuilder.service';
 import { ERROR_CODES, TRACK_BUILD_POLL_MS, TRACK_BUILD_STATUS, type TrackBuild } from '@learning/shared';
 import { BUILD_PHASE } from '@/lib/buildProgress';
@@ -37,6 +37,14 @@ describe('useCreateTrackPlan', () => {
     act(() => result.current.mutate(plan));
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: CURRENT_USER_QUERY_KEY });
+  });
+
+  it('refreshes the achievements after a save, which can earn Off-Piste', async () => {
+    createPlan.mockResolvedValue({ plan: makeTrackPlan({ id: 'p1' }), rewards: makeRewards() });
+    const { result, invalidate } = setup();
+    act(() => result.current.mutate(plan));
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ACHIEVEMENTS_QUERY_KEY });
   });
 
   it('queues the rewards the response carries and hands back the plan from its field', async () => {

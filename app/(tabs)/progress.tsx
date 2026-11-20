@@ -14,7 +14,7 @@ import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
 import { FlameIcon } from '@/components/ui/Streak';
 import { PathProgress } from '@/components/ui/PathProgress';
 import { AchievementsSection } from '@/components/achievements/AchievementsSection';
-import { TRACKS_ROUTE, trackRoute } from '@/lib/routes';
+import { ALTITUDE_ROUTE, TRACKS_ROUTE, trackRoute } from '@/lib/routes';
 
 // ── A path card that opens its detail (096) ─────────────────────────────────
 
@@ -70,7 +70,9 @@ export default function ProgressScreen() {
         {data && (
           <>
             {/* Hero: the level and the metres toward the next. No box: it sits on the page. */}
-            <AltitudeSection trailing={null} />
+            <Pressable testID="altitude-header-link" onPress={() => router.push(ALTITUDE_ROUTE)} accessibilityRole="button">
+              <AltitudeSection trailing={null} onPress={null} />
+            </Pressable>
 
             {/* The three numbers, as one quiet row. */}
             <View testID="progress-stats" style={styles.statsRow}>

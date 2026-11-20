@@ -1,23 +1,47 @@
 import React from 'react';
 import { render, screen, fireEvent, within } from '@testing-library/react-native';
 import { AchievementsSection } from '../AchievementsSection';
+import { RUNG_RAISE, rungStyleOf } from '../LadderRow';
 import { useAchievements } from '@/hooks/useAchievements';
-import { ACHIEVEMENTS_BY_KEY, SECRET_MEDAL_NAME, celebrationEyebrow, type AchievementsResponse } from '@learning/shared';
+import {
+  ACHIEVEMENTS_BY_KEY,
+  ACHIEVEMENTS_LOAD_ERROR,
+  ACHIEVEMENTS_HEADING,
+  MEDAL_SHEET_CLOSE,
+  SECRET_MEDAL_NAME,
+  celebrationEyebrow,
+  ladderCountCopy,
+  medalEarnedCopy,
+  medalsEarnedCopy,
+  rungProgressCopy,
+  type AchievementsResponse,
+} from '@learning/shared';
+import { makeLadder, makeLandmarks, makeRung, makeTrailhead } from '@/test-utils/achievements';
+import { testIdsInOrder } from '@/test-utils/testIds';
 import { must } from '@/test-utils/must';
 
 jest.mock('@/hooks/useAchievements', () => ({ useAchievements: jest.fn() }));
 
+const EARNED_AT = '2026-08-01T12:00:00Z';
+const NEXT_PROGRESS = { current: 7, target: 10 };
+const OTHER_PROGRESS = { current: 3, target: 8 };
+
 const mockAchievementsResponse: AchievementsResponse = {
-  unlocked: [
-    { key: 'hat-trick', name: 'Hat-Trick', description: 'Completed your first lesson', axis: 'milestone', unlockedAt: '2026-08-01T00:00:00Z' },
-    { key: 'promoted', name: 'Promoted', description: 'Finished a beginner level', axis: 'depth', unlockedAt: '2026-08-01T00:00:00Z' },
+  ladders: [
+    makeLadder('accuracy', [
+      makeRung('hat-trick', { unlockedAt: EARNED_AT }),
+      makeRung('clean-sheet', { isNextRung: true, progress: NEXT_PROGRESS }),
+    ]),
+    makeLadder('session', [
+      makeRung('last-orders', { unlockedAt: EARNED_AT }),
+      makeRung('early-train', { isNextRung: true }),
+      makeRung('good-innings', { progress: OTHER_PROGRESS }),
+    ]),
   ],
-  locked: [
-    ACHIEVEMENTS_BY_KEY['good-innings'],
-    ACHIEVEMENTS_BY_KEY['clean-sheet'],
-  ],
-  totalUnlocked: 2,
-  totalAvailable: 4,
+  trailhead: { steps: [], finished: true },
+  totalUnlocked: 9,
+  totalAvailable: 39,
+  landmarks: makeLandmarks(1_120),
 };
 
 describe('AchievementsSection', () => {
@@ -25,15 +49,35 @@ describe('AchievementsSection', () => {
     (useAchievements as jest.Mock).mockReturnValue({ data: mockAchievementsResponse, isLoading: false });
   });
 
-  it('shows how many are earned out of all of them (096)', () => {
+  it('puts the Trailhead card at the top of the grid while it is unfinished', () => {
+    (useAchievements as jest.Mock).mockReturnValue({ data: { ...mockAchievementsResponse, trailhead: makeTrailhead(4) }, isLoading: false });
     render(<AchievementsSection />);
-    expect(screen.getByTestId('achievements-count')).toHaveTextContent('2 of 4 earned · tap any to see how to earn it');
+    const ids = testIdsInOrder(screen.toJSON());
+    expect(ids.indexOf('trailhead-card')).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf('trailhead-card')).toBeLessThan(ids.indexOf('ladder-accuracy'));
   });
 
-  it('groups the medals under EARNED and STILL TO EARN', () => {
+  it('shows no Trailhead card once it is finished', () => {
     render(<AchievementsSection />);
-    expect(screen.getByText('EARNED')).toBeTruthy();
-    expect(screen.getByText('STILL TO EARN')).toBeTruthy();
+    expect(screen.queryByTestId('trailhead-card')).toBeNull();
+  });
+
+  it('shows the Achievements section heading', () => {
+    render(<AchievementsSection />);
+    expect(screen.getByText(ACHIEVEMENTS_HEADING)).toBeTruthy();
+  });
+
+  it('header reads the medals earned out of the server total', () => {
+    render(<AchievementsSection />);
+    expect(screen.getByTestId('achievements-count').props.children).toBe(medalsEarnedCopy(9, 39));
+  });
+
+  it('says a failed load in place of the grid, never an empty grid', () => {
+    (useAchievements as jest.Mock).mockReturnValue({ data: mockAchievementsResponse, isLoading: false, isError: true });
+    render(<AchievementsSection />);
+    expect(screen.getByTestId('achievements-load-error').props.children).toBe(ACHIEVEMENTS_LOAD_ERROR);
+    expect(screen.queryByTestId('ladder-accuracy')).toBeNull();
+    expect(screen.queryByTestId('achievement-hat-trick')).toBeNull();
   });
 
   it('handles undefined achievements gracefully', () => {
@@ -41,121 +85,121 @@ describe('AchievementsSection', () => {
     expect(() => render(<AchievementsSection />)).not.toThrow();
   });
 
-  // ── Achievements grid ───────────────────────────────────────────────────────
+  // ── Ladders ─────────────────────────────────────────────────────────────────
 
-  it('shows the Achievements section heading', () => {
+  it('renders the ladders in the server order, each with its category in upper case and its count', () => {
     render(<AchievementsSection />);
-    expect(screen.getByText('Achievements')).toBeTruthy();
+    const ladders = screen.getAllByTestId(/^ladder-(?!count|name)/);
+    expect(ladders.map(l => l.props.testID)).toEqual(['ladder-accuracy', 'ladder-session']);
+    expect(screen.getByTestId('ladder-name-accuracy').props.children).toBe(celebrationEyebrow({ axis: 'accuracy' }));
+    expect(screen.getByTestId('ladder-count-accuracy').props.children).toBe(ladderCountCopy(1, 2));
+    expect(screen.getByTestId('ladder-name-session').props.children).toBe(celebrationEyebrow({ axis: 'session' }));
+    expect(screen.getByTestId('ladder-count-session').props.children).toBe(ladderCountCopy(1, 3));
   });
 
-  it('renders unlocked achievement names', () => {
+  it('renders no flat EARNED or STILL TO EARN lists', () => {
     render(<AchievementsSection />);
-    expect(screen.getByText('Hat-Trick')).toBeTruthy();
-    expect(screen.getByText('Promoted')).toBeTruthy();
+    expect(screen.queryByText('EARNED')).toBeNull();
+    expect(screen.queryByText('STILL TO EARN')).toBeNull();
   });
 
-  it('renders locked achievement names', () => {
+  it('renders a ladder\'s rungs in the server order', () => {
     render(<AchievementsSection />);
-    expect(screen.getByText('Good Innings')).toBeTruthy();
-    expect(screen.getByText('Clean Sheet')).toBeTruthy();
+    const rungs = within(screen.getByTestId('ladder-session')).getAllByTestId(/^achievement-/);
+    expect(rungs.map(r => r.props.testID)).toEqual(['achievement-last-orders', 'achievement-early-train', 'achievement-good-innings']);
   });
 
-  it('draws a medal for each achievement, a locked one for those not earned', () => {
+  it('renders only the rungs the ladders hold: no landmark or Trailhead step', () => {
     render(<AchievementsSection />);
-    expect(within(screen.getByTestId('achievement-hat-trick')).getByText('Hat-Trick')).toBeTruthy();
-    expect(screen.getByTestId('achievement-good-innings')).toBeTruthy();
+    expect(screen.queryByTestId('achievement-ben-nevis')).toBeNull();
+    expect(screen.queryByTestId('achievement-signed-on')).toBeNull();
   });
 
-  // ── Achievement detail modal ─────────────────────────────────────────────────
+  // ── Rungs ───────────────────────────────────────────────────────────────────
 
-  it('tapping an earned achievement opens the detail modal', () => {
-    render(<AchievementsSection />);
-    fireEvent.press(screen.getByTestId('achievement-hat-trick'));
-    expect(screen.getByTestId('achievement-detail-modal')).toBeTruthy();
+  it('raises the next rung only', () => {
+    const next = makeRung('clean-sheet', { isNextRung: true });
+    const other = makeRung('good-innings');
+    expect(rungStyleOf(next).transform).toEqual([{ translateY: -RUNG_RAISE }]);
+    expect(rungStyleOf(other).transform).toBeUndefined();
   });
 
-  it('detail modal shows the achievement name', () => {
+  it('shows the count on the next rung', () => {
     render(<AchievementsSection />);
-    fireEvent.press(screen.getByTestId('achievement-hat-trick'));
-    expect(screen.getByTestId('achievement-detail-name')).toBeTruthy();
+    expect(screen.getByTestId('rung-progress-clean-sheet').props.children).toBe(rungProgressCopy(NEXT_PROGRESS.current, NEXT_PROGRESS.target));
   });
 
-  it('detail modal shows the achievement description', () => {
+  it('shows no count on another locked rung that has progress', () => {
     render(<AchievementsSection />);
-    fireEvent.press(screen.getByTestId('achievement-hat-trick'));
-    expect(screen.getByTestId('achievement-detail-description')).toBeTruthy();
-    expect(screen.getByText('Completed your first lesson')).toBeTruthy();
+    expect(screen.queryByTestId('rung-progress-good-innings')).toBeNull();
+    expect(screen.queryByText(rungProgressCopy(OTHER_PROGRESS.current, OTHER_PROGRESS.target))).toBeNull();
   });
 
-  it('earned achievement shows the unlocked date in the modal', () => {
+  it('shows no count on an earned rung', () => {
     render(<AchievementsSection />);
-    fireEvent.press(screen.getByTestId('achievement-hat-trick'));
-    expect(screen.getByTestId('achievement-detail-earned-date')).toBeTruthy();
+    expect(screen.queryByTestId('rung-progress-hat-trick')).toBeNull();
   });
 
-  it('detail modal opened from the grid shows the category alone, the earned date and Close', () => {
+  it('shows a locked secret as ??? with its hint, and no count', () => {
+    render(<AchievementsSection />);
+    const rung = screen.getByTestId('achievement-early-train');
+    expect(within(rung).getByText(SECRET_MEDAL_NAME)).toBeTruthy();
+    expect(within(rung).getByText(must(ACHIEVEMENTS_BY_KEY['early-train'].secret, 'early-train secret').hint)).toBeTruthy();
+    expect(within(rung).queryByText(ACHIEVEMENTS_BY_KEY['early-train'].name)).toBeNull();
+  });
+
+  it('shows an earned secret by its name', () => {
+    render(<AchievementsSection />);
+    const rung = screen.getByTestId('achievement-last-orders');
+    expect(within(rung).getByText(ACHIEVEMENTS_BY_KEY['last-orders'].name)).toBeTruthy();
+    expect(within(rung).queryByText(SECRET_MEDAL_NAME)).toBeNull();
+  });
+
+  it('shows no hint on a locked rung that is not a secret', () => {
+    render(<AchievementsSection />);
+    expect(screen.queryByTestId('rung-hint-clean-sheet')).toBeNull();
+    expect(screen.queryByTestId('rung-hint-hat-trick')).toBeNull();
+  });
+
+  // ── The medal sheet, opened from a rung ─────────────────────────────────────
+
+  it('tapping an earned rung opens the sheet with the category alone, name, description, earned date and Close', () => {
     render(<AchievementsSection />);
     fireEvent.press(screen.getByTestId('achievement-hat-trick'));
     expect(screen.getByTestId('achievement-detail-eyebrow').props.children).toBe(celebrationEyebrow(ACHIEVEMENTS_BY_KEY['hat-trick']));
-    expect(screen.getByTestId('achievement-detail-earned-date')).toBeTruthy();
-    expect(screen.getByText('Close')).toBeTruthy();
+    expect(screen.getByTestId('achievement-detail-name').props.children).toBe(ACHIEVEMENTS_BY_KEY['hat-trick'].name);
+    expect(screen.getByTestId('achievement-detail-description').props.children).toBe(ACHIEVEMENTS_BY_KEY['hat-trick'].description);
+    expect(screen.getByTestId('achievement-detail-earned-date').props.children).toBe(medalEarnedCopy(EARNED_AT));
+    expect(screen.getByText(MEDAL_SHEET_CLOSE)).toBeTruthy();
     expect(screen.queryByTestId('achievement-detail-just-earned')).toBeNull();
   });
 
-  it('tapping a locked achievement also opens the detail modal', () => {
+  it('tapping a locked rung opens the sheet with how to earn it and no earned date', () => {
     render(<AchievementsSection />);
-    fireEvent.press(screen.getByTestId('achievement-good-innings'));
-    expect(screen.getByTestId('achievement-detail-modal')).toBeTruthy();
-  });
-
-  it('locked achievement does not show an earned date', () => {
-    render(<AchievementsSection />);
-    fireEvent.press(screen.getByTestId('achievement-good-innings'));
+    fireEvent.press(screen.getByTestId('achievement-clean-sheet'));
+    expect(screen.getByTestId('achievement-detail-name').props.children).toBe(ACHIEVEMENTS_BY_KEY['clean-sheet'].name);
+    expect(screen.getByTestId('achievement-detail-description').props.children).toBe(ACHIEVEMENTS_BY_KEY['clean-sheet'].description);
     expect(screen.queryByTestId('achievement-detail-earned-date')).toBeNull();
   });
 
-  it('close button dismisses the detail modal', () => {
+  it('tapping a rung that is not the next one opens the sheet too', () => {
+    render(<AchievementsSection />);
+    fireEvent.press(screen.getByTestId('achievement-good-innings'));
+    expect(screen.getByTestId('achievement-detail-name').props.children).toBe(ACHIEVEMENTS_BY_KEY['good-innings'].name);
+  });
+
+  it('tapping a locked secret opens the sheet with ??? and its hint', () => {
+    render(<AchievementsSection />);
+    fireEvent.press(screen.getByTestId('achievement-early-train'));
+    expect(screen.getByTestId('achievement-detail-name').props.children).toBe(SECRET_MEDAL_NAME);
+    expect(screen.getByTestId('achievement-detail-description').props.children).toBe(must(ACHIEVEMENTS_BY_KEY['early-train'].secret, 'early-train secret').hint);
+  });
+
+  it('close button dismisses the sheet', () => {
     render(<AchievementsSection />);
     fireEvent.press(screen.getByTestId('achievement-hat-trick'));
     expect(screen.getByTestId('achievement-detail-modal')).toBeTruthy();
     fireEvent.press(screen.getByTestId('achievement-detail-close'));
     expect(screen.queryByTestId('achievement-detail-modal')).toBeNull();
-  });
-
-  // ── Medals only (119ai) ─────────────────────────────────────────────────────
-
-  it('renders only the medals from a fixture holding all three kinds', () => {
-    const data: AchievementsResponse = {
-        unlocked: [
-          { key: 'hat-trick', name: 'Hat-Trick', description: 'd', axis: 'accuracy', unlockedAt: '2026-08-01T00:00:00Z' },
-          { key: 'first-light', name: 'Finish a lesson', description: 'd', axis: 'milestone', unlockedAt: '2026-08-01T00:00:00Z' },
-          { key: 'ben-nevis', name: 'Ben Nevis', description: 'd', axis: 'landmark', unlockedAt: '2026-08-01T00:00:00Z' },
-        ],
-        locked: [ACHIEVEMENTS_BY_KEY['good-innings'], ACHIEVEMENTS_BY_KEY['signed-on'], ACHIEVEMENTS_BY_KEY.everest],
-        totalUnlocked: 1,
-        totalAvailable: 2,
-    };
-    (useAchievements as jest.Mock).mockReturnValue({ data, isLoading: false });
-    render(<AchievementsSection />);
-    expect(screen.getByTestId('achievement-hat-trick')).toBeTruthy();
-    expect(screen.getByTestId('achievement-good-innings')).toBeTruthy();
-    for (const key of ['first-light', 'ben-nevis', 'signed-on', 'everest']) {
-      expect(screen.queryByTestId(`achievement-${key}`)).toBeNull();
-    }
-    expect(screen.getByTestId('achievements-count')).toHaveTextContent('1 of 2 earned · tap any to see how to earn it');
-  });
-
-  // ── Secret medals ───────────────────────────────────────────────────────────
-
-  it('shows a locked secret medal as "???" with its hint, in the grid and the sheet', () => {
-    const earlyTrain = ACHIEVEMENTS_BY_KEY['early-train'];
-    const data: AchievementsResponse = { unlocked: [], locked: [earlyTrain], totalUnlocked: 0, totalAvailable: 1 };
-    (useAchievements as jest.Mock).mockReturnValue({ data, isLoading: false });
-    render(<AchievementsSection />);
-    expect(within(screen.getByTestId('achievement-early-train')).getByText(SECRET_MEDAL_NAME)).toBeTruthy();
-    expect(screen.queryByText(earlyTrain.name)).toBeNull();
-    fireEvent.press(screen.getByTestId('achievement-early-train'));
-    expect(screen.getByTestId('achievement-detail-name')).toHaveTextContent(SECRET_MEDAL_NAME);
-    expect(screen.getByTestId('achievement-detail-description')).toHaveTextContent(must(earlyTrain.secret, 'hint').hint);
   });
 });
