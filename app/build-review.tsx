@@ -13,6 +13,7 @@ import { useDraftStore } from '@/store/trackBuilder.store';
 import { useRefinePlan, useCreateTrackPlan } from '@/hooks/useTrackBuilder';
 import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useGoBack } from '@/hooks/useGoBack';
+import { BACK_LABEL } from '@/lib/backButton';
 import { errorCode, writeError } from '@/lib/errors';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import {
@@ -146,7 +147,7 @@ export default function BuildReviewScreen() {
               testID="review-back"
               onPress={handleBack}
               accessibilityRole="button"
-              accessibilityLabel="Go back"
+              accessibilityLabel={BACK_LABEL}
               style={styles.headerBackBtn}
             >
               <Icon name="back" size={22} color={colors.textStrong} strokeWidth={2.2} />

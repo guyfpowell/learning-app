@@ -6,11 +6,9 @@ import {
   heightChartLayoutOf,
   heightChartPosition,
   landmarkRowsOf,
-  landmarkSheetOf,
   type AchievementsResponse,
   type AltitudeResponse,
-  type LandmarkKey,
-  type LandmarkSheet,
+  type LandmarkRow,
 } from '@learning/shared';
 import { AltitudeBand } from './AltitudeBand';
 import { ChartRail } from './ChartRail';
@@ -30,12 +28,6 @@ import {
   canvasYOf,
 } from './chartLayout';
 
-/** The landmark whose sheet is open. */
-interface OpenSheet {
-  key: LandmarkKey;
-  sheet: LandmarkSheet;
-}
-
 /** The Height Chart (brief item 2, design C1–C4): the four bands, the rail with the level ticks, each landmark's leader line and row (the next one a card) and the learner's marker, on one canvas with sea level under it. Tapping a passed landmark's row opens its sheet. */
 export function AltitudeChart({
   altitude,
@@ -50,18 +42,12 @@ export function AltitudeChart({
   timezone: string | undefined;
   now: Date;
 }) {
-  const [opened, setOpened] = useState<OpenSheet | null>(null);
-  const rows = landmarkRowsOf(achievements, altitude, now, timezone);
-  const layout = heightChartLayoutOf(rows, heightChartPosition(altitude.metres), {
+  const [opened, setOpened] = useState<Extract<LandmarkRow, { state: 'passed' }> | null>(null);
+  const { rows, marker } = heightChartLayoutOf(landmarkRowsOf(achievements, altitude, now, timezone), heightChartPosition(altitude.metres), {
     chartHeight: CHART_HEIGHT,
     rowSpacing: ROW_SPACING,
     markerSpacing: MARKER_SPACING,
   });
-  const openSheet = (key: LandmarkKey) => {
-    const passed = achievements.landmarks.find((landmark) => landmark.key === key);
-    const sheet = passed === undefined ? null : landmarkSheetOf(passed, timezone);
-    if (sheet !== null) setOpened({ key, sheet });
-  };
   return (
     <View testID="altitude-chart" style={styles.canvas}>
       <LinearGradient
@@ -74,19 +60,16 @@ export function AltitudeChart({
         <AltitudeBand key={band.key} band={band} index={index} hasBoundary={index < BANDS_TOP_DOWN.length - 1} />
       ))}
       <SeaLevelStrip />
-      <ChartRail markerY={canvasYOf(layout.marker.trueOffset)} />
-      {rows.map((row, i) => {
+      <ChartRail markerY={canvasYOf(marker.trueOffset)} />
+      {rows.map((row) => {
         const look = BAND_LOOK[heightBandOf(row.height).key];
-        const { shownOffset } = layout.rows[i];
         return row.state === 'next' ? (
-          <NextLandmarkCard key={row.key} row={row} shownOffset={shownOffset} look={look} />
+          <NextLandmarkCard key={row.key} row={row} look={look} />
         ) : (
-          <LandmarkRowView key={row.key} row={row} shownOffset={shownOffset} look={look}
-            onPress={row.state === 'passed' ? () => openSheet(row.key) : null}
-          />
+          <LandmarkRowView key={row.key} row={row} look={look} onPress={row.state === 'passed' ? () => setOpened(row) : null} />
         );
       })}
-      <YouMarker name={name} metres={altitude.metres} level={altitude.level} offsets={layout.marker} />
+      <YouMarker name={name} metres={altitude.metres} level={altitude.level} offsets={marker} />
       {opened !== null && <LandmarkSheetModal landmarkKey={opened.key} sheet={opened.sheet} onClose={() => setOpened(null)} />}
     </View>
   );

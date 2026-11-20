@@ -6,6 +6,7 @@ export const HOME_ROUTE = '/(tabs)/lessons';
 export const TRACKS_ROUTE = '/(tabs)/tracks';
 export const PROGRESS_ROUTE = '/(tabs)/progress';
 export const ALTITUDE_ROUTE = '/altitude';
+export const WEEK_ROUTE = '/week';
 export const BUILD_ROUTE = '/build';
 export const BUILD_REVIEW_ROUTE = '/build-review';
 

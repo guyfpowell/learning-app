@@ -1,4 +1,4 @@
-import { View, StyleSheet, Pressable, ScrollView, type ViewStyle } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView, } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Text } from '@/components/ui/Text';
 import { Medal } from '@/components/ui/Medal';
@@ -14,20 +14,14 @@ import {
 } from '@learning/shared';
 import { colors, font } from '@/theme';
 
-/** How far the next rung sits above the others, in points (the design's raised rung). */
-export const RUNG_RAISE = 7;
-
 const MEDAL_SIZE = 56;
 const RUNG_WIDTH = 84;
 const RUNG_GAP = 2;
 /** The fade over the last rungs, which shows there are more to scroll to. */
-const FADE_WIDTH = 56;
+export const FADE_WIDTH = 56;
+/** The room after the last rung: enough to scroll it mostly clear of the fade, no more. */
+export const RUNGS_END_PADDING = FADE_WIDTH / 2;
 const FADE_CLEAR = `${colors.paper}00`;
-
-/** The next rung is lifted; every other rung sits flat. */
-export function rungStyleOf({ isNextRung }: Pick<Rung, 'isNextRung'>): ViewStyle {
-  return isNextRung ? { transform: [{ translateY: -RUNG_RAISE }] } : {};
-}
 
 /** One medal on a ladder: its medal, its name, and under it the count (the next rung only) or a locked secret's hint. */
 function RungCell({ rung, onOpen }: { rung: Rung; onOpen: (key: AchievementKey) => void }) {
@@ -35,13 +29,13 @@ function RungCell({ rung, onOpen }: { rung: Rung; onOpen: (key: AchievementKey) 
   const note = rungNoteOf(rung);
 
   return (
-    <Pressable testID={`achievement-${rung.key}`} onPress={() => onOpen(rung.key)} style={[styles.rung, rungStyleOf(rung)]}>
+    <Pressable testID={`achievement-${rung.key}`} onPress={() => onOpen(rung.key)} style={ladderStyles.rung}>
       <View>
         <Medal definition={item.definition} locked={!item.earned} size={MEDAL_SIZE} />
-        {rung.isNextRung && <View style={styles.shadow} />}
+        {rung.isNextRung && <View style={ladderStyles.shadow} />}
       </View>
-      <Text style={[styles.name, !item.earned && styles.nameLocked]} numberOfLines={2}>{item.name}</Text>
-      {note && <Text testID={`rung-${note.kind}-${rung.key}`} style={styles[note.kind]} numberOfLines={note.kind === 'hint' ? 2 : undefined}>{note.text}</Text>}
+      <Text style={[ladderStyles.name, !item.earned && ladderStyles.nameLocked]} numberOfLines={2}>{item.name}</Text>
+      {note && <Text testID={`rung-${note.kind}-${rung.key}`} style={ladderStyles[note.kind]} numberOfLines={note.kind === 'hint' ? 2 : undefined}>{note.text}</Text>}
     </Pressable>
   );
 }
@@ -51,22 +45,22 @@ export function LadderRow({ ladder, onOpen }: { ladder: Ladder; onOpen: (key: Ac
   const { category, rungs } = ladder;
 
   return (
-    <View testID={`ladder-${category}`} style={styles.ladder}>
-      <View style={styles.head}>
-        <Text testID={`ladder-name-${category}`} style={styles.categoryName}>{celebrationEyebrow({ axis: category })}</Text>
-        <Text testID={`ladder-count-${category}`} style={styles.count}>{ladderCountCopy(ladderEarnedOf(ladder), rungs.length)}</Text>
+    <View testID={`ladder-${category}`} style={ladderStyles.ladder}>
+      <View style={ladderStyles.head}>
+        <Text testID={`ladder-name-${category}`} style={ladderStyles.categoryName}>{celebrationEyebrow({ axis: category })}</Text>
+        <Text testID={`ladder-count-${category}`} style={ladderStyles.count}>{ladderCountCopy(ladderEarnedOf(ladder), rungs.length)}</Text>
       </View>
-      <View style={styles.track}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rungs}>
+      <View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={ladderStyles.rungs}>
           {rungs.map(rung => <RungCell key={rung.key} rung={rung} onOpen={onOpen} />)}
         </ScrollView>
-        <LinearGradient pointerEvents="none" colors={[FADE_CLEAR, colors.paper]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.fade} />
+        <LinearGradient pointerEvents="none" colors={[FADE_CLEAR, colors.paper]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={ladderStyles.fade} />
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+export const ladderStyles = StyleSheet.create({
   ladder: { gap: 14 },
   head: {
     flexDirection:     'row',
@@ -78,9 +72,7 @@ const styles = StyleSheet.create({
   },
   categoryName: { fontFamily: font.extrabold, fontSize: 12, letterSpacing: 0.08 * 12, color: colors.textMuted },
   count:        { fontFamily: font.bold, fontSize: 13, color: colors.textMuted },
-  // The raised rung needs room above it.
-  track:        { paddingTop: RUNG_RAISE + 1 },
-  rungs:        { gap: RUNG_GAP },
+  rungs:        { gap: RUNG_GAP, paddingRight: RUNGS_END_PADDING },
   fade:         { position: 'absolute', top: 0, bottom: 0, right: 0, width: FADE_WIDTH },
   rung:         { width: RUNG_WIDTH, alignItems: 'center', gap: 5 },
   shadow: {

@@ -9,10 +9,10 @@ import { nextNewUserHome, useNewUserHomeStore } from '@/store/newUserHome.store'
 import { Icon } from '@/components/ui/Icon';
 import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
 import { settingsRow, CHEVRON_SIZE } from '@/components/profile/settingsRow';
-import type { ClockTime, NotificationToggleKey, NotificationToggles } from '@learning/shared';
+import type { ClockTime, NotificationTimeKey, NotificationToggleKey, NotificationToggles } from '@learning/shared';
 import {
-  DEFAULT_REMINDER_TIME, formatPreferredTime, initialsOf, notificationTogglesOf,
-  parsePreferredTime,
+  DEFAULT_RECAP_TIME, DEFAULT_REMINDER_TIME, NOTIFICATION_TOGGLE_KEYS, formatPreferredTime, initialsOf, notificationTogglesOf,
+  parsePreferredTime, recapTimeOf,
 } from '@learning/shared';
 import { colors, font, fontSize, press, spacing } from '@/theme';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
@@ -61,6 +61,10 @@ function PushPermissionStatus({
   );
 }
 
+function isSameTime(a: ClockTime, b: ClockTime): boolean {
+  return a.hour === b.hour && a.minute === b.minute;
+}
+
 // ── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
@@ -82,28 +86,35 @@ export default function ProfileScreen() {
   const { permissionStatus, register, error: pushError } = usePushStatus();
 
   const [toggles, setToggles] = useState<NotificationToggles | null>(null);
-  const [reminder, setReminder] = useState<ClockTime>(DEFAULT_REMINDER_TIME);
+  const [times, setTimes] = useState<Record<NotificationTimeKey, ClockTime>>({ reminder: DEFAULT_REMINDER_TIME, recap: DEFAULT_RECAP_TIME });
   const [savedToastHidden, setSavedToastHidden] = useState(false);
 
   useEffect(() => {
-    if (prefs) setToggles(notificationTogglesOf(prefs));
+    if (prefs) {
+      setToggles(notificationTogglesOf(prefs));
+      setTimes((current) => ({ ...current, recap: recapTimeOf(prefs) }));
+    }
   }, [prefs]);
 
   useEffect(() => {
     const saved = parsePreferredTime(profile?.preferredTime);
-    if (saved) setReminder(saved);
+    if (saved) setTimes((current) => ({ ...current, reminder: saved }));
   }, [profile]);
 
   function handleToggle(field: NotificationToggleKey, on: boolean) {
     setToggles((current) => current && { ...current, [field]: on });
   }
 
+  function handleTimeChange(which: NotificationTimeKey, time: ClockTime) {
+    setTimes((current) => ({ ...current, [which]: time }));
+  }
+
   function handleSaveSettings() {
     setSavedToastHidden(false);
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    updateProfile.mutate({ preferredTime: formatPreferredTime(reminder), timezone });
+    updateProfile.mutate({ preferredTime: formatPreferredTime(times.reminder), timezone });
     // Never after a failed load: that would write defaults over what the person chose.
-    if (toggles) updatePrefs.mutate(toggles);
+    if (toggles) updatePrefs.mutate({ ...toggles, weeklyRecapTime: formatPreferredTime(times.recap) });
   }
 
   // Nothing to save until a toggle or the time differs from what is stored. A person who has never
@@ -111,11 +122,10 @@ export default function ProfileScreen() {
   const savedToggles = prefs ? notificationTogglesOf(prefs) : null;
   const savedReminder = parsePreferredTime(profile?.preferredTime);
   const togglesChanged = !!toggles && !!savedToggles
-    && (Object.keys(toggles) as NotificationToggleKey[]).some(k => toggles[k] !== savedToggles[k]);
-  const reminderChanged = profile
-    ? !savedReminder || savedReminder.hour !== reminder.hour || savedReminder.minute !== reminder.minute
-    : false;
-  const hasChanges = togglesChanged || reminderChanged;
+    && NOTIFICATION_TOGGLE_KEYS.some(k => toggles[k] !== savedToggles[k]);
+  const reminderChanged = profile ? !savedReminder || !isSameTime(savedReminder, times.reminder) : false;
+  const recapChanged = !!prefs && !isSameTime(recapTimeOf(prefs), times.recap);
+  const hasChanges = togglesChanged || reminderChanged || recapChanged;
 
   const isSaving = updatePrefs.isPending || updateProfile.isPending;
   const isSaveSuccess = updatePrefs.isSuccess && updateProfile.isSuccess;
@@ -188,8 +198,8 @@ export default function ProfileScreen() {
           toggles={toggles}
           loading={prefsLoading}
           onToggle={handleToggle}
-          reminder={reminder}
-          onReminderChange={setReminder}
+          times={times}
+          onTimeChange={handleTimeChange}
         />
 
         {/* The one blue button on the page; nothing to save until something changes (096). */}

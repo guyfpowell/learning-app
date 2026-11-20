@@ -1,17 +1,19 @@
 import {
   ACHIEVEMENTS_BY_KEY,
-  landmarkOf,
   listedLandmarks,
   type AchievementAxis,
   type AchievementsResponse,
   type AchievementKey,
   type Celebration,
+  type DatedRewardUnlock,
   type Ladder,
+  type Landmark,
   type LandmarkPassed,
   type RewardUnlock,
   type Rewards,
   type Rung,
   type Trailhead,
+  type WeekSummaryResponse,
   TRAILHEAD_STEP_KEYS,
 } from '@learning/shared';
 
@@ -67,11 +69,21 @@ const LANDMARK_PASSED_AT = '2026-11-04T12:00:00Z';
 
 /** The landmark list as the server sends it for a learner at `metres`: every listed landmark in height order, passed (with a date) or ahead (null). Orbit is listed only past the Kármán line. */
 export function makeLandmarks(metres: number): LandmarkPassed[] {
-  const karmanPassed = metres >= landmarkOf('karman-line').height;
-  return listedLandmarks(karmanPassed).map(({ key, height }) => ({ key, passedAt: height <= metres ? LANDMARK_PASSED_AT : null }));
+  const isPassed = ({ height }: Landmark) => height <= metres;
+  return listedLandmarks(isPassed).map((landmark) => ({ key: landmark.key, passedAt: isPassed(landmark) ? LANDMARK_PASSED_AT : null }));
 }
 
 /** A complete `AchievementsResponse` for a learner at `metres`: no medals, the Trailhead finished, every landmark in the list. */
 export function makeAchievementsResponse(metres: number, overrides: Partial<AchievementsResponse> = {}): AchievementsResponse {
   return { ladders: [], trailhead: makeTrailhead(0, true), totalUnlocked: 0, totalAvailable: 0, landmarks: makeLandmarks(metres), ...overrides };
+}
+
+/** An unlock with the instant it happened, as the week and `/unseen` send it. */
+export function makeDatedUnlock(key: AchievementKey, unlockedAt: string, overrides: UnlockOverrides = {}): DatedRewardUnlock {
+  return { ...makeRewardUnlock(key, overrides), unlockedAt };
+}
+
+/** A complete `WeekSummaryResponse`: a quiet week unless `overrides` say so. */
+export function makeWeekSummary(overrides: Partial<WeekSummaryResponse> = {}): WeekSummaryResponse {
+  return { metresClimbed: 0, levelAtStart: 1, levelNow: 1, lessonsCompleted: 0, metresNow: 0, unlocked: [], ...overrides };
 }

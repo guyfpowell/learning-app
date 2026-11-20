@@ -1,7 +1,8 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, screen, fireEvent, within } from '@testing-library/react-native';
 import { AchievementsSection } from '../AchievementsSection';
-import { RUNG_RAISE, rungStyleOf } from '../LadderRow';
+import { FADE_WIDTH, ladderStyles } from '../LadderRow';
 import { useAchievements } from '@/hooks/useAchievements';
 import {
   ACHIEVEMENTS_BY_KEY,
@@ -14,12 +15,16 @@ import {
   medalEarnedCopy,
   medalsEarnedCopy,
   rungProgressCopy,
+  WEEK_TITLE,
   type AchievementsResponse,
 } from '@learning/shared';
+import { WEEK_ROUTE } from '@/lib/routes';
 import { makeLadder, makeLandmarks, makeRung, makeTrailhead } from '@/test-utils/achievements';
 import { testIdsInOrder } from '@/test-utils/testIds';
 import { must } from '@/test-utils/must';
 
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('@/hooks/useAchievements', () => ({ useAchievements: jest.fn() }));
 
 const EARNED_AT = '2026-08-01T12:00:00Z';
@@ -117,11 +122,17 @@ describe('AchievementsSection', () => {
 
   // ── Rungs ───────────────────────────────────────────────────────────────────
 
-  it('raises the next rung only', () => {
-    const next = makeRung('clean-sheet', { isNextRung: true });
-    const other = makeRung('good-innings');
-    expect(rungStyleOf(next).transform).toEqual([{ translateY: -RUNG_RAISE }]);
-    expect(rungStyleOf(other).transform).toBeUndefined();
+  it('keeps every rung level with the others in its row, the next rung included', () => {
+    render(<AchievementsSection />);
+    const next = StyleSheet.flatten(screen.getByTestId('achievement-clean-sheet').props.style);
+    const other = StyleSheet.flatten(screen.getByTestId('achievement-good-innings').props.style);
+    expect(next.transform).toBeUndefined();
+    expect(other.transform).toBeUndefined();
+  });
+
+  it('pads the end of the scroll by less than the fade width, so the last rung scrolls mostly clear of the fade without a big gap', () => {
+    expect(ladderStyles.rungs.paddingRight).toBeGreaterThan(0);
+    expect(ladderStyles.rungs.paddingRight).toBeLessThan(FADE_WIDTH);
   });
 
   it('shows the count on the next rung', () => {
@@ -201,5 +212,15 @@ describe('AchievementsSection', () => {
     expect(screen.getByTestId('achievement-detail-modal')).toBeTruthy();
     fireEvent.press(screen.getByTestId('achievement-detail-close'));
     expect(screen.queryByTestId('achievement-detail-modal')).toBeNull();
+  });
+
+  it('has a link to the week at the bottom of the section, which opens it', () => {
+    render(<AchievementsSection />);
+    const link = screen.getByTestId('week-link');
+    expect(within(link).getByText(WEEK_TITLE)).toBeTruthy();
+    const ids = testIdsInOrder(screen.toJSON());
+    expect(ids.indexOf('week-link')).toBeGreaterThan(ids.indexOf('ladder-session'));
+    fireEvent.press(link);
+    expect(mockPush).toHaveBeenCalledWith(WEEK_ROUTE);
   });
 });

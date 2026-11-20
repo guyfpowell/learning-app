@@ -4,6 +4,7 @@ import { ALTITUDE_TITLE } from '@learning/shared';
 import { Icon } from '@/components/ui/Icon';
 import { Text } from '@/components/ui/Text';
 import { useGoBack } from '@/hooks/useGoBack';
+import { BACK_LABEL } from '@/lib/backButton';
 import { HOME_ROUTE } from '@/lib/routes';
 import { font } from '@/theme';
 import { HEADER_ROW_HEIGHT, HEADER_ROW_TOP, headerFadeHeightOf, type HeaderLook } from './chartStyles';
@@ -28,7 +29,7 @@ export function AltitudeHeader({ look, topInset }: { look: HeaderLook; topInset:
         style={[styles.fade, { height: headerFadeHeightOf(topInset) }]}
       />
       <View pointerEvents="box-none" style={[styles.row, { top: topInset + HEADER_ROW_TOP }]}>
-        <Pressable testID="detail-back" onPress={goBack} accessibilityRole="button" accessibilityLabel="Go back" style={styles.back}>
+        <Pressable testID="detail-back" onPress={goBack} accessibilityRole="button" accessibilityLabel={BACK_LABEL} style={styles.back}>
           <Icon name="back" size={BACK_ICON_SIZE} color={look.ink} />
         </Pressable>
         <View pointerEvents="none" style={styles.titleBox}>

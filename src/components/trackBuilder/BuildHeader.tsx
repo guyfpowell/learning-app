@@ -2,6 +2,7 @@ import { Pressable, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import { BUILD_SCREEN_COPY } from '@learning/shared';
 import { Icon } from '@/components/ui/Icon';
+import { BACK_LABEL } from '@/lib/backButton';
 import { colors, font } from '@/theme';
 
 /**
@@ -26,7 +27,7 @@ export function BuildHeader({ onBack }: { onBack: () => void }) {
             testID="build-back"
             onPress={onBack}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={BACK_LABEL}
             style={styles.backBtn}
           >
             <Icon name="back" size={22} color={colors.textStrong} strokeWidth={2.2} />

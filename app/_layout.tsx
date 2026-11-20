@@ -19,8 +19,7 @@ import {
 } from '@expo-google-fonts/schibsted-grotesk';
 import { Stack, useSegments, useRouter, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Notifications from 'expo-notifications';
-import { Component, useEffect, useRef } from 'react';
+import { Component, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ScrollView } from 'react-native';
@@ -30,7 +29,7 @@ import { QueryProvider } from '@/providers/QueryProvider';
 import { useAuthStore } from '@/store/auth.store';
 import * as Sentry from '@sentry/react-native';
 import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
-import { HOME_ROUTE, PROGRESS_ROUTE } from '@/lib/routes';
+import { HOME_ROUTE } from '@/lib/routes';
 import { CelebrationQueue } from '@/components/achievements/CelebrationQueue';
 
 Sentry.init({
@@ -136,8 +135,6 @@ function RootLayout() {
     SchibstedGrotesk_800ExtraBold,
     SchibstedGrotesk_900Black,
   });
-  const router = useRouter();
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -146,21 +143,7 @@ function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
-  // Handle background notification taps — navigate to the lesson screen
-  useEffect(() => {
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
-      const screen = response.notification.request.content.data?.screen;
-      if (screen === 'lessons' || !screen) {
-        router.replace(HOME_ROUTE);
-      } else if (screen === 'progress') {
-        router.replace(PROGRESS_ROUTE);
-      }
-    });
-
-    return () => {
-      responseListener.current?.remove();
-    };
-  }, []);
+  // A tapped push is routed by `useNotifications`, the app's one tap handler.
 
   if (!fontsLoaded && !fontError) {
     return null;
@@ -176,6 +159,7 @@ function RootLayout() {
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="altitude" />
+          <Stack.Screen name="week" />
           <Stack.Screen name="lesson/[id]" />
           <Stack.Screen name="track/[kind]/[id]" />
           <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />

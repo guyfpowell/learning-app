@@ -1,12 +1,12 @@
 import { Modal } from 'react-native';
-import { MedalSheet, celebrationItemOf } from '@/components/achievements/MedalSheet';
+import { MedalSheet } from '@/components/achievements/MedalSheet';
 import { SmallMessage } from '@/components/celebrations/SmallMessage';
 import { AchievementUnlock } from '@/components/quiz/AchievementUnlock';
 import { useSafeWrite } from '@/hooks/useSafeWrite';
 import { useUnseenAchievements } from '@/hooks/useUnseenAchievements';
 import { MARK_ACHIEVEMENT_SEEN_WRITE, type MarkAchievementSeenInput } from '@/lib/safeWrites';
 import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
-import { smallMessageCountOf } from '@learning/shared';
+import { smallMessageCountOf, unlockSheetItemOf } from '@learning/shared';
 
 /**
  * The app's one celebration queue, mounted once at the root: it reads the unseen list and shows the next
@@ -31,7 +31,7 @@ export function CelebrationQueue() {
     return <SmallMessage key={current.key} unlock={current} count={smallMessageCount} onDone={onContinue} onOpen={() => openSheet(current.key)} />;
   }
   if (current.celebration === 'sheet') {
-    return <MedalSheet key={current.key} item={celebrationItemOf(current)} celebrating onClose={onContinue} />;
+    return <MedalSheet key={current.key} item={unlockSheetItemOf(current, null)} celebrating onClose={onContinue} />;
   }
   return (
     <Modal visible transparent={false} animationType="fade" statusBarTranslucent onRequestClose={onContinue}>

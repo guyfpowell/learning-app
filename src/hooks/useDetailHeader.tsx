@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackNavigationOptions } from 'expo-router';
 import { colors, font, fontSize, radius } from '@/theme';
 import { circleButtonStyle, headerButtonStyle } from '@/components/ui/circleButtonStyle';
+import { BACK_LABEL } from '@/lib/backButton';
 import { HOME_ROUTE } from '@/lib/routes';
 import { useGoBack } from '@/hooks/useGoBack';
 
@@ -26,7 +27,7 @@ export function useDetailHeader(title: string, onColour = false): NativeStackNav
       testID="detail-back"
       onPress={handleBack}
       accessibilityRole="button"
-      accessibilityLabel="Go back"
+      accessibilityLabel={BACK_LABEL}
       style={onColour ? [circleButtonStyle, ON_COLOUR_BUTTON] : headerButtonStyle}
     >
       <Ionicons name="chevron-back" size={fontSize.lg} color={onColour ? colors.white : colors.textMuted} />

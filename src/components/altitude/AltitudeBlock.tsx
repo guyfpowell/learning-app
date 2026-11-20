@@ -8,12 +8,12 @@ import { colors, font, fontSize, spacing, trackingEm } from '@/theme';
 const BAR_HEIGHT = 12;
 const METRES_SIZE = fontSize.xl + 4;
 
-/** The level, the metres, the bar to the next level and the lessons to go: Home's header and the Progress tab. `onPress` makes the whole block one button, named by the text inside it (Home: it opens the Altitude chart); null leaves it for its parent to make pressable (Progress). */
-export function AltitudeBlock({ altitude, trailing, onPress }: { altitude: AltitudeResponse; trailing: ReactNode; onPress: (() => void) | null }) {
+/** The level, the metres, the bar to the next level and the lessons to go: Home's header and the Progress tab. The whole block is one button, named by the text inside it. */
+export function AltitudeBlock({ altitude, trailing, onPress }: { altitude: AltitudeResponse; trailing: ReactNode; onPress: () => void }) {
   const line = altitudeDisplayOf(altitude);
   const showFooter = line.caption !== null || trailing !== null;
-  const content = (
-    <>
+  return (
+    <Pressable testID="altitude-block" accessibilityRole="button" onPress={onPress} style={styles.block}>
       <View style={styles.header}>
         <View style={styles.leftHalf}>
           <Text style={styles.level} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{line.title}</Text>
@@ -33,10 +33,8 @@ export function AltitudeBlock({ altitude, trailing, onPress }: { altitude: Altit
           {trailing}
         </View>
       )}
-    </>
+    </Pressable>
   );
-  if (onPress === null) return <View testID="altitude-block" style={styles.block}>{content}</View>;
-  return <Pressable testID="altitude-block" accessibilityRole="button" onPress={onPress} style={styles.block}>{content}</Pressable>;
 }
 
 const styles = StyleSheet.create({

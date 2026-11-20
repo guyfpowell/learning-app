@@ -76,8 +76,9 @@ export interface BandLook {
   rowMuted: string;
 }
 
-const inkAt = (alpha: number) => `rgba(18,21,34,${alpha})`;
-const whiteAt = (alpha: number) => `rgba(255,255,255,${alpha})`;
+/** Ink and white at an alpha: every see-through ink or white the chart draws. */
+export const inkAt = (alpha: number) => `rgba(18,21,34,${alpha})`;
+export const whiteAt = (alpha: number) => `rgba(255,255,255,${alpha})`;
 
 const ON_LIGHT: BandLook = {
   onDark:    false,

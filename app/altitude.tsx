@@ -2,7 +2,15 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
-import { ACHIEVEMENTS_LOAD_ERROR, ALTITUDE_LOAD_ERROR, ALTITUDE_TITLE, heightChartPosition } from '@learning/shared';
+import type { UseQueryResult } from '@tanstack/react-query';
+import {
+  ACHIEVEMENTS_LOAD_ERROR,
+  ALTITUDE_LOAD_ERROR,
+  ALTITUDE_TITLE,
+  heightChartPosition,
+  type AchievementsResponse,
+  type AltitudeResponse,
+} from '@learning/shared';
 import { Text } from '@/components/ui/Text';
 import { Spinner } from '@/components/ui/Spinner';
 import { AltitudeChart } from '@/components/altitudeChart/AltitudeChart';
@@ -15,16 +23,35 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuthStore } from '@/store/auth.store';
 import { colors, font, fontSize, spacing } from '@/theme';
 
-/** The Altitude chart (ADR-016: a detail screen in the root Stack): the learner's climb from sea level to space, opened from the Progress tab. The chart scrolls under its own header (123aj), which takes the look of the band beneath it. */
+/** What the screen draws: the load errors, the spinner, or the chart. A failed load is never drawn as a chart. */
+type ChartLoad =
+  | { kind: 'failed'; altitudeFailed: boolean; achievementsFailed: boolean }
+  | { kind: 'loading' }
+  | { kind: 'ready'; altitude: AltitudeResponse; achievements: AchievementsResponse };
+
+/** The screen's state from its two queries; an error wins over any data a failed refetch kept. */
+function chartLoadOf(
+  altitude: Pick<UseQueryResult<AltitudeResponse>, 'data' | 'isError'>,
+  achievements: Pick<UseQueryResult<AchievementsResponse>, 'data' | 'isError'>,
+): ChartLoad {
+  if (altitude.isError || achievements.isError) {
+    return { kind: 'failed', altitudeFailed: altitude.isError, achievementsFailed: achievements.isError };
+  }
+  if (altitude.data === undefined || achievements.data === undefined) return { kind: 'loading' };
+  return { kind: 'ready', altitude: altitude.data, achievements: achievements.data };
+}
+
+/** The Altitude chart (ADR-016: a detail screen in the root Stack): the learner's climb from sea level to space, opened from Home and the Progress tab. The chart scrolls under its own header, which takes the look of the band beneath it. */
 export default function AltitudeScreen() {
   const user = useAuthStore((s) => s.user);
   const { data: profile } = useProfile();
   const { height: viewportHeight } = useWindowDimensions();
   const { top: topInset } = useSafeAreaInsets();
-  const { data: altitude, isError: altitudeFailed } = useAltitude();
-  const { data: achievements, isError: achievementsFailed } = useAchievements();
+  const altitudeQuery = useAltitude();
+  const load = chartLoadOf(altitudeQuery, useAchievements());
   const [headerOnDark, setHeaderOnDark] = useState<boolean | null>(null);
 
+  const altitude = altitudeQuery.data;
   const openingOffset = altitude ? openingOffsetOf(heightChartPosition(altitude.metres), viewportHeight) : 0;
   const onScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
     setHeaderOnDark(headerLookOf(headerSampleYOf(nativeEvent.contentOffset.y, topInset)).onDark);
@@ -36,10 +63,10 @@ export default function AltitudeScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false, title: ALTITUDE_TITLE }} />
-      {altitudeFailed && <Text testID="altitude-load-error" style={errorStyle}>{ALTITUDE_LOAD_ERROR}</Text>}
-      {achievementsFailed && <Text testID="achievements-load-error" style={errorStyle}>{ACHIEVEMENTS_LOAD_ERROR}</Text>}
-      {!altitudeFailed && !achievementsFailed && !(altitude && achievements) && <Spinner fullScreen />}
-      {!altitudeFailed && !achievementsFailed && altitude && achievements && (
+      {load.kind === 'failed' && load.altitudeFailed && <Text testID="altitude-load-error" style={errorStyle}>{ALTITUDE_LOAD_ERROR}</Text>}
+      {load.kind === 'failed' && load.achievementsFailed && <Text testID="achievements-load-error" style={errorStyle}>{ACHIEVEMENTS_LOAD_ERROR}</Text>}
+      {load.kind === 'loading' && <Spinner fullScreen />}
+      {load.kind === 'ready' && (
         <ScrollView
           testID="altitude-scroll"
           contentOffset={{ x: 0, y: openingOffset }}
@@ -47,8 +74,8 @@ export default function AltitudeScreen() {
           scrollEventThrottle={16}
         >
           <AltitudeChart
-            altitude={altitude}
-            achievements={achievements}
+            altitude={load.altitude}
+            achievements={load.achievements}
             name={user?.name ?? ''}
             timezone={profile?.timezone}
             now={new Date()}

@@ -5,10 +5,10 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
-import { trackBuildPushDataOf, type RegisterPushTokenRequest } from '@learning/shared';
+import { PUSH_SCREEN, isWeeklyRecapPush, trackBuildPushDataOf, type RegisterPushTokenRequest } from '@learning/shared';
 import { PUSH_TOKEN_WRITE, runSafeWrite } from '@/lib/safeWrites';
 import { invalidateBuildQueries } from '@/lib/buildInvalidation';
-import { buildRoute } from '@/lib/routes';
+import { HOME_ROUTE, PROGRESS_ROUTE, WEEK_ROUTE, buildRoute } from '@/lib/routes';
 import { isShownBuild } from '@/lib/shownBuild';
 
 /** The build a push is about, or null for any other push. */
@@ -34,13 +34,34 @@ Notifications.setNotificationHandler({
 /** Responses already acted on, so a tap that launched the app is not acted on again if the tabs mount again. */
 const handledResponses = new Set<string>();
 
-/** A tapped build push opens that build (ticket 108); any other push just opens the app. */
-function openTappedBuild(client: QueryClient, openBuild: (buildId: string) => void, response: Notifications.NotificationResponse): void {
+/** The tab a reminder opens: Progress for a streak milestone, Home for a lesson reminder or a push that names no screen. */
+type TabRoute = typeof HOME_ROUTE | typeof PROGRESS_ROUTE;
+
+function tabRouteOf(data: Record<string, unknown> | undefined): TabRoute {
+  return data?.screen === PUSH_SCREEN.progress ? PROGRESS_ROUTE : HOME_ROUTE;
+}
+
+/** Where a tapped push goes: a build push opens that build (ticket 108), the Sunday recap opens the week (124ae), and a reminder its tab. The app's one tap handler. */
+interface PushOpeners {
+  openBuild: (buildId: string) => void;
+  openWeek: () => void;
+  openTab: (route: TabRoute) => void;
+}
+
+function openTappedPush(client: QueryClient, { openBuild, openWeek, openTab }: PushOpeners, response: Notifications.NotificationResponse): void {
   const id = response.notification.request.identifier;
   if (handledResponses.has(id)) return;
   handledResponses.add(id);
+  const { data } = response.notification.request.content;
+  if (isWeeklyRecapPush(data)) {
+    openWeek();
+    return;
+  }
   const buildId = buildIdOf(response.notification);
-  if (buildId === null) return;
+  if (buildId === null) {
+    openTab(tabRouteOf(data));
+    return;
+  }
   void invalidateBuildQueries(client, buildId);
   // The build screen is already showing it and shows the result itself.
   if (!isShownBuild(buildId)) openBuild(buildId);
@@ -57,7 +78,11 @@ export function useNotifications() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const openTapped = useEffectEvent((response: Notifications.NotificationResponse) =>
-    openTappedBuild(queryClient, (buildId) => router.push(buildRoute(buildId)), response));
+    openTappedPush(queryClient, {
+      openBuild: (buildId) => router.push(buildRoute(buildId)),
+      openWeek: () => router.push(WEEK_ROUTE),
+      openTab: (route) => router.replace(route),
+    }, response));
 
   useEffect(() => {
     // Background registration has no screen to report to: log, and never block app load.

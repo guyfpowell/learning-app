@@ -49,7 +49,7 @@ function renderChart() {
 describe('AltitudeChart landmark sheet', () => {
   it('opens a passed landmark\'s sheet with the eyebrow, name, height line and passed line from landmarkSheetOf', () => {
     renderChart();
-    const sheet = must(landmarkSheetOf({ key: 'ben-nevis', passedAt: PASSED_AT }, 'UTC'), 'sheet');
+    const sheet = landmarkSheetOf('ben-nevis', must(PASSED_AT, 'passedAt'), 'UTC');
     expect(screen.queryByTestId('landmark-sheet')).toBeNull();
     fireEvent.press(screen.getByTestId('landmark-row-ben-nevis'));
     const open = screen.getByTestId('landmark-sheet');

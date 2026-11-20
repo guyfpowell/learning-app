@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { View, StyleSheet, Switch, Pressable } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Icon } from '@/components/ui/Icon';
 import { settingsRow, CHEVRON_SIZE } from '@/components/profile/settingsRow';
 import DateTimePicker, { type DateTimePickerChangeEvent } from '@react-native-community/datetimepicker';
 import {
-  NOTIFICATION_SETTINGS_LOAD_ERROR, NOTIFICATION_TOGGLE_LABELS, formatPreferredTime, NOTIFICATION_TOGGLES_BELOW_REMINDER,
-  type ClockTime, type NotificationToggleKey, type NotificationToggles,
+  NOTIFICATION_SETTINGS_LOAD_ERROR, NOTIFICATION_TIMED_TOGGLES, NOTIFICATION_TIME_LABEL, NOTIFICATION_TOGGLE_LABELS, formatPreferredTime,
+  NOTIFICATION_TOGGLES_BELOW_REMINDER, type ClockTime, type NotificationTimeKey, type NotificationToggleKey, type NotificationToggles,
 } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { Spinner } from '@/components/ui/Spinner';
@@ -46,26 +46,64 @@ function PreferenceToggle({
   );
 }
 
+/** One time row: the label and time, and the native wheel, which stays out of the way until the row is tapped (096). The text inside names the row. */
+function TimeRow({
+  which,
+  time,
+  onChange,
+}: {
+  which: NotificationTimeKey;
+  time: ClockTime;
+  onChange: (which: NotificationTimeKey, time: ClockTime) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Pressable
+        testID={`${which}-time-row`}
+        onPress={() => setOpen(current => !current)}
+        style={settingsRow.row}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+      >
+        <Text style={settingsRow.label}>{NOTIFICATION_TIME_LABEL[which]}</Text>
+        <View style={styles.timeValue}>
+          <Text testID={`${which}-time-value`} style={styles.timeText}>{formatPreferredTime(time)}</Text>
+          <Icon name={open ? 'expand' : 'forward'} size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
+        </View>
+      </Pressable>
+      {open && (
+        <DateTimePicker
+          testID={`${which}-time-picker`}
+          value={timeToDate(time)}
+          mode="time"
+          display="spinner"
+          onValueChange={(_event: DateTimePickerChangeEvent, date: Date) => {
+            onChange(which, { hour: date.getHours(), minute: date.getMinutes() });
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 /**
- * The notification toggles and the daily reminder time. `toggles` is null while loading or after a
- * failed load; a failed load says so rather than showing defaults a save would write.
+ * The notification toggles, each timed one with its time under it while it is on (the daily reminder, the weekly recap).
+ * `toggles` is null while loading or after a failed load; a failed load says so rather than showing defaults a save would write.
  */
 export function NotificationSettings({
   toggles,
   loading,
   onToggle,
-  reminder,
-  onReminderChange,
+  times,
+  onTimeChange,
 }: {
   toggles: NotificationToggles | null;
   loading: boolean;
   onToggle: (field: NotificationToggleKey, on: boolean) => void;
-  reminder: ClockTime;
-  onReminderChange: (reminder: ClockTime) => void;
+  times: Record<NotificationTimeKey, ClockTime>;
+  onTimeChange: (which: NotificationTimeKey, time: ClockTime) => void;
 }) {
-  // The wheel is out of the way until the time row is tapped (096).
-  const [timeOpen, setTimeOpen] = useState(false);
-
   if (loading) {
     return (
       <View testID="prefs-loading" style={styles.loadingRow}>
@@ -79,37 +117,12 @@ export function NotificationSettings({
 
   return (
     <>
-      <PreferenceToggle first field="enableDailyReminder" value={toggles.enableDailyReminder} onToggle={onToggle} />
-
-      {toggles.enableDailyReminder && (
-        <>
-          <Pressable
-            testID="reminder-time-row"
-            onPress={() => setTimeOpen(open => !open)}
-            style={settingsRow.row}
-            accessibilityRole="button"
-            accessibilityLabel="Reminder time"
-            accessibilityState={{ expanded: timeOpen }}
-          >
-            <Text style={settingsRow.label}>Reminder time</Text>
-            <View style={styles.timeValue}>
-              <Text testID="reminder-time-value" style={styles.timeText}>{formatPreferredTime(reminder)}</Text>
-              <Icon name={timeOpen ? 'expand' : 'forward'} size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
-            </View>
-          </Pressable>
-          {timeOpen && (
-            <DateTimePicker
-              testID="reminder-time-picker"
-              value={timeToDate(reminder)}
-              mode="time"
-              display="spinner"
-              onValueChange={(_event: DateTimePickerChangeEvent, date: Date) => {
-                onReminderChange({ hour: date.getHours(), minute: date.getMinutes() });
-              }}
-            />
-          )}
-        </>
-      )}
+      {NOTIFICATION_TIMED_TOGGLES.map(({ field, time }, i) => (
+        <Fragment key={field}>
+          <PreferenceToggle first={i === 0} field={field} value={toggles[field]} onToggle={onToggle} />
+          {toggles[field] && <TimeRow which={time} time={times[time]} onChange={onTimeChange} />}
+        </Fragment>
+      ))}
 
       {NOTIFICATION_TOGGLES_BELOW_REMINDER.map((field) => (
         <PreferenceToggle key={field} field={field} value={toggles[field]} onToggle={onToggle} />

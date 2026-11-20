@@ -3,8 +3,8 @@ import { ACHIEVEMENTS_BY_KEY, MEDAL_SHEET_CLOSE, type LandmarkKey, type Landmark
 import { SheetModal } from '@/components/ui/SheetModal';
 import { Text } from '@/components/ui/Text';
 import { Medal } from '@/components/ui/Medal';
-import { EdgeButton } from '@/components/ui/EdgeButton';
-import { colors, font, press, spacing } from '@/theme';
+import { EdgeButton, SECONDARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
+import { colors, font, spacing } from '@/theme';
 
 const SHEET_MEDAL_SIZE = 112;
 
@@ -25,7 +25,7 @@ export function LandmarkSheetModal({ landmarkKey, sheet, onClose }: { landmarkKe
           <View style={styles.close}>
             <EdgeButton
               testID="landmark-sheet-close"
-              look={{ face: colors.white, label: colors.textStrong, edge: press.secondaryEdge }}
+              look={SECONDARY_EDGE_LOOK}
               label={MEDAL_SHEET_CLOSE}
               onPress={onClose}
             />

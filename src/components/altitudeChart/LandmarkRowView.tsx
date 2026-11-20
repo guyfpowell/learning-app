@@ -1,10 +1,10 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { ACHIEVEMENTS_BY_KEY, type LandmarkRow } from '@learning/shared';
+import { ACHIEVEMENTS_BY_KEY, type PlacedLandmarkRow } from '@learning/shared';
 import { Medal } from '@/components/ui/Medal';
 import { Text } from '@/components/ui/Text';
 import { font } from '@/theme';
 import { LeaderLine } from './LeaderLine';
-import { MEDAL_GAP, NAME_LINE_HEIGHT_EM, canvasYOf, topOf, type BandLook } from './chartLayout';
+import { MEDAL_GAP, NAME_LINE_HEIGHT_EM, canvasYOf, type BandLook } from './chartLayout';
 import { dotStyleOf, rowColoursOf, slotStyleOf } from './chartStyles';
 
 /** The medal's width in a row, and in the next landmark's card. */
@@ -16,14 +16,14 @@ const DETAIL_SIZE = 13;
 
 /** A passed or locked landmark's row, centred on its shown offset, and its leader line and rail dot at its true height. `onPress` opens its sheet; null for a row with no sheet (a landmark not passed yet). */
 export function LandmarkRowView({
-  row, shownOffset, look, onPress,
-}: { row: Exclude<LandmarkRow, { state: 'next' }>; shownOffset: number; look: BandLook; onPress: (() => void) | null }) {
+  row, look, onPress,
+}: { row: Exclude<PlacedLandmarkRow, { state: 'next' }>; look: BandLook; onPress: (() => void) | null }) {
   const { key, name, detail, state } = row;
   const colours = rowColoursOf(state, look);
   return (
     <>
-      <LandmarkLeader landmarkKey={key} state={state} trueY={topOf(row.position)} shownY={canvasYOf(shownOffset)} look={look} />
-      <View testID={`landmark-slot-${key}`} pointerEvents="box-none" style={slotStyleOf(canvasYOf(shownOffset))}>
+      <LandmarkLeader row={row} look={look} />
+      <View testID={`landmark-slot-${key}`} pointerEvents="box-none" style={slotStyleOf(canvasYOf(row.shownOffset))}>
         <Pressable
           testID={`landmark-row-${key}`}
           accessibilityRole={onPress === null ? undefined : 'button'}
@@ -43,13 +43,12 @@ export function LandmarkRowView({
 }
 
 /** A landmark's leader line, from its dot on the rail at its true height to its row's (or card's) shown centre, moved or not. */
-export function LandmarkLeader({
-  landmarkKey, state, trueY, shownY, look,
-}: { landmarkKey: string; state: LandmarkRow['state']; trueY: number; shownY: number; look: BandLook }) {
+export function LandmarkLeader({ row, look }: { row: PlacedLandmarkRow; look: BandLook }) {
+  const trueY = canvasYOf(row.trueOffset);
   return (
     <>
-      <LeaderLine testID={`landmark-leader-${landmarkKey}`} trueY={trueY} shownY={shownY} colour={look.leader} />
-      <View testID={`landmark-dot-${landmarkKey}`} pointerEvents="none" style={dotStyleOf(trueY, state, look)} />
+      <LeaderLine testID={`landmark-leader-${row.key}`} trueY={trueY} shownY={canvasYOf(row.shownOffset)} colour={look.leader} />
+      <View testID={`landmark-dot-${row.key}`} pointerEvents="none" style={dotStyleOf(trueY, row.state, look)} />
     </>
   );
 }

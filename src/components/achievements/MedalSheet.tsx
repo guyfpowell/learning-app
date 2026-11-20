@@ -1,6 +1,5 @@
 import { View, StyleSheet, Pressable } from 'react-native';
 import {
-  ACHIEVEMENTS_BY_KEY,
   CELEBRATION_CONTINUE,
   JUST_EARNED,
   MEDAL_SHEET_CLOSE,
@@ -8,21 +7,15 @@ import {
   hasMedalArt,
   medalEarnedCopy,
   type MedalSheetItem,
-  type RewardUnlock,
 } from '@learning/shared';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { Text } from '@/components/ui/Text';
 import { Medal } from '@/components/ui/Medal';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, SECONDARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { medalJewelOf } from '@/lib/medalJewel';
-import { colors, font, press, spacing } from '@/theme';
+import { colors, font, spacing } from '@/theme';
 
 const SHEET_MEDAL_SIZE = 112;
-
-/** A medal just earned, as the sheet shows it. The words come from the server's payload; the catalogue is read only to draw the medal. */
-export function celebrationItemOf({ key, name, description }: RewardUnlock): MedalSheetItem {
-  return { key, definition: ACHIEVEMENTS_BY_KEY[key], earned: true, name, description, unlockedAt: null };
-}
 
 /**
  * A medal's bottom sheet (brief section 4): its medal, its category, what it is and how it was (or is) earned.
@@ -59,7 +52,7 @@ export function MedalSheet({ item, celebrating, onClose }: { item: MedalSheetIte
           <View style={styles.close}>
             <EdgeButton
               testID="achievement-detail-close"
-              look={{ face: colors.white, label: colors.textStrong, edge: press.secondaryEdge }}
+              look={SECONDARY_EDGE_LOOK}
               label={celebrating ? CELEBRATION_CONTINUE : MEDAL_SHEET_CLOSE}
               onPress={onClose}
             />

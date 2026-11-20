@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { Icon, type IconName } from '@/components/ui/Icon';
-import { font, fontSize, press, radius, spacing } from '@/theme';
+import { colors, font, fontSize, press, radius, spacing } from '@/theme';
 
 const FACE_HEIGHT = 56;
 /** The small button beside a row's text: 34pt face, radius 12, a 3pt edge and a 1.5pt ring in the edge's colour. */
@@ -18,6 +18,9 @@ export interface EdgeLook {
   label: string;
   edge: string;
 }
+
+/** The white secondary button: a white face, an ink label and the secondary edge. */
+export const SECONDARY_EDGE_LOOK: EdgeLook = { face: colors.white, label: colors.textStrong, edge: press.secondaryEdge };
 
 /**
  * A pressable with a solid bottom edge that collapses when held (the design's depth).

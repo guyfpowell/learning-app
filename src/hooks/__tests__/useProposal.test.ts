@@ -8,7 +8,7 @@ import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
 import { useDecideProposal, useProposal } from '../useProposal';
 import { proposalService } from '@/services/proposal.service';
 import { ERROR_CODES } from '@learning/shared';
-import { ACHIEVEMENTS_QUERY_KEY, PATHS_QUERY_KEY, proposalQueryKey } from '@/lib/queryKeys';
+import { ACHIEVEMENTS_QUERY_KEY, PATHS_QUERY_KEY, WEEK_QUERY_KEY, proposalQueryKey } from '@/lib/queryKeys';
 
 jest.mock('@/services/proposal.service', () => ({
   proposalService: { getProposal: jest.fn(), decide: jest.fn() },
@@ -48,6 +48,7 @@ describe('useDecideProposal (079g7)', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: PATHS_QUERY_KEY });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: proposalQueryKey('plan-1') });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ACHIEVEMENTS_QUERY_KEY });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: WEEK_QUERY_KEY });
   });
 
   it('queues the rewards the decision carries', async () => {

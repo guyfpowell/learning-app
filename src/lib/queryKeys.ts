@@ -83,3 +83,6 @@ export const UNSEEN_ACHIEVEMENTS_QUERY_KEY = ['achievements', 'unseen'] as const
 
 /** The user's metres and level (`GET /users/altitude`). Invalidate it when a lesson pays. */
 export const ALTITUDE_QUERY_KEY = ['altitude'] as const;
+
+/** The week's summary (`GET /users/me/week`). */
+export const WEEK_QUERY_KEY = ['week'] as const;

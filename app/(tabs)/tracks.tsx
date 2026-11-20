@@ -3,9 +3,9 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { colors, font, fontSize, press, spacing } from '@/theme';
+import { colors, font, fontSize, spacing } from '@/theme';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, SECONDARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
 import { TextAction } from '@/components/tracks/TextAction';
 import { TrackIcon } from '@/components/ui/TrackIcon';
@@ -121,7 +121,7 @@ export default function TracksScreen() {
     return (
       <EdgeButton
         testID={`make-active-btn-${id}`}
-        look={{ face: colors.white, label: colors.textStrong, edge: press.secondaryEdge }}
+        look={SECONDARY_EDGE_LOOK}
         label="Make active"
         compact
         onPress={() => { if (!isPendingFor(ref)) setActive(ref); }}

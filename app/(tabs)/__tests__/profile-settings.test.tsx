@@ -15,7 +15,8 @@ import { useProgress } from '@/hooks/useProgress';
 import { usePaths } from '@/hooks/useTrack';
 import { useSavedLessons } from '@/hooks/useLesson';
 import { useAchievements } from '@/hooks/useAchievements';
-import type { NotificationPreference } from '@learning/shared';
+import { DEFAULT_RECAP_TIME, NOTIFICATION_TOGGLE_LABELS, formatPreferredTime } from '@learning/shared';
+import { makeNotificationPreference } from '@/test-utils/notificationPreferences';
 
 jest.mock('@/store/auth.store', () => ({ useAuthStore: jest.fn() }));
 jest.mock('@/hooks/useNotificationPrefs', () => ({
@@ -72,17 +73,7 @@ afterAll(() => {
 
 const mockUser = { id: 'u1', email: 'user@example.com', name: 'Test User' };
 
-const mockPrefs: NotificationPreference = {
-  id: 'np1',
-  userId: 'u1',
-  enableDailyReminder: false,
-  enableStreak: true,
-  enableLessonAvailable: true,
-  enableTopicFeedback: true,
-  enableSuggestions: true,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-};
+const mockPrefs = makeNotificationPreference();
 
 const mockMutate = jest.fn();
 const mockProfileMutate = jest.fn();
@@ -299,10 +290,76 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
       enableLessonAvailable: false,
       enableTopicFeedback: true,
       enableSuggestions: true,
+      enableWeeklyRecap: true,
+      weeklyRecapTime: formatPreferredTime(DEFAULT_RECAP_TIME),
     });
     expect(mockProfileMutate).toHaveBeenCalledWith({
       preferredTime: '08:00',
       timezone: 'UTC',
+    });
+  });
+
+  describe('124af: the weekly recap switch and its Sunday time', () => {
+    const recapTimeValue = () => screen.getByTestId('recap-time-value');
+
+    it('shows on, at the default recap time, for a learner with defaults', () => {
+      render(<ProfileScreen />);
+      expect(screen.getByTestId('toggle-enableWeeklyRecap').props.value).toBe(true);
+      expect(recapTimeValue()).toHaveTextContent(formatPreferredTime(DEFAULT_RECAP_TIME));
+      expect(screen.queryByTestId('recap-time-picker')).toBeNull();
+    });
+
+    it('reads the saved time from the preferences', () => {
+      setQueryMock({ data: { ...mockPrefs, weeklyRecapTime: '09:45' } });
+      render(<ProfileScreen />);
+      expect(recapTimeValue()).toHaveTextContent('09:45');
+    });
+
+    it('turning it off hides the time and saves the switch off', () => {
+      render(<ProfileScreen />);
+      fireEvent(screen.getByTestId('toggle-enableWeeklyRecap'), 'valueChange', false);
+      expect(screen.queryByTestId('recap-time-row')).toBeNull();
+      fireEvent.press(screen.getByText('Save changes'));
+      expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({ enableWeeklyRecap: false }));
+    });
+
+    it('hides the time while it is saved off, and shows it when turned on', () => {
+      setQueryMock({ data: { ...mockPrefs, enableWeeklyRecap: false } });
+      render(<ProfileScreen />);
+      expect(screen.queryByTestId('recap-time-row')).toBeNull();
+      fireEvent(screen.getByTestId('toggle-enableWeeklyRecap'), 'valueChange', true);
+      expect(screen.getByTestId('recap-time-row')).toBeTruthy();
+    });
+
+    it('changing the time to 19:30 saves "19:30" with the preferences', () => {
+      render(<ProfileScreen />);
+      fireEvent.press(screen.getByTestId('recap-time-row'));
+      const newTime = new Date();
+      newTime.setHours(19, 30, 0, 0);
+      fireEvent(screen.getByTestId('recap-time-picker'), 'change', { nativeEvent: { timestamp: newTime.getTime() } });
+      expect(recapTimeValue()).toHaveTextContent('19:30');
+      fireEvent.press(screen.getByText('Save changes'));
+      expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({ weeklyRecapTime: '19:30' }));
+    });
+
+    it('Save changes stays disabled until the recap time differs from the saved one', () => {
+      render(<ProfileScreen />);
+      expect(screen.getByTestId('save-settings-btn').props.accessibilityState.disabled).toBe(true);
+      fireEvent.press(screen.getByTestId('recap-time-row'));
+      const newTime = new Date();
+      newTime.setHours(19, 30, 0, 0);
+      fireEvent(screen.getByTestId('recap-time-picker'), 'change', { nativeEvent: { timestamp: newTime.getTime() } });
+      expect(screen.getByTestId('save-settings-btn').props.accessibilityState.disabled).toBe(false);
+    });
+
+    it('the recap time does not change the reminder time that is saved to the profile', () => {
+      render(<ProfileScreen />);
+      fireEvent.press(screen.getByTestId('recap-time-row'));
+      const newTime = new Date();
+      newTime.setHours(19, 30, 0, 0);
+      fireEvent(screen.getByTestId('recap-time-picker'), 'change', { nativeEvent: { timestamp: newTime.getTime() } });
+      fireEvent.press(screen.getByText('Save changes'));
+      expect(mockProfileMutate).toHaveBeenCalledWith({ preferredTime: '08:00', timezone: 'UTC' });
     });
   });
 
@@ -323,6 +380,7 @@ describe('ProfileScreen — settings section (076b: folded in from the Settings 
     ['enableLessonAvailable', 'New lesson available alerts'],
     ['enableTopicFeedback', 'Ask me how each topic went'],
     ['enableSuggestions', "Albert's suggestions"],
+    ['enableWeeklyRecap', NOTIFICATION_TOGGLE_LABELS.enableWeeklyRecap],
   ])('the %s switch is named by its label', (field, label) => {
     render(<ProfileScreen />);
     expect(screen.getByTestId(`toggle-${field}`).props.accessibilityLabel).toBe(label);

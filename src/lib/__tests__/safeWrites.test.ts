@@ -3,10 +3,11 @@ import { QueryClient, onlineManager } from '@tanstack/react-query';
 import { persistQueryClientRestore } from '@tanstack/react-query-persist-client';
 import { waitFor } from '@testing-library/react-native';
 import { axiosError } from '@/test-utils/axios';
-import { ERROR_CODES, LESSON_PHASES, LESSON_RATINGS } from '@learning/shared';
+import { ERROR_CODES, LESSON_PHASES, LESSON_RATINGS, formatPreferredTime } from '@learning/shared';
+import { makeNotificationPreference } from '@/test-utils/notificationPreferences';
 import { makeRewardUnlock, makeRewards } from '@/test-utils/achievements';
 import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
-import { ACHIEVEMENTS_QUERY_KEY, ALTITUDE_QUERY_KEY, PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, SAVED_LESSONS_QUERY_KEY, SKILLS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, UNSEEN_ACHIEVEMENTS_QUERY_KEY, lessonQueryKey } from '@/lib/queryKeys';
+import { ACHIEVEMENTS_QUERY_KEY, ALTITUDE_QUERY_KEY, PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, SAVED_LESSONS_QUERY_KEY, SKILLS_QUERY_KEY, TRACK_CONTENTS_QUERY_KEY, UNSEEN_ACHIEVEMENTS_QUERY_KEY, WEEK_QUERY_KEY, lessonQueryKey } from '@/lib/queryKeys';
 import { createTestQueryClient } from '@/test-utils/queryClient';
 import { createAppQueryClient } from '@/test-utils/appQueryClient';
 import { pauseSetActiveWrite, saveToDevice } from '@/test-utils/pausedWrite';
@@ -304,6 +305,7 @@ describe('a write restored after a restart', () => {
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: PATHS_QUERY_KEY }));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: SKILLS_QUERY_KEY });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ACHIEVEMENTS_QUERY_KEY });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: WEEK_QUERY_KEY });
   });
 
   it('refuses a saved write that has no path, instead of sending a guess', async () => {
@@ -313,13 +315,13 @@ describe('a write restored after a restart', () => {
 });
 
 describe('the quiz answer settle step', () => {
-  it('refreshes the altitude and the achievements with the paths, progress, lesson and track tree when a lesson is finalised', async () => {
+  it('refreshes the altitude, the achievements and the week with the paths, progress, lesson and track tree when a lesson is finalised', async () => {
     const client = createTestQueryClient();
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     const settle = must(SUBMIT_QUIZ_WRITE.settle, 'quiz settle step');
     await settle(client, { data: { lessonFinalized: true }, error: null, variables: { input: { lessonId: 'l1', answers: { q1: 'a' } }, idempotencyKey: KEY } });
     expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([
-      PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, lessonQueryKey('l1'), TRACK_CONTENTS_QUERY_KEY, ALTITUDE_QUERY_KEY, ACHIEVEMENTS_QUERY_KEY,
+      PATHS_QUERY_KEY, PROGRESS_QUERY_KEY, lessonQueryKey('l1'), TRACK_CONTENTS_QUERY_KEY, ALTITUDE_QUERY_KEY, ACHIEVEMENTS_QUERY_KEY, WEEK_QUERY_KEY,
     ]);
   });
 
@@ -344,12 +346,12 @@ describe('the save settle step', () => {
     expect(useCelebrationQueueStore.getState().queue).toEqual([pocketed]);
   });
 
-  it('refreshes the saved lessons and the achievements (Pocketed, Magpie\'s count)', async () => {
+  it('refreshes the saved lessons, the achievements (Pocketed, Magpie\'s count) and the week (Pocketed)', async () => {
     const client = createTestQueryClient();
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     const settle = must(SAVE_LESSON_WRITE.settle, 'save settle step');
     await settle(client, { data: { saved: true, rewards: makeRewards() }, error: null, variables: { input: { lessonId: 'l1' }, idempotencyKey: KEY } });
-    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([SAVED_LESSONS_QUERY_KEY, ACHIEVEMENTS_QUERY_KEY]);
+    expect(invalidate.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([SAVED_LESSONS_QUERY_KEY, ACHIEVEMENTS_QUERY_KEY, WEEK_QUERY_KEY]);
   });
 
   it('an unsave refreshes the saved lessons and the achievements (Magpie\'s count)', async () => {
@@ -390,5 +392,28 @@ describe('the "seen" settle step', () => {
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     await must(MARK_ACHIEVEMENT_SEEN_WRITE.settle, 'seen settle step')(client, seen('first-light'));
     expect(invalidate).not.toHaveBeenCalled();
+  });
+});
+
+describe('the notification preferences restore guard (124af)', () => {
+  const RECAP_TIME = formatPreferredTime({ hour: 19, minute: 30 });
+  const restore = (input: unknown) => Promise.resolve().then(() => UPDATE_PREFERENCES_WRITE.mutationFn({ input, idempotencyKey: KEY }));
+
+  beforeEach(() => {
+    jest.mocked(notificationService.updatePreferences).mockReset();
+    jest.mocked(notificationService.updatePreferences).mockResolvedValue(makeNotificationPreference());
+  });
+
+  it('sends the recap switch and its time as saved', async () => {
+    await restore({ enableWeeklyRecap: false, weeklyRecapTime: RECAP_TIME });
+    expect(notificationService.updatePreferences).toHaveBeenCalledWith({ enableWeeklyRecap: false, weeklyRecapTime: RECAP_TIME }, KEY);
+  });
+
+  it.each([
+    ['not a string', 5],
+    ['not a time of day', '7pm'],
+  ])('refuses a recap time that is %s', async (_name, weeklyRecapTime) => {
+    await expect(restore({ weeklyRecapTime })).rejects.toThrow();
+    expect(notificationService.updatePreferences).not.toHaveBeenCalled();
   });
 });

@@ -1,8 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { ACHIEVEMENTS_BY_KEY, CELEBRATION_CONTINUE, JUST_EARNED, MEDAL_SHEET_CLOSE, celebrationEyebrow, medalEarnedCopy } from '@learning/shared';
+import { ACHIEVEMENTS_BY_KEY, CELEBRATION_CONTINUE, JUST_EARNED, MEDAL_SHEET_CLOSE, celebrationEyebrow, medalEarnedCopy, unlockSheetItemOf } from '@learning/shared';
 import { makeRewardUnlock } from '@/test-utils/achievements';
-import { MedalSheet, celebrationItemOf } from '../MedalSheet';
+import { MedalSheet } from '../MedalSheet';
 
 const CLEAN_SHEET = ACHIEVEMENTS_BY_KEY['clean-sheet'];
 const earnedItem = {
@@ -19,7 +19,7 @@ describe('MedalSheet', () => {
     const unlock = makeRewardUnlock('clean-sheet', { celebration: 'sheet' });
 
     it('shows Just earned in place of the earned date, and Continue in place of Close', () => {
-      render(<MedalSheet item={celebrationItemOf(unlock)} celebrating onClose={jest.fn()} />);
+      render(<MedalSheet item={unlockSheetItemOf(unlock, null)} celebrating onClose={jest.fn()} />);
       expect(screen.getByTestId('achievement-detail-just-earned').props.children).toBe(JUST_EARNED);
       expect(screen.queryByTestId('achievement-detail-earned-date')).toBeNull();
       expect(screen.getByText(CELEBRATION_CONTINUE)).toBeTruthy();
@@ -27,26 +27,26 @@ describe('MedalSheet', () => {
     });
 
     it('shows the category alone as its eyebrow, with no tier word', () => {
-      render(<MedalSheet item={celebrationItemOf(unlock)} celebrating onClose={jest.fn()} />);
+      render(<MedalSheet item={unlockSheetItemOf(unlock, null)} celebrating onClose={jest.fn()} />);
       expect(screen.getByTestId('achievement-detail-eyebrow').props.children).toBe(celebrationEyebrow(CLEAN_SHEET));
     });
 
     it('shows the name and description the server sent', () => {
-      render(<MedalSheet item={celebrationItemOf(unlock)} celebrating onClose={jest.fn()} />);
+      render(<MedalSheet item={unlockSheetItemOf(unlock, null)} celebrating onClose={jest.fn()} />);
       expect(screen.getByTestId('achievement-detail-name').props.children).toBe(unlock.name);
       expect(screen.getByTestId('achievement-detail-description').props.children).toBe(unlock.description);
     });
 
     it('calls onClose from Continue', () => {
       const onClose = jest.fn();
-      render(<MedalSheet item={celebrationItemOf(unlock)} celebrating onClose={onClose} />);
+      render(<MedalSheet item={unlockSheetItemOf(unlock, null)} celebrating onClose={onClose} />);
       fireEvent.press(screen.getByTestId('achievement-detail-close'));
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
     it('shows a Trailhead step with its name and no eyebrow', () => {
       const step = makeRewardUnlock('first-light', { celebration: 'sheet' });
-      render(<MedalSheet item={celebrationItemOf(step)} celebrating onClose={jest.fn()} />);
+      render(<MedalSheet item={unlockSheetItemOf(step, null)} celebrating onClose={jest.fn()} />);
       expect(screen.getByTestId('achievement-detail-name').props.children).toBe(step.name);
       expect(screen.queryByTestId('achievement-detail-eyebrow')).toBeNull();
     });

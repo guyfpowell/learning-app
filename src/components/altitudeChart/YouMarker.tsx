@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { initialsOf, metresLabel, youMarkerCopy } from '@learning/shared';
+import { initialsOf, metresLabel, youMarkerCopy, type HeightChartOffsets } from '@learning/shared';
 import { Text } from '@/components/ui/Text';
 import { colors, font } from '@/theme';
 import { LeaderLine } from './LeaderLine';
@@ -14,7 +14,7 @@ const LEVEL_SIZE = 12.5;
 const METRES_INK = '#3D2800';
 
 /** The learner's place on the chart: the gold pill with their initials, the metres and "Level 10 · you", centred on `shownOffset`. A pill that was moved clear of a landmark has a gold leader line down to the learner's true height on the rail. */
-export function YouMarker({ name, metres, level, offsets }: { name: string; metres: number; level: number; offsets: { trueOffset: number; shownOffset: number } }) {
+export function YouMarker({ name, metres, level, offsets }: { name: string; metres: number; level: number; offsets: HeightChartOffsets }) {
   const shownY = canvasYOf(offsets.shownOffset);
   const trueY = canvasYOf(offsets.trueOffset);
   return (

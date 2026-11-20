@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Text } from '@/components/ui/Text';
-import { ACHIEVEMENTS_HEADING, ACHIEVEMENTS_LOAD_ERROR, medalsEarnedCopy, rungItemOf, type AchievementKey } from '@learning/shared';
+import { ACHIEVEMENTS_HEADING, ACHIEVEMENTS_LOAD_ERROR, WEEK_TITLE, medalsEarnedCopy, rungItemOf, type AchievementKey } from '@learning/shared';
 import { colors, font, fontSize } from '@/theme';
 import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
 import { Spinner } from '@/components/ui/Spinner';
@@ -9,10 +10,12 @@ import { MedalSheet } from './MedalSheet';
 import { TrailheadCard } from '@/components/trailhead/TrailheadCard';
 import { LadderRow } from './LadderRow';
 import { useAchievements } from '@/hooks/useAchievements';
+import { WEEK_ROUTE } from '@/lib/routes';
 
-/** One ladder per medal category, the next rung raised, with how many medals are earned. Moved from Profile (096). */
+/** One ladder per medal category, with how many medals are earned. Moved from Profile (096). */
 export function AchievementsSection() {
   const { data, isLoading, isError } = useAchievements();
+  const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<AchievementKey | null>(null);
 
   // A failed refetch keeps the last data, so the error is checked first.
@@ -44,6 +47,10 @@ export function AchievementsSection() {
 
       {!isLoading && ladders.map(ladder => <LadderRow key={ladder.category} ladder={ladder} onOpen={setSelectedKey} />)}
 
+      <Pressable testID="week-link" onPress={() => router.push(WEEK_ROUTE)} accessibilityRole="link">
+        <Text style={styles.link}>{WEEK_TITLE}</Text>
+      </Pressable>
+
       {selectedRung && (
         <MedalSheet item={rungItemOf(selectedRung)} celebrating={false} onClose={() => setSelectedKey(null)} />
       )}
@@ -63,5 +70,6 @@ const styles = StyleSheet.create({
     fontSize:   13,
     color:      colors.textBody,
   },
+  link:  { fontFamily: font.bold, fontSize: fontSize.base, color: colors.brand },
   error: { fontFamily: font.regular, fontSize: fontSize.base, color: colors.error },
 });

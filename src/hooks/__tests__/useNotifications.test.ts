@@ -7,8 +7,8 @@ import { PUSH_TOKEN_WRITE, runSafeWrite } from '@/lib/safeWrites';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { setShownBuildId } from '@/lib/shownBuild';
 import { UNSEEN_BUILDS_QUERY_KEY, trackBuildQueryKey } from '@/lib/queryKeys';
-import { buildRoute } from '@/lib/routes';
-import { TRACK_BUILD_STATUS, type TrackBuildPushData } from '@learning/shared';
+import { HOME_ROUTE, PROGRESS_ROUTE, WEEK_ROUTE, buildRoute } from '@/lib/routes';
+import { PUSH_SCREEN, TRACK_BUILD_STATUS, type TrackBuildPushData, type WeeklyRecapPushData } from '@learning/shared';
 
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
@@ -23,7 +23,8 @@ jest.mock('expo-notifications', () => ({
 }));
 
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+const mockReplace = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace }) }));
 
 jest.mock('expo-device', () => ({
   isDevice: true,
@@ -231,5 +232,61 @@ describe('a finished build push (ticket 108)', () => {
     mount();
     expect(mockPush).toHaveBeenCalledTimes(1);
     expect(mockPush).toHaveBeenCalledWith(buildRoute('b2'));
+  });
+});
+
+describe('the Sunday recap push (124ae)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getLastResponse.mockReturnValue(null);
+  });
+
+  it('opens the week when tapped', () => {
+    renderHook(() => useNotifications(), { wrapper: queryWrapper(createTestQueryClient()) });
+    addResponse.mock.calls[0][0]({ notification: pushOf({ screen: PUSH_SCREEN.week } satisfies WeeklyRecapPushData, 'recap-1') });
+    expect(mockPush).toHaveBeenCalledWith(WEEK_ROUTE);
+  });
+
+  it('opens the week of the tap that launched the app, once', () => {
+    getLastResponse.mockReturnValue({ notification: pushOf({ screen: PUSH_SCREEN.week } satisfies WeeklyRecapPushData, 'recap-2') });
+    renderHook(() => useNotifications(), { wrapper: queryWrapper(createTestQueryClient()) });
+    renderHook(() => useNotifications(), { wrapper: queryWrapper(createTestQueryClient()) });
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith(WEEK_ROUTE);
+  });
+});
+
+describe('the one tap handler for every push', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setShownBuildId(null);
+    getLastResponse.mockReturnValue(null);
+  });
+
+  const tap = (data: unknown, identifier: string) => {
+    renderHook(() => useNotifications(), { wrapper: queryWrapper(createTestQueryClient()) });
+    addResponse.mock.calls[0][0]({ notification: pushOf(data, identifier) });
+  };
+
+  it.each([
+    ['a lesson reminder', { screen: PUSH_SCREEN.lessons }, 'tab-1', HOME_ROUTE],
+    ['a push naming no screen', {}, 'tab-2', HOME_ROUTE],
+    ['a streak milestone', { screen: PUSH_SCREEN.progress }, 'tab-3', PROGRESS_ROUTE],
+  ])('takes %s to its tab', (_name, data, identifier, route) => {
+    tap(data, identifier);
+    expect(mockReplace.mock.calls).toEqual([[route]]);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('opens only the build for a build push, never Home first', () => {
+    tap({ buildId: 'b9', state: TRACK_BUILD_STATUS.done } satisfies TrackBuildPushData, 'build-9');
+    expect(mockPush.mock.calls).toEqual([[buildRoute('b9')]]);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('opens only the week for the recap, never Home first', () => {
+    tap({ screen: PUSH_SCREEN.week } satisfies WeeklyRecapPushData, 'recap-9');
+    expect(mockPush.mock.calls).toEqual([[WEEK_ROUTE]]);
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

@@ -355,7 +355,7 @@ describe('ProgressScreen — altitude block (118ad)', () => {
     setMock({ data: mockStats });
     (useAltitude as jest.Mock).mockReturnValue({ data: altitude });
     render(<ProgressScreen />);
-    fireEvent.press(screen.getByTestId('altitude-header-link'));
+    fireEvent.press(screen.getByTestId('altitude-block'));
     expect(mockPush).toHaveBeenCalledWith(ALTITUDE_ROUTE);
   });
 

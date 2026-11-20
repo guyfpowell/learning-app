@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { ACHIEVEMENTS_BY_KEY, badgeSlotOf } from '@learning/shared';
 import { Text } from '@/components/ui/Text';
@@ -9,7 +8,6 @@ import { colors, font, fontSize, spacing } from '@/theme';
 import { Icon } from '@/components/ui/Icon';
 import { AltitudeSection } from '@/components/altitude/AltitudeSection';
 import { nextStreakCopy, streakStageOf } from '@/lib/momentum';
-import { ALTITUDE_ROUTE } from '@/lib/routes';
 
 const FLAME_SIZE = 20;
 const SLOT_MEDAL_SIZE = 26;
@@ -20,7 +18,6 @@ export function MomentumCard({ streak }: { streak: number }) {
   // One line per stage, picked when the stage is first shown, so a re-render never changes the words.
   const stage = streakStageOf(streak);
   const copy = useMemo(() => nextStreakCopy(stage), [stage]);
-  const router = useRouter();
   const { data: altitude, isError } = useAltitude();
   const slot = isError || altitude === undefined ? null : badgeSlotOf(altitude);
 
@@ -35,7 +32,6 @@ export function MomentumCard({ streak }: { streak: number }) {
       </View>
 
       <AltitudeSection
-        onPress={() => router.push(ALTITUDE_ROUTE)}
         trailing={slot && (
           <View testID="badge-slot" style={styles.slot}>
             <Medal definition={ACHIEVEMENTS_BY_KEY[slot.key]} size={SLOT_MEDAL_SIZE} />

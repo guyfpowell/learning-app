@@ -11,7 +11,9 @@ import {
   RAIL_X,
   SEA_LEVEL_Y,
   bandKeyAtY,
+  inkAt,
   topOf,
+  whiteAt,
   type BandLook,
 } from './chartLayout';
 
@@ -95,11 +97,11 @@ export function railStylesOf(markerY: number): RailStyles {
   return {
     base: {
       position: 'absolute', left: RAIL_X - RAIL_WIDTH / 2, width: RAIL_WIDTH, top, height: SEA_LEVEL_Y - top,
-      borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.18)',
+      borderRadius: 2, backgroundColor: whiteAt(0.18),
     },
     lightBands: {
       position: 'absolute', left: RAIL_X - RAIL_WIDTH / 2, width: RAIL_WIDTH, top: lightTop, height: SEA_LEVEL_Y - lightTop,
-      backgroundColor: 'rgba(18,21,34,0.1)',
+      backgroundColor: inkAt(0.1),
     },
     gold: {
       position: 'absolute', left: RAIL_X - GOLD_RAIL_WIDTH / 2, width: GOLD_RAIL_WIDTH, top: markerY, height: SEA_LEVEL_Y - markerY,
@@ -198,10 +200,8 @@ export function rowColoursOf(state: Exclude<LandmarkRow['state'], 'next'>, look:
 
 // ── The header ───────────────────────────────────────────────────────────────
 
-const PAPER_RGB = '243,241,236';
-const NAVY_RGB = '5,8,28';
-const PAPER_FADE_ALPHA = 0.97;
-const NAVY_FADE_ALPHA = 0.95;
+const paperAt = (alpha: number) => `rgba(243,241,236,${alpha})`;
+const navyAt = (alpha: number) => `rgba(5,8,28,${alpha})`;
 
 /** The back and title row is 44 tall, 4 below the status bar; the fade reaches 64 below the status bar (118 at the design's 54). */
 export const HEADER_ROW_TOP = 4;
@@ -226,15 +226,12 @@ export interface HeaderLook {
   ink: string;
 }
 
+const HEADER_ON_DARK: HeaderLook = { onDark: true, fade: navyAt(0.95), fadeClear: navyAt(0), ink: colors.white };
+const HEADER_ON_LIGHT: HeaderLook = { onDark: false, fade: paperAt(0.97), fadeClear: paperAt(0), ink: colors.textStrong };
+
 /** The header over a dark or a light band: navy at 0.95 with white on a dark one, paper at 0.97 with ink on a light one. */
 export function headerLookFor(onDark: boolean): HeaderLook {
-  const rgb = onDark ? NAVY_RGB : PAPER_RGB;
-  return {
-    onDark,
-    fade:      `rgba(${rgb},${onDark ? NAVY_FADE_ALPHA : PAPER_FADE_ALPHA})`,
-    fadeClear: `rgba(${rgb},0)`,
-    ink:       onDark ? colors.white : colors.textStrong,
-  };
+  return onDark ? HEADER_ON_DARK : HEADER_ON_LIGHT;
 }
 
 /** The header over the band under it; `y` is the canvas height under the header. */
