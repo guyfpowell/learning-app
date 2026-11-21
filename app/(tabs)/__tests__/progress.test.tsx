@@ -143,7 +143,7 @@ describe('ProgressScreen', () => {
     setMock({ data: { ...mockStats, accuracy: null } });
     render(<ProgressScreen />);
     expect(screen.getByText(accuracyTextOf(null))).toBeTruthy();
-    expect(screen.queryByText('0%')).toBeNull();
+    expect(screen.queryByText(accuracyTextOf(0))).toBeNull();
   });
 
   it('096: no last-lesson date card', () => {

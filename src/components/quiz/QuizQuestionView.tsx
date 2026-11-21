@@ -25,7 +25,6 @@ interface QuizQuestionViewProps {
   wrongAnswer: string | undefined;
   /** The submit's error, shown under the answer, or null while there is none. */
   submitError: string | null;
-  submitting: boolean;
   onToggleOption: (option: string) => void;
   onChangeAnswer: (answer: string) => void;
   onSubmit: () => void;
@@ -65,7 +64,7 @@ function QuizOptions({ options, selectedAnswer, wrongAnswer, onToggle }: {
 
 /** The question being asked, its answers, and Submit pinned over them. */
 export function QuizQuestionView({
-  quizzes, currentQuizIndex, selectedAnswer, wrongAnswer, submitError, submitting, onToggleOption, onChangeAnswer, onSubmit, onClose,
+  quizzes, currentQuizIndex, selectedAnswer, wrongAnswer, submitError, onToggleOption, onChangeAnswer, onSubmit, onClose,
 }: QuizQuestionViewProps) {
   const insets = useSafeAreaInsets();
   const current = quizzes[currentQuizIndex];
@@ -129,7 +128,6 @@ export function QuizQuestionView({
             disabledLook={{ face: colors.border, label: colors.textSubtle }}
             label="Submit"
             onPress={onSubmit}
-            loading={submitting}
             disabled={!selectedAnswer}
           />
         </PinnedAction>

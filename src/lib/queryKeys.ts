@@ -37,6 +37,14 @@ export function lessonQueryKey(lessonId: string) {
   return [...LESSONS_QUERY_KEY, lessonId] as const;
 }
 
+/**
+ * One lesson's quiz endings (`GET /lessons/:id/quiz-outcomes`, ADR-027). Fetched fresh each time the
+ * quiz opens and dropped when it closes, so no write refreshes it.
+ */
+export function quizOutcomesQueryKey(lessonId: string) {
+  return ['quiz-outcomes', lessonId] as const;
+}
+
 /** The user's saved lessons (`GET /lessons/saved`). Invalidate it when a lesson is saved or unsaved. */
 export const SAVED_LESSONS_QUERY_KEY = ['lessons', 'saved'] as const;
 

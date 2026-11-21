@@ -23,11 +23,11 @@ import { colors, font, radius, results, spacing } from '@/theme';
 /** The milestone card grows in from this scale when the lesson is finalised. */
 const MILESTONE_START_SCALE = 0.8;
 
-/** How the score badge and the milestone card spring into place. */
+/** How the track accuracy and the milestone card spring into place. */
 const SPRING_IN: Animated.SpringAnimationConfig = { toValue: 1, friction: 5, tension: 80, useNativeDriver: true };
 
 interface FinalResultViewProps {
-  /** A submit that finalised the lesson; none while the server's reply is awaited (a premium user's instant result, 115e). */
+  /** The finished result on show: the matching ending's at once, then the server's reply in its place. None when no ending was loaded, until the reply arrives. */
   result: QuizResult | undefined;
   /** This answer's correctness, which tones the view. */
   correct: boolean;
@@ -43,9 +43,10 @@ interface FinalResultViewProps {
 }
 
 /**
- * The finished view. The heading shows at once; the rest needs the server's reply to the last
- * answer, so it is a child that mounts when the reply arrives and starts with clean state. The
- * headline is held here, so the heading keeps its words when the reply lands and doesn't burst again.
+ * The finished view. With a result (the matching ending's, ADR-027) the whole page shows at once, and
+ * the server's reply then arrives as the same prop and updates the one body in place: it is never
+ * remounted. With none (the endings were not loaded) the heading shows and the body mounts when the
+ * reply arrives. The headline is held here, so the heading keeps its words and doesn't burst again.
  */
 export function FinalResultView({ result, correct, lessonRating, ...rest }: FinalResultViewProps) {
   const { lessonId, saved, onToggleSave, onLeave } = rest;
@@ -94,18 +95,18 @@ function FinalResultBody({ result, headline, lessonId, saved, onToggleSave, onLe
   const insets = useSafeAreaInsets();
   const topicFeedback = useTopicFeedback();
   const refreshPaths = useRefreshPaths();
-  const [chipShown, setChipShown] = useState(chipCopy !== null);
+  const [chipDismissed, setChipDismissed] = useState(false);
   // Where the metres chip sits on the screen, so the chip animation can fly back onto it.
   const [chipRect, setChipRect] = useState<ScreenRect | null>(null);
   const [topicFeedbackClosed, setTopicFeedbackClosed] = useState(false);
-  const scoreAnim = useRef(new Animated.Value(0)).current;
+  const accuracyAnim = useRef(new Animated.Value(0)).current;
   const milestoneAnim = useRef(new Animated.Value(MILESTONE_START_SCALE)).current;
 
   useEffect(() => {
-    Animated.spring(scoreAnim, SPRING_IN).start();
+    Animated.spring(accuracyAnim, SPRING_IN).start();
     if (!milestone) return;
     Animated.spring(milestoneAnim, SPRING_IN).start();
-  }, [scoreAnim, milestoneAnim, milestone]);
+  }, [accuracyAnim, milestoneAnim, milestone]);
 
   const topicEnd = topicFeedbackClosed ? null : result.topicEnd;
   // Where the page's tail (topic feedback and the button) comes in: after every block above it.
@@ -113,8 +114,8 @@ function FinalResultBody({ result, headline, lessonId, saved, onToggleSave, onLe
 
   const overlay = (
     <>
-      {chipToShow !== null && chipShown && (
-        <MetresChipOverlay visible copy={chipToShow} anchor={headerRowBox(insets.top)} returnTo={chipRect} onDismiss={() => setChipShown(false)} />
+      {chipToShow !== null && !chipDismissed && (
+        <MetresChipOverlay visible copy={chipToShow} anchor={headerRowBox(insets.top)} returnTo={chipRect} onDismiss={() => setChipDismissed(true)} />
       )}
     </>
   );
@@ -133,7 +134,7 @@ function FinalResultBody({ result, headline, lessonId, saved, onToggleSave, onLe
       <ResultHeading headline={headline}>
         <View style={styles.statsRow}>
           {chipToShow !== null && <MetresAward copy={chipToShow} tone={tone} onMeasure={setChipRect} />}
-          <Animated.View style={{ transform: [{ scale: scoreAnim }] }}>
+          <Animated.View style={{ transform: [{ scale: accuracyAnim }] }}>
             <TrackAccuracyBadge accuracy={trackAccuracy} previous={previousTrackAccuracy} tone={tone} />
           </Animated.View>
         </View>

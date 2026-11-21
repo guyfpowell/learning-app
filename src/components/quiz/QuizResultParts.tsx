@@ -12,7 +12,7 @@ const MILESTONE_SUBTEXT = '#fff7ed';
 /** From this streak the milestone card says more than "Keep going!". */
 const UNSTOPPABLE_STREAK = 30;
 
-/** Share of the pill's height the gem takes. */
+/** The gem's size in the metres chip. */
 const GEM_SIZE = 18;
 
 /** "76% ↑ track accuracy", on the verdict colour. */
@@ -20,10 +20,11 @@ export function TrackAccuracyBadge({ accuracy, previous, tone }: { accuracy: Qui
   const arrow = accuracyArrowOf(accuracy, previous);
   const text = accuracyTextOf(accuracy);
   return (
-    <View style={styles.trackAccuracy} accessibilityLabel={`${TRACK_ACCURACY_LABEL} ${text}`}>
-      <Text style={[styles.scorePercent, { color: results[tone].fg }]}>{text}</Text>
-      {arrow && <Text style={[styles.scorePercent, { color: results[tone].fg }]}>{arrow}</Text>}
-      <Text style={[styles.scoreLabel, { color: results[tone].tint }]}>{TRACK_ACCURACY_LABEL}</Text>
+    // One element read from its own text, in the order it shows.
+    <View testID="track-accuracy" style={styles.trackAccuracy} accessible>
+      <Text style={[styles.accuracyFigure, { color: results[tone].fg }]}>{text}</Text>
+      {arrow && <Text style={[styles.accuracyFigure, { color: results[tone].fg }]}>{arrow}</Text>}
+      <Text style={[styles.accuracyLabel, { color: results[tone].tint }]}>{TRACK_ACCURACY_LABEL}</Text>
     </View>
   );
 }
@@ -60,11 +61,11 @@ export function MilestoneCard({ milestone, streak, scale }: { milestone: string;
 
 const styles = StyleSheet.create({
   trackAccuracy: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs },
-  scorePercent: {
+  accuracyFigure: {
     fontFamily: font.extrabold,
     fontSize:   fontSize.md,
   },
-  scoreLabel: {
+  accuracyLabel: {
     fontFamily: font.medium,
     fontSize:   fontSize.sm,
   },

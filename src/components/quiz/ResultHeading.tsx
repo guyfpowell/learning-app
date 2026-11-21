@@ -72,7 +72,7 @@ export function useResultHeadline(tone: ResultTone): ResultHeadline {
   return headline;
 }
 
-/** The verdict screen's top: the verdict mark, the headline, then whatever sits under it (metres, average, a nudge). */
+/** The verdict screen's top: the verdict mark, the headline, then whatever sits under it (metres, accuracy, a nudge). */
 export function ResultHeading({ headline, children }: { headline: ResultHeadline; children?: React.ReactNode }) {
   const { tone, phrase } = headline;
   const [boxWidth, setBoxWidth] = useState(0);
