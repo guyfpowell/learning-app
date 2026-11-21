@@ -1,4 +1,4 @@
-import { phraseAt } from '@/lib/quizFeedbackPhrase';
+import { phraseAt } from '@learning/shared';
 
 export type StreakStage = 'start' | 'early' | 'building' | 'steady' | 'long';
 

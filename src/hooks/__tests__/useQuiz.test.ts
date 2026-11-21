@@ -2,7 +2,8 @@ import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
 import { useSubmitQuiz } from '../useQuiz';
 import { quizService } from '@/services/quiz.service';
-import type { Lesson, QuizResult } from '@learning/shared';
+import type { QuizResult } from '@learning/shared';
+import { makeLesson } from '@/test-utils/lessons';
 
 jest.mock('@/services/quiz.service', () => ({
   quizService: { submitQuiz: jest.fn() },
@@ -16,19 +17,16 @@ jest.mock('expo-secure-store', () => ({
 
 const mockQuizService = quizService as jest.Mocked<typeof quizService>;
 
-// The hook never reads `lesson`, so a partial one is enough.
 const mockResult: QuizResult = {
-  score: 100,
   correct: true,
   feedbacks: [],
-  lesson: { id: 'lesson-1', title: 'Test' } as Lesson,
-  coaching: null,
+  lesson: makeLesson({ id: 'lesson-1', title: 'Test' }),
   streak: 0,
   milestone: null,
   nextLessonId: null,
   retakeAvailable: false,
-  trackAverage: null,
-  previousAverage: null,
+  trackAccuracy: 88,
+  previousTrackAccuracy: 80,
   lessonFinalized: false,
   topicEnd: null,
   rewards: null,
@@ -86,7 +84,7 @@ describe('useSubmitQuiz', () => {
     act(() => { result.current.mutate({ lessonId: 'lesson-1', answers: {} }); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.score).toBe(100);
+    expect(result.current.data?.trackAccuracy).toBe(mockResult.trackAccuracy);
   });
 
   it('exposes error state on failure', async () => {

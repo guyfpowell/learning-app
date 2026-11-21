@@ -14,7 +14,6 @@ import api from '@/lib/api';
 const mockApi = api as jest.Mocked<typeof api>;
 
 const mockResult = {
-  score: 75,
   feedbacks: [
     {
       quizId: 'q-1',
@@ -25,7 +24,7 @@ const mockResult = {
       explanation: 'Because...',
     },
   ],
-  lesson: { id: 'lesson-1', title: 'Test Lesson' },
+  lesson: { id: 'lesson-1', title: 'Test Lesson', retakeOffered: false },
 };
 
 describe('quizService', () => {

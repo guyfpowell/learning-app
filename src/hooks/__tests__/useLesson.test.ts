@@ -35,6 +35,7 @@ const mockLesson = {
   durationMinutes: 5,
   difficulty: 'beginner' as const,
   quizzes: [],
+  retakeOffered: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

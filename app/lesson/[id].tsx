@@ -150,6 +150,16 @@ export default function LessonDetailScreen() {
     updatePosition(lesson.id, initial);
   }, [lesson?.id, lesson?.quizCompleted, paths]);
 
+  // A retake started from the completed view begins at the lesson, not the takeaway the opening rule gives a completed lesson.
+  const wasViewing = useRef(false);
+  useEffect(() => {
+    if (wasViewing.current && lesson && !viewing) {
+      setPhase('expanded');
+      updatePosition(lesson.id, 'expanded');
+    }
+    wasViewing.current = viewing;
+  }, [viewing]);
+
   const showPremiumError = isError && isPremiumError(error);
   const showNotFound = isError && isNotFoundError(error);
   // The server's message or fixed copy, never the transport's own text ("Network Error").

@@ -12,7 +12,7 @@ const mockApi = api as jest.Mocked<typeof api>;
 const mockStats = {
   totalLessonsCompleted: 5,
   currentStreak: 3,
-  averageScore: 82,
+  accuracy: 71,
   lastLessonDate: new Date('2026-04-13'),
 };
 

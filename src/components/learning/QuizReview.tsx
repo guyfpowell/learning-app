@@ -36,8 +36,12 @@ function AnswerRow({ testID, text, right, why }: { testID?: string; text: string
   );
 }
 
-/** A completed lesson's quiz, to read: each question with its right answer marked and the explanation. Nothing to answer or submit. */
-export function QuizReview({ quizzes }: { quizzes: Quiz[] }) {
+/**
+ * A completed lesson's quiz, to read: each question with its right answer marked and the explanation.
+ * Nothing to answer or submit. `answersHidden` (the caller's decision, 135d) shows the questions and
+ * options alone, so a lesson about to be retaken gives nothing away.
+ */
+export function QuizReview({ quizzes, answersHidden }: { quizzes: Quiz[]; answersHidden: boolean }) {
   if (quizzes.length === 0) {
     return <Text testID="quiz-review-empty" style={styles.empty}>This lesson has no quiz.</Text>;
   }
@@ -51,11 +55,11 @@ export function QuizReview({ quizzes }: { quizzes: Quiz[] }) {
           <View>
             {quiz.type === 'multiple-choice' ? (
               quiz.options.map((option) => {
-                const right = option === quiz.correctAnswer;
+                const right = !answersHidden && option === quiz.correctAnswer;
                 return <AnswerRow key={option} testID={right ? `quiz-review-correct-${quiz.id}` : undefined} text={option} right={right} why={quiz.explanation} />;
               })
             ) : (
-              <AnswerRow testID={`quiz-review-correct-${quiz.id}`} text={quiz.correctAnswer} right why={quiz.explanation} />
+              !answersHidden && <AnswerRow testID={`quiz-review-correct-${quiz.id}`} text={quiz.correctAnswer} right why={quiz.explanation} />
             )}
           </View>
         </View>

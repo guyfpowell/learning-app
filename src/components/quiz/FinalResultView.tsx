@@ -12,7 +12,7 @@ import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
 import { QuizResultFrame, headerRowBox } from '@/components/quiz/QuizResultFrame';
 import { ResultButton } from '@/components/quiz/ResultButton';
 import { ResultHeading, useResultHeadline, type ResultHeadline } from '@/components/quiz/ResultHeading';
-import { CoachingCard, MilestoneCard, TrackAverageBadge, MetresAward } from '@/components/quiz/QuizResultParts';
+import { MilestoneCard, TrackAccuracyBadge, MetresAward } from '@/components/quiz/QuizResultParts';
 import { nextLessonLabel } from '@/components/quiz/nextLessonLabel';
 import { verdictTone, type ResultTone } from '@/components/quiz/resultTone';
 import { useRefreshPaths, useTopicFeedback } from '@/hooks/useTrack';
@@ -34,8 +34,6 @@ interface FinalResultViewProps {
   lessonId: string;
   /** The lesson's rating as the screen has it, for the control until the reply carries the stored one. */
   lessonRating: Lesson['rating'];
-  /** The answer was a second try, which the average badge says. */
-  retakeUsed: boolean;
   saved: boolean;
   onToggleSave: () => void;
   /** ✕: leave the lesson for where it was opened from. */
@@ -85,9 +83,9 @@ function useChipTurn(rewards: Rewards | null): boolean {
 
 type FinalResultBodyProps = Omit<FinalResultViewProps, 'result' | 'correct' | 'lessonRating'> & { result: QuizResult; headline: ResultHeadline };
 
-/** The finished lesson's verdict, with the metres chip, earned achievements, coaching and any end-of-topic feedback. */
-function FinalResultBody({ result, headline, lessonId, retakeUsed, saved, onToggleSave, onLeave, onNavigate }: FinalResultBodyProps) {
-  const { feedbacks, coaching, streak, milestone, trackAverage, previousAverage, nextLessonId } = result;
+/** The finished lesson's verdict, with the metres chip, earned achievements and any end-of-topic feedback. */
+function FinalResultBody({ result, headline, lessonId, saved, onToggleSave, onLeave, onNavigate }: FinalResultBodyProps) {
+  const { feedbacks, streak, milestone, trackAccuracy, previousTrackAccuracy, nextLessonId } = result;
   const { tone } = headline;
   // A pass that paid nothing shows no chip and no line. The chip waits for the unlocks to be celebrated.
   const chipCopy = metresChipOf(result.rewards);
@@ -111,7 +109,7 @@ function FinalResultBody({ result, headline, lessonId, retakeUsed, saved, onTogg
 
   const topicEnd = topicFeedbackClosed ? null : result.topicEnd;
   // Where the page's tail (topic feedback and the button) comes in: after every block above it.
-  const tailStep = feedbacks.length + (coaching ? 1 : 0);
+  const tailStep = feedbacks.length;
 
   const overlay = (
     <>
@@ -136,7 +134,7 @@ function FinalResultBody({ result, headline, lessonId, retakeUsed, saved, onTogg
         <View style={styles.statsRow}>
           {chipToShow !== null && <MetresAward copy={chipToShow} tone={tone} onMeasure={setChipRect} />}
           <Animated.View style={{ transform: [{ scale: scoreAnim }] }}>
-            <TrackAverageBadge average={trackAverage} previous={previousAverage} retakeUsed={retakeUsed} tone={tone} />
+            <TrackAccuracyBadge accuracy={trackAccuracy} previous={previousTrackAccuracy} tone={tone} />
           </Animated.View>
         </View>
       </ResultHeading>
@@ -145,7 +143,6 @@ function FinalResultBody({ result, headline, lessonId, retakeUsed, saved, onTogg
       {feedbacks.map((fb, i) => (
         <Reveal key={fb.quizId} delay={revealDelay(i)}><QuizFeedbackCard fb={fb} tone={tone} showQuestion={feedbacks.length > 1} /></Reveal>
       ))}
-      {coaching && <Reveal delay={revealDelay(feedbacks.length)}><CoachingCard coaching={coaching} /></Reveal>}
       {/* End-of-topic feedback (079d). Closing hides it here only: the write already
           happened, so Home will not show it again; one never written comes back on Home. */}
       <Reveal delay={revealDelay(tailStep)}>

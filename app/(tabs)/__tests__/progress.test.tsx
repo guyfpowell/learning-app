@@ -1,5 +1,5 @@
 import React from 'react';
-import { ALTITUDE_LOAD_ERROR, PATHS_LOAD_ERROR, PROGRESS_LOAD_ERROR, type AltitudeResponse } from '@learning/shared';
+import { ACCURACY_LABEL, accuracyTextOf, ALTITUDE_LOAD_ERROR, PATHS_LOAD_ERROR, PROGRESS_LOAD_ERROR, type AltitudeResponse } from '@learning/shared';
 import { render, screen, fireEvent, within } from '@testing-library/react-native';
 import ProgressScreen from '../progress';
 import { usePrefetchNextScreens } from '@/hooks/usePrefetchNextScreens';
@@ -27,7 +27,7 @@ jest.mock('react-native-safe-area-context', () => ({
 const mockStats = {
   totalLessonsCompleted: 5,
   currentStreak: 3,
-  averageScore: 82,
+  accuracy: 71,
   lastLessonDate: new Date('2026-04-13T00:00:00.000Z'),
 };
 
@@ -40,8 +40,7 @@ const mockActiveEnrollment = {
   totalLessons: 10,
   percentComplete: 30,
   levels: [],
-  averageScore: null,
-  capstoneScore: null,
+  accuracy: null,
   enrolledAt: new Date('2026-01-01T00:00:00.000Z'),
   completedAt: null,
 };
@@ -55,8 +54,7 @@ const mockCompletedEnrollment = {
   totalLessons: 15,
   percentComplete: 100,
   levels: [],
-  averageScore: 85,
-  capstoneScore: 92,
+  accuracy: 78,
   enrolledAt: new Date('2026-01-01T00:00:00.000Z'),
   completedAt: new Date('2026-03-01T00:00:00.000Z'),
 };
@@ -134,17 +132,18 @@ describe('ProgressScreen', () => {
     expect(screen.getByText('5')).toBeTruthy();
   });
 
-  it('shows average score', () => {
+  it('shows the accuracy with its label', () => {
     setMock({ data: mockStats });
     render(<ProgressScreen />);
-    expect(screen.getByText('82%')).toBeTruthy();
+    expect(within(screen.getByTestId('progress-stats')).getByText(accuracyTextOf(mockStats.accuracy))).toBeTruthy();
+    expect(screen.getByText(ACCURACY_LABEL)).toBeTruthy();
   });
 
-  it('rounds averageScore in the stats display', () => {
-    setMock({ data: { ...mockStats, averageScore: 83.33 } });
+  it('shows n/a, never 0%, when there is no accuracy', () => {
+    setMock({ data: { ...mockStats, accuracy: null } });
     render(<ProgressScreen />);
-    expect(screen.getByText('83%')).toBeTruthy();
-    expect(screen.queryByText('83.33%')).toBeNull();
+    expect(screen.getByText(accuracyTextOf(null))).toBeTruthy();
+    expect(screen.queryByText('0%')).toBeNull();
   });
 
   it('096: no last-lesson date card', () => {
@@ -158,9 +157,9 @@ describe('ProgressScreen', () => {
     render(<ProgressScreen />);
     const row = within(screen.getByTestId('progress-stats'));
     expect(row.getByTestId('progress-lessons-count')).toBeTruthy();
-    expect(row.getByTestId('progress-avg-score')).toBeTruthy();
+    expect(row.getByTestId('progress-accuracy')).toBeTruthy();
     expect(row.getByTestId('progress-streak')).toBeTruthy();
-    expect(row.getByText('Avg quiz score')).toBeTruthy();
+    expect(row.getByText(ACCURACY_LABEL)).toBeTruthy();
     expect(screen.queryByTestId('progress-streak-card')).toBeNull();
   });
 
@@ -214,18 +213,18 @@ describe('ProgressScreen — enrollment cards', () => {
     expect(screen.getByText(/15 of 15 lessons/)).toBeTruthy();
   });
 
-  it('shows capstone score on completed track card (preferred over average)', () => {
+  it("shows the path's accuracy on a completed track card, not the capstone or the average", () => {
     (usePaths as jest.Mock).mockReturnValue({ data: [mockCompletedEnrollment] });
     render(<ProgressScreen />);
-    expect(screen.getByText('92%')).toBeTruthy();
+    expect(screen.getByText(accuracyTextOf(mockCompletedEnrollment.accuracy))).toBeTruthy();
   });
 
-  it('shows average score on completed track card when no capstone', () => {
+  it('shows n/a on a completed track card with no accuracy', () => {
     (usePaths as jest.Mock).mockReturnValue({
-      data: [{ ...mockCompletedEnrollment, capstoneScore: null }],
+      data: [{ ...mockCompletedEnrollment, accuracy: null }],
     });
     render(<ProgressScreen />);
-    expect(screen.getByText('85%')).toBeTruthy();
+    expect(within(screen.getByTestId(`completed-card-${mockCompletedEnrollment.id}`)).getByText(accuracyTextOf(null))).toBeTruthy();
   });
 
   it('shows share and next-track buttons on completed track card', () => {
@@ -464,8 +463,7 @@ describe('ProgressScreen — 076e custom path progress bar', () => {
       totalLessons: 10,
       percentComplete: 30,
       levels: [],
-      averageScore: null,
-      capstoneScore: null,
+      accuracy: null,
     };
     (usePaths as jest.Mock).mockReturnValue({ data: [customPath] });
     render(<ProgressScreen />);
@@ -483,8 +481,7 @@ describe('ProgressScreen — 076e custom path progress bar', () => {
       totalLessons: 10,
       percentComplete: 30,
       levels: [],
-      averageScore: null,
-      capstoneScore: null,
+      accuracy: null,
     };
     (usePaths as jest.Mock).mockReturnValue({ data: [customPath] });
     render(<ProgressScreen />);

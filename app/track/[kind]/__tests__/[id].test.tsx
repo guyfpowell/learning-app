@@ -78,8 +78,7 @@ const mockPath: UserPath = {
   canSkipLesson:    false,
   canSkipTopic:     false,
   canSkipLevel:     false,
-  averageScore:     null,
-  capstoneScore:    null,
+  accuracy:    null,
 };
 
 const mockEnroll = { mutate: jest.fn(), isPending: false };

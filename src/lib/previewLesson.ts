@@ -24,6 +24,7 @@ export function previewCompletedLesson(): Lesson {
     rating: null,
     quizCompleted: true,
     lessonRetakeInProgress: false,
+    retakeOffered: false,
     nextLessonId: 'preview-next',
     skillPath: { level: 'intermediate', levelLabel: 'Intermediate' },
     content:

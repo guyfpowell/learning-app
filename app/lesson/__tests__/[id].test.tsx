@@ -4,7 +4,8 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { colors, fontSize, spacing } from '@/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import LessonDetailScreen from '../[id]';
-import { useLesson, useSavePosition } from '@/hooks/useLesson';
+import { useLesson, useSavePosition, useStartRetake } from '@/hooks/useLesson';
+import { RETAKE_LESSON_LABEL, RETAKE_START_ERROR } from '@learning/shared';
 import { usePaths } from '@/hooks/useTrack';
 import { extractError } from '@/lib/errors';
 import * as Sentry from '@sentry/react-native';
@@ -52,6 +53,7 @@ const mockLesson = {
   quizCompleted: false,
   nextLessonId: 'lesson-2',
   quizzes: [],
+  retakeOffered: false,
   skillPathId: 'sp-1',
   lessonNumber: 1,
   topicName: 'Topic One',
@@ -73,6 +75,7 @@ const mockEnrollment = {
   totalLessons: 5,
 };
 
+const mockStartRetake = jest.fn();
 let positionWriteFails = false;
 const mockSavePosition = jest.fn((_input: unknown, options?: { onError?: (err: unknown) => void }) => {
   if (positionWriteFails) options?.onError?.(new Error('offline'));
@@ -83,6 +86,7 @@ beforeEach(() => {
   // The position write is a safe write (105f); the screen only sees its `mutate`. It succeeds unless a test says otherwise.
   positionWriteFails = false;
   (useSavePosition as jest.Mock).mockReturnValue({ mutate: mockSavePosition });
+  (useStartRetake as jest.Mock).mockReturnValue({ mutate: mockStartRetake, isPending: false, isError: false });
   (useLocalSearchParams as jest.Mock).mockReturnValue({ id: 'lesson-1' });
   (useRouter as jest.Mock).mockReturnValue(mockRouter);
   (usePaths as jest.Mock).mockReturnValue({ data: [] });
@@ -295,8 +299,49 @@ describe('LessonDetailScreen', () => {
       error: null,
     });
     render(<LessonDetailScreen />);
-    expect(screen.getByTestId('lesson-quiz-btn')).toBeTruthy();
+    // Reopened mid-retake, it opens at the lesson, not the takeaway.
+    expect(screen.getByTestId('key-takeaway-btn')).toBeTruthy();
     expect(screen.queryByTestId('lesson-completed-banner')).toBeNull();
+  });
+
+  // 135b: an accepted Albert revisit points at a completed lesson. Home opens it on this screen
+  // (`onStartLesson(revisit.nextLesson.id)`), and the screen used to show it read-only with no way on.
+  it('135b: a revisit lesson opened from Home can be retaken, and the screen then shows the lesson flow, with the quiz button', () => {
+    let lesson = { ...mockLesson, id: 'revisit-1', quizCompleted: true, retakeOffered: true, lessonRetakeInProgress: false };
+    (useLocalSearchParams as jest.Mock).mockReturnValue({ id: 'revisit-1' });
+    (useLesson as jest.Mock).mockImplementation(() => ({ isLoading: false, isError: false, data: lesson, error: null }));
+    // What `useStartRetake` does on success: the cached lesson now reads as a retake in progress.
+    mockStartRetake.mockImplementation(() => { lesson = { ...lesson, lessonRetakeInProgress: true, retakeOffered: false }; });
+    const { rerender } = render(<LessonDetailScreen />);
+
+    expect(screen.getByTestId('completed-lesson-view')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('lesson-retake-btn'));
+    expect(mockStartRetake).toHaveBeenCalledWith('revisit-1');
+
+    rerender(<LessonDetailScreen />);
+    expect(screen.queryByTestId('completed-lesson-view')).toBeNull();
+    expect(screen.queryByTestId('lesson-completed-banner')).toBeNull();
+    // A retake starts at the lesson, not at the key takeaway.
+    expect(screen.getByTestId('key-takeaway-btn')).toBeTruthy();
+    expect(screen.queryByTestId('lesson-quiz-btn')).toBeNull();
+  });
+
+  it('135b: a completed lesson that offers no retake shows no Retake lesson button', () => {
+    (useLesson as jest.Mock).mockReturnValue({
+      isLoading: false, isError: false, data: { ...mockLesson, quizCompleted: true, retakeOffered: false }, error: null,
+    });
+    render(<LessonDetailScreen />);
+    expect(screen.queryByText(RETAKE_LESSON_LABEL)).toBeNull();
+  });
+
+  it('135b: a failed retake start shows the error under the button', () => {
+    (useStartRetake as jest.Mock).mockReturnValue({ mutate: mockStartRetake, isPending: false, isError: true });
+    (useLesson as jest.Mock).mockReturnValue({
+      isLoading: false, isError: false, data: { ...mockLesson, quizCompleted: true, retakeOffered: true }, error: null,
+    });
+    render(<LessonDetailScreen />);
+    expect(screen.getByText(RETAKE_START_ERROR)).toBeTruthy();
+    expect(screen.getByTestId('lesson-retake-btn')).toBeTruthy();
   });
 
   it('079f: a completed lesson shows the thumbs with the stored verdict, whatever phase it opens at', () => {

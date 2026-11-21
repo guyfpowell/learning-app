@@ -18,8 +18,16 @@ import { useCurrentUser } from '@/hooks/useEmailVerification';
 import { useRefreshLesson } from '@/hooks/useRefreshLesson';
 import { makeSessionUser } from '@/test-utils/users';
 import { axiosError } from '@/test-utils/axios';
-import { nextFeedbackPhrase } from '@/lib/quizFeedbackPhrase';
-import { ERROR_CODES, metresChipCopy } from '@learning/shared';
+import {
+  ERROR_CODES,
+  metresChipCopy,
+  accuracyArrowOf,
+  accuracyTextOf,
+  TRACK_ACCURACY_LABEL,
+  CORRECT_PHRASES,
+  INCORRECT_PHRASES,
+  resetFeedbackPhrases,
+} from '@learning/shared';
 import { makeRewardUnlock, makeRewards } from '@/test-utils/achievements';
 import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
 
@@ -101,6 +109,7 @@ const mockLesson = {
   durationMinutes: 5,
   difficulty: 'beginner' as const,
   quizzes: [mockQuiz1, mockQuiz2],
+  retakeOffered: false,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -111,7 +120,6 @@ const singleQuizLesson = { ...mockLesson, quizzes: [mockQuiz1] };
 
 // Wrong first attempt — retakeAvailable, lesson not finalized
 const wrongPendingResult = {
-  score: 0,
   correct: false,
   retakeAvailable: true,
   lessonFinalized: false,
@@ -119,27 +127,25 @@ const wrongPendingResult = {
     { quizId: 'q-1', question: mockQuiz1.question, userAnswer: 'Option B', correctAnswer: null, isCorrect: false, explanation: 'x' },
   ],
   lesson: singleQuizLesson,
-  coaching: null,
   streak: 0,
   milestone: null,
   nextLessonId: null,
-  trackAverage: null,
-  previousAverage: null,
+  trackAccuracy: null,
+  previousTrackAccuracy: null,
   topicEnd: null,
   rewards: null,
 };
 
 // Full finalized result
 const mockResult = {
-  score: 100,
   correct: true,
   retakeAvailable: false,
   lessonFinalized: true,
   streak: 0,
   milestone: null,
   nextLessonId: null,
-  trackAverage: 90,
-  previousAverage: 80,
+  trackAccuracy: 90,
+  previousTrackAccuracy: 80,
   topicEnd: null,
   rewards: makeRewards(),
   feedbacks: [
@@ -161,20 +167,18 @@ const mockResult = {
     },
   ],
   lesson: mockLesson,
-  coaching: null,
 };
 
 // Per-question result for Q1 correct, lesson not yet finalized (mid-capstone)
 const q1CorrectNotFinalized = {
-  score: 100,
   correct: true,
   retakeAvailable: false,
   lessonFinalized: false,
   streak: 0,
   milestone: null,
   nextLessonId: null,
-  trackAverage: null,
-  previousAverage: null,
+  trackAccuracy: null,
+  previousTrackAccuracy: null,
   rewards: null,
   feedbacks: [
     {
@@ -187,18 +191,14 @@ const q1CorrectNotFinalized = {
     },
   ],
   lesson: mockLesson,
-  coaching: null,
 };
-
-jest.mock('@/lib/quizFeedbackPhrase', () => ({
-  nextFeedbackPhrase: jest.fn((correct: boolean) => (correct ? 'Correct!' : 'Incorrect')),
-}));
 
 describe('QuizModal', () => {
   const onClose = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
+    resetFeedbackPhrases();
     setQuizMock();
     (useSaveLesson as jest.Mock).mockReturnValue({ mutate: mockSaveMutate });
     (useUnsaveLesson as jest.Mock).mockReturnValue({ mutate: mockUnsaveMutate });
@@ -345,41 +345,47 @@ describe('QuizModal', () => {
   it('shows results view after successful submission when finalized', () => {
     setQuizMock({ data: mockResult });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('Correct!')).toBeTruthy();
+    expect(screen.getByText(CORRECT_PHRASES[0])).toBeTruthy();
     expect(screen.getByText('90%')).toBeTruthy();
   });
 
   it('terminal view shows "Incorrect" heading when submit.data.correct is false', () => {
     setQuizMock({ data: { ...mockResult, correct: false, retakeAvailable: false } });
     render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
-    expect(screen.getByText('Incorrect')).toBeTruthy();
-    expect(screen.queryByText('Correct!')).toBeNull();
+    expect(screen.getByText(INCORRECT_PHRASES[0])).toBeTruthy();
+    expect(screen.queryByText(CORRECT_PHRASES[0])).toBeNull();
   });
 
-  it('shows the track average label in results', () => {
+  it('shows the track accuracy and its label in results', () => {
     setQuizMock({ data: mockResult });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('track average')).toBeTruthy();
+    expect(screen.getByText(accuracyTextOf(mockResult.trackAccuracy))).toBeTruthy();
+    expect(screen.getByText(TRACK_ACCURACY_LABEL)).toBeTruthy();
   });
 
-  it('shows an up arrow when the average improved on a non-retake result', () => {
-    setQuizMock({ data: mockResult }); // trackAverage 90 > previousAverage 80
+  it('reads the accuracy aloud through accuracyTextOf', () => {
+    setQuizMock({ data: { ...mockResult, trackAccuracy: null, previousTrackAccuracy: null } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('↑')).toBeTruthy();
+    expect(screen.getByText(accuracyTextOf(null))).toBeTruthy();
+    expect(screen.getByLabelText(`${TRACK_ACCURACY_LABEL} ${accuracyTextOf(null)}`)).toBeTruthy();
   });
 
-  it('shows a down arrow when the average decreased on a non-retake result', () => {
-    setQuizMock({ data: { ...mockResult, trackAverage: 70, previousAverage: 80 } });
+  it.each([
+    ['up', 90, 80],
+    ['down', 70, 80],
+    ['equal', 70, 70],
+  ])('shows the %s arrow accuracyArrowOf gives', (_name, now, before) => {
+    setQuizMock({ data: { ...mockResult, trackAccuracy: now, previousTrackAccuracy: before } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('↓')).toBeTruthy();
+    expect(screen.getByText(must(accuracyArrowOf(now, before), 'arrow'))).toBeTruthy();
   });
 
-  it('shows no arrow when there is no previous average (first lesson in track)', () => {
-    setQuizMock({ data: { ...mockResult, trackAverage: 100, previousAverage: null } });
+  it('shows no arrow when there is no previous accuracy (first lesson in track)', () => {
+    setQuizMock({ data: { ...mockResult, trackAccuracy: 100, previousTrackAccuracy: null } });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.queryByText('↑')).toBeNull();
-    expect(screen.queryByText('↓')).toBeNull();
-    expect(screen.queryByText('=')).toBeNull();
+    for (const [now, before] of [[2, 1], [1, 2], [1, 1]]) {
+      expect(screen.queryByText(must(accuracyArrowOf(now, before), 'arrow'))).toBeNull();
+    }
   });
 
   it('shows feedback items in results', () => {
@@ -503,31 +509,26 @@ describe('QuizModal', () => {
     expect(screen.queryByTestId('milestone-card')).toBeNull();
   });
 
-  it('renders coaching card when coaching message is present', () => {
-    setQuizMock({ data: { ...mockResult, coaching: 'Great work! You answered correctly.' } });
-    render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-    expect(screen.getByText('AI Coaching')).toBeTruthy();
-    expect(screen.getByText('Great work! You answered correctly.')).toBeTruthy();
-  });
-
-  it('does not render coaching card when coaching is null', () => {
-    setQuizMock({ data: { ...mockResult, coaching: null } });
+  it('renders no coaching card, whatever the result holds', () => {
+    const coachingText = 'Great work! You answered correctly.';
+    setQuizMock({ data: mockResult });
     render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
     expect(screen.queryByText('AI Coaching')).toBeNull();
+    expect(screen.queryByText(coachingText)).toBeNull();
   });
 
   describe('per-question capstone flow (ticket 019 ch2.1)', () => {
     it('shows per-question feedback "Correct!" when Q1 correct and lessonFinalized is false', () => {
       setQuizMock({ data: q1CorrectNotFinalized });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByText('Correct!')).toBeTruthy();
+      expect(screen.getByText(CORRECT_PHRASES[0])).toBeTruthy();
     });
 
     it('does not show terminal elements in per-question feedback view', () => {
       setQuizMock({ data: q1CorrectNotFinalized });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       expect(screen.queryByText('Quiz Complete!')).toBeNull();
-      expect(screen.queryByText('track average')).toBeNull();
+      expect(screen.queryByText(TRACK_ACCURACY_LABEL)).toBeNull();
       expect(screen.queryByText('DONE')).toBeNull();
     });
 
@@ -562,7 +563,7 @@ describe('QuizModal', () => {
       };
       setQuizMock({ data: q1WrongResolved });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByText('Incorrect')).toBeTruthy();
+      expect(screen.getByText(INCORRECT_PHRASES[0])).toBeTruthy();
       expect(screen.getByText('Next question')).toBeTruthy();
       expect(screen.queryByText('Quiz Complete!')).toBeNull();
     });
@@ -570,8 +571,8 @@ describe('QuizModal', () => {
     it('last question finalized → full terminal view', () => {
       setQuizMock({ data: { ...mockResult, lessonFinalized: true } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByText('Correct!')).toBeTruthy();
-      expect(screen.getByText('track average')).toBeTruthy();
+      expect(screen.getByText(CORRECT_PHRASES[0])).toBeTruthy();
+      expect(screen.getByText(TRACK_ACCURACY_LABEL)).toBeTruthy();
       expect(screen.queryByText('Next question')).toBeNull();
     });
 
@@ -738,7 +739,7 @@ describe('QuizModal', () => {
     it('a fresh finalized result in the same session still shows the real terminal view, not "Already Completed"', () => {
       setQuizMock({ data: { ...mockResult, lessonFinalized: true } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByText('Correct!')).toBeTruthy();
+      expect(screen.getByText(CORRECT_PHRASES[0])).toBeTruthy();
       expect(screen.queryByText('Already Completed')).toBeNull();
     });
   });
@@ -748,7 +749,7 @@ describe('QuizModal', () => {
       setQuizMock({ data: wrongPendingResult });
       render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
 
-      expect(screen.getByText('Incorrect')).toBeTruthy();
+      expect(screen.getByText(INCORRECT_PHRASES[0])).toBeTruthy();
       expect(screen.getByText('Fit beats features.')).toBeTruthy();
       expect(screen.getByText('Try again')).toBeTruthy();
       // "Next lesson" button removed (item 7) — try again is the only action
@@ -830,11 +831,11 @@ describe('QuizModal', () => {
       setQuizMock({ data: { ...mockResult, correct: false, retakeAvailable: false } });
       render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
 
-      expect(screen.getByText('Incorrect')).toBeTruthy();
+      expect(screen.getByText(INCORRECT_PHRASES[0])).toBeTruthy();
       expect(screen.queryByText('Try again')).toBeNull();
     });
 
-    it('shows a flat dash (not up/down) once a retake was used, regardless of the average numbers', () => {
+    it('shows the down arrow after a wrong answer that lowered accuracy, even on the second try', () => {
       setQuizMock({ data: undefined });
       const { rerender } = render(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       fireEvent.press(screen.getByText('Option B'));
@@ -845,12 +846,13 @@ describe('QuizModal', () => {
       fireEvent.press(screen.getByText('Try again'));
 
       setQuizMock({
-        data: { ...mockResult, correct: true, retakeAvailable: false, trackAverage: 70, previousAverage: 70 },
+        data: { ...mockResult, correct: true, retakeAvailable: false, trackAccuracy: 70, previousTrackAccuracy: 80 },
       });
       rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
 
-      expect(screen.getByText('=')).toBeTruthy();
-      expect(screen.queryByText('↑')).toBeNull();
+      expect(screen.getByText(must(accuracyArrowOf(70, 80), 'arrow'))).toBeTruthy();
+      expect(screen.queryByText(must(accuracyArrowOf(80, 70), 'arrow'))).toBeNull();
+      expect(screen.queryByText(must(accuracyArrowOf(70, 70), 'arrow'))).toBeNull();
     });
   });
 
@@ -1092,19 +1094,19 @@ describe('QuizModal', () => {
       expect(StyleSheet.flatten(screen.getByTestId('metres-chip-overlay').props.style)).toMatchObject({ top, height });
     });
 
-    it('puts the metres chip and the track average under the heading', () => {
+    it('puts the metres chip and the track accuracy under the heading', () => {
       setQuizMock({ data: { ...mockResult, rewards: makeRewards({ metresClimbed: 20 }) } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
       const headline = within(screen.getByTestId('result-headline'));
-      expect(headline.getByText('track average')).toBeTruthy();
-      expect(headline.getByText('Correct!')).toBeTruthy();
+      expect(headline.getByText(TRACK_ACCURACY_LABEL)).toBeTruthy();
+      expect(headline.getByText(CORRECT_PHRASES[0])).toBeTruthy();
       expect(headline.getByTestId('metres-chip')).toBeTruthy();
     });
 
     it('keeps the heading in the headline row when there is no metres chip', () => {
       setQuizMock({ data: { ...mockResult, rewards: null } });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(within(screen.getByTestId('result-headline')).getByText('Correct!')).toBeTruthy();
+      expect(within(screen.getByTestId('result-headline')).getByText(CORRECT_PHRASES[0])).toBeTruthy();
     });
 
     it('has no streak on the result page: not in the header and not beside the heading', () => {
@@ -1213,7 +1215,7 @@ describe('QuizModal', () => {
       (useSafeAreaInsets as jest.Mock).mockReturnValue({ top: 47, bottom: 34, left: 0, right: 0 });
       setQuizMock({ data: mockResult });
       render(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(screen.getByText('Correct!')).toBeTruthy();
+      expect(screen.getByText(CORRECT_PHRASES[0])).toBeTruthy();
     });
   });
   describe('end-of-topic feedback (079d)', () => {
@@ -1329,7 +1331,7 @@ describe('QuizModal', () => {
       setQuizMock({ data: { ...mockResult, feedbacks: [mockResult.feedbacks[0]] } });
       view.rerender(<QuizModal visible={true} lesson={singleQuizLesson} onClose={onClose} />);
       expect(screen.getByText('90%')).toBeTruthy();
-      expect(nextFeedbackPhrase).toHaveBeenCalledTimes(1);
+      expect(screen.getByText(CORRECT_PHRASES[0])).toBeTruthy();
       expect(headingStyle().transform).toBeUndefined();
     });
 

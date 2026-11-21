@@ -7,6 +7,7 @@ describe('previewCompletedLesson', () => {
     const lesson = previewCompletedLesson();
     expect(lesson.quizCompleted).toBe(true);
     expect(lesson.lessonRetakeInProgress).toBe(false);
+    expect(lesson.retakeOffered).toBe(false);
     expect(lesson.keyTakeaway).toBeTruthy();
     expect(lesson.lessonIndex).toBeLessThanOrEqual(lesson.totalLessons ?? 0);
     expect(lesson.quizzes.length).toBeGreaterThan(1);

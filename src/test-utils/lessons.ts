@@ -3,7 +3,7 @@ import type { Lesson } from '@learning/shared';
 export const FIXTURE_TIMESTAMP = '2026-01-01T00:00:00Z';
 
 /** The fields every lesson shape carries (a full `Lesson`, a path's `nextLesson`). */
-export function lessonBase(): Omit<Lesson, 'quizzes'> {
+export function lessonBase(): Omit<Lesson, 'quizzes' | 'retakeOffered'> {
   return {
     id:              'lesson-1',
     skillPathId:     'sp-1',
@@ -20,5 +20,5 @@ export function lessonBase(): Omit<Lesson, 'quizzes'> {
 
 /** A complete lesson with no quiz; `overrides` replace any field. */
 export function makeLesson(overrides: Partial<Lesson> = {}): Lesson {
-  return { ...lessonBase(), quizzes: [], ...overrides };
+  return { ...lessonBase(), quizzes: [], retakeOffered: false, ...overrides };
 }

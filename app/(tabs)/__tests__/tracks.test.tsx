@@ -93,8 +93,7 @@ const mockEnrollment: UserPath = {
   canSkipLesson:    false,
   canSkipTopic:     false,
   canSkipLevel:     false,
-  averageScore:     null,
-  capstoneScore:    null,
+  accuracy:    null,
 };
 
 const activeEnrollment: UserPath = {

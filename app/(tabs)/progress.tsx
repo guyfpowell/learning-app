@@ -2,7 +2,7 @@ import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { PATHS_LOAD_ERROR, PROGRESS_LOAD_ERROR, isProgressComplete, type UserPath } from '@learning/shared';
+import { ACCURACY_LABEL, accuracyTextOf, PATHS_LOAD_ERROR, PROGRESS_LOAD_ERROR, isProgressComplete, type UserPath } from '@learning/shared';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Spinner } from '@/components/ui/Spinner';
@@ -79,8 +79,8 @@ export default function ProgressScreen() {
                 <Text style={styles.statLabel}>Lessons</Text>
               </View>
               <View style={[styles.stat, styles.statDivided]}>
-                <Text testID="progress-avg-score" style={styles.statValue}>{Math.round(data.averageScore)}%</Text>
-                <Text style={styles.statLabel}>Avg quiz score</Text>
+                <Text testID="progress-accuracy" style={styles.statValue}>{accuracyTextOf(data.accuracy)}</Text>
+                <Text style={styles.statLabel}>{ACCURACY_LABEL}</Text>
               </View>
               <View style={[styles.stat, styles.statDivided]}>
                 <View style={styles.statValueRow}>

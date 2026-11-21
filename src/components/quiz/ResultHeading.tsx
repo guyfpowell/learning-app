@@ -3,7 +3,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { fontSize, font, lineHeight, results, spacing, trackingEm } from '@/theme';
 import { VerdictMark } from '@/components/quiz/ResultSections';
 import type { ResultTone } from '@/components/quiz/resultTone';
-import { nextFeedbackPhrase } from '@/lib/quizFeedbackPhrase';
+import { nextFeedbackPhrase } from '@learning/shared';
 
 // A correct heading bursts in from far behind the screen, overshoots, then a springy pull settles it.
 // It is left-aligned at rest: it expands from the left into the centre of the screen, then back to the left.

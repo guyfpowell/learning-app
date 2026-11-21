@@ -208,7 +208,6 @@ function QuizViews({ visible, lesson, onClose, completionTime }: QuizModalProps)
           correct={view.correct}
           lessonId={lesson.id}
           lessonRating={lesson.rating}
-          retakeUsed={wrongAnswer !== undefined}
           saved={isSaved}
           onToggleSave={handleToggleSave}
           onLeave={handleLeaveLesson}

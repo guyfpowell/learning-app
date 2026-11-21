@@ -225,7 +225,6 @@ const FEATURES = [
   'Unlimited lessons across all tracks',
   'AI-generated lessons tailored to you',
   'Personalised Albert learning paths',
-  'AI coaching and quiz feedback',
 ];
 
 // ── Styles ────────────────────────────────────────────────────────────────────

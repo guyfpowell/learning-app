@@ -4,6 +4,7 @@ import { Text } from '@/components/ui/Text';
 import type { ScreenRect } from '@/components/ui/CelebrationOverlay';
 import { Icon } from '@/components/ui/Icon';
 import type { ResultTone } from '@/components/quiz/resultTone';
+import { accuracyArrowOf, accuracyTextOf, TRACK_ACCURACY_LABEL, type QuizResult } from '@learning/shared';
 import { colors, font, fontSize, press, radius, results, spacing } from '@/theme';
 
 /** The milestone card's subtitle: a warm off-white on coral, not a theme token. */
@@ -11,26 +12,18 @@ const MILESTONE_SUBTEXT = '#fff7ed';
 /** From this streak the milestone card says more than "Keep going!". */
 const UNSTOPPABLE_STREAK = 30;
 
-type Arrow = '↑' | '↓' | '=';
-
-/** Which way the track average moved. A used retry reads as "=": the penalty is already in the score. */
-function arrowOf(average: number | null, previous: number | null, retakeUsed: boolean): Arrow | null {
-  if (previous === null) return null;
-  if (retakeUsed) return '=';
-  return average !== null && average >= previous ? '↑' : '↓';
-}
-
 /** Share of the pill's height the gem takes. */
 const GEM_SIZE = 18;
 
-/** "76% ↑ track average", on the verdict colour. */
-export function TrackAverageBadge({ average, previous, retakeUsed, tone }: { average: number | null; previous: number | null; retakeUsed: boolean; tone: ResultTone }) {
-  const arrow = arrowOf(average, previous, retakeUsed);
+/** "76% ↑ track accuracy", on the verdict colour. */
+export function TrackAccuracyBadge({ accuracy, previous, tone }: { accuracy: QuizResult['trackAccuracy']; previous: QuizResult['previousTrackAccuracy']; tone: ResultTone }) {
+  const arrow = accuracyArrowOf(accuracy, previous);
+  const text = accuracyTextOf(accuracy);
   return (
-    <View style={styles.trackAverage} accessibilityLabel={`Track average ${average !== null ? average + ' percent' : 'unavailable'}`}>
-      <Text style={[styles.scorePercent, { color: results[tone].fg }]}>{average !== null ? `${average}%` : 'n/a'}</Text>
+    <View style={styles.trackAccuracy} accessibilityLabel={`${TRACK_ACCURACY_LABEL} ${text}`}>
+      <Text style={[styles.scorePercent, { color: results[tone].fg }]}>{text}</Text>
       {arrow && <Text style={[styles.scorePercent, { color: results[tone].fg }]}>{arrow}</Text>}
-      <Text style={[styles.scoreLabel, { color: results[tone].tint }]}>track average</Text>
+      <Text style={[styles.scoreLabel, { color: results[tone].tint }]}>{TRACK_ACCURACY_LABEL}</Text>
     </View>
   );
 }
@@ -65,17 +58,8 @@ export function MilestoneCard({ milestone, streak, scale }: { milestone: string;
   );
 }
 
-export function CoachingCard({ coaching }: { coaching: string }) {
-  return (
-    <View style={styles.coachingCard}>
-      <Text style={styles.coachingLabel}>AI Coaching</Text>
-      <Text style={styles.coachingText}>{coaching}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  trackAverage: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs },
+  trackAccuracy: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs },
   scorePercent: {
     fontFamily: font.extrabold,
     fontSize:   fontSize.md,
@@ -121,26 +105,5 @@ const styles = StyleSheet.create({
     color:      MILESTONE_SUBTEXT,
     marginTop:  spacing.xs,
     textAlign:  'center',
-  },
-  coachingCard: {
-    backgroundColor: colors.brandSoft,
-    borderWidth:     1,
-    borderColor:     colors.brand + '40',
-    borderRadius:    radius.card,
-    padding:         spacing.md,
-    marginBottom:    spacing.md,
-    gap:             spacing.xs,
-  },
-  coachingLabel: {
-    fontFamily:   font.semibold,
-    fontSize:     fontSize.xs,
-    color:        colors.brand,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  coachingText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textBody,
   },
 });

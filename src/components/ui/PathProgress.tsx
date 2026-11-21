@@ -5,15 +5,10 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Progress } from '@/components/ui/Progress';
 import { LevelBar } from '@/components/home/LevelBar';
-import { formatPathDuration, isProgressComplete, type UserPath } from '@learning/shared';
+import { accuracyTextOf, formatPathDuration, isProgressComplete, type UserPath } from '@learning/shared';
 
 function flooredPct(path: UserPath): number {
   return path.completedLessons > 0 ? Math.max(1, Math.round(path.percentComplete)) : 0;
-}
-
-/** Prefer the capstone score; fall back to the path average; null if neither. */
-function completedScore(path: UserPath): number | null {
-  return path.capstoneScore ?? path.averageScore ?? null;
 }
 
 interface PathProgressProps {
@@ -57,7 +52,6 @@ export function PathProgress({ path, onFindNext }: PathProgressProps) {
     );
   }
 
-  const score = completedScore(path);
   const dates = path.kind === 'track' ? path : null;
 
   return (
@@ -85,7 +79,7 @@ export function PathProgress({ path, onFindNext }: PathProgressProps) {
         </Text>
       </View>
 
-      {score !== null && <Text style={styles.completedScore}>{Math.round(score)}%</Text>}
+      <Text testID={`completed-accuracy-${path.id}`} style={styles.completedAccuracy}>{accuracyTextOf(path.accuracy)}</Text>
 
       <View style={styles.completedActions}>
         <Pressable
@@ -118,7 +112,7 @@ const styles = StyleSheet.create({
   completedTitle:    { color: colors.textStrong },
   completedMeta:     { flexDirection: 'row', flexWrap: 'wrap' },
   completedMetaText: { fontFamily: font.regular, fontSize: fontSize.xs, color: colors.textMuted },
-  completedScore:    { fontFamily: font.semibold, fontSize: fontSize.xl, color: colors.brand },
+  completedAccuracy: { fontFamily: font.semibold, fontSize: fontSize.xl, color: colors.brand },
   completedActions:  { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
   completedActionBtn:{ paddingVertical: spacing.xs },
   completedActionText:{ fontFamily: font.medium, fontSize: fontSize.sm, color: colors.brand },

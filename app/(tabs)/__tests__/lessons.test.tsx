@@ -105,8 +105,7 @@ const mockEnrollment = {
   canSkipLesson: false,
   canSkipTopic: false,
   canSkipLevel: false,
-  averageScore: null,
-  capstoneScore: null,
+  accuracy: null,
 };
 
 const mockCompletedEnrollment = {
@@ -123,7 +122,7 @@ const mockCompletedEnrollment = {
 const mockProgress = {
   totalLessonsCompleted: 15,
   currentStreak: 5,
-  averageScore: 82,
+  accuracy: 71,
   lastLessonDate: null,
 };
 
@@ -180,8 +179,7 @@ const mockCustomPlan = {
   canSkipLesson: false,
   canSkipTopic: false,
   canSkipLevel: false,
-  averageScore: null,
-  capstoneScore: null,
+  accuracy: null,
 };
 
 describe('LessonsScreen', () => {
