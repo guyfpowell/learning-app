@@ -42,7 +42,7 @@ const ALTITUDE: AltitudeResponse = {
 
 function renderChart() {
   return render(
-    <AltitudeChart altitude={ALTITUDE} achievements={makeAchievementsResponse(METRES)} name="Ada Lovelace" timezone="UTC" now={NOW} />,
+    <AltitudeChart altitude={ALTITUDE} achievements={makeAchievementsResponse(METRES)} name="Ada Lovelace" timezone="UTC" now={NOW} onPress={jest.fn()} />,
   );
 }
 
@@ -94,7 +94,7 @@ const C1: AltitudeResponse = {
 };
 
 function renderAt(altitude: AltitudeResponse, achievements: AchievementsResponse) {
-  return render(<AltitudeChart altitude={altitude} achievements={achievements} name="Ada Lovelace" timezone="UTC" now={NOW} />);
+  return render(<AltitudeChart altitude={altitude} achievements={achievements} name="Ada Lovelace" timezone="UTC" now={NOW} onPress={jest.fn()} />);
 }
 
 /** The top of a slot, the centre of what it holds. */

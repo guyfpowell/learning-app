@@ -8,14 +8,14 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.learning.app"
+      "bundleIdentifier": "com.ascentlearning.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#4060C8"
       },
-      "package": "com.learning.app"
+      "package": "com.ascentlearning.app"
     },
     "web": {
       "bundler": "metro",
@@ -51,7 +51,7 @@
     "experiments": {
       "typedRoutes": true
     },
-    "scheme": "learning",
+    "scheme": "ascent",
     "extra": {
       "eas": {
         "projectId": "c3c06dd2-a11e-4128-b733-8b31eaca5740"

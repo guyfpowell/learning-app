@@ -2,10 +2,10 @@ import { AxiosHeaders, type AxiosError, type AxiosInstance, type AxiosResponse }
 import { axiosError, axiosResponse } from '@/test-utils/axios';
 import { must } from '@/test-utils/must';
 import { BACKGROUND_REQUEST, SKIP_REFRESH_HEADER } from '@/lib/requestHeaders';
-import { CLIENT_HEADER, CLIENT_MOBILE, DEVICE_HEADER, DEVICE_PHONE, DEVICE_TABLET } from '@learning/shared';
+import { APP_VERSION_HEADER, CLIENT_HEADER, CLIENT_MOBILE, DEVICE_HEADER, DEVICE_PHONE, DEVICE_TABLET, ERROR_CODES } from '@learning/shared';
 import { DeviceType } from '../../../__mocks__/expo-device';
 
-const mockExpoConfig: { hostUri?: string; extra: object } = { extra: {} };
+const mockExpoConfig: { hostUri?: string; version?: string; extra: object } = { extra: {} };
 jest.mock('expo-constants', () => ({
   __esModule: true,
   default: {
@@ -27,6 +27,11 @@ const mockGetState = jest.fn(signedInState);
 
 jest.mock('@/store/auth.store', () => ({
   useAuthStore: { getState: mockGetState },
+}));
+
+const mockRequireUpdate = jest.fn();
+jest.mock('@/store/appUpdate.store', () => ({
+  useAppUpdateStore: { getState: () => ({ require: mockRequireUpdate }) },
 }));
 
 jest.mock('react-native', () => ({}));
@@ -181,6 +186,28 @@ describe('api module', () => {
 
       it.each([['unknown', DeviceType.UNKNOWN], ['not yet known', null]])('counts an %s type as a phone', (_name, type) => {
         expect(headersSent(type)).toMatchObject({ [DEVICE_HEADER]: DEVICE_PHONE });
+      });
+    });
+
+    // 128b, ADR-023 Decision 1: the version of the code that's running, read from the bundle's Expo config.
+    describe('which version of the app (128b)', () => {
+      function headersSent(): Record<string, string> {
+        setDev(true);
+        process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
+        const config = { headers: {} as Record<string, string> };
+        getRequestInterceptorFulfilled(loadApi())(config);
+        return config.headers;
+      }
+
+      afterEach(() => { delete mockExpoConfig.version; });
+
+      it('sends the running version beside X-Client', () => {
+        mockExpoConfig.version = '1.4.2';
+        expect(headersSent()).toMatchObject({ [CLIENT_HEADER]: CLIENT_MOBILE, [APP_VERSION_HEADER]: '1.4.2' });
+      });
+
+      it('sends no version when the config has none, so the server counts it as the oldest', () => {
+        expect(headersSent()[APP_VERSION_HEADER]).toBeUndefined();
       });
     });
 
@@ -366,6 +393,62 @@ describe('api module', () => {
       await expect(getResponseInterceptorRejected(api)(error)).rejects.toBe(error);
       expect(post).not.toHaveBeenCalled();
       expect(mockClearAuth).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── 426: the app must update (128b, ADR-023 Decision 4) ─────────────────────
+
+  describe('response interceptor — 426 APP_UPDATE_REQUIRED', () => {
+    function loadSignedInApi(): AxiosInstance {
+      setDev(true);
+      process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000/api';
+      return loadApi();
+    }
+
+    function failed(url: string, status: number, code: string): AxiosError {
+      return axiosError('ERR_BAD_REQUEST', status, { code }, { url, headers: new AxiosHeaders() });
+    }
+
+    it('shows the update screen and rejects with the same error', async () => {
+      const api = loadSignedInApi();
+      const error = failed('/lessons/1', 426, ERROR_CODES.APP_UPDATE_REQUIRED);
+
+      await expect(getResponseInterceptorRejected(api)(error)).rejects.toBe(error);
+      expect(mockRequireUpdate).toHaveBeenCalledTimes(1);
+      expect(mockClearAuth).not.toHaveBeenCalled();
+    });
+
+    it('a 426 from /auth/refresh shows the screen and signs nobody out', async () => {
+      const api = loadSignedInApi();
+      const error = failed('/auth/refresh', 426, ERROR_CODES.APP_UPDATE_REQUIRED);
+
+      await expect(getResponseInterceptorRejected(api)(error)).rejects.toBe(error);
+      expect(mockRequireUpdate).toHaveBeenCalled();
+      expect(mockClearAuth).not.toHaveBeenCalled();
+      expect(mockRouterReplace).not.toHaveBeenCalled();
+    });
+
+    it('a 401 whose refresh gets a 426 does not sign out, and the call rejects with that error', async () => {
+      const api = loadSignedInApi();
+      const refreshFailure = failed('/auth/refresh', 426, ERROR_CODES.APP_UPDATE_REQUIRED);
+      jest.spyOn(api, 'post').mockRejectedValue(refreshFailure);
+
+      await expect(getResponseInterceptorRejected(api)(failed('/lessons/1', 401, ERROR_CODES.AUTH_SESSION_EXPIRED))).rejects.toBe(refreshFailure);
+      expect(mockClearAuth).not.toHaveBeenCalled();
+      expect(mockClearSessionData).not.toHaveBeenCalled();
+      expect(mockRouterReplace).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['another 4xx', failed('/lessons/1', 409, ERROR_CODES.LESSON_ALREADY_COMPLETED)],
+      ['a 426 with another code', failed('/lessons/1', 426, ERROR_CODES.LESSON_ALREADY_COMPLETED)],
+      ['a 5xx', axiosError('ERR_BAD_RESPONSE', 503)],
+      ['a timeout', axiosError('ECONNABORTED')],
+    ])('%s does not show the screen', async (_name, error) => {
+      const api = loadSignedInApi();
+
+      await expect(getResponseInterceptorRejected(api)(error)).rejects.toBe(error);
+      expect(mockRequireUpdate).not.toHaveBeenCalled();
     });
   });
 });

@@ -8,8 +8,13 @@
 import React from 'react';
 import { View } from 'react-native';
 
-const Svg = ({ children, testID }: { children?: React.ReactNode; testID?: string }) => (
-  <View testID={testID}>{children}</View>
+const Svg = ({ children, testID, accessibilityElementsHidden, importantForAccessibility }: {
+  children?: React.ReactNode;
+  testID?: string;
+  accessibilityElementsHidden?: boolean;
+  importantForAccessibility?: 'auto' | 'yes' | 'no' | 'no-hide-descendants';
+}) => (
+  <View testID={testID} accessibilityElementsHidden={accessibilityElementsHidden} importantForAccessibility={importantForAccessibility}>{children}</View>
 );
 
 const Circle = () => null;

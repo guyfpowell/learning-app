@@ -70,7 +70,7 @@ export default function ProgressScreen() {
         {data && (
           <>
             {/* Hero: the level and the metres toward the next. No box: it sits on the page. */}
-            <AltitudeSection trailing={null} />
+            <AltitudeSection screen="progress" opens="level" trailing={null} />
 
             {/* The three numbers, as one quiet row. */}
             <View testID="progress-stats" style={styles.statsRow}>

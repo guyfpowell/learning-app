@@ -93,6 +93,13 @@ export default function BuildScreen() {
         </View>
 
         <View style={styles.form}>
+          {/* Albert's reply sits above the box, where the person is looking, and opens in cobalt. */}
+          {notice !== null && (
+            <Text testID="build-notice" style={styles.notice}>
+              <Text style={styles.noticeLeadIn}>{BUILD_SCREEN_COPY.noticeLeadIn}</Text>{' '}{notice}
+            </Text>
+          )}
+
           <TextInput
             testID="build-statement"
             style={[styles.input, text.length > 0 && styles.inputFilled]}
@@ -112,9 +119,6 @@ export default function BuildScreen() {
 
           <UnderstandingCloud terms={cloud} />
 
-          {notice !== null && (
-            <Text testID="build-notice" style={styles.notice}>{notice}</Text>
-          )}
           {error !== null && (
             <Text testID="build-error" style={styles.error}>{error}</Text>
           )}
@@ -171,5 +175,6 @@ const styles = StyleSheet.create({
   // With words in it the ring turns cobalt.
   inputFilled: { borderWidth: 2, borderColor: colors.brand },
   notice:      { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.textMuted },
+  noticeLeadIn: { fontFamily: font.bold, color: colors.brand },
   error:       { fontFamily: font.regular, fontSize: fontSize.sm, color: colors.error },
 });

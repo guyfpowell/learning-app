@@ -1,5 +1,5 @@
 import { PAYWALL_ROUTE } from '../subscriptions';
-import { lessonRoute, trackRoute } from '../routes';
+import { ALTITUDE_ROUTE, altitudeRoute, lessonRoute, trackRoute } from '../routes';
 
 describe('route helpers (ADR-016)', () => {
   it('lessonRoute resolves to the root-stack lesson path', () => {
@@ -9,6 +9,11 @@ describe('route helpers (ADR-016)', () => {
   it('trackRoute resolves to the root-stack track path for either kind', () => {
     expect(trackRoute('track', 'skill-1')).toBe('/track/track/skill-1');
     expect(trackRoute('custom', 'plan-1')).toBe('/track/custom/plan-1');
+  });
+
+  it('altitudeRoute opens the Height Chart screen on a view', () => {
+    expect(altitudeRoute('level')).toBe(`${ALTITUDE_ROUTE}?view=level`);
+    expect(altitudeRoute('altitude')).toBe(`${ALTITUDE_ROUTE}?view=altitude`);
   });
 
   it('PAYWALL_ROUTE is the root-stack paywall path', () => {

@@ -1,8 +1,11 @@
 import axios, { type AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import * as Device from 'expo-device';
 import { router } from 'expo-router';
-import { CLIENT_HEADER, CLIENT_MOBILE, DEVICE_HEADER, DEVICE_PHONE, DEVICE_TABLET, type AuthResponse } from '@learning/shared';
+import { APP_VERSION_HEADER, CLIENT_HEADER, CLIENT_MOBILE, DEVICE_HEADER, DEVICE_PHONE, DEVICE_TABLET, ERROR_CODES, type AuthResponse } from '@learning/shared';
 import { API_BASE_URL } from '@/lib/apiUrl';
+import { appVersionOf } from '@/lib/appVersion';
+import { errorCode } from '@/lib/errorCode';
+import { useAppUpdateStore } from '@/store/appUpdate.store';
 import { BACKGROUND_HEADER, SKIP_REFRESH_HEADER } from '@/lib/requestHeaders';
 import { useAuthStore } from '@/store/auth.store';
 import { queryClient } from '@/lib/queryClient';
@@ -31,6 +34,9 @@ api.interceptors.request.use((config) => {
   // See the same header on web: which surface, stated not inferred, and which kind of device.
   config.headers[CLIENT_HEADER] = CLIENT_MOBILE;
   config.headers[DEVICE_HEADER] = DEVICE_KIND;
+  // Read per request, not once: the running bundle's version is what the server checks (ADR-023 Decision 1).
+  const version = appVersionOf();
+  if (version !== null) config.headers[APP_VERSION_HEADER] = version;
 
   const { accessToken } = useAuthStore.getState();
   if (accessToken) {
@@ -149,6 +155,9 @@ api.interceptors.response.use(
     return response;
   },
   (error: unknown) => {
+    // By error code, never status alone (ADR-023). Nothing else changes: not a 401, so no refresh,
+    // no sign-out, and a 4xx is never retried (ADR-021).
+    if (errorCode(error) === ERROR_CODES.APP_UPDATE_REQUIRED) useAppUpdateStore.getState().require();
     if (!axios.isAxiosError(error) || error.config === undefined || !needsRefresh(error, error.config)) {
       return Promise.reject(error);
     }

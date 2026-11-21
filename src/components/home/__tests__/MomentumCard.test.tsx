@@ -3,7 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react-native
 import { ALTITUDE_LOAD_ERROR, landmarkInCopy, newLandmarkCopy, type AltitudeResponse } from '@learning/shared';
 import { useAltitude } from '@/hooks/useAltitude';
 import { STREAK_COPY } from '@/lib/momentum';
-import { ALTITUDE_ROUTE } from '@/lib/routes';
+import { altitudeRoute } from '@/lib/routes';
 import { MomentumCard } from '../MomentumCard';
 
 const mockPush = jest.fn();
@@ -57,9 +57,9 @@ describe('MomentumCard', () => {
     setData(altitude);
     render(<MomentumCard streak={1} />);
     const block = within(screen.getByTestId('altitude-block'));
-    expect(block.getByText('Level 10')).toBeTruthy();
+    expect(block.getByText('UK Mountains')).toBeTruthy();
     expect(block.getByText('1,120m')).toBeTruthy();
-    expect(block.getByText('About 5 lessons to Level 11')).toBeTruthy();
+    expect(block.getByText('About 5 lessons to Scottish Highlands')).toBeTruthy();
     expect(screen.getByTestId('altitude-bar')).toBeTruthy();
   });
 
@@ -67,7 +67,7 @@ describe('MomentumCard', () => {
     setData({ ...altitude, lessonsToNextLevel: null });
     render(<MomentumCard streak={1} />);
     expect(screen.queryByTestId('altitude-caption')).toBeNull();
-    expect(screen.getByText('Level 10')).toBeTruthy();
+    expect(screen.getByText('UK Mountains')).toBeTruthy();
   });
 
   it('leaves the altitude block out until altitude has loaded', () => {
@@ -125,7 +125,7 @@ describe('MomentumCard', () => {
     setData({ ...altitude, nextLandmark: null });
     render(<MomentumCard streak={1} />);
     expect(screen.queryByTestId('badge-slot')).toBeNull();
-    expect(screen.getByText('Level 10')).toBeTruthy();
+    expect(screen.getByText('UK Mountains')).toBeTruthy();
   });
 
   it('shows nothing in the badge slot when altitude failed to refresh, even over an older reading', () => {
@@ -148,15 +148,16 @@ describe('MomentumCard', () => {
     expect(screen.queryByText(/^(New|Next up):/)).toBeNull();
   });
   describe('the level block', () => {
-    it('opens the Altitude chart from anywhere on it: the level, the caption, the metres, the badge slot and the bar', () => {
+    it('opens the Height Chart on the Altitude view from anywhere on it: the level, the caption, the metres, the badge slot and the bar', () => {
       setData(altitude);
       render(<MomentumCard streak={1} />);
-      fireEvent.press(screen.getByText('Level 10'));
+      fireEvent.press(screen.getByText('UK Mountains'));
       fireEvent.press(screen.getByTestId('altitude-caption'));
       fireEvent.press(screen.getByText('1,120m'));
       fireEvent.press(screen.getByTestId('badge-slot'));
       fireEvent.press(screen.getByTestId('altitude-bar'));
-      expect(mockPush.mock.calls).toEqual([[ALTITUDE_ROUTE], [ALTITUDE_ROUTE], [ALTITUDE_ROUTE], [ALTITUDE_ROUTE], [ALTITUDE_ROUTE]]);
+      const home = altitudeRoute('altitude');
+      expect(mockPush.mock.calls).toEqual([[home], [home], [home], [home], [home]]);
     });
 
     it('is one button, named by the text inside it with no label of its own', () => {

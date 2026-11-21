@@ -1,4 +1,4 @@
-import type { UserPathKind } from '@learning/shared';
+import type { AltitudeView, UserPathKind } from '@learning/shared';
 import { trackViewQuery, type TrackView } from './trackView';
 
 /** Screens more than one place navigates to. The paywall's route is `PAYWALL_ROUTE` in `subscriptions.ts`. */
@@ -7,6 +7,11 @@ export const TRACKS_ROUTE = '/(tabs)/tracks';
 export const PROGRESS_ROUTE = '/(tabs)/progress';
 export const ALTITUDE_ROUTE = '/altitude';
 export const WEEK_ROUTE = '/week';
+
+/** The Height Chart screen, opened on `view` (the Level view from the Progress tab, the Altitude view from Home). */
+export function altitudeRoute(view: AltitudeView) {
+  return `${ALTITUDE_ROUTE}?view=${view}` as const;
+}
 export const BUILD_ROUTE = '/build';
 export const BUILD_REVIEW_ROUTE = '/build-review';
 

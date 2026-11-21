@@ -32,6 +32,8 @@ export function MomentumCard({ streak }: { streak: number }) {
       </View>
 
       <AltitudeSection
+        screen="home"
+        opens="altitude"
         trailing={slot && (
           <View testID="badge-slot" style={styles.slot}>
             <Medal definition={ACHIEVEMENTS_BY_KEY[slot.key]} size={SLOT_MEDAL_SIZE} />

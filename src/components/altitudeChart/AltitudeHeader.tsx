@@ -1,6 +1,5 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ALTITUDE_TITLE } from '@learning/shared';
 import { Icon } from '@/components/ui/Icon';
 import { Text } from '@/components/ui/Text';
 import { useGoBack } from '@/hooks/useGoBack';
@@ -16,8 +15,8 @@ const SIDE_PADDING = 16;
 /** Solid down to here, then clear at the foot of the fade. */
 const FADE_SOLID_UNTIL = 0.62;
 
-/** The header over the chart, as the design draws it: the fade, the back chevron and the title centred. `look` follows the band under it, and `topInset` is the status bar's height. */
-export function AltitudeHeader({ look, topInset }: { look: HeaderLook; topInset: number }) {
+/** The header over the chart, as the design draws it: the fade, the back chevron and the view's `title` centred. `look` follows the band under it, and `topInset` is the status bar's height. */
+export function AltitudeHeader({ title, look, topInset }: { title: string; look: HeaderLook; topInset: number }) {
   const goBack = useGoBack(HOME_ROUTE);
   return (
     <>
@@ -33,7 +32,7 @@ export function AltitudeHeader({ look, topInset }: { look: HeaderLook; topInset:
           <Icon name="back" size={BACK_ICON_SIZE} color={look.ink} />
         </Pressable>
         <View pointerEvents="none" style={styles.titleBox}>
-          <Text testID="altitude-header-title" style={[styles.title, { color: look.ink }]}>{ALTITUDE_TITLE}</Text>
+          <Text testID="altitude-header-title" style={[styles.title, { color: look.ink }]}>{title}</Text>
         </View>
       </View>
     </>

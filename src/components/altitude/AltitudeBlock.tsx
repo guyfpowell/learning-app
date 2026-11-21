@@ -1,22 +1,24 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { altitudeDisplayOf, type AltitudeResponse } from '@learning/shared';
+import { altitudeBlockDisplayOf, type AltitudeResponse, type AltitudeScreen } from '@learning/shared';
 import { Text } from '@/components/ui/Text';
 import { Progress } from '@/components/ui/Progress';
+import { LevelChevrons } from '@/components/ui/LevelChevrons';
 import { colors, font, fontSize, spacing, trackingEm } from '@/theme';
 
 const BAR_HEIGHT = 12;
 const METRES_SIZE = fontSize.xl + 4;
 
 /** The level, the metres, the bar to the next level and the lessons to go: Home's header and the Progress tab. The whole block is one button, named by the text inside it. */
-export function AltitudeBlock({ altitude, trailing, onPress }: { altitude: AltitudeResponse; trailing: ReactNode; onPress: () => void }) {
-  const line = altitudeDisplayOf(altitude);
+export function AltitudeBlock({ screen, altitude, trailing, onPress }: { screen: AltitudeScreen; altitude: AltitudeResponse; trailing: ReactNode; onPress: () => void }) {
+  const line = altitudeBlockDisplayOf(screen, altitude);
   const showFooter = line.caption !== null || trailing !== null;
   return (
     <Pressable testID="altitude-block" accessibilityRole="button" onPress={onPress} style={styles.block}>
       <View style={styles.header}>
         <View style={styles.leftHalf}>
           <Text style={styles.level} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{line.title}</Text>
+          <LevelChevrons state={line.chevrons} />
         </View>
         <View style={styles.rightHalf}>
           <Text style={styles.metres}>{line.metres}</Text>
@@ -40,9 +42,10 @@ export function AltitudeBlock({ altitude, trailing, onPress }: { altitude: Altit
 const styles = StyleSheet.create({
   block:   { gap: spacing.sm },
   header:  { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  leftHalf:  { flex: 1 },
+  leftHalf:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   rightHalf: { flex: 1, alignItems: 'flex-end' },
   level: {
+    flexShrink:    1,
     fontFamily:    font.display,
     fontSize:      fontSize.xxl,
     letterSpacing: trackingEm.display * fontSize.xxl,

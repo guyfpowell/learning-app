@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { act, render, screen, fireEvent } from '@testing-library/react-native';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, StyleSheet } from 'react-native';
 
 const mockPush = jest.fn();
 const mockStart = jest.fn();
@@ -59,13 +59,14 @@ import BuildScreen from '../build';
 import { TRACKS_ROUTE, BUILD_REVIEW_ROUTE } from '@/lib/routes';
 import { BUILD_PHASE, type BuildProgress } from '@/lib/buildProgress';
 import {
-  BUILD_OFFLINE_COPY, BUILD_WAIT_COPY, BUILD_WAIT_LONG_MS, BUILD_WAIT_SLOW_MS, BUILD_WAIT_STAGE, ERROR_CODES, ERROR_MESSAGES,
+  BUILD_OFFLINE_COPY, BUILD_SCREEN_COPY, BUILD_WAIT_COPY, BUILD_WAIT_LONG_MS, BUILD_WAIT_SLOW_MS, BUILD_WAIT_STAGE, ERROR_CODES, ERROR_MESSAGES,
   TRACK_STATEMENT_MAX, type FinishedTrackBuild,
 } from '@learning/shared';
 import { isShownBuild } from '@/lib/shownBuild';
 import { BUILD_LEAVE_LABEL } from '@learning/shared';
 import { makeBuiltPlan, makeDoneBuild, makeFailedBuild, makeNeedsMoreBuild } from '@/test-utils/trackBuilds';
 import { queryWrapper } from '@/test-utils/queryClient';
+import { colors, font } from '@/theme';
 
 const STATEMENT =
   'I am a senior product manager at a health tech, been here 4 years, '
@@ -73,6 +74,23 @@ const STATEMENT =
 
 const type = () =>
   fireEvent.changeText(screen.getByTestId('build-statement'), STATEMENT);
+
+/** The notice's children are the lead-in, a space and the server's message: this is the message. */
+const noticeMessage = () => {
+  const children = screen.getByTestId('build-notice').props.children as unknown[];
+  return children[children.length - 1];
+};
+
+type TreeNode = { props: { testID?: unknown }; children: (TreeNode | string)[] | null };
+
+/** Every testID in the rendered tree, in the order they appear on screen. */
+const testIdsInOrder = (node: TreeNode | TreeNode[] | null): string[] => {
+  if (node === null) return [];
+  if (Array.isArray(node)) return node.flatMap(testIdsInOrder);
+  const own = typeof node.props.testID === 'string' ? [node.props.testID] : [];
+  const kids = (node.children ?? []).filter((c): c is TreeNode => typeof c !== 'string');
+  return [...own, ...kids.flatMap(testIdsInOrder)];
+};
 
 const finished = (build: FinishedTrackBuild): BuildProgress => ({ phase: BUILD_PHASE.finished, build });
 
@@ -142,7 +160,8 @@ describe('when the build fails', () => {
       } } },
     };
     render(<BuildScreen />, { wrapper: queryWrapper() });
-    expect(screen.getByTestId('build-notice').props.children).toContain('how I read that');
+    expect(noticeMessage()).toContain('how I read that');
+    expect(screen.getByText(BUILD_SCREEN_COPY.noticeLeadIn)).toBeTruthy();
     expect(screen.queryByTestId('build-error')).toBeNull();
   });
 });
@@ -151,9 +170,19 @@ describe('when the model needs more', () => {
   it('shows the "tell me more" message as a notice on the build screen', () => {
     mockProgress = finished(makeNeedsMoreBuild('b1', STATEMENT, 'Tell me a bit more about your role'));
     render(<BuildScreen />, { wrapper: queryWrapper() });
-    expect(screen.getByTestId('build-notice').props.children).toBe('Tell me a bit more about your role');
+    expect(noticeMessage()).toBe('Tell me a bit more about your role');
     expect(screen.queryByTestId('build-error')).toBeNull();
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('opens the notice with the cobalt lead-in, above the input', () => {
+    mockProgress = finished(makeNeedsMoreBuild('b1', STATEMENT, 'Tell me a bit more about your role'));
+    render(<BuildScreen />, { wrapper: queryWrapper() });
+    const lead = screen.getByText(BUILD_SCREEN_COPY.noticeLeadIn);
+    expect(StyleSheet.flatten(lead.props.style)).toMatchObject({ fontFamily: font.bold, color: colors.brand });
+    const ids = testIdsInOrder(screen.toJSON());
+    expect(ids.indexOf('build-notice')).toBeGreaterThan(-1);
+    expect(ids.indexOf('build-notice')).toBeLessThan(ids.indexOf('build-statement'));
   });
 });
 
@@ -308,7 +337,7 @@ describe('a finished build opened from the server (ticket 108)', () => {
     open(makeNeedsMoreBuild('b2', STATEMENT, 'Tell me a bit more about your role'));
     render(<BuildScreen />, { wrapper: queryWrapper() });
     expect(screen.getByTestId('build-statement').props.value).toBe(STATEMENT);
-    expect(screen.getByTestId('build-notice').props.children).toBe('Tell me a bit more about your role');
+    expect(noticeMessage()).toBe('Tell me a bit more about your role');
     expect(mockMarkSeen).toHaveBeenCalledWith('b2');
     expect(mockPush).not.toHaveBeenCalled();
   });

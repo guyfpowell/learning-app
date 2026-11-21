@@ -25,9 +25,16 @@ export const BAND_HEIGHT = CHART_HEIGHT / HEIGHT_BANDS.length;
 export const ROW_SPACING = 58;
 export const MARKER_SPACING = 66;
 
+/** The same two gaps in the Level view, whose rows are two lines of words (design 2b, L1: rows 44 apart, the marker 68 above the row below it). */
+export const LEVEL_ROW_SPACING = 44;
+export const LEVEL_MARKER_SPACING = 68;
+
 /** What a row's and the card's words share: the line height (times the font size), and the gap between the medal and the words. */
 export const NAME_LINE_HEIGHT_EM = 1.15;
 export const MEDAL_GAP = 12;
+
+/** The dark gold ink on the learner's gold: their number, metres and name. */
+export const ALTITUDE_INK = '#3D2800';
 
 /** The rail's centre, and where a leader line ends beside a row. */
 export const RAIL_X = 62;
@@ -74,6 +81,10 @@ export interface BandLook {
   /** A passed row's name; the detail, and a locked row's name. */
   rowName: string;
   rowMuted: string;
+  /** The Level view: a level's tick, a leader line, and the tint on every even level's strip. */
+  levelTick: string;
+  levelLeader: string;
+  levelStrip: string;
 }
 
 /** Ink and white at an alpha: every see-through ink or white the chart draws. */
@@ -91,6 +102,9 @@ const ON_LIGHT: BandLook = {
   dot:       '#C9C2B4',
   rowName:   colors.textStrong,
   rowMuted:  colors.textMuted,
+  levelTick:   inkAt(0.28),
+  levelLeader: inkAt(0.18),
+  levelStrip:  inkAt(0.024),
 };
 
 const ON_DARK: BandLook = {
@@ -104,6 +118,9 @@ const ON_DARK: BandLook = {
   dot:       '#7884B8',
   rowName:   colors.white,
   rowMuted:  whiteAt(0.66),
+  levelTick:   whiteAt(0.45),
+  levelLeader: whiteAt(0.3),
+  levelStrip:  whiteAt(0.035),
 };
 
 export const BAND_LOOK = {

@@ -1,20 +1,24 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import type { UseQueryResult } from '@tanstack/react-query';
 import {
   ACHIEVEMENTS_LOAD_ERROR,
   ALTITUDE_LOAD_ERROR,
-  ALTITUDE_TITLE,
+  ALTITUDE_VIEW_TITLE,
   heightChartPosition,
+  isAltitudeView,
+  otherAltitudeViewOf,
   type AchievementsResponse,
   type AltitudeResponse,
+  type AltitudeView,
 } from '@learning/shared';
 import { Text } from '@/components/ui/Text';
 import { Spinner } from '@/components/ui/Spinner';
 import { AltitudeChart } from '@/components/altitudeChart/AltitudeChart';
 import { AltitudeHeader } from '@/components/altitudeChart/AltitudeHeader';
+import { LevelChart } from '@/components/altitudeChart/LevelChart';
 import { openingOffsetOf } from '@/components/altitudeChart/chartLayout';
 import { headerLookFor, headerLookOf, headerSampleYOf } from '@/components/altitudeChart/chartStyles';
 import { useAchievements } from '@/hooks/useAchievements';
@@ -41,12 +45,15 @@ function chartLoadOf(
   return { kind: 'ready', altitude: altitude.data, achievements: achievements.data };
 }
 
-/** The Altitude chart (ADR-016: a detail screen in the root Stack): the learner's climb from sea level to space, opened from Home and the Progress tab. The chart scrolls under its own header, which takes the look of the band beneath it. */
+/** The Height Chart (ADR-016: a detail screen in the root Stack): the learner's climb from sea level to space, in two views, Altitude (the landmarks) and Level (every named level). It opens on the view the `view` param names (Home: Altitude; the Progress tab: Level), Altitude without one, and a tap on the chart switches views. The chart scrolls under its own header, which takes the look of the band beneath it. */
 export default function AltitudeScreen() {
   const user = useAuthStore((s) => s.user);
   const { data: profile } = useProfile();
   const { height: viewportHeight } = useWindowDimensions();
   const { top: topInset } = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ view?: string }>();
+  const [view, setView] = useState<AltitudeView>(isAltitudeView(params.view) ? params.view : 'altitude');
+  const switchView = () => setView(otherAltitudeViewOf(view));
   const altitudeQuery = useAltitude();
   const load = chartLoadOf(altitudeQuery, useAchievements());
   const [headerOnDark, setHeaderOnDark] = useState<boolean | null>(null);
@@ -62,7 +69,7 @@ export default function AltitudeScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ headerShown: false, title: ALTITUDE_TITLE }} />
+      <Stack.Screen options={{ headerShown: false, title: ALTITUDE_VIEW_TITLE[view] }} />
       {load.kind === 'failed' && load.altitudeFailed && <Text testID="altitude-load-error" style={errorStyle}>{ALTITUDE_LOAD_ERROR}</Text>}
       {load.kind === 'failed' && load.achievementsFailed && <Text testID="achievements-load-error" style={errorStyle}>{ACHIEVEMENTS_LOAD_ERROR}</Text>}
       {load.kind === 'loading' && <Spinner fullScreen />}
@@ -73,16 +80,21 @@ export default function AltitudeScreen() {
           onScroll={onScroll}
           scrollEventThrottle={16}
         >
-          <AltitudeChart
-            altitude={load.altitude}
-            achievements={load.achievements}
-            name={user?.name ?? ''}
-            timezone={profile?.timezone}
-            now={new Date()}
-          />
+          {view === 'altitude' ? (
+            <AltitudeChart
+              altitude={load.altitude}
+              achievements={load.achievements}
+              name={user?.name ?? ''}
+              timezone={profile?.timezone}
+              now={new Date()}
+              onPress={switchView}
+            />
+          ) : (
+            <LevelChart altitude={load.altitude} name={user?.name ?? ''} onPress={switchView} />
+          )}
         </ScrollView>
       )}
-      <AltitudeHeader look={headerLook} topInset={topInset} />
+      <AltitudeHeader title={ALTITUDE_VIEW_TITLE[view]} look={headerLook} topInset={topInset} />
     </View>
   );
 }

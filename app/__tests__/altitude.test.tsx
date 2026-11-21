@@ -5,12 +5,15 @@ import {
   ACHIEVEMENTS_LOAD_ERROR,
   ALTITUDE_LOAD_ERROR,
   ALTITUDE_TITLE,
+  LEVEL_VIEW_TITLE,
   DEFAULT_TIMEZONE,
   HEIGHT_BANDS,
   SEA_LEVEL_LABEL,
   heightChartPosition,
   initialsOf,
   landmarkOf,
+  levelMarkerOf,
+  levelRowsOf,
   levelTicks,
   metresLabel,
   metresToGoCopy,
@@ -46,8 +49,11 @@ jest.mock('@/store/auth.store', () => ({
 }));
 
 const screenOptions: { title?: string } = {};
+const mockBack = jest.fn();
+let mockParams: { view?: string } = {};
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: jest.fn(), canGoBack: () => true, replace: jest.fn() }),
+  useRouter: () => ({ back: mockBack, canGoBack: () => true, replace: jest.fn() }),
+  useLocalSearchParams: () => mockParams,
   Stack: { Screen: ({ options }: { options: { title?: string } }) => { screenOptions.title = options.title; return null; } },
 }));
 
@@ -98,6 +104,7 @@ beforeAll(() => jest.useFakeTimers({ now: NOW }));
 afterAll(() => jest.useRealTimers());
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = {};
   (useProfile as jest.Mock).mockReturnValue({ data: { timezone: DEFAULT_TIMEZONE } });
 });
 
@@ -131,7 +138,7 @@ describe('AltitudeScreen', () => {
     it('draws the learner marker with their initials, metres and level', () => {
       expect(textOf('altitude-marker-initials')).toBe(initialsOf(mockUser.name));
       expect(textOf('altitude-marker-metres')).toBe(metresLabel(MID_CLIMB.metres));
-      expect(textOf('altitude-marker-level')).toBe(youMarkerCopy(MID_CLIMB.level));
+      expect(textOf('altitude-marker-level')).toBe(youMarkerCopy(MID_CLIMB.level, MID_CLIMB.metres));
     });
 
     it.each(PASSED_KEYS)('shows %s passed, in colour, with its passed line', (key) => {
@@ -227,6 +234,131 @@ describe('AltitudeScreen', () => {
       render(<AltitudeScreen />);
       expect(screen.getByText(ACHIEVEMENTS_LOAD_ERROR)).toBeTruthy();
       expect(screen.queryByTestId('altitude-chart')).toBeNull();
+    });
+  });
+
+  describe('the two views', () => {
+    const onAltitude = () => expect(textOf('altitude-header-title')).toBe(ALTITUDE_TITLE);
+    const onLevel = () => expect(textOf('altitude-header-title')).toBe(LEVEL_VIEW_TITLE);
+
+    beforeEach(() => setLoaded(MID_CLIMB));
+
+    it('opens on Altitude with no view, and titles the screen to match', () => {
+      render(<AltitudeScreen />);
+      onAltitude();
+      expect(screenOptions.title).toBe(ALTITUDE_TITLE);
+      expect(screen.getByTestId('altitude-chart')).toBeTruthy();
+      expect(screen.queryByTestId('level-chart')).toBeNull();
+    });
+
+    it('opens on Altitude when opened from Home', () => {
+      mockParams = { view: 'altitude' };
+      render(<AltitudeScreen />);
+      onAltitude();
+    });
+
+    it('opens on Level when opened from the Progress tab, scrolled to the learner', () => {
+      mockParams = { view: 'level' };
+      render(<AltitudeScreen />);
+      onLevel();
+      expect(screenOptions.title).toBe(LEVEL_VIEW_TITLE);
+      expect(screen.getByTestId('level-chart')).toBeTruthy();
+      expect(screen.getByTestId('altitude-scroll').props.contentOffset).toEqual({
+        x: 0,
+        y: openingOffsetOf(heightChartPosition(MID_CLIMB.metres), Dimensions.get('window').height),
+      });
+    });
+
+    it('opens on Altitude for a view it does not know', () => {
+      mockParams = { view: 'landmarks' };
+      render(<AltitudeScreen />);
+      onAltitude();
+    });
+
+    it('draws 30 numbered levels, the gold level 10 and its marker on the Level view, and no landmark rows', () => {
+      mockParams = { view: 'level' };
+      render(<AltitudeScreen />);
+      expect(screen.getAllByTestId(/^level-number-\d+$/)).toHaveLength(levelRowsOf(MID_CLIMB).filter((r) => r.kind === 'level').length);
+      expect(screen.getByTestId('level-strip-10')).toBeTruthy();
+      expect(textOf('level-marker-eyebrow')).toBe(levelMarkerOf(MID_CLIMB).eyebrow);
+      expect(textOf('level-marker-name')).toBe(levelMarkerOf(MID_CLIMB).name);
+      expect(textOf('level-marker-detail')).toBe(levelMarkerOf(MID_CLIMB).detail);
+      expect(screen.queryAllByTestId(/^landmark-/)).toHaveLength(0);
+    });
+
+    it('draws In Orbit only past the Karman line', () => {
+      mockParams = { view: 'level' };
+      setLoaded({ ...PAST_KARMAN, metres: 100_240 });
+      render(<AltitudeScreen />);
+      expect(screen.getByTestId('level-row-orbit-name')).toBeTruthy();
+      expect(screen.queryByTestId('level-number-orbit')).toBeNull();
+    });
+
+    it('switches to Level on a tap on the chart, and back to Altitude on a tap on the Level view', () => {
+      render(<AltitudeScreen />);
+      fireEvent.press(screen.getByTestId('altitude-chart'));
+      onLevel();
+      expect(screen.getByTestId('level-chart')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('level-chart'));
+      onAltitude();
+      expect(screen.getByTestId('altitude-chart')).toBeTruthy();
+    });
+
+    it('switches on a tap on the marker, the next landmark\'s card and a locked row', () => {
+      render(<AltitudeScreen />);
+      fireEvent.press(screen.getByTestId('altitude-marker'));
+      onLevel();
+      fireEvent.press(screen.getByTestId('level-chart'));
+      fireEvent.press(screen.getByTestId('landmark-row-ben-nevis'));
+      onLevel();
+      fireEvent.press(screen.getByTestId('level-chart'));
+      fireEvent.press(screen.getByTestId('landmark-row-everest'));
+      onLevel();
+    });
+
+    it('opens a passed landmark\'s sheet and does not switch', () => {
+      render(<AltitudeScreen />);
+      fireEvent.press(screen.getByTestId('landmark-row-big-ben'));
+      expect(screen.getByTestId('landmark-sheet')).toBeTruthy();
+      onAltitude();
+    });
+
+    it('does not switch on a tap while the sheet is open', () => {
+      render(<AltitudeScreen />);
+      fireEvent.press(screen.getByTestId('landmark-row-big-ben'));
+      fireEvent.press(screen.getByTestId('landmark-sheet-name'));
+      onAltitude();
+      expect(screen.getByTestId('landmark-sheet')).toBeTruthy();
+    });
+
+    it('goes back from the back button and does not switch, on either view', () => {
+      render(<AltitudeScreen />);
+      fireEvent.press(screen.getByTestId('detail-back'));
+      expect(mockBack).toHaveBeenCalled();
+      mockBack.mockClear();
+      onAltitude();
+      fireEvent.press(screen.getByTestId('altitude-chart'));
+      fireEvent.press(screen.getByTestId('detail-back'));
+      expect(mockBack).toHaveBeenCalled();
+      onLevel();
+    });
+
+    it('keeps the scroll offset when it switches', () => {
+      render(<AltitudeScreen />);
+      const scroll = screen.getByTestId('altitude-scroll');
+      fireEvent.scroll(scroll, { nativeEvent: { contentOffset: { x: 0, y: 600 } } });
+      fireEvent.press(screen.getByTestId('altitude-chart'));
+      expect(screen.getByTestId('altitude-scroll')).toBe(scroll);
+      expect(screen.getByTestId('altitude-scroll').props.contentOffset).toEqual(scroll.props.contentOffset);
+    });
+
+    it('draws no toggle on either view', () => {
+      render(<AltitudeScreen />);
+      expect(screen.queryByText(/^Landmarks$/)).toBeNull();
+      expect(screen.queryByText(/^Levels$/)).toBeNull();
+      fireEvent.press(screen.getByTestId('altitude-chart'));
+      expect(screen.queryByText(/^Landmarks$/)).toBeNull();
+      expect(screen.queryByText(/^Levels$/)).toBeNull();
     });
   });
 });

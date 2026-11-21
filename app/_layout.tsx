@@ -31,6 +31,7 @@ import * as Sentry from '@sentry/react-native';
 import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { HOME_ROUTE } from '@/lib/routes';
 import { CelebrationQueue } from '@/components/achievements/CelebrationQueue';
+import { AppUpdateScreen } from '@/components/AppUpdateScreen';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -169,6 +170,8 @@ function RootLayout() {
           <Stack.Screen name="old-style-preview" />
         </Stack>
         <CelebrationQueue />
+        {/* Last, so it shows over everything, the celebrations included (ADR-023 Decision 4). */}
+        <AppUpdateScreen />
       </QueryProvider>
     </GestureHandlerRootView>
   );

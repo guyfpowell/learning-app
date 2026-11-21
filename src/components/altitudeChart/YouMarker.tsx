@@ -3,7 +3,7 @@ import { initialsOf, metresLabel, youMarkerCopy, type HeightChartOffsets } from 
 import { Text } from '@/components/ui/Text';
 import { colors, font } from '@/theme';
 import { LeaderLine } from './LeaderLine';
-import { canvasYOf } from './chartLayout';
+import { ALTITUDE_INK, canvasYOf } from './chartLayout';
 import { slotStyleOf } from './chartStyles';
 
 const PILL_LEFT = 82;
@@ -11,9 +11,8 @@ const AVATAR_SIZE = 36;
 const LINE_HEIGHT = 1.1;
 const METRES_SIZE = 19;
 const LEVEL_SIZE = 12.5;
-const METRES_INK = '#3D2800';
 
-/** The learner's place on the chart: the gold pill with their initials, the metres and "Level 10 · you", centred on `shownOffset`. A pill that was moved clear of a landmark has a gold leader line down to the learner's true height on the rail. */
+/** The learner's place on the chart: the gold pill with their initials, the metres and "Level 3 - Lowlands 2", centred on `shownOffset`. A pill that was moved clear of a landmark has a gold leader line down to the learner's true height on the rail. */
 export function YouMarker({ name, metres, level, offsets }: { name: string; metres: number; level: number; offsets: HeightChartOffsets }) {
   const shownY = canvasYOf(offsets.shownOffset);
   const trueY = canvasYOf(offsets.trueOffset);
@@ -27,7 +26,7 @@ export function YouMarker({ name, metres, level, offsets }: { name: string; metr
           </View>
           <View style={styles.words}>
             <Text testID="altitude-marker-metres" style={styles.metres}>{metresLabel(metres)}</Text>
-            <Text testID="altitude-marker-level" style={styles.level}>{youMarkerCopy(level)}</Text>
+            <Text testID="altitude-marker-level" style={styles.level}>{youMarkerCopy(level, metres)}</Text>
           </View>
         </View>
       </View>
@@ -62,6 +61,6 @@ const styles = StyleSheet.create({
   },
   initials: { fontFamily: font.black, fontSize: 14, color: colors.altitudeText },
   words:    { justifyContent: 'center' },
-  metres:   { fontFamily: font.black, fontSize: METRES_SIZE, lineHeight: METRES_SIZE * LINE_HEIGHT, letterSpacing: METRES_SIZE * -0.02, color: METRES_INK },
+  metres:   { fontFamily: font.black, fontSize: METRES_SIZE, lineHeight: METRES_SIZE * LINE_HEIGHT, letterSpacing: METRES_SIZE * -0.02, color: ALTITUDE_INK },
   level:    { fontFamily: font.extrabold, fontSize: LEVEL_SIZE, lineHeight: LEVEL_SIZE * LINE_HEIGHT, color: colors.altitudeText },
 });
