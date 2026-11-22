@@ -15,6 +15,7 @@ import { makeSessionUser } from '@/test-utils/users';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { TRACKS_ROUTE, trackRoute } from '@/lib/routes';
 import { TAB_BAR_CLEARANCE } from '@/lib/safeArea';
+import { STREAK_BANNER_MS } from '@/lib/momentum';
 import { ScrollView, StyleSheet } from 'react-native';
 
 // Its own suite covers the card; here Home only has to show it, with the streak, at the right times.
@@ -62,8 +63,17 @@ jest.mock('@/components/albert/PathEndSection', () => {
   };
 });
 
+// `useFocusEffect` runs its effect once and keeps the cleanup, which is what runs when the screen loses focus.
+const mockFocusState: { leave: (() => void) | undefined } = { leave: undefined };
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
+  useFocusEffect: (effect: () => (() => void) | void) => {
+    const { useEffect } = jest.requireActual<typeof React>('react');
+    useEffect(() => {
+      const cleanup = effect();
+      mockFocusState.leave = cleanup || undefined;
+    }, [effect]);
+  },
 }));
 
 let capturedEdges: string[] | undefined;
@@ -294,6 +304,42 @@ describe('LessonsScreen', () => {
     it('does not show streak banner when streak <= 3', () => {
       setProgressMock({ ...mockProgress, currentStreak: 3 });
       render(<LessonsScreen />);
+      expect(screen.queryByTestId('streak-banner')).toBeNull();
+    });
+
+    it('goes away after a short while', () => {
+      jest.useFakeTimers();
+      setProgressMock({ ...mockProgress, currentStreak: 4 });
+      render(<LessonsScreen />);
+      act(() => { jest.advanceTimersByTime(STREAK_BANNER_MS - 1); });
+      expect(screen.getByTestId('streak-banner')).toBeTruthy();
+      act(() => { jest.advanceTimersByTime(1); });
+      expect(screen.queryByTestId('streak-banner')).toBeNull();
+      jest.useRealTimers();
+    });
+
+    it('stays when the person only taps or scrolls the screen', () => {
+      setProgressMock({ ...mockProgress, currentStreak: 4 });
+      render(<LessonsScreen />);
+      fireEvent(screen.UNSAFE_getByType(ScrollView), 'touchStart');
+      expect(screen.getByTestId('streak-banner')).toBeTruthy();
+    });
+
+    it('goes away when a lesson is started, and stays gone', () => {
+      setProgressMock({ ...mockProgress, currentStreak: 4 });
+      setEnrollmentsMock([mockEnrollment]);
+      const { rerender } = render(<LessonsScreen />);
+      fireEvent.press(screen.getByTestId('next-lesson-btn-skill-1'));
+      expect(screen.queryByTestId('streak-banner')).toBeNull();
+      rerender(<LessonsScreen />);
+      expect(screen.queryByTestId('streak-banner')).toBeNull();
+    });
+
+    it('goes away when the person leaves Home for another tab', () => {
+      setProgressMock({ ...mockProgress, currentStreak: 4 });
+      render(<LessonsScreen />);
+      expect(screen.getByTestId('streak-banner')).toBeTruthy();
+      act(() => { must(mockFocusState.leave, 'the focus cleanup')(); });
       expect(screen.queryByTestId('streak-banner')).toBeNull();
     });
   });

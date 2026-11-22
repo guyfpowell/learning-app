@@ -15,6 +15,9 @@ export function streakStageOf(streak: number): StreakStage {
  * The line at the top of Home beside the streak, several per stage so it changes. None repeats the
  * count (the streak chip shows it), and each is short enough for one line on most phones.
  */
+/** How long Home's streak banner stays, if the person has not touched the screen by then. */
+export const STREAK_BANNER_MS = 30000;
+
 export const STREAK_COPY: Record<StreakStage, readonly string[]> = {
   start: ['Complete a lesson to start your streak'],
   early: [

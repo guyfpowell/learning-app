@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { colors, font, fontSize, spacing } from '@/theme';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
 import { Button } from '@/components/ui/Button';
 import { Toast } from '@/components/ui/Toast';
 import { skippedMessage } from '@/lib/skipToast';
+import { STREAK_BANNER_MS } from '@/lib/momentum';
 import { usePaths, useRefreshPaths, useSkip, useTopicFeedback } from '@/hooks/useTrack';
 import { TopicFeedback } from '@/components/ui/TopicFeedback';
 import { writeError } from '@/lib/errors';
@@ -44,6 +45,8 @@ export default function LessonsScreen() {
   // "Lesson 2 skipped": shown once the server has taken the skip, then clears itself.
   const [skipToast, setSkipToast] = useState<string | null>(null);
   useAutoDismiss(skipToast, () => setSkipToast(null), SKIP_TOAST_MS);
+  // The streak banner is a nudge, not a fixture: it goes after a while, or when a lesson starts.
+  const [bannerGone, setBannerGone] = useState(false);
   const onSkip = (path: UserPath, scope: SkipScope, reason: SkipReason) => {
     const message = skippedMessage(path, scope);
     skip.skip(path, scope, reason, () => setSkipToast(message));
@@ -52,6 +55,14 @@ export default function LessonsScreen() {
   // Active path is authoritative from the server (ADR-009 C2 + C11) — no client derivation.
   const activePath = paths?.find(p => p.isActive);
   const hasNoContent = Array.isArray(paths) && paths.length === 0;
+  const showStreakBanner = !bannerGone && !hasNoContent && progress !== undefined && progress !== null && progress.currentStreak > STREAK_BANNER_AFTER_DAYS;
+  useAutoDismiss(showStreakBanner, () => setBannerGone(true), STREAK_BANNER_MS);
+  // Starting a lesson, or leaving Home for another tab, ends the banner too.
+  const startLesson = (id: string) => {
+    setBannerGone(true);
+    router.push(lessonRoute(id));
+  };
+  useFocusEffect(useCallback(() => () => setBannerGone(true), []));
   // User has paths but none active (e.g. completed their active path or archived it).
   // Show the most recent path (paths[0] — server ordered by recency, C2) with a next-path CTA.
   const lastPath = activePath ? undefined : paths?.[0];
@@ -76,7 +87,7 @@ export default function LessonsScreen() {
           <Text testID="paths-load-error" style={styles.loadError}>{PATHS_LOAD_ERROR}</Text>
         )}
 
-        {progress && !hasNoContent && progress.currentStreak > STREAK_BANNER_AFTER_DAYS && (
+        {showStreakBanner && progress && (
           <View testID="streak-banner" style={styles.streakBanner}>
             <Text style={styles.streakBannerText}>
               {'You\'re on a '}
@@ -117,7 +128,7 @@ export default function LessonsScreen() {
           <HomePath
             path={activePath}
             onOpen={() => router.push(trackRoute(activePath.kind, activePath.id))}
-            onStartLesson={id => router.push(lessonRoute(id))}
+            onStartLesson={startLesson}
             onSkip={onSkip}
             skipPending={skip.pendingScope(activePath)}
           />
@@ -130,7 +141,7 @@ export default function LessonsScreen() {
             <PathCard
               path={lastPath}
               onOpen={() => router.push(trackRoute(lastPath.kind, lastPath.id))}
-              onStartLesson={id => router.push(lessonRoute(id))}
+              onStartLesson={startLesson}
               onSkip={onSkip}
               skipPending={skip.pendingScope(lastPath)}
             />
