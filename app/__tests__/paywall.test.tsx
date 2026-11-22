@@ -5,7 +5,8 @@ import { useOfferings, usePurchase, useRestorePurchases } from '@/hooks/useIAP';
 import { PACKAGE_TYPE } from 'react-native-purchases';
 import type { IAPOffering } from '@/hooks/useIAP';
 import { makePackage } from '@/test-utils/purchases';
-import { NO_SIGNAL_ERROR } from '@learning/shared';
+import { NO_SIGNAL_ERROR, OFFERINGS_LOAD_ERROR } from '@learning/shared';
+import { PRICE_UNAVAILABLE } from '@/lib/paywallPlans';
 import { NoSignalError } from '@/lib/offlineWrites';
 
 const mockBack = jest.fn();
@@ -36,14 +37,15 @@ const mockRestore  = { mutate: jest.fn(), isPending: false, isSuccess: false, is
 function setMocks(overrides: {
   offering?: IAPOffering | null;
   isLoading?: boolean;
+  isError?: boolean;
   purchase?: typeof mockPurchase;
   restore?: typeof mockRestore;
 } = {}) {
-  const { offering = mockOffering, isLoading = false, purchase = mockPurchase, restore = mockRestore } = overrides;
+  const { offering = mockOffering, isLoading = false, isError = false, purchase = mockPurchase, restore = mockRestore } = overrides;
   (useOfferings as jest.Mock).mockReturnValue({
     data: offering ?? undefined,
     isLoading,
-    isError: false,
+    isError,
   });
   (usePurchase as jest.Mock).mockReturnValue(purchase);
   (useRestorePurchases as jest.Mock).mockReturnValue(restore);
@@ -206,11 +208,29 @@ describe('PaywallScreen — Expo Go / SDK unavailable (BUG-073b-2)', () => {
     expect(() => render(<PaywallScreen />)).not.toThrow();
   });
 
-  it('shows "n/a" placeholder prices when offerings are null', () => {
+  it('shows the placeholder price on both plans when offerings are null', () => {
     setMocks({ offering: null });
     render(<PaywallScreen />);
-    const prices = screen.getAllByText('n/a');
-    expect(prices.length).toBeGreaterThanOrEqual(2); // annual + monthly
+    expect([
+      screen.getByTestId('plan-annual-price').props.children,
+      screen.getByTestId('plan-monthly-price').props.children,
+    ]).toEqual([PRICE_UNAVAILABLE, PRICE_UNAVAILABLE]);
+  });
+});
+
+describe('PaywallScreen — offerings failed to load', () => {
+  it('says the plans could not be loaded, never placeholder prices', () => {
+    setMocks({ offering: null, isError: true });
+    render(<PaywallScreen />);
+    expect(screen.getByTestId('offerings-load-error').props.children).toBe(OFFERINGS_LOAD_ERROR);
+    expect(screen.queryByText(PRICE_UNAVAILABLE)).toBeNull();
+  });
+
+  it('does not start a purchase', () => {
+    setMocks({ offering: null, isError: true });
+    render(<PaywallScreen />);
+    fireEvent.press(screen.getByTestId('subscribe-btn'));
+    expect(mockPurchase.mutate).not.toHaveBeenCalled();
   });
 
   it('pressing Subscribe does not crash when selectedPkg is null', () => {

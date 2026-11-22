@@ -35,7 +35,7 @@ function setData(data: AltitudeResponse | undefined) {
 describe('MomentumCard', () => {
   beforeEach(() => mockPush.mockClear());
 
-  it('shows the streak as a flame with its count, and one line for its stage', () => {
+  it('shows the streak as a calendar with its count, and one line for its stage', () => {
     setData(undefined);
     render(<MomentumCard streak={4} />);
     expect(within(screen.getByTestId('streak-chip')).getByText('4')).toBeTruthy();
@@ -167,5 +167,11 @@ describe('MomentumCard', () => {
       expect(buttons).toHaveLength(1);
       expect(buttons[0].props.accessibilityLabel).toBeUndefined();
     });
+  });
+
+  it('has a faint rule between the streak line and the level block, and one under the card', () => {
+    setData(undefined);
+    render(<MomentumCard streak={4} />);
+    expect(screen.getAllByTestId('section-rule', { includeHiddenElements: true })).toHaveLength(2);
   });
 });

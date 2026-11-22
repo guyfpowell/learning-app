@@ -4,8 +4,10 @@ import {
   Platform,
   Pressable,
   PressableProps,
+  StyleProp,
   StyleSheet,
   View,
+  ViewStyle,
 } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { BlurView } from 'expo-blur';
@@ -29,7 +31,8 @@ type ButtonVariant =
 
 type ButtonSize = 'sm' | 'lg';
 
-interface ButtonProps extends PressableProps {
+interface ButtonProps extends Omit<PressableProps, 'style'> {
+  style?: StyleProp<ViewStyle>;
   label: string;
   variant?: ButtonVariant;
   size?: ButtonSize;
@@ -63,7 +66,7 @@ export function Button({
         variantStyle(variant),
         pressed && !isDisabled && variantPressedStyle(variant),
         isDisabled && styles.disabled,
-        style as object,
+        style,
       ]}
       disabled={isDisabled}
       {...rest}

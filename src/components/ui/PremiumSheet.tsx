@@ -2,9 +2,9 @@ import { type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SheetModal } from '@/components/ui/SheetModal';
 import { Text } from '@/components/ui/Text';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, PRIMARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
-import { colors, font, press } from '@/theme';
+import { colors, font } from '@/theme';
 
 /**
  * The upgrade prompt as a bottom sheet over the page (board 22, 2a): a crown on an ink tile, the title,
@@ -33,7 +33,7 @@ export function PremiumSheet({ visible, title, body, onUpgrade, onClose, testID,
           <View style={styles.upgrade}>
             <EdgeButton
               testID="upgrade-now-btn"
-              look={{ face: colors.brand, label: colors.onBrand, edge: press.primaryEdge }}
+              look={PRIMARY_EDGE_LOOK}
               label="Upgrade now"
               icon="next"
               onPress={onUpgrade}

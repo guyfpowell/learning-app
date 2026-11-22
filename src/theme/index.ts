@@ -272,7 +272,6 @@ export const results = {
   },
   retry: {    // sand, light
     gradient: ['#F1E6CF', '#EADBBE', '#E2D0AD'], edge: '#B8A27A', tint: '#4A3D25', text: ink[900], fg: ink[900],
-    contour: '#8A7550',
   },
   incorrect: {  // ink, with a red accent
     gradient: ['#1E2335', '#171B2C', '#10131F', '#0C0E18'],

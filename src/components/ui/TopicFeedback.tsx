@@ -14,8 +14,8 @@ import {
   type TopicFeedbackRequest,
   type TopicFeedbackUseful,
 } from '@learning/shared';
-import { colors, font, fontSize, press, radius, shadow, spacing, trackingEm } from '@/theme';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { colors, font, fontSize, radius, shadow, spacing, trackingEm } from '@/theme';
+import { EdgeButton, PRIMARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
 import { WordChoice } from '@/components/ui/WordChoice';
 import { writeError } from '@/lib/errors';
@@ -126,7 +126,7 @@ export function TopicFeedback({ topicEnd, onSubmit, onClose }: TopicFeedbackProp
         <View style={styles.send}>
           <EdgeButton
             testID="topic-feedback-submit"
-            look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+            look={PRIMARY_EDGE_LOOK}
             disabledLook={{ face: colors.border, label: colors.textSubtle }}
             label="Send"
             disabled={!answered}

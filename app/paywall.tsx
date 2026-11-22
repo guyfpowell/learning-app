@@ -1,120 +1,66 @@
 import { useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
-import { Text } from '@/components/ui/Text';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, font, fontSize, radius, spacing, shadow } from '@/theme';
+import { OFFERINGS_LOAD_ERROR } from '@learning/shared';
+import { Text } from '@/components/ui/Text';
 import { Spinner } from '@/components/ui/Spinner';
-import { useOfferings, usePurchase, useRestorePurchases } from '@/hooks/useIAP';
+import { PlanPicker } from '@/components/paywall/PlanPicker';
+import { PaywallFooter } from '@/components/paywall/PaywallFooter';
+import { paywallStyles } from '@/components/paywall/paywallStyles';
+import { colors, font, fontSize, radius, spacing, shadow } from '@/theme';
+import { useOfferings, usePurchase } from '@/hooks/useIAP';
+import { DEFAULT_PLAN, type PlanKey } from '@/lib/paywallPlans';
 import { writeError } from '@/lib/errors';
 
 // Payment errors show fixed copy, never the server's words; a signal drop says it was the signal (ADR-021).
 const PURCHASE_FAILED_COPY = 'Something went wrong. Please try again.';
-const RESTORE_FAILED_COPY = "Couldn't restore purchases. Please try again.";
-import type { PurchasesPackage } from '@/hooks/useIAP';
 
-// ── Legal URLs ────────────────────────────────────────────────────────────────
-// TODO: replace with final hosted URLs before App Review submission
-const TERMS_URL   = 'https://ascentlearning.app/terms';
-const PRIVACY_URL = 'https://ascentlearning.app/privacy';
+const FEATURES = [
+  'Unlimited lessons across all tracks',
+  'AI-generated lessons tailored to you',
+  'Personalised Albert learning paths',
+];
 
-// ── Plan card ─────────────────────────────────────────────────────────────────
-
-interface PlanCardProps {
-  label:     string;
-  period:    string;
-  price:     string;
-  badge?:    string;
-  selected:  boolean;
-  testID:    string;
-  onSelect:  () => void;
-}
-
-function PlanCard({
-  label,
-  period,
-  price,
-  badge,
-  selected,
-  testID,
-  onSelect,
-}: PlanCardProps) {
-  return (
-    <Pressable
-      testID={testID}
-      onPress={onSelect}
-      style={[styles.planCard, selected && styles.planCardSelected]}
-    >
-      <View style={styles.planCardLeft}>
-        {selected
-          ? <View testID={`${testID.replace('-card', '-selected')}`} style={styles.radioFilled} />
-          : <View style={styles.radioEmpty} />
-        }
-        <View>
-          <Text style={styles.planLabel}>{label}</Text>
-          <Text style={styles.planPeriod}>{period}</Text>
-        </View>
+/** The plans while the offering loads, when it failed, and once it is here. */
+function PlanSection({ selected, onSelect }: { selected: PlanKey; onSelect: (key: PlanKey) => void }) {
+  const { data: offering, isLoading, isError } = useOfferings();
+  if (isLoading) {
+    return (
+      <View testID="paywall-loading" style={styles.loadingContainer}>
+        <Spinner />
       </View>
-      <View style={styles.planCardRight}>
-        {badge && <View style={styles.badge}><Text style={styles.badgeText}>{badge}</Text></View>}
-        <Text testID={`${testID.replace('-card', '-price')}`} style={styles.planPrice}>
-          {price}
-        </Text>
-      </View>
-    </Pressable>
-  );
+    );
+  }
+  if (isError) return <Text testID="offerings-load-error" style={paywallStyles.errorText}>{OFFERINGS_LOAD_ERROR}</Text>;
+  return <PlanPicker offering={offering} selected={selected} onSelect={onSelect} />;
 }
-
-// ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function PaywallScreen() {
   const router = useRouter();
-  const { data: offering, isLoading } = useOfferings();
+  const { data: offering } = useOfferings();
   const purchase = usePurchase();
-  const restore  = useRestorePurchases();
-
-  // Annual selected by default — best value for the user and for us.
-  const [selected, setSelected] = useState<'annual' | 'monthly'>('annual');
-
-  const selectedPkg: PurchasesPackage | null =
-    selected === 'annual' ? (offering?.annual ?? null) : (offering?.monthly ?? null);
+  const [selected, setSelected] = useState<PlanKey>(DEFAULT_PLAN);
+  const selectedPkg = offering?.[selected] ?? null;
 
   function handleSubscribe() {
     if (!selectedPkg || purchase.isPending) return;
-    purchase.mutate(selectedPkg, {
-      onSuccess: () => router.back(),
-    });
+    purchase.mutate(selectedPkg, { onSuccess: () => router.back() });
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
-      {/* Close */}
-      <Pressable
-        testID="paywall-close"
-        style={styles.closeBtn}
-        onPress={() => router.back()}
-        accessibilityLabel="Close"
-      >
+      <Pressable testID="paywall-close" style={styles.closeBtn} onPress={() => router.back()} accessibilityLabel="Close">
         <Ionicons name="close" size={24} color={colors.textBody} />
       </Pressable>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.header}>
           <Text testID="paywall-title" style={styles.title}>Go Premium</Text>
-          <Text style={styles.subtitle}>
-            Unlock unlimited access to every lesson, track, and AI feature.
-          </Text>
+          <Text style={styles.subtitle}>Unlock unlimited access to every lesson, track, and AI feature.</Text>
         </View>
 
-        {/* Feature list */}
         <View style={styles.features}>
           {FEATURES.map(f => (
             <View key={f} style={styles.featureRow}>
@@ -124,34 +70,8 @@ export default function PaywallScreen() {
           ))}
         </View>
 
-        {/* Plan cards */}
-        {isLoading ? (
-          <View testID="paywall-loading" style={styles.loadingContainer}>
-            <Spinner />
-          </View>
-        ) : (
-          <View style={styles.plans}>
-            <PlanCard
-              label="Annual"
-              period="per year"
-              price={offering?.annual?.product.priceString ?? 'n/a'}
-              badge="Best value"
-              selected={selected === 'annual'}
-              testID="plan-annual-card"
-              onSelect={() => setSelected('annual')}
-            />
-            <PlanCard
-              label="Monthly"
-              period="per month"
-              price={offering?.monthly?.product.priceString ?? 'n/a'}
-              selected={selected === 'monthly'}
-              testID="plan-monthly-card"
-              onSelect={() => setSelected('monthly')}
-            />
-          </View>
-        )}
+        <PlanSection selected={selected} onSelect={setSelected} />
 
-        {/* Subscribe */}
         <Pressable
           testID="subscribe-btn"
           style={[styles.subscribeBtn, purchase.isPending && styles.subscribeBtnDisabled]}
@@ -159,75 +79,16 @@ export default function PaywallScreen() {
           disabled={purchase.isPending}
           accessibilityState={{ disabled: purchase.isPending }}
         >
-          <Text style={styles.subscribeBtnText}>
-            {purchase.isPending ? 'Processing…' : 'Subscribe'}
-          </Text>
+          <Text style={styles.subscribeBtnText}>{purchase.isPending ? 'Processing…' : 'Subscribe'}</Text>
         </Pressable>
 
-        {/* Error */}
-        {purchase.isError && (
-          <Text style={styles.errorText}>
-            {writeError(purchase.error, PURCHASE_FAILED_COPY)}
-          </Text>
-        )}
+        {purchase.isError && <Text style={paywallStyles.errorText}>{writeError(purchase.error, PURCHASE_FAILED_COPY)}</Text>}
 
-        {/* Auto-renew disclosure — required by App Review */}
-        <Text testID="auto-renew-disclosure" style={styles.disclosure}>
-          Subscription automatically renews unless cancelled at least 24 hours
-          before the end of the current period. Manage or cancel in iOS Settings.
-        </Text>
-
-        {/* Legal links — required by App Review */}
-        <View style={styles.legalLinks}>
-          <Text
-            testID="terms-link"
-            style={styles.legalLink}
-            onPress={() => WebBrowser.openBrowserAsync(TERMS_URL)}
-          >
-            Terms of Use
-          </Text>
-          <Text style={styles.legalSep}>·</Text>
-          <Text
-            testID="privacy-link"
-            style={styles.legalLink}
-            onPress={() => WebBrowser.openBrowserAsync(PRIVACY_URL)}
-          >
-            Privacy Policy
-          </Text>
-        </View>
-
-        {/* Restore Purchases — required by App Review */}
-        <Pressable
-          testID="restore-purchases-btn"
-          onPress={() => restore.mutate()}
-          disabled={restore.isPending}
-          accessibilityState={{ disabled: restore.isPending }}
-          style={styles.restoreBtn}
-        >
-          <Text style={styles.restoreText}>
-            {restore.isPending ? 'Restoring…' : 'Restore Purchases'}
-          </Text>
-        </Pressable>
-
-        {restore.isError && (
-          <Text testID="restore-error" style={styles.errorText}>
-            {writeError(restore.error, RESTORE_FAILED_COPY)}
-          </Text>
-        )}
+        <PaywallFooter />
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const FEATURES = [
-  'Unlimited lessons across all tracks',
-  'AI-generated lessons tailored to you',
-  'Personalised Albert learning paths',
-];
-
-// ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -283,72 +144,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     alignItems:      'center',
   },
-  plans: {
-    gap: spacing.sm,
-  },
-  planCard: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    justifyContent:  'space-between',
-    padding:         spacing.md,
-    borderRadius:    radius.card,
-    borderWidth:     2,
-    borderColor:     colors.borderSubtle,
-    backgroundColor: colors.surface,
-    ...shadow.card,
-  },
-  planCardSelected: {
-    borderColor:     colors.brand,
-    backgroundColor: colors.brandSoft,
-  },
-  planCardLeft: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           spacing.sm,
-  },
-  planCardRight: {
-    alignItems: 'flex-end',
-    gap:        spacing.xs,
-  },
-  radioEmpty: {
-    width:        20,
-    height:       20,
-    borderRadius: radius.pill,
-    borderWidth:  2,
-    borderColor:  colors.border,
-  },
-  radioFilled: {
-    width:           20,
-    height:          20,
-    borderRadius:    radius.pill,
-    backgroundColor: colors.brand,
-  },
-  planLabel: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
-  },
-  planPeriod: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.textMuted,
-  },
-  planPrice: {
-    fontFamily: font.semibold,
-    fontSize:   fontSize.base,
-    color:      colors.textStrong,
-  },
-  badge: {
-    backgroundColor: colors.brand,
-    borderRadius:    radius.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical:   2,
-  },
-  badgeText: {
-    fontFamily: font.medium,
-    fontSize:   fontSize.xs,
-    color:      colors.textOnBrand,
-  },
   subscribeBtn: {
     backgroundColor: colors.brand,
     borderRadius:    radius.pill,
@@ -363,44 +158,5 @@ const styles = StyleSheet.create({
     fontFamily: font.semibold,
     fontSize:   fontSize.base,
     color:      colors.textOnBrand,
-  },
-  errorText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.sm,
-    color:      colors.error,
-    textAlign:  'center',
-  },
-  disclosure: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textSubtle,
-    textAlign:  'center',
-    lineHeight: fontSize.xs * 1.6,
-  },
-  legalLinks: {
-    flexDirection:  'row',
-    justifyContent: 'center',
-    alignItems:     'center',
-    gap:            spacing.xs,
-  },
-  legalLink: {
-    fontFamily:          font.regular,
-    fontSize:            fontSize.xs,
-    color:               colors.textLink,
-    textDecorationLine:  'underline',
-  },
-  legalSep: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textSubtle,
-  },
-  restoreBtn: {
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  restoreText: {
-    fontFamily: font.regular,
-    fontSize:   fontSize.xs,
-    color:      colors.textLink,
   },
 });

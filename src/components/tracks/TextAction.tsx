@@ -19,7 +19,6 @@ export function TextAction({ label, icon, color = colors.textLink, loading = fal
       onPress={onPress}
       disabled={loading}
       accessibilityRole="button"
-      accessibilityLabel={label}
       accessibilityState={{ disabled: loading }}
       hitSlop={spacing.sm}
       style={styles.action}

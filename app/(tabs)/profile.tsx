@@ -16,7 +16,7 @@ import {
 } from '@learning/shared';
 import { colors, font, fontSize, press, spacing } from '@/theme';
 import { TAB_BAR_CLEARANCE, TAB_SCREEN_EDGES } from '@/lib/safeArea';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, PRIMARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { useAuthStore } from '@/store/auth.store';
 import { useLogout } from '@/hooks/useAuth';
 import { useSavedLessons } from '@/hooks/useLesson';
@@ -206,7 +206,7 @@ export default function ProfileScreen() {
         <View style={styles.saveBtn}>
           <EdgeButton
             testID="save-settings-btn"
-            look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+            look={PRIMARY_EDGE_LOOK}
             disabledLook={{ face: colors.border, label: colors.textSubtle }}
             label="Save changes"
             onPress={handleSaveSettings}

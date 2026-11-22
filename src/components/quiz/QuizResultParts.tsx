@@ -4,13 +4,11 @@ import { Text } from '@/components/ui/Text';
 import type { ScreenRect } from '@/components/ui/CelebrationOverlay';
 import { Icon } from '@/components/ui/Icon';
 import type { ResultTone } from '@/components/quiz/resultTone';
-import { accuracyArrowOf, accuracyTextOf, TRACK_ACCURACY_LABEL, type QuizResult } from '@learning/shared';
+import { accuracyArrowOf, accuracyTextOf, milestoneCheerOf, TRACK_ACCURACY_LABEL, type QuizResult } from '@learning/shared';
 import { colors, font, fontSize, press, radius, results, spacing } from '@/theme';
 
 /** The milestone card's subtitle: a warm off-white on coral, not a theme token. */
 const MILESTONE_SUBTEXT = '#fff7ed';
-/** From this streak the milestone card says more than "Keep going!". */
-const UNSTOPPABLE_STREAK = 30;
 
 /** The gem's size in the metres chip. */
 const GEM_SIZE = 18;
@@ -54,7 +52,7 @@ export function MilestoneCard({ milestone, streak, scale }: { milestone: string;
       accessibilityRole="alert"
     >
       <Text style={styles.milestoneText}>🎉 {milestone}!</Text>
-      <Text style={styles.milestoneSubtext}>{streak >= UNSTOPPABLE_STREAK ? "You're unstoppable." : 'Keep going!'}</Text>
+      <Text style={styles.milestoneSubtext}>{milestoneCheerOf(streak)}</Text>
     </Animated.View>
   );
 }

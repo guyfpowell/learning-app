@@ -11,9 +11,9 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter, type NativeStackNavigationOptions } from 'expo-router';
-import { colors, font, fontSize, levelCard, press, radius, spacing } from '@/theme';
+import { colors, font, fontSize, levelCard, radius, spacing } from '@/theme';
 import { levelOfGroup } from '@/lib/groupLevel';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, PRIMARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { Spinner } from '@/components/ui/Spinner';
 import { TrackIcon } from '@/components/ui/TrackIcon';
 import { AlbertMark } from '@/components/albert/AlbertMark';
@@ -149,7 +149,7 @@ function TrackDetail({ header, pathKind, params }: { header: NativeStackNavigati
             action={view.lesson.status === 'skipped' && isEnrolled ? (
               <EdgeButton
                 testID="track-detail-start-btn"
-                look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+                look={PRIMARY_EDGE_LOOK}
                 label="Start lesson"
                 onPress={() => handleLessonPress(view.lesson)}
               />

@@ -17,7 +17,7 @@ export function VerifyEmailBanner({ sent, sending, onResend }: { sent: boolean; 
         {sent ? 'Verification email sent. Check your inbox.' : 'Please verify your email to keep your account active.'}
       </Text>
       {!sent && (
-        <Pressable testID="resend-verification" onPress={() => { if (!sending) onResend(); }} accessibilityRole="button" accessibilityLabel="Resend verification email" hitSlop={8}>
+        <Pressable testID="resend-verification" onPress={() => { if (!sending) onResend(); }} accessibilityRole="button" hitSlop={8}>
           <Text style={styles.resend}>{sending ? 'Sending…' : 'Resend'}</Text>
         </Pressable>
       )}

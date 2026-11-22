@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { WordTabs } from '@/components/ui/WordTabs';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, PRIMARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { LessonReading } from '@/components/learning/LessonReading';
 import { QuizReview } from '@/components/learning/QuizReview';
-import { colors, font, fontSize, levelCard, press, spacing } from '@/theme';
+import { colors, font, fontSize, levelCard, spacing } from '@/theme';
 import { useStartRetake } from '@/hooks/useLesson';
 import { RETAKE_LESSON_LABEL, RETAKE_START_ERROR, isRetakeOffered, type Lesson } from '@learning/shared';
 
@@ -27,6 +27,7 @@ export function CompletedLessonView({ lesson }: { lesson: Lesson }) {
   const [tab, setTab] = useState<ViewTab>('summary');
   const color = levelCard[lesson.skillPath?.level ?? 'intermediate'].base;
   const retake = useStartRetake();
+  const retakeOffered = isRetakeOffered(lesson);
 
   return (
     <View testID="completed-lesson-view" style={styles.view}>
@@ -41,11 +42,11 @@ export function CompletedLessonView({ lesson }: { lesson: Lesson }) {
               <Text testID="key-takeaway" style={styles.takeawayText}>{lesson.keyTakeaway}</Text>
             </View>
           )}
-          {isRetakeOffered(lesson) && (
+          {retakeOffered && (
             <View style={styles.retake}>
               <EdgeButton
                 testID="lesson-retake-btn"
-                look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+                look={PRIMARY_EDGE_LOOK}
                 label={RETAKE_LESSON_LABEL}
                 loading={retake.isPending}
                 onPress={() => retake.mutate(lesson.id)}
@@ -64,7 +65,7 @@ export function CompletedLessonView({ lesson }: { lesson: Lesson }) {
 
       {tab === 'quiz' && (
         <View testID="lesson-tab-panel-quiz" style={styles.panel}>
-          <QuizReview quizzes={lesson.quizzes} answersHidden={isRetakeOffered(lesson)} />
+          <QuizReview quizzes={lesson.quizzes} answersHidden={retakeOffered} />
         </View>
       )}
     </View>

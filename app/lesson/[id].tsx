@@ -1,17 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { isAxiosError } from 'axios';
-import * as Sentry from '@sentry/react-native';
-import type { ApiErrorResponse, PremiumRequiredDetails } from '@learning/shared';
+import {
+  PREMIUM_LESSON_BUDGET, isLessonPaywallCode, lessonPaywallCopyOf,
+  type ApiErrorResponse, type LessonPaywallCopy, type PremiumRequiredDetails,
+} from '@learning/shared';
 import { colors, font, fontSize, levelCard, lineHeight, press, spacing, trackingEm } from '@/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, PRIMARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { HeroBackground } from '@/components/ui/HeroBackground';
 import { KeyTakeawayBlock } from '@/components/ui/KeyTakeawayBlock';
 import { LessonPositionHeader } from '@/components/learning/LessonPositionHeader';
@@ -22,14 +24,13 @@ import { LessonStatusLine } from '@/components/learning/LessonStatusLine';
 import { Spinner } from '@/components/ui/Spinner';
 import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizModal } from '@/components/QuizModal';
-import { useLesson, useSavePosition } from '@/hooks/useLesson';
+import { useLesson } from '@/hooks/useLesson';
 import { useLessonClock } from '@/hooks/useLessonClock';
+import { useLessonPhase } from '@/hooks/useLessonPhase';
 import { useDetailHeader } from '@/hooks/useDetailHeader';
 import { usePaths } from '@/hooks/useTrack';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
-import type { LessonPhase } from '@learning/shared';
-import { PREMIUM_LESSON_BUDGET, lessonOpeningPhase } from '@learning/shared';
-import { extractError } from '@/lib/errors';
+import { errorCode, extractError } from '@/lib/errors';
 
 /** The takeaway block is centred between the header and the button, then dropped this far below the centre. */
 const TAKEAWAY_DROP = spacing.lg;
@@ -37,62 +38,28 @@ const TAKEAWAY_DROP = spacing.lg;
 /** How far the takeaway page's text starts below the status bar: the transparent header's height. */
 const TAKEAWAY_HEADER_CLEARANCE = 56;
 
-/**
- * The lesson opens on the full text, never the summary-only step (096): the Home hero already shows the
- * summary. A saved 'collapsed' position (shared rule, still used by web) reads as 'expanded' here.
- */
-function readingPhase(phase: LessonPhase): LessonPhase {
-  return phase === 'collapsed' ? 'expanded' : phase;
-}
-
-function isPremiumError(error: unknown): boolean {
-  return (
-    isAxiosError(error) &&
-    error.response?.status === 403 &&
-    (error.response?.data?.code === 'LESSON_004' || error.response?.data?.code === 'LESSON_005')
-  );
-}
-
-function isTeaserLimitError(error: unknown): boolean {
-  return isAxiosError(error) && error.response?.data?.code === 'LESSON_005';
+/** What the paywall a failed load hit says, or null for any other error. */
+function paywallCopyOf(error: unknown): LessonPaywallCopy | null {
+  const code = errorCode(error);
+  if (!isLessonPaywallCode(code)) return null;
+  const details = isAxiosError<ApiErrorResponse<Partial<PremiumRequiredDetails>>>(error) ? error.response?.data?.details : undefined;
+  const teasersUsed = details?.teasersUsed ?? 0;
+  return lessonPaywallCopyOf(code, { teasersUsed, teasersRemaining: details?.teasersRemaining ?? PREMIUM_LESSON_BUDGET - teasersUsed });
 }
 
 function isNotFoundError(error: unknown): boolean {
   return isAxiosError(error) && error.response?.status === 404;
 }
 
-function PremiumModal({
-  visible,
-  error,
-  onClose,
-  onUpgrade,
-}: {
+function PremiumModal({ visible, copy, onClose, onUpgrade }: {
   visible: boolean;
-  error: unknown;
+  copy: LessonPaywallCopy;
   onClose: () => void;
   onUpgrade: () => void;
 }) {
-  const isLimit = isTeaserLimitError(error);
-  const details: Partial<PremiumRequiredDetails> | undefined =
-    isAxiosError<ApiErrorResponse<Partial<PremiumRequiredDetails>>>(error) ? error.response?.data?.details : undefined;
-  const teasersUsed = details?.teasersUsed ?? 0;
-  const teasersRemaining = details?.teasersRemaining ?? PREMIUM_LESSON_BUDGET - teasersUsed;
-
   return (
-    <PremiumSheet
-      visible={visible}
-      title={isLimit ? 'Free Preview Limit Reached' : 'Premium Content'}
-      body={isLimit
-        ? `You've used ${teasersUsed} of ${PREMIUM_LESSON_BUDGET} free previews. Upgrade to continue learning.`
-        : 'This is premium content. Upgrade to unlock unlimited access to all lessons.'}
-      onUpgrade={onUpgrade}
-      onClose={onClose}
-    >
-      {isLimit && (
-        <Text style={styles.teasersRemaining}>
-          {teasersRemaining} free preview{teasersRemaining === 1 ? '' : 's'} remaining
-        </Text>
-      )}
+    <PremiumSheet visible={visible} title={copy.title} body={copy.body} onUpgrade={onUpgrade} onClose={onClose}>
+      {copy.remaining !== null && <Text style={styles.teasersRemaining}>{copy.remaining}</Text>}
     </PremiumSheet>
   );
 }
@@ -104,11 +71,9 @@ export default function LessonDetailScreen() {
   const { data: paths } = usePaths();
   const [quizVisible, setQuizVisible] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
-  const [phase, setPhase] = useState<LessonPhase>('expanded');
   const insets = useSafeAreaInsets();
-  const retakeInProgress = !!lesson?.lessonRetakeInProgress;
-  // A completed lesson (and not mid-retake) is looked back over, not read through: summary, lesson and quiz, one tap apart.
-  const viewing = !!lesson?.quizCompleted && !retakeInProgress;
+  const clock = useLessonClock();
+  const { viewing, phase, changePhase } = useLessonPhase({ lessonId: id ?? '', lesson, paths, clock });
   // The takeaway page turns the whole screen cobalt (the 2026-11 design); without a takeaway it stays plain.
   const takeawayPage = !viewing && phase === 'takeaway' && !!lesson?.keyTakeaway;
   const position = lesson?.topicName && lesson.lessonIndex != null && lesson.totalLessons != null && lesson.totalLessons > 0
@@ -124,43 +89,7 @@ export default function LessonDetailScreen() {
       ? { fontFamily: font.bold, fontSize: fontSize.sm, color: colors.brandSoft }
       : { fontFamily: font.regular, fontSize: fontSize.md, color: colors.textMuted },
   };
-  const clock = useLessonClock();
-
-  // Guards against re-initialising phase after the user has manually transitioned
-  const phaseInitialized = useRef<string | null>(null);
-
-
-  // Fire-and-forget position write: a failure is silent to the user (spec constraint 6), never to us.
-  // Safe to send again (ADR-021): it waits through a drop and keeps its order behind the lesson's other writes.
-  const savePosition = useSavePosition(id ?? '');
-  function updatePosition(lessonId: string, p: LessonPhase) {
-    savePosition.mutate({ lessonId, phase: p }, {
-      onError: (err) => {
-        Sentry.addBreadcrumb({ category: 'lesson', message: 'Position save failed', level: 'warning', data: { lessonId, phase: p, err: String(err) } });
-      },
-    });
-  }
-
-  // Where the reader opens, the same rule as web. Waits for paths: they carry the saved position.
-  useEffect(() => {
-    if (!lesson || !paths || phaseInitialized.current === lesson.id) return;
-    const initial = readingPhase(lessonOpeningPhase(lesson, paths));
-    setPhase(initial);
-    phaseInitialized.current = lesson.id;
-    updatePosition(lesson.id, initial);
-  }, [lesson?.id, lesson?.quizCompleted, paths]);
-
-  // A retake started from the completed view begins at the lesson, not the takeaway the opening rule gives a completed lesson.
-  const wasViewing = useRef(false);
-  useEffect(() => {
-    if (wasViewing.current && lesson && !viewing) {
-      setPhase('expanded');
-      updatePosition(lesson.id, 'expanded');
-    }
-    wasViewing.current = viewing;
-  }, [viewing]);
-
-  const showPremiumError = isError && isPremiumError(error);
+  const paywall = isError ? paywallCopyOf(error) : null;
   const showNotFound = isError && isNotFoundError(error);
   // The server's message or fixed copy, never the transport's own text ("Network Error").
   const lessonError = extractError(error);
@@ -186,16 +115,14 @@ export default function LessonDetailScreen() {
           <Text testID="lesson-not-found" style={styles.error}>Lesson not found</Text>
         )}
 
-        {isError && !showPremiumError && !showNotFound && (
+        {isError && !paywall && !showNotFound && (
           <Text testID="lesson-error" style={styles.error}>{lessonError}</Text>
         )}
 
-        {isError && showPremiumError && (
+        {paywall && (
           <Card testID="premium-error-card" style={styles.card}>
             <Text style={styles.premiumIcon}>🔒</Text>
-            <Text style={styles.premiumTitle}>
-              {isTeaserLimitError(error) ? 'Free Preview Limit Reached' : 'Premium Content'}
-            </Text>
+            <Text style={styles.premiumTitle}>{paywall.title}</Text>
             <Button
               label="Learn more"
               style={styles.quizBtn}
@@ -253,13 +180,10 @@ export default function LessonDetailScreen() {
           {phase === 'expanded' && (
             <EdgeButton
               testID="key-takeaway-btn"
-              look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+              look={PRIMARY_EDGE_LOOK}
               label="Key takeaway"
               icon="next"
-              onPress={() => {
-                setPhase('takeaway');
-                updatePosition(lesson.id, 'takeaway');
-              }}
+              onPress={() => changePhase('takeaway')}
             />
           )}
           {phase === 'takeaway' && !takeawayPage && (
@@ -292,15 +216,17 @@ export default function LessonDetailScreen() {
         />
       )}
 
-      <PremiumModal
-        visible={premiumModalVisible}
-        error={error}
-        onClose={() => setPremiumModalVisible(false)}
-        onUpgrade={() => {
-          setPremiumModalVisible(false);
-          router.push(PAYWALL_ROUTE);
-        }}
-      />
+      {paywall && (
+        <PremiumModal
+          visible={premiumModalVisible}
+          copy={paywall}
+          onClose={() => setPremiumModalVisible(false)}
+          onUpgrade={() => {
+            setPremiumModalVisible(false);
+            router.push(PAYWALL_ROUTE);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

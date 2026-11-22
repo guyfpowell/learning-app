@@ -38,7 +38,7 @@ export function SkillNode({
   const filled = filledFraction(state, progress);
 
   return (
-    <View testID={testID} style={[styles.node, style as object]} {...rest}>
+    <View testID={testID} style={[styles.node, style]} {...rest}>
       {/* Bar */}
       <View style={[styles.bar, barTrackStyle(state)]}>
         {filled > 0 && (

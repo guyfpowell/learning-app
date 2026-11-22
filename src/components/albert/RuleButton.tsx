@@ -16,7 +16,6 @@ export function RuleButton({ label, onPress, height = 46, disabled = false, test
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={label}
       accessibilityState={{ disabled }}
       style={({ pressed }) => [styles.button, { height }, pressed && styles.pressed, disabled && styles.disabled]}
     >

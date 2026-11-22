@@ -6,12 +6,14 @@
  *   1. Configure the SDK and identify the logged-in user.
  *   2. Fetch product pricing to display in the paywall.
  *   3. Initiate the Apple payment sheet.
+ *   4. Restore previous purchases.
  *
  * `Purchases.getCustomerInfo()` is deliberately not called; entitlement
  * decisions always come from our own server via EntitlementService.
  */
 import type PurchasesType from 'react-native-purchases';
 import type { PurchasesPackage } from 'react-native-purchases';
+import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 
 /**
  * The SDK is native code. Builds and OTA targets that predate it (Expo Go, the
@@ -21,7 +23,8 @@ import type { PurchasesPackage } from 'react-native-purchases';
 function loadPurchases(): typeof PurchasesType | null {
   try {
     return require('react-native-purchases').default as typeof PurchasesType;
-  } catch {
+  } catch (err) {
+    warnBreadcrumb(BREADCRUMB_CATEGORY.iap, 'RevenueCat SDK unavailable', err);
     return null;
   }
 }
@@ -55,8 +58,9 @@ export interface IAPOffering {
 function configure(apiKey: string): void {
   try {
     loadPurchases()?.configure({ apiKey });
-  } catch {
-    // Native SDK unavailable in this build — purchasing is disabled.
+  } catch (err) {
+    // Purchasing stays disabled; the app runs on without it.
+    warnBreadcrumb(BREADCRUMB_CATEGORY.iap, 'RevenueCat configure failed', err);
   }
 }
 
@@ -66,6 +70,26 @@ function configure(apiKey: string): void {
  */
 async function logIn(userId: string): Promise<void> {
   await loadPurchases()?.logIn(userId);
+}
+
+/**
+ * Make sure RevenueCat's app user ID is `userId` before Apple is asked anything
+ * (132a). A purchase made under an anonymous ID would leave a paying user
+ * without premium, because the server confirms purchases by app user ID.
+ * Rejects when the ID can't be read or the login fails, so the caller stops.
+ * Reads only the ID, never customer info (C1).
+ */
+async function ensureLoggedInAs(Purchases: typeof PurchasesType, userId: string): Promise<void> {
+  if ((await Purchases.getAppUserID()) === userId) return;
+  await Purchases.logIn(userId);
+}
+
+/** The SDK, logged in as `userId`, for a payment step. Throws when the native SDK is unavailable. */
+async function purchasesLoggedInAs(userId: string): Promise<typeof PurchasesType> {
+  const Purchases = loadPurchases();
+  if (!Purchases) throw new Error('Purchases are not available in this build');
+  await ensureLoggedInAs(Purchases, userId);
+  return Purchases;
 }
 
 /**
@@ -84,7 +108,8 @@ async function getOfferings(): Promise<IAPOffering> {
 }
 
 /**
- * Initiate the Apple payment sheet for the given package.
+ * Initiate the Apple payment sheet for the given package, once RevenueCat is
+ * logged in as `userId` (132a).
  * Throws when the user cancels or the transaction fails (RevenueCat SDK
  * throws with `userCancelled: true` on cancellation — callers should check).
  *
@@ -92,10 +117,9 @@ async function getOfferings(): Promise<IAPOffering> {
  * the caller can immediately verify with our server (Chunk 7).  Call
  * `subscriptionService.verifyPurchase(result)` right after this resolves.
  */
-async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseResult> {
+async function purchasePackage(pkg: PurchasesPackage, userId: string): Promise<PurchaseResult> {
+  const Purchases = await purchasesLoggedInAs(userId);
   // The RevenueCat SDK validates the Apple receipt before returning.
-  const Purchases = loadPurchases();
-  if (!Purchases) throw new Error('Purchases are not available in this build');
   const raw = await Purchases.purchasePackage(pkg);
   return {
     originalTransactionId: raw?.transaction?.transactionIdentifier ?? null,
@@ -111,11 +135,11 @@ async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseResult> {
  * `subscriptionService.verifyPurchase({ originalTransactionId: null, productId: '' })`
  * to re-fetch the resolved entitlement from our own server (C1).
  *
+ * Logs RevenueCat in as `userId` first, like `purchasePackage` (132a).
  * Throws when the native SDK is unavailable (same contract as `purchasePackage`).
  */
-async function restorePurchases(): Promise<void> {
-  const Purchases = loadPurchases();
-  if (!Purchases) throw new Error('Purchases are not available in this build');
+async function restorePurchases(userId: string): Promise<void> {
+  const Purchases = await purchasesLoggedInAs(userId);
   await Purchases.restorePurchases();
 }
 

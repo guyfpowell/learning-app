@@ -2,7 +2,9 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tansta
 import type { PurchasesPackage } from 'react-native-purchases';
 import { iapService } from '@/services/iap.service';
 import { subscriptionService } from '@/services/subscription.service';
+import { useAuthStore } from '@/store/auth.store';
 import { requireSignal } from '@/lib/offlineWrites';
+import { BREADCRUMB_CATEGORY, loggedLoad } from '@/lib/breadcrumbs';
 import {
   IAP_OFFERINGS_QUERY_KEY,
   LESSONS_QUERY_KEY,
@@ -33,6 +35,16 @@ async function invalidateEntitlementQueries(queryClient: QueryClient): Promise<v
 }
 
 /**
+ * The signed-in user's ID, read when the payment runs, which RevenueCat's app user ID must be
+ * before a payment starts (132a). With no signed-in user the payment fails before Apple is asked anything.
+ */
+function signedInUserId(): string {
+  const userId = useAuthStore.getState().user?.id;
+  if (!userId) throw new Error('Not signed in');
+  return userId;
+}
+
+/**
  * Fetches the current RevenueCat offering (monthly + annual packages).
  * Stale time is long — product prices change rarely and the paywall renders
  * immediately without waiting for a fresh network call.
@@ -40,7 +52,7 @@ async function invalidateEntitlementQueries(queryClient: QueryClient): Promise<v
 export function useOfferings() {
   return useQuery({
     queryKey: IAP_OFFERINGS_QUERY_KEY,
-    queryFn: () => iapService.getOfferings(),
+    queryFn: () => loggedLoad(BREADCRUMB_CATEGORY.iap, 'Offerings load failed', () => iapService.getOfferings()),
     staleTime: OFFERINGS_STALE_MS,
   });
 }
@@ -50,8 +62,8 @@ export function useOfferings() {
  * (Chunk 8, 073b-8).
  *
  * Flow:
- *   1. `iapService.restorePurchases` calls `Purchases.restorePurchases()` to
- *      re-validate the Apple receipt with RevenueCat.
+ *   1. `iapService.restorePurchases` logs RevenueCat in as the user if needed (132a), then
+ *      calls `Purchases.restorePurchases()` to re-validate the Apple receipt with RevenueCat.
  *   2. `subscriptionService.verifyPurchase` with a null originalTransactionId
  *      skips any upsert on our server but re-fetches the resolved entitlement —
  *      which picks up any subscription row the RevenueCat webhook already wrote.
@@ -64,7 +76,7 @@ export function useRestorePurchases() {
   return useMutation({
     // Payment is never paused or retried: with no signal it fails at once (ADR-021 Decision 6).
     mutationFn: () => requireSignal(async () => {
-      await iapService.restorePurchases();
+      await iapService.restorePurchases(signedInUserId());
       // Pass null/empty so the server skips the upsert and just returns the
       // current resolved entitlement — graceful behaviour already tested in Chunk 7.
       return subscriptionService.verifyPurchase({ originalTransactionId: null, productId: '' });
@@ -78,7 +90,8 @@ export function useRestorePurchases() {
  * the purchase with our server — Chunk 7 (073b-7).
  *
  * Flow:
- *   1. `iapService.purchasePackage` opens the Apple payment sheet and waits.
+ *   1. `iapService.purchasePackage` logs RevenueCat in as the user if needed (132a), then
+ *      opens the Apple payment sheet and waits.
  *   2. On success, `subscriptionService.verifyPurchase` writes the
  *      subscription row to our DB and returns the resolved EntitlementResult.
  *   3. Every entitlement-dependent query is invalidated so cached locked/
@@ -91,7 +104,7 @@ export function usePurchase() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (pkg: PurchasesPackage) => requireSignal(async () => {
-      const purchaseResult = await iapService.purchasePackage(pkg);
+      const purchaseResult = await iapService.purchasePackage(pkg, signedInUserId());
       return subscriptionService.verifyPurchase(purchaseResult);
     }),
     onSuccess: () => invalidateEntitlementQueries(queryClient),

@@ -4,10 +4,10 @@ import { useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { AuthFrame } from '@/components/auth/AuthFrame';
 import { Input } from '@/components/ui/Input';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, PRIMARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { useRegister } from '@/hooks/useAuth';
 import { authService } from '@/services/auth.service';
-import { colors, font, fontSize, press, radius, spacing } from '@/theme';
+import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { extractError, errorCode } from '@/lib/errors';
 import * as Sentry from '@sentry/react-native';
 import {
@@ -239,7 +239,7 @@ export default function RegisterScreen() {
 
       <EdgeButton
         testID="register-submit"
-        look={{ face: colors.brand, label: colors.onBrand, edge: press.primaryEdge }}
+        look={PRIMARY_EDGE_LOOK}
         label="Create account"
         onPress={handleSubmit}
         loading={register.isPending}

@@ -18,6 +18,8 @@ export interface ScreenRect {
   height: number;
 }
 
+/** What a tap on the metres chip does, read after its text. */
+export const METRES_CHIP_DISMISS_HINT = 'Dismisses the metres climbed';
 /** How long the chip takes to fly back to the score it came from. */
 const COLLAPSE_MS = 480;
 /** The chip never shrinks below this share of its size on the way back, so it does not vanish before it lands. */
@@ -120,7 +122,7 @@ export function MetresChipOverlay({ copy, visible, onDismiss, autoDismissMs = 20
       testID="metres-chip-overlay"
       style={[styles.chipContainer, anchor && { ...anchor, justifyContent: 'center' }]}
       onPress={dismiss}
-      accessibilityLabel="Dismiss metres climbed"
+      accessibilityHint={METRES_CHIP_DISMISS_HINT}
     >
       <Animated.View
         testID="metres-chip-animated"

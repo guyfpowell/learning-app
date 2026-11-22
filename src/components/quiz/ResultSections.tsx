@@ -14,7 +14,7 @@ const LEAD_SIZE = 19;
 const BODY_SIZE = 17;
 const HINT_SIZE = 23;
 
-/** The small tile and word above the headline: CORRECT, ONE MORE TRY, INCORRECT. */
+/** The small tile and word above the headline: ONE MORE TRY (the other two verdicts have none). */
 export function VerdictMark({ tone }: { tone: ResultTone }) {
   const look = TONE_LOOK[tone];
   return (

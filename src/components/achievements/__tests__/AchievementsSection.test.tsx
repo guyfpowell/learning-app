@@ -26,6 +26,7 @@ import { must } from '@/test-utils/must';
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('@/hooks/useAchievements', () => ({ useAchievements: jest.fn() }));
+jest.mock('@/hooks/useWeek', () => ({ useWeek: jest.fn(() => ({ data: undefined })) }));
 
 const EARNED_AT = '2026-08-01T12:00:00Z';
 const NEXT_PROGRESS = { current: 7, target: 10 };
@@ -214,7 +215,7 @@ describe('AchievementsSection', () => {
     expect(screen.queryByTestId('achievement-detail-modal')).toBeNull();
   });
 
-  it('has a link to the week at the bottom of the section, which opens it', () => {
+  it('has the week card at the bottom of the section, which opens the week', () => {
     render(<AchievementsSection />);
     const link = screen.getByTestId('week-link');
     expect(within(link).getByText(WEEK_TITLE)).toBeTruthy();

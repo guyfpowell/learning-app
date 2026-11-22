@@ -51,7 +51,7 @@ export function SkipReasonPicker({ title = 'Skip lesson', onPick, onCancel }: Sk
   return (
     <SheetModal scrimTestID="skip-reason-scrim" onClose={onCancel}>
         <Animated.View style={[styles.sheet, { transform: [{ translateY: drag }] }]} {...pan.panHandlers}>
-          <Pressable testID="skip-reason-picker" accessibilityLabel={SKIP_REASON_QUESTION} style={styles.content} onPress={() => { /* swallow: keep the sheet open */ }}>
+          <Pressable testID="skip-reason-picker" style={styles.content} onPress={() => { /* swallow: keep the sheet open */ }}>
             <View style={styles.handle} />
             <View style={styles.head}>
               <Text accessibilityRole="header" style={styles.title}>{title}</Text>
@@ -62,7 +62,7 @@ export function SkipReasonPicker({ title = 'Skip lesson', onPick, onCancel }: Sk
                 <ReasonRow key={reason} reason={reason} selected={picked === reason} onPress={() => pick(reason)} />
               ))}
             </View>
-            <Pressable testID="skip-reason-cancel" onPress={onCancel} accessibilityRole="button" accessibilityLabel="Cancel" style={styles.cancel}>
+            <Pressable testID="skip-reason-cancel" onPress={onCancel} accessibilityRole="button" style={styles.cancel}>
               <Text style={styles.cancelLabel}>Cancel</Text>
             </Pressable>
           </Pressable>

@@ -72,7 +72,7 @@ export function useResultHeadline(tone: ResultTone): ResultHeadline {
   return headline;
 }
 
-/** The verdict screen's top: the verdict mark, the headline, then whatever sits under it (metres, accuracy, a nudge). */
+/** The verdict screen's top: the verdict mark (retry only; the background shows the other two), the headline, then whatever sits under it (metres, accuracy, a nudge). */
 export function ResultHeading({ headline, children }: { headline: ResultHeadline; children?: React.ReactNode }) {
   const { tone, phrase } = headline;
   const [boxWidth, setBoxWidth] = useState(0);
@@ -80,7 +80,7 @@ export function ResultHeading({ headline, children }: { headline: ResultHeadline
   const burst = useHeadingBurst(headline.burst, boxWidth, textWidth);
   return (
     <View testID="result-headline" style={styles.verdictTop} onLayout={e => setBoxWidth(e.nativeEvent.layout.width)}>
-      <VerdictMark tone={tone} />
+      {tone === 'retry' && <VerdictMark tone={tone} />}
       <Animated.Text
         testID="result-heading"
         style={[styles.verdictHeading, { color: results[tone].fg }, burst]}

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '@/components/ui/Text';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, PRIMARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
 import { PATH_NAME_MAX } from '@learning/shared';
-import { colors, font, fontSize, press, spacing } from '@/theme';
+import { colors, font, fontSize, spacing } from '@/theme';
 import { writeError } from '@/lib/errors';
 
 type RenameState =
@@ -87,13 +87,13 @@ export function RenamableHeading({ name, onSave }: Props) {
       <View style={styles.actions}>
         <Text testID="rename-count" style={styles.count}>{`${state.draft.length} / ${PATH_NAME_MAX}`}</Text>
         <View style={styles.buttons}>
-          <Pressable testID="rename-cancel" disabled={saving} onPress={() => setState({ mode: 'view' })} accessibilityRole="button" accessibilityLabel="Cancel" style={styles.cancel}>
+          <Pressable testID="rename-cancel" disabled={saving} onPress={() => setState({ mode: 'view' })} accessibilityRole="button" style={styles.cancel}>
             <Text style={styles.cancelLabel}>Cancel</Text>
           </Pressable>
           <View style={styles.save}>
             <EdgeButton
               testID="rename-save"
-              look={{ face: colors.brand, label: colors.onBrand, edge: press.primaryEdge }}
+              look={PRIMARY_EDGE_LOOK}
               label="Save"
               faceHeight={44}
               loading={saving}

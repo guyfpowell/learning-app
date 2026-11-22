@@ -11,7 +11,7 @@ import { usePaths } from '@/hooks/useTrack';
 import { usePrefetchNextScreens } from '@/hooks/usePrefetchNextScreens';
 import { AltitudeSection } from '@/components/altitude/AltitudeSection';
 import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
-import { FlameIcon } from '@/components/ui/Streak';
+import { StreakCalendarIcon } from '@/components/ui/StreakCalendarIcon';
 import { PathProgress } from '@/components/ui/PathProgress';
 import { AchievementsSection } from '@/components/achievements/AchievementsSection';
 import { TRACKS_ROUTE, trackRoute } from '@/lib/routes';
@@ -35,7 +35,8 @@ function PathCardLink({ path, onOpen, onFindNext }: { path: UserPath; onOpen: ()
 const PROGRESS_GUTTER = spacing.lg;
 /** The gap between the page's blocks. */
 const BLOCK_GAP = 22;
-
+/** The streak calendar beside the Day streak count. */
+const STREAK_ICON_SIZE = 33;
 // ── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProgressScreen() {
@@ -84,8 +85,8 @@ export default function ProgressScreen() {
               </View>
               <View style={[styles.stat, styles.statDivided]}>
                 <View style={styles.statValueRow}>
-                  <FlameIcon size={fontSize.lg} />
                   <Text testID="progress-streak" style={styles.statValue}>{data.currentStreak}</Text>
+                  <StreakCalendarIcon size={STREAK_ICON_SIZE} done={data.currentStreak > 0} />
                 </View>
                 <Text style={styles.statLabel}>Day streak</Text>
               </View>

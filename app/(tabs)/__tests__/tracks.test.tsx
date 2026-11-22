@@ -12,6 +12,7 @@ import { useSkills, usePaths, useEnroll, useSetActivePath } from '@/hooks/useTra
 import { NO_SIGNAL_ERROR, SET_ACTIVE_PATH_ERROR, type ActivePathRef, type SkillWithAccess, type UserPath } from '@learning/shared';
 import { makeCustomPath } from '@/test-utils/paths';
 import { NoSignalError } from '@/lib/offlineWrites';
+import { TRACK_OPEN_HINT } from '@/lib/trackOpenHints';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -216,6 +217,19 @@ describe('TracksScreen', () => {
     setMocks({ skills: [{ ...baseSkill, category: 'data-science' }] });
     render(<TracksScreen />);
     expect(screen.getByText('data-science')).toBeTruthy();
+  });
+
+  it('says what a card tap does as a hint, and gives the card no label of its own', () => {
+    render(<TracksScreen />);
+    const card = screen.getByTestId('skill-card-tap-skill-1');
+    expect(card.props.accessibilityHint).toBe(TRACK_OPEN_HINT);
+    expect(card.props.accessibilityLabel).toBeUndefined();
+  });
+
+  it('finds the Enrol action by its visible text', () => {
+    render(<TracksScreen />);
+    expect(within(screen.getByTestId('enrol-btn-skill-1')).getByText('Enrol')).toBeTruthy();
+    expect(screen.getByTestId('enrol-btn-skill-1').props.accessibilityLabel).toBeUndefined();
   });
 
   it('shows Enrol button for accessible, non-enrolled skill', () => {

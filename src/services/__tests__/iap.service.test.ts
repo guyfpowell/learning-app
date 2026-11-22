@@ -1,5 +1,7 @@
+import * as Sentry from '@sentry/react-native';
 import Purchases from 'react-native-purchases';
 import { PACKAGE_TYPE } from 'react-native-purchases';
+import { BREADCRUMB_CATEGORY } from '@/lib/breadcrumbs';
 import { must } from '@/test-utils/must';
 import { makeOffering, makeOfferings, makePackage } from '@/test-utils/purchases';
 import { iapService } from '../iap.service';
@@ -22,8 +24,20 @@ const mockAnnual = makePackage(PACKAGE_TYPE.ANNUAL, {
 
 const mockOfferings = makeOfferings(makeOffering(mockMonthly, mockAnnual));
 
+const USER_ID = 'user-abc';
+const ANONYMOUS_ID = '$RCAnonymousID:anon';
+
+// RevenueCat's app user ID as the SDK holds it; `logIn` changes it, as the real one does.
+const revenueCat = { appUserId: USER_ID };
+
 beforeEach(() => {
   jest.clearAllMocks();
+  revenueCat.appUserId = USER_ID;
+  (Purchases.getAppUserID as jest.Mock).mockImplementation(() => Promise.resolve(revenueCat.appUserId));
+  (Purchases.logIn as jest.Mock).mockImplementation((id: string) => {
+    revenueCat.appUserId = id;
+    return Promise.resolve({ customerInfo: {}, created: false });
+  });
 });
 
 // The setups below replace a mock's behaviour for one test; put the manual mock's defaults back.
@@ -39,14 +53,25 @@ describe('iapService.configure', () => {
     iapService.configure('appl_test_key_123');
     expect(Purchases.configure).toHaveBeenCalledWith({ apiKey: 'appl_test_key_123' });
   });
+
+  it('logs and does not throw when the SDK call itself throws', () => {
+    (Purchases.configure as jest.Mock).mockImplementation(() => { throw new Error('native missing'); });
+    expect(() => iapService.configure('key')).not.toThrow();
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith({
+      category: BREADCRUMB_CATEGORY.iap,
+      message:  'RevenueCat configure failed',
+      level:    'warning',
+      data:     { err: 'Error: native missing' },
+    });
+  });
 });
 
 // ── logIn ─────────────────────────────────────────────────────────────────────
 
 describe('iapService.logIn', () => {
   it('calls Purchases.logIn with the userId', async () => {
-    await iapService.logIn('user-abc');
-    expect(Purchases.logIn).toHaveBeenCalledWith('user-abc');
+    await iapService.logIn(USER_ID);
+    expect(Purchases.logIn).toHaveBeenCalledWith(USER_ID);
   });
 });
 
@@ -107,6 +132,17 @@ describe('iapService when the native SDK is unavailable', () => {
     await expect(svc.logIn('user-1')).resolves.toBeUndefined();
   });
 
+  it('logs that the SDK is unavailable', async () => {
+    const svc = loadWithMissingSdk();
+    await svc.getOfferings();
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith({
+      category: BREADCRUMB_CATEGORY.iap,
+      message:  'RevenueCat SDK unavailable',
+      level:    'warning',
+      data:     { err: 'Error: native module RNPurchases missing' },
+    });
+  });
+
   it('getOfferings returns nulls', async () => {
     const svc = loadWithMissingSdk();
     await expect(svc.getOfferings()).resolves.toEqual({ monthly: null, annual: null });
@@ -114,17 +150,12 @@ describe('iapService when the native SDK is unavailable', () => {
 
   it('purchasePackage rejects with a clear error', async () => {
     const svc = loadWithMissingSdk();
-    await expect(svc.purchasePackage(mockMonthly)).rejects.toThrow(/not available/i);
-  });
-
-  it('configure does not throw when the SDK call itself throws', () => {
-    (Purchases.configure as jest.Mock).mockImplementation(() => { throw new Error('native missing'); });
-    expect(() => iapService.configure('key')).not.toThrow();
+    await expect(svc.purchasePackage(mockMonthly, USER_ID)).rejects.toThrow(/not available/i);
   });
 
   it('restorePurchases rejects with a clear error', async () => {
     const svc = loadWithMissingSdk();
-    await expect(svc.restorePurchases()).rejects.toThrow(/not available/i);
+    await expect(svc.restorePurchases(USER_ID)).rejects.toThrow(/not available/i);
   });
 });
 
@@ -132,14 +163,14 @@ describe('iapService when the native SDK is unavailable', () => {
 
 describe('iapService.restorePurchases', () => {
   it('delegates to Purchases.restorePurchases', async () => {
-    await iapService.restorePurchases();
+    await iapService.restorePurchases(USER_ID);
     expect(Purchases.restorePurchases).toHaveBeenCalled();
   });
 
   it('propagates errors from Purchases.restorePurchases', async () => {
     const err = new Error('Restore failed');
     (Purchases.restorePurchases as jest.Mock).mockRejectedValue(err);
-    await expect(iapService.restorePurchases()).rejects.toThrow('Restore failed');
+    await expect(iapService.restorePurchases(USER_ID)).rejects.toThrow('Restore failed');
   });
 });
 
@@ -152,7 +183,7 @@ describe('iapService.purchasePackage', () => {
       productIdentifier: 'com.ascentlearning.premium_monthly',
       transaction: { transactionIdentifier: 'apple-txn-id-1' },
     });
-    await iapService.purchasePackage(mockMonthly);
+    await iapService.purchasePackage(mockMonthly, USER_ID);
     expect(Purchases.purchasePackage).toHaveBeenCalledWith(mockMonthly);
   });
 
@@ -162,7 +193,7 @@ describe('iapService.purchasePackage', () => {
       productIdentifier: 'com.ascentlearning.premium_monthly',
       transaction: { transactionIdentifier: 'apple-txn-id-1' },
     });
-    const result = await iapService.purchasePackage(mockMonthly);
+    const result = await iapService.purchasePackage(mockMonthly, USER_ID);
     expect(result.originalTransactionId).toBe('apple-txn-id-1');
   });
 
@@ -172,7 +203,7 @@ describe('iapService.purchasePackage', () => {
       productIdentifier: 'com.ascentlearning.premium_annual',
       transaction: { transactionIdentifier: 'apple-txn-id-2' },
     });
-    const result = await iapService.purchasePackage(mockAnnual);
+    const result = await iapService.purchasePackage(mockAnnual, USER_ID);
     expect(result.productId).toBe('com.ascentlearning.premium_annual');
   });
 
@@ -183,7 +214,7 @@ describe('iapService.purchasePackage', () => {
       // productIdentifier intentionally absent to exercise the fallback
     });
     const pkg = makePackage(PACKAGE_TYPE.MONTHLY, { identifier: 'com.ascentlearning.fallback.monthly' });
-    const result = await iapService.purchasePackage(pkg);
+    const result = await iapService.purchasePackage(pkg, USER_ID);
     expect(result.productId).toBe('com.ascentlearning.fallback.monthly');
   });
 
@@ -192,13 +223,86 @@ describe('iapService.purchasePackage', () => {
       customerInfo: {},
       productIdentifier: 'com.ascentlearning.premium_monthly',
     });
-    const result = await iapService.purchasePackage(mockMonthly);
+    const result = await iapService.purchasePackage(mockMonthly, USER_ID);
     expect(result.originalTransactionId).toBeNull();
   });
 
   it('propagates errors from Purchases.purchasePackage', async () => {
     const err = new Error('Payment cancelled');
     (Purchases.purchasePackage as jest.Mock).mockRejectedValue(err);
-    await expect(iapService.purchasePackage(mockMonthly)).rejects.toThrow('Payment cancelled');
+    await expect(iapService.purchasePackage(mockMonthly, USER_ID)).rejects.toThrow('Payment cancelled');
+  });
+});
+
+// ── login before purchase and restore (132a) ──────────────────────────────────
+
+describe('RevenueCat is logged in as the user before Apple is asked anything (132a)', () => {
+  // What `Purchases.purchasePackage` / `restorePurchases` saw as the app user ID when they were called.
+  const idSeenBySheet: { id: string | null } = { id: null };
+  const idSeenByRestore: { id: string | null } = { id: null };
+
+  beforeEach(() => {
+    idSeenBySheet.id = null;
+    idSeenByRestore.id = null;
+    (Purchases.purchasePackage as jest.Mock).mockImplementation(() => {
+      idSeenBySheet.id = revenueCat.appUserId;
+      return Promise.resolve({ customerInfo: {}, productIdentifier: 'p', transaction: { transactionIdentifier: 't' } });
+    });
+    (Purchases.restorePurchases as jest.Mock).mockImplementation(() => {
+      idSeenByRestore.id = revenueCat.appUserId;
+      return Promise.resolve({ customerInfo: {} });
+    });
+  });
+
+  it.each([
+    ['anonymous', ANONYMOUS_ID],
+    ["another user's", 'user-other'],
+  ])('purchase logs in as the user first when the ID is %s', async (_label, current) => {
+    revenueCat.appUserId = current;
+    await iapService.purchasePackage(mockMonthly, USER_ID);
+    expect(Purchases.logIn).toHaveBeenCalledWith(USER_ID);
+    expect(idSeenBySheet.id).toBe(USER_ID);
+  });
+
+  it.each([
+    ['anonymous', ANONYMOUS_ID],
+    ["another user's", 'user-other'],
+  ])('restore logs in as the user first when the ID is %s', async (_label, current) => {
+    revenueCat.appUserId = current;
+    await iapService.restorePurchases(USER_ID);
+    expect(Purchases.logIn).toHaveBeenCalledWith(USER_ID);
+    expect(idSeenByRestore.id).toBe(USER_ID);
+  });
+
+  it('purchase does not log in again when the ID already matches', async () => {
+    await iapService.purchasePackage(mockMonthly, USER_ID);
+    expect(Purchases.logIn).not.toHaveBeenCalled();
+    expect(Purchases.purchasePackage).toHaveBeenCalledWith(mockMonthly);
+  });
+
+  it('restore does not log in again when the ID already matches', async () => {
+    await iapService.restorePurchases(USER_ID);
+    expect(Purchases.logIn).not.toHaveBeenCalled();
+    expect(Purchases.restorePurchases).toHaveBeenCalled();
+  });
+
+  it('a failed login stops the purchase before Apple is asked', async () => {
+    revenueCat.appUserId = ANONYMOUS_ID;
+    (Purchases.logIn as jest.Mock).mockRejectedValue(new Error('login failed'));
+    await expect(iapService.purchasePackage(mockMonthly, USER_ID)).rejects.toThrow('login failed');
+    expect(Purchases.purchasePackage).not.toHaveBeenCalled();
+  });
+
+  it('a failed login stops the restore before Apple is asked', async () => {
+    revenueCat.appUserId = ANONYMOUS_ID;
+    (Purchases.logIn as jest.Mock).mockRejectedValue(new Error('login failed'));
+    await expect(iapService.restorePurchases(USER_ID)).rejects.toThrow('login failed');
+    expect(Purchases.restorePurchases).not.toHaveBeenCalled();
+  });
+
+  it('a failure to read the current ID stops the purchase before Apple is asked', async () => {
+    (Purchases.getAppUserID as jest.Mock).mockRejectedValue(new Error('not configured'));
+    await expect(iapService.purchasePackage(mockMonthly, USER_ID)).rejects.toThrow('not configured');
+    expect(Purchases.purchasePackage).not.toHaveBeenCalled();
   });
 });

@@ -5,10 +5,13 @@ import { colors, fontSize, spacing } from '@/theme';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import LessonDetailScreen from '../[id]';
 import { useLesson, useSavePosition, useStartRetake } from '@/hooks/useLesson';
-import { RETAKE_LESSON_LABEL, RETAKE_START_ERROR } from '@learning/shared';
+import { ERROR_CODES, RETAKE_LESSON_LABEL, RETAKE_START_ERROR } from '@learning/shared';
 import { usePaths } from '@/hooks/useTrack';
 import { extractError } from '@/lib/errors';
 import * as Sentry from '@sentry/react-native';
+import { BREADCRUMB_CATEGORY } from '@/lib/breadcrumbs';
+import { axiosError } from '@/test-utils/axios';
+import { makeLesson } from '@/test-utils/lessons';
 
 const mockHeaderOptions = jest.fn();
 jest.mock('expo-router', () => ({
@@ -22,6 +25,8 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 jest.mock('@/hooks/useLesson');
 jest.mock('@/hooks/useTrack');
+const mockClock = { seconds: jest.fn(() => 0), reset: jest.fn() };
+jest.mock('@/hooks/useLessonClock', () => ({ useLessonClock: () => mockClock }));
 jest.mock('@/components/QuizModal', () => ({
   QuizModal: () => null,
 }));
@@ -40,29 +45,20 @@ jest.mock('@/components/ui/BookmarkButton', () => {
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => true };
 
-const mockLesson = {
-  id: 'lesson-1',
+const mockLesson = makeLesson({
   title: 'Test Lesson',
-  difficulty: 'beginner' as const,
   durationMinutes: 10,
-  isTeaser: false,
   content: 'You are presenting a strategy to the board when the CFO asks why growth has stalled.',
   summary: 'A test summary',
   keyTakeaway: 'The key takeaway',
   isSaved: false,
   quizCompleted: false,
   nextLessonId: 'lesson-2',
-  quizzes: [],
-  retakeOffered: false,
-  skillPathId: 'sp-1',
-  lessonNumber: 1,
   topicName: 'Topic One',
   lessonIndex: 1,
   totalLessons: 5,
   skillPath: { level: 'beginner', skillId: 'skill-1' },
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
+});
 
 const mockEnrollment = {
   kind: 'track' as const,
@@ -99,7 +95,7 @@ describe('LessonDetailScreen', () => {
     (useLesson as jest.Mock).mockReturnValue({ data: mockLesson, isLoading: false, error: null });
     render(<LessonDetailScreen />);
     await waitFor(() => expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
-      category: 'lesson', message: 'Position save failed', data: expect.objectContaining({ lessonId: 'lesson-1' }),
+      category: BREADCRUMB_CATEGORY.lesson, message: 'Position save failed', data: expect.objectContaining({ lessonId: 'lesson-1' }),
     })));
   });
 
@@ -326,6 +322,19 @@ describe('LessonDetailScreen', () => {
     expect(screen.queryByTestId('lesson-quiz-btn')).toBeNull();
   });
 
+  // The retake's completionTime counts from the start of the new pass, not from opening the completed view (as web).
+  it('a retake started from the completed view restarts the lesson clock', () => {
+    let lesson = { ...mockLesson, quizCompleted: true, retakeOffered: true, lessonRetakeInProgress: false };
+    (useLesson as jest.Mock).mockImplementation(() => ({ isLoading: false, isError: false, data: lesson, error: null }));
+    mockStartRetake.mockImplementation(() => { lesson = { ...lesson, lessonRetakeInProgress: true, retakeOffered: false }; });
+    const { rerender } = render(<LessonDetailScreen />);
+    expect(mockClock.reset).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByTestId('lesson-retake-btn'));
+    rerender(<LessonDetailScreen />);
+    expect(mockClock.reset).toHaveBeenCalledTimes(1);
+  });
+
   it('135b: a completed lesson that offers no retake shows no Retake lesson button', () => {
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: false, data: { ...mockLesson, quizCompleted: true, retakeOffered: false }, error: null,
@@ -364,12 +373,8 @@ describe('LessonDetailScreen', () => {
     expect(screen.queryByTestId('rating-stub')).toBeNull();
   });
 
-  it('shows premium error card for LESSON_004', () => {
-    const err = {
-      isAxiosError: true,
-      response: { status: 403, data: { code: 'LESSON_004', message: 'Premium required' } },
-      message: 'Request failed with status code 403',
-    };
+  it('shows premium error card for PREMIUM_REQUIRED', () => {
+    const err = axiosError('ERR_BAD_REQUEST', 403, { code: ERROR_CODES.PREMIUM_REQUIRED, message: 'Premium required' });
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: true, data: undefined, error: err,
     });
@@ -378,15 +383,10 @@ describe('LessonDetailScreen', () => {
     expect(screen.queryByTestId('lesson-error')).toBeNull();
   });
 
-  it('shows premium error card for LESSON_005 (teaser limit reached)', () => {
-    const err = {
-      isAxiosError: true,
-      response: {
-        status: 403,
-        data: { code: 'LESSON_005', error: 'Teaser limit', details: { teasersUsed: 2, teasersRemaining: 1 } },
-      },
-      message: 'Request failed with status code 403',
-    };
+  it('shows premium error card for TEASER_LIMIT_REACHED', () => {
+    const err = axiosError('ERR_BAD_REQUEST', 403, {
+      code: ERROR_CODES.TEASER_LIMIT_REACHED, error: 'Teaser limit', details: { teasersUsed: 2, teasersRemaining: 1 },
+    });
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: true, data: undefined, error: err,
     });
@@ -395,14 +395,9 @@ describe('LessonDetailScreen', () => {
   });
 
   it('shows the teaser counts the API sends in details (080i)', () => {
-    const err = {
-      isAxiosError: true,
-      response: {
-        status: 403,
-        data: { code: 'LESSON_005', error: 'Teaser limit', details: { teasersUsed: 2, teasersRemaining: 1 } },
-      },
-      message: 'Request failed with status code 403',
-    };
+    const err = axiosError('ERR_BAD_REQUEST', 403, {
+      code: ERROR_CODES.TEASER_LIMIT_REACHED, error: 'Teaser limit', details: { teasersUsed: 2, teasersRemaining: 1 },
+    });
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: true, data: undefined, error: err,
     });
@@ -415,11 +410,7 @@ describe('LessonDetailScreen', () => {
   });
 
   it('shows "Lesson not found" for 404', () => {
-    const err = {
-      isAxiosError: true,
-      response: { status: 404, data: { message: 'Not found' } },
-      message: 'Request failed with status code 404',
-    };
+    const err = axiosError('ERR_BAD_REQUEST', 404, { message: 'Not found' });
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: true, data: undefined, error: err,
     });
@@ -430,11 +421,7 @@ describe('LessonDetailScreen', () => {
   });
 
   it('shows API error message for generic errors', () => {
-    const err = {
-      isAxiosError: true,
-      response: { status: 500, data: { message: 'Internal server error' } },
-      message: 'Request failed with status code 500',
-    };
+    const err = axiosError('ERR_BAD_RESPONSE', 500, { message: 'Internal server error' });
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: true, data: undefined, error: err,
     });
@@ -444,13 +431,13 @@ describe('LessonDetailScreen', () => {
   });
 
   it('shows fixed copy, never the transport text, when a load fails with no response', () => {
-    const err = { isAxiosError: true, code: 'ERR_NETWORK', message: 'Network Error' };
+    const err = axiosError('ERR_NETWORK');
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: true, data: undefined, error: err,
     });
     render(<LessonDetailScreen />);
     expect(screen.getByTestId('lesson-error')).toHaveTextContent(extractError(err));
-    expect(screen.queryByText('Network Error')).toBeNull();
+    expect(screen.queryByText(err.message)).toBeNull();
   });
 
   describe('lesson article (096)', () => {
@@ -531,11 +518,7 @@ describe('LessonDetailScreen', () => {
   });
 
   it('navigates to settings when upgrade is pressed in premium modal', () => {
-    const err = {
-      isAxiosError: true,
-      response: { status: 403, data: { code: 'LESSON_004', message: 'Premium required' } },
-      message: 'Request failed with status code 403',
-    };
+    const err = axiosError('ERR_BAD_REQUEST', 403, { code: ERROR_CODES.PREMIUM_REQUIRED, message: 'Premium required' });
     (useLesson as jest.Mock).mockReturnValue({
       isLoading: false, isError: true, data: undefined, error: err,
     });

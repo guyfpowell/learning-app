@@ -132,7 +132,7 @@ function UnfinishedBody(props: BuildPathCardProps) {
         </View>
         {/* Starting again removes this path, so it is a quiet link, not a button (096). */}
         {actions.canRemove && (
-          <Pressable testID="create-new-path" onPress={onCreateNewPath} accessibilityRole="button" accessibilityLabel="Create a new path" hitSlop={8}>
+          <Pressable testID="create-new-path" onPress={onCreateNewPath} accessibilityRole="button" hitSlop={8}>
             <Text style={styles.newPathLink}>New path</Text>
           </Pressable>
         )}

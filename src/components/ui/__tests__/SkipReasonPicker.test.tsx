@@ -15,6 +15,12 @@ describe('SkipReasonPicker (079c)', () => {
     expect(screen.getByTestId('skip-reason-cancel')).toBeTruthy();
   });
 
+  it('finds Cancel by its visible text, and the sheet has no label hiding its contents', () => {
+    render(<SkipReasonPicker onPick={jest.fn()} onCancel={jest.fn()} />);
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    expect(screen.getByTestId('skip-reason-picker').props.accessibilityLabel).toBeUndefined();
+  });
+
   it('has no free-text input', () => {
     render(<SkipReasonPicker onPick={jest.fn()} onCancel={jest.fn()} />);
     expect(screen.UNSAFE_queryAllByType(require('react-native').TextInput)).toHaveLength(0);

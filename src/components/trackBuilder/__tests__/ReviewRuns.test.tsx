@@ -18,6 +18,12 @@ describe('ReviewRuns', () => {
     expect(screen.queryByText('Roadmaps')).toBeNull();
   });
 
+  it('names a goal button from its own text, with no label restating it', () => {
+    render(<ReviewRuns runs={runs} />);
+    expect(screen.getByTestId('run-toggle-0').props.accessibilityLabel).toBeUndefined();
+    expect(screen.getByRole('button', { name: /Understand the job/ })).toBeTruthy();
+  });
+
   it('opens another goal and closes the first: one at a time', () => {
     render(<ReviewRuns runs={runs} />);
     fireEvent.press(screen.getByTestId('run-toggle-1'));

@@ -1,15 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Lesson, QuizResult, Rewards } from '@learning/shared';
+import type { Lesson, QuizResult, Rewards, TopicEnd } from '@learning/shared';
 import { metresChipOf } from '@learning/shared';
-import { Text } from '@/components/ui/Text';
 import { TopicFeedback } from '@/components/ui/TopicFeedback';
 import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { MetresChipOverlay, type ScreenRect } from '@/components/ui/CelebrationOverlay';
 import { Reveal, revealDelay } from '@/components/ui/Reveal';
 import { QuizFeedbackCard } from '@/components/quiz/QuizFeedbackCard';
 import { QuizResultFrame, headerRowBox } from '@/components/quiz/QuizResultFrame';
+import { SideWordAction } from '@/components/ui/SideWordAction';
 import { ResultButton } from '@/components/quiz/ResultButton';
 import { ResultHeading, useResultHeadline, type ResultHeadline } from '@/components/quiz/ResultHeading';
 import { MilestoneCard, TrackAccuracyBadge, MetresAward } from '@/components/quiz/QuizResultParts';
@@ -18,7 +18,7 @@ import { verdictTone, type ResultTone } from '@/components/quiz/resultTone';
 import { useRefreshPaths, useTopicFeedback } from '@/hooks/useTrack';
 import { enqueueRewards } from '@/lib/rewards';
 import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
-import { colors, font, radius, results, spacing } from '@/theme';
+import { colors, radius, results, spacing } from '@/theme';
 
 /** The milestone card grows in from this scale when the lesson is finalised. */
 const MILESTONE_START_SCALE = 0.8;
@@ -68,18 +68,32 @@ export function FinalResultView({ result, correct, lessonRating, ...rest }: Fina
   );
 }
 
+/** The metres chip on the finished view. */
+interface MetresChip {
+  /** Its words once its turn has come; null before then, and for a pass that paid nothing. */
+  copy: string | null;
+  dismissed: boolean;
+  dismiss: () => void;
+  /** Where the chip sits on the screen, so the chip animation can fly back onto it. */
+  rect: ScreenRect | null;
+  onMeasure: (rect: ScreenRect) => void;
+}
+
 /**
- * Sends the result's rewards to the celebration queue, once, and says when the metres chip may show:
- * after they are queued and the queue has emptied, so the chip comes last (strategy 4.1 rule 4).
+ * Sends the result's rewards to the celebration queue, once, and shows the metres chip only after
+ * they are queued and the queue has emptied, so the chip comes last (strategy 4.1 rule 4).
  */
-function useChipTurn(rewards: Rewards | null): boolean {
+function useMetresChip(rewards: Rewards | null): MetresChip {
   const [queued, setQueued] = useState(false);
   const queueEmpty = useCelebrationQueueStore((s) => s.queue.length === 0);
+  const [dismissed, setDismissed] = useState(false);
+  const [rect, setRect] = useState<ScreenRect | null>(null);
   useEffect(() => {
     if (rewards !== null) enqueueRewards(rewards);
     setQueued(true);
   }, [rewards]);
-  return queued && queueEmpty;
+  const copy = queued && queueEmpty ? metresChipOf(rewards) : null;
+  return { copy, dismissed, dismiss: () => setDismissed(true), rect, onMeasure: setRect };
 }
 
 type FinalResultBodyProps = Omit<FinalResultViewProps, 'result' | 'correct' | 'lessonRating'> & { result: QuizResult; headline: ResultHeadline };
@@ -88,36 +102,12 @@ type FinalResultBodyProps = Omit<FinalResultViewProps, 'result' | 'correct' | 'l
 function FinalResultBody({ result, headline, lessonId, saved, onToggleSave, onLeave, onNavigate }: FinalResultBodyProps) {
   const { feedbacks, streak, milestone, trackAccuracy, previousTrackAccuracy, nextLessonId } = result;
   const { tone } = headline;
-  // A pass that paid nothing shows no chip and no line. The chip waits for the unlocks to be celebrated.
-  const chipCopy = metresChipOf(result.rewards);
-  const chipTurn = useChipTurn(result.rewards);
-  const chipToShow = chipTurn ? chipCopy : null;
+  const chip = useMetresChip(result.rewards);
   const insets = useSafeAreaInsets();
-  const topicFeedback = useTopicFeedback();
-  const refreshPaths = useRefreshPaths();
-  const [chipDismissed, setChipDismissed] = useState(false);
-  // Where the metres chip sits on the screen, so the chip animation can fly back onto it.
-  const [chipRect, setChipRect] = useState<ScreenRect | null>(null);
-  const [topicFeedbackClosed, setTopicFeedbackClosed] = useState(false);
-  const accuracyAnim = useRef(new Animated.Value(0)).current;
-  const milestoneAnim = useRef(new Animated.Value(MILESTONE_START_SCALE)).current;
+  const { accuracyAnim, milestoneAnim } = useSpringIn(milestone);
 
-  useEffect(() => {
-    Animated.spring(accuracyAnim, SPRING_IN).start();
-    if (!milestone) return;
-    Animated.spring(milestoneAnim, SPRING_IN).start();
-  }, [accuracyAnim, milestoneAnim, milestone]);
-
-  const topicEnd = topicFeedbackClosed ? null : result.topicEnd;
-  // Where the page's tail (topic feedback and the button) comes in: after every block above it.
-  const tailStep = feedbacks.length;
-
-  const overlay = (
-    <>
-      {chipToShow !== null && !chipDismissed && (
-        <MetresChipOverlay visible copy={chipToShow} anchor={headerRowBox(insets.top)} returnTo={chipRect} onDismiss={() => setChipDismissed(true)} />
-      )}
-    </>
+  const overlay = chip.copy !== null && !chip.dismissed && (
+    <MetresChipOverlay visible copy={chip.copy} anchor={headerRowBox(insets.top)} returnTo={chip.rect} onDismiss={chip.dismiss} />
   );
 
   return (
@@ -133,7 +123,7 @@ function FinalResultBody({ result, headline, lessonId, saved, onToggleSave, onLe
     >
       <ResultHeading headline={headline}>
         <View style={styles.statsRow}>
-          {chipToShow !== null && <MetresAward copy={chipToShow} tone={tone} onMeasure={setChipRect} />}
+          {chip.copy !== null && <MetresAward copy={chip.copy} tone={tone} onMeasure={chip.onMeasure} />}
           <Animated.View style={{ transform: [{ scale: accuracyAnim }] }}>
             <TrackAccuracyBadge accuracy={trackAccuracy} previous={previousTrackAccuracy} tone={tone} />
           </Animated.View>
@@ -144,21 +134,44 @@ function FinalResultBody({ result, headline, lessonId, saved, onToggleSave, onLe
       {feedbacks.map((fb, i) => (
         <Reveal key={fb.quizId} delay={revealDelay(i)}><QuizFeedbackCard fb={fb} tone={tone} showQuestion={feedbacks.length > 1} /></Reveal>
       ))}
-      {/* End-of-topic feedback (079d). Closing hides it here only: the write already
-          happened, so Home will not show it again; one never written comes back on Home. */}
-      <Reveal delay={revealDelay(tailStep)}>
-        {topicEnd && (
-          // The screen is drawn for paper, so on a verdict colour it sits on a paper panel.
-          <View style={styles.topicFeedbackPanel}>
-            <TopicFeedback
-              topicEnd={topicEnd}
-              onSubmit={body => topicFeedback.submit(topicEnd.planId, body)}
-              onClose={() => { setTopicFeedbackClosed(true); refreshPaths(); }}
-            />
-          </View>
-        )}
+      {/* The page's tail comes in after every block above it. */}
+      <Reveal delay={revealDelay(feedbacks.length)}>
+        {result.topicEnd && <TopicEndPanel topicEnd={result.topicEnd} />}
       </Reveal>
     </QuizResultFrame>
+  );
+}
+
+/** The track accuracy springs in at once, and the milestone card, when there is one, with it. */
+function useSpringIn(milestone: string | null): { accuracyAnim: Animated.Value; milestoneAnim: Animated.Value } {
+  const accuracyAnim = useRef(new Animated.Value(0)).current;
+  const milestoneAnim = useRef(new Animated.Value(MILESTONE_START_SCALE)).current;
+  useEffect(() => {
+    Animated.spring(accuracyAnim, SPRING_IN).start();
+    if (!milestone) return;
+    Animated.spring(milestoneAnim, SPRING_IN).start();
+  }, [accuracyAnim, milestoneAnim, milestone]);
+  return { accuracyAnim, milestoneAnim };
+}
+
+/**
+ * End-of-topic feedback (079d). Closing hides it here only: the write already happened, so Home
+ * will not show it again; one never written comes back on Home.
+ */
+function TopicEndPanel({ topicEnd }: { topicEnd: TopicEnd }) {
+  const topicFeedback = useTopicFeedback();
+  const refreshPaths = useRefreshPaths();
+  const [closed, setClosed] = useState(false);
+  if (closed) return null;
+  return (
+    // The screen is drawn for paper, so on a verdict colour it sits on a paper panel.
+    <View style={styles.topicFeedbackPanel}>
+      <TopicFeedback
+        topicEnd={topicEnd}
+        onSubmit={body => topicFeedback.submit(topicEnd.planId, body)}
+        onClose={() => { setClosed(true); refreshPaths(); }}
+      />
+    </View>
   );
 }
 
@@ -169,25 +182,14 @@ function FinalResultActions({ tone, nextLessonId, onNavigate }: {
   onNavigate: (nextLessonId: string | null | undefined) => void;
 }) {
   return (
-    <View style={styles.actions}>
-      {/* A small word beside the button. With no next lesson the button itself goes Home. */}
-      {nextLessonId && (
-        <Pressable testID="result-home-btn" accessibilityRole="button" onPress={() => onNavigate(null)} style={styles.smallTouch}>
-          <Text style={[styles.smallWord, { color: results[tone].fg }]}>Home</Text>
-        </Pressable>
-      )}
-      <View style={styles.mainButton}>
-        <ResultButton testID="result-action-btn" tone={tone} label={nextLessonLabel(nextLessonId)} icon="next" onPress={() => onNavigate(nextLessonId)} />
-      </View>
-    </View>
+    // A small word beside the button. With no next lesson the button itself goes Home.
+    <SideWordAction word={nextLessonId ? 'Home' : undefined} color={results[tone].fg} onWordPress={() => onNavigate(null)} wordTestID="result-home-btn">
+      <ResultButton testID="result-action-btn" tone={tone} label={nextLessonLabel(nextLessonId)} icon="next" onPress={() => onNavigate(nextLessonId)} />
+    </SideWordAction>
   );
 }
 
 const styles = StyleSheet.create({
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 18 },
-  mainButton: { flex: 1 },
-  smallTouch: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 6 },
-  smallWord: { fontFamily: font.bold, fontSize: 15 },
   topicFeedbackPanel: { padding: spacing.lg, backgroundColor: colors.paper, borderRadius: radius.xl },
   statsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm3 },
 });

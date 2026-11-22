@@ -5,11 +5,14 @@ import { Text } from '@/components/ui/Text';
 import { Medal } from '@/components/ui/Medal';
 import { useAltitude } from '@/hooks/useAltitude';
 import { colors, font, fontSize, spacing } from '@/theme';
-import { Icon } from '@/components/ui/Icon';
+import { SectionRule } from '@/components/home/SectionRule';
+import { StreakCalendarIcon } from '@/components/ui/StreakCalendarIcon';
 import { AltitudeSection } from '@/components/altitude/AltitudeSection';
 import { nextStreakCopy, streakStageOf } from '@/lib/momentum';
 
-const FLAME_SIZE = 20;
+const CALENDAR_SIZE = 33;
+/** The streak number: as big as it can be without making the row taller than the calendar beside it. */
+const STREAK_NUMBER_SIZE = 27;
 const SLOT_MEDAL_SIZE = 26;
 const SLOT_TEXT_SIZE = 15;
 
@@ -26,10 +29,12 @@ export function MomentumCard({ streak }: { streak: number }) {
       <View style={styles.header}>
         <Text style={styles.motto}>{copy}</Text>
         <View testID="streak-chip" style={styles.streak} accessibilityLabel={`${streak} day streak`}>
-          <Icon name="streak" size={FLAME_SIZE} color={colors.coral} fill={colors.coral} />
           <Text style={styles.streakCount}>{streak}</Text>
+          <StreakCalendarIcon size={CALENDAR_SIZE} done={streak > 0} />
         </View>
       </View>
+
+      <SectionRule />
 
       <AltitudeSection
         screen="home"
@@ -41,16 +46,18 @@ export function MomentumCard({ streak }: { streak: number }) {
           </View>
         )}
       />
+
+      <SectionRule />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card:        { gap: spacing.md, marginBottom: spacing.md },
+  card:        { gap: spacing.sm3, marginBottom: spacing.sm3 },
   header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   motto:       { flex: 1, fontFamily: font.bold, fontSize: fontSize.md, color: colors.textMuted },
   slot:        { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   slotText:    { fontFamily: font.bold, fontSize: SLOT_TEXT_SIZE, color: colors.brand },
   streak:      { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  streakCount: { fontFamily: font.extrabold, fontSize: fontSize.md, color: colors.textStrong },
+  streakCount: { fontFamily: font.extrabold, fontSize: STREAK_NUMBER_SIZE, color: colors.textStrong },
 });

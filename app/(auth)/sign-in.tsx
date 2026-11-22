@@ -4,9 +4,9 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { AuthFrame } from '@/components/auth/AuthFrame';
 import { Input } from '@/components/ui/Input';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, PRIMARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { useLogin } from '@/hooks/useAuth';
-import { colors, font, fontSize, press, radius, spacing } from '@/theme';
+import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { extractError } from '@/lib/errors';
 import { isValidEmail, normaliseEmail } from '@learning/shared';
 
@@ -87,7 +87,7 @@ export default function SignInScreen() {
 
       <EdgeButton
         testID="signin-submit"
-        look={{ face: colors.brand, label: colors.onBrand, edge: press.primaryEdge }}
+        look={PRIMARY_EDGE_LOOK}
         label="Sign in"
         onPress={handleSubmit}
         loading={login.isPending}

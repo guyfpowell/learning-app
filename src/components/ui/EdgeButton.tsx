@@ -19,6 +19,9 @@ export interface EdgeLook {
   edge: string;
 }
 
+/** The cobalt primary button: a brand face, a white label and the primary edge. */
+export const PRIMARY_EDGE_LOOK: EdgeLook = { face: colors.brand, label: colors.onBrand, edge: press.primaryEdge };
+
 /** The white secondary button: a white face, an ink label and the secondary edge. */
 export const SECONDARY_EDGE_LOOK: EdgeLook = { face: colors.white, label: colors.textStrong, edge: press.secondaryEdge };
 
@@ -27,7 +30,7 @@ export const SECONDARY_EDGE_LOOK: EdgeLook = { face: colors.white, label: colors
  * The caller picks the colours, so it sits on any surface: white on cobalt, ink on sand.
  * `disabled` draws it flat, in the `disabledLook`; `loading` swaps the label for a spinner.
  */
-export function EdgeButton({ look, disabledLook, label, icon, onPress, disabled = false, loading = false, compact = false, faceHeight, testID, accessibilityLabel }: {
+export function EdgeButton({ look, disabledLook, label, icon, onPress, disabled = false, loading = false, compact = false, faceHeight, testID }: {
   look: EdgeLook;
   /** What it looks like when disabled: flat, with no edge. */
   disabledLook?: Pick<EdgeLook, 'face' | 'label'>;
@@ -41,7 +44,6 @@ export function EdgeButton({ look, disabledLook, label, icon, onPress, disabled 
   /** A face height other than the standard 56 (the Albert page's 46pt buttons). */
   faceHeight?: number;
   testID?: string;
-  accessibilityLabel?: string;
 }) {
   const [pressed, setPressed] = useState(false);
   const lift = press.edge - press.edgePressed;
@@ -59,7 +61,6 @@ export function EdgeButton({ look, disabledLook, label, icon, onPress, disabled 
         onPressOut={() => setPressed(false)}
         disabled={disabled || loading}
         accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? label}
         accessibilityState={{ disabled: disabled || loading }}
         style={[styles.face, compact && styles.compactFace, compact && { borderColor: look.edge }, faceHeight !== undefined && { height: faceHeight }, { backgroundColor: face }, pressed && !disabled && { transform: [{ translateY: lift }] }]}
       >

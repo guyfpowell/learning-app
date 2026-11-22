@@ -94,9 +94,10 @@ describe('useSavedLessons (ticket 017 chunk 3)', () => {
 describe('useStartRetake (079e)', () => {
   beforeEach(() => { jest.clearAllMocks(); Object.values(mockLessonService).forEach((fn) => fn.mockReset()); });
 
-  it('marks the cached lesson as a retake with nothing answered, then refetches it', async () => {
+  it('marks the cached lesson as a retake with nothing answered and none offered, then refetches it', async () => {
     const client = createTestQueryClient();
-    client.setQueryData(lessonQueryKey('lesson-1'), { ...mockLesson, quizCompleted: true, resolvedQuizIds: ['q1'] });
+    const cached = { ...mockLesson, quizCompleted: true, retakeOffered: true, resolvedQuizIds: ['q1'] };
+    client.setQueryData(lessonQueryKey('lesson-1'), cached);
     mockLessonService.startRetake.mockResolvedValue({ pass: 2 });
     const invalidate = jest.spyOn(client, 'invalidateQueries');
     const { result } = renderHook(() => useStartRetake(), { wrapper: queryWrapper(client) });
@@ -104,7 +105,7 @@ describe('useStartRetake (079e)', () => {
     act(() => { result.current.mutate('lesson-1'); });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(client.getQueryData(lessonQueryKey('lesson-1'))).toMatchObject({ lessonRetakeInProgress: true, resolvedQuizIds: [] });
+    expect(client.getQueryData(lessonQueryKey('lesson-1'))).toEqual({ ...cached, lessonRetakeInProgress: true, retakeOffered: false, resolvedQuizIds: [] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: lessonQueryKey('lesson-1') });
   });
 

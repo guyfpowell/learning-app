@@ -17,10 +17,10 @@ import {
   type SituationChangeOutcome,
   type SituationNotice,
 } from '@learning/shared';
-import { colors, font, fontSize, press, radius, spacing } from '@/theme';
+import { colors, font, fontSize, radius, spacing } from '@/theme';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, PRIMARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
 import { useCreateSituationChange, useLatestSituationChange } from '@/hooks/useSituationChange';
 import { errorCode } from '@/lib/errors';
@@ -123,7 +123,7 @@ export function SituationChangeSection({ planId, locked, pathFinished, onUpgrade
           />
           <EdgeButton
             testID="situation-change-submit"
-            look={{ face: colors.brand, label: colors.onBrand, edge: press.primaryEdge }}
+            look={PRIMARY_EDGE_LOOK}
             disabledLook={{ face: colors.border, label: colors.textSubtle }}
             label={SITUATION_SEND_LABEL}
             faceHeight={46}
@@ -166,7 +166,7 @@ function Box({ testID, finished, invite, locked = false, onPressHead, headTestID
   }
   return (
     <View testID={testID} style={styles.plain}>
-      <Pressable testID={headTestID} onPress={onPressHead} accessibilityRole="button" accessibilityLabel="My situation has changed" accessibilityState={{ expanded: locked ? undefined : expanded }} style={styles.head}>
+      <Pressable testID={headTestID} onPress={onPressHead} accessibilityRole="button" accessibilityState={{ expanded: locked ? undefined : expanded }} style={styles.head}>
         <View style={styles.tile}>
           <Icon name="retake" size={20} color={colors.textStrong} />
         </View>

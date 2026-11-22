@@ -1060,12 +1060,14 @@ describe('QuizModal', () => {
 
   describe('verdict screens', () => {
     it.each([
-      ['a correct result', { ...mockResult, correct: true }, 'CORRECT'],
-      ['an incorrect result', { ...mockResult, correct: false, retakeAvailable: false }, 'INCORRECT'],
-    ])('%s is marked %s', (_label, data, word) => {
+      ['a correct result', { ...mockResult, correct: true }],
+      ['an incorrect result', { ...mockResult, correct: false, retakeAvailable: false }],
+    ])('%s has no verdict mark, the background says it', (_label, data) => {
       setQuizMock({ data });
       renderQuiz(<QuizModal visible={true} lesson={mockLesson} onClose={onClose} />);
-      expect(within(screen.getByTestId('verdict-mark')).getByText(word)).toBeTruthy();
+      expect(screen.queryByTestId('verdict-mark')).toBeNull();
+      expect(screen.queryByText('CORRECT')).toBeNull();
+      expect(screen.queryByText('INCORRECT')).toBeNull();
     });
 
     it('an incorrect result\'s button is white on the ink', () => {

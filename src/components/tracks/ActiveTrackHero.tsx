@@ -11,16 +11,16 @@ interface ActiveTrackHeroProps {
   activeTestID: string;
   /** Sits before the label: Albert's mark on an Albert path, which also adds "Albert path" to the label. */
   mark?: ReactNode;
-  tapLabel: string;
+  tapHint: string;
   onOpen: () => void;
   name: string;
   headline?: string | null;
 }
 
 /** The learner's one active track, as the screen's cobalt hero. */
-export function ActiveTrackHero({ ids, activeTestID, mark, tapLabel, onOpen, name, headline }: ActiveTrackHeroProps) {
+export function ActiveTrackHero({ ids, activeTestID, mark, tapHint, onOpen, name, headline }: ActiveTrackHeroProps) {
   return (
-    <Pressable testID={ids.tap} onPress={onOpen} accessibilityRole="button" accessibilityLabel={tapLabel}>
+    <Pressable testID={ids.tap} onPress={onOpen} accessibilityRole="button" accessibilityHint={tapHint}>
       <View testID={ids.card} style={styles.hero}>
         <HeroBackground level="intermediate" />
         <View style={styles.eyebrows}>

@@ -28,17 +28,16 @@ export default function TabsLayout() {
   const hasUnseenBuild = useHasUnseenBuild();
   const albertBadge = hasSuggestion || hasUnseenBuild;
 
-  // Configure RevenueCat once the user is authenticated (073b Chunk 5).
-  // configure() is called once with the API key; logIn() associates purchases
-  // with our user ID so we can link Apple transactions to the right account.
+  // Configure RevenueCat once the user is authenticated (073b Chunk 5), and log it in
+  // as our user. Purchases and restores log in again themselves before Apple is asked
+  // (iapService), so a failure here is only recorded.
   const userId = useAuthStore((s) => s.user?.id);
   useEffect(() => {
     const apiKey = process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY ?? '';
     if (!apiKey || !userId) return;
     iapService.configure(apiKey);
     iapService.logIn(userId).catch((err) => {
-      // non-fatal — purchases still work, but record it for diagnosis
-      warnBreadcrumb(BREADCRUMB_CATEGORY.iap, 'logIn failed', err);
+      warnBreadcrumb(BREADCRUMB_CATEGORY.iap, 'logIn failed', err, { userId });
     });
   }, [userId]);
 

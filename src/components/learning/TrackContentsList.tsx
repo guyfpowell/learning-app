@@ -71,7 +71,6 @@ function LevelRow({ testID, title, done, total, current, color, onPress }: {
       testID={testID}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${count}${current ? ', current' : ''}`}
       style={styles.levelRow}
     >
       <View style={[styles.square, { backgroundColor: color }]} />
@@ -102,7 +101,6 @@ function TopicRow({ testID, topic, current, color, onPress }: {
       testID={testID}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${topic.name}, ${count}${current ? ', current' : ''}`}
       style={styles.row}
     >
       <StatusBox status={status} color={color} />
@@ -123,7 +121,6 @@ function LessonRow({ lesson, number, color, onPress }: { lesson: TrackContentsLe
       testID={`lesson-row-${lesson.id}`}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${lesson.title}${lesson.locked ? ', locked' : ''}, ${lesson.status.replace('-', ' ')}`}
       style={styles.lessonRow}
     >
       <View style={styles.lessonBox}>

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { Quiz } from '@learning/shared';
 import { Text } from '@/components/ui/Text';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, PRIMARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
 import { Input } from '@/components/ui/Input';
 import { QuizOpt, type QuizOptState } from '@/components/ui/QuizOpt';
@@ -12,7 +12,7 @@ import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAct
 import { CIRCLE_BUTTON_SIZE } from '@/components/ui/circleButtonStyle';
 import { QuizHeroCard } from '@/components/quiz/QuizHeroCard';
 import { quizFrameStyles, frameContentStyle } from '@/components/quiz/QuizResultFrame';
-import { colors, font, fontSize, press, spacing } from '@/theme';
+import { colors, font, fontSize, spacing } from '@/theme';
 
 /** Extra room under the last answer, so a picked one (cobalt) does not sit tight against the cobalt Submit at the end of the scroll. */
 const QUESTION_BOTTOM_AIR = spacing.md;
@@ -124,7 +124,7 @@ export function QuizQuestionView({
         <PinnedAction>
           <EdgeButton
             testID="submit-btn"
-            look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+            look={PRIMARY_EDGE_LOOK}
             disabledLook={{ face: colors.border, label: colors.textSubtle }}
             label="Submit"
             onPress={onSubmit}

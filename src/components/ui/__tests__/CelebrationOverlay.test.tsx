@@ -3,7 +3,7 @@ import { Animated, StyleSheet } from 'react-native';
 import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import { metresChipCopy } from '@learning/shared';
 import { colors } from '@/theme';
-import { MetresChipOverlay, chipFlight } from '../CelebrationOverlay';
+import { MetresChipOverlay, METRES_CHIP_DISMISS_HINT, chipFlight } from '../CelebrationOverlay';
 
 jest.useFakeTimers();
 
@@ -34,6 +34,13 @@ describe('MetresChipOverlay', () => {
   it('does not render when visible is false', () => {
     render(<MetresChipOverlay {...baseProps} visible={false} />);
     expect(screen.queryByTestId('metres-chip-animated')).toBeNull();
+  });
+
+  it('says what a tap does as a hint, with no label of its own', () => {
+    render(<MetresChipOverlay {...baseProps} />);
+    const chip = screen.getByTestId('metres-chip-overlay');
+    expect(chip.props.accessibilityHint).toBe(METRES_CHIP_DISMISS_HINT);
+    expect(chip.props.accessibilityLabel).toBeUndefined();
   });
 
   it('calls onDismiss when tapped', () => {

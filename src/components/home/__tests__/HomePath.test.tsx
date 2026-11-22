@@ -95,10 +95,11 @@ describe('HomePath', () => {
     expect(fills).toEqual([levelCard.beginner.base, levelCard.intermediate.base]);
   });
 
-  it('keeps the skip link off the cobalt card, and asks for a reason before skipping', () => {
+  it('shows Skip as a small word beside Start lesson on the card, and asks for a reason before skipping', () => {
     const { onSkip } = renderPath();
-    expect(within(screen.getByTestId('next-lesson-card-skill-1')).queryByTestId('skip-lesson-btn-skill-1')).toBeNull();
-    expect(screen.getByText('Skip lesson')).toBeTruthy();
+    const card = within(screen.getByTestId('next-lesson-card-skill-1'));
+    expect(card.getByText('Skip')).toBeTruthy();
+    expect(screen.queryByText('Skip lesson')).toBeNull();
     fireEvent.press(screen.getByTestId('skip-lesson-btn-skill-1'));
     expect(screen.getByTestId('skip-reason-picker')).toBeTruthy();
     expect(onSkip).not.toHaveBeenCalled();
@@ -106,7 +107,7 @@ describe('HomePath', () => {
 
   it('opens the path when its name and progress are pressed', () => {
     const { onOpen } = renderPath();
-    fireEvent.press(screen.getByLabelText('Open Product Strategy'));
+    fireEvent.press(screen.getByText('Product Strategy'));
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 

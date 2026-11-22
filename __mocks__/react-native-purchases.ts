@@ -3,6 +3,9 @@
  * The native SDK cannot run in the test environment; this provides
  * enough of the API surface for the IAP service and hook tests.
  */
+import type { PurchasesOfferings } from 'react-native-purchases';
+
+const NO_OFFERINGS: PurchasesOfferings = { all: {}, current: null };
 
 export enum PACKAGE_TYPE {
   MONTHLY  = 'MONTHLY',
@@ -27,36 +30,12 @@ export enum PRODUCT_TYPE {
   UNKNOWN                     = 'UNKNOWN',
 }
 
-export interface PurchasesStoreProduct {
-  /** Matches the real RevenueCat SDK field name (not 'productIdentifier'). */
-  identifier:        string;
-  title:             string;
-  description:       string;
-  price:             number;
-  priceString:       string;
-  subscriptionPeriod?: string | null;
-}
-
-export interface PurchasesPackage {
-  packageType:          PACKAGE_TYPE;
-  offeringIdentifier:   string;
-  product:              PurchasesStoreProduct;
-}
-
-export interface PurchasesOffering {
-  identifier: string;
-  monthly:    PurchasesPackage | null;
-  annual:     PurchasesPackage | null;
-}
-
-export interface PurchasesOfferings {
-  current: PurchasesOffering | null;
-}
-
 const Purchases = {
   configure:        jest.fn(),
   logIn:            jest.fn(() => Promise.resolve({ customerInfo: {}, created: false })),
-  getOfferings:     jest.fn(() => Promise.resolve({ current: null } as PurchasesOfferings)),
+  // Defaults to an anonymous RevenueCat ID, as before `logIn` has finished.
+  getAppUserID:     jest.fn(() => Promise.resolve('$RCAnonymousID:anon')),
+  getOfferings:     jest.fn(() => Promise.resolve(NO_OFFERINGS)),
   // Returns productIdentifier and transaction.transactionIdentifier so
   // iapService.purchasePackage can extract the originalTransactionId (Chunk 7).
   purchasePackage:  jest.fn(() => Promise.resolve({

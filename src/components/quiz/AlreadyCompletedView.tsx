@@ -2,12 +2,12 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { Lesson } from '@learning/shared';
 import { Text } from '@/components/ui/Text';
-import { EdgeButton } from '@/components/ui/EdgeButton';
+import { EdgeButton, PRIMARY_EDGE_LOOK } from '@/components/ui/EdgeButton';
 import { Icon } from '@/components/ui/Icon';
 import { LessonRatingControl } from '@/components/ui/LessonRatingControl';
 import { QuizResultFrame, type ResultFrameControls } from '@/components/quiz/QuizResultFrame';
 import { nextLessonLabel } from '@/components/quiz/nextLessonLabel';
-import { colors, font, press, spacing } from '@/theme';
+import { colors, font, spacing } from '@/theme';
 
 /** No unresolved question left and no fresh result to show: the lesson's quiz is already done. */
 export function AlreadyCompletedView({ frame, lesson, onNavigate }: {
@@ -23,7 +23,7 @@ export function AlreadyCompletedView({ frame, lesson, onNavigate }: {
       action={
         <EdgeButton
           testID="result-action-btn"
-          look={{ face: colors.brand, label: colors.white, edge: press.primaryEdge }}
+          look={PRIMARY_EDGE_LOOK}
           label={nextLessonLabel(lesson.nextLessonId)}
           icon="next"
           onPress={() => onNavigate(lesson.nextLessonId)}

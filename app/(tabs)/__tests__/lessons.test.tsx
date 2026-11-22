@@ -396,7 +396,7 @@ describe('LessonsScreen', () => {
     it('opens the track page when the progress card is pressed, as the Tracks cards do', () => {
       setEnrollmentsMock([mockEnrollment]);
       render(<LessonsScreen />);
-      fireEvent.press(screen.getByLabelText(/^Open /));
+      fireEvent.press(screen.getByText(mockEnrollment.name));
       expect(mockPush).toHaveBeenCalledWith(trackRoute('track', 'skill-1'));
     });
 

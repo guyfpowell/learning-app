@@ -1,9 +1,10 @@
 import React from 'react';
-import { Pressable, PressableProps, StyleSheet } from 'react-native';
+import { Pressable, PressableProps, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing } from '@/theme';
 
-interface BookmarkButtonProps extends Omit<PressableProps, 'onPress'> {
+interface BookmarkButtonProps extends Omit<PressableProps, 'onPress' | 'style'> {
+  style?: StyleProp<ViewStyle>;
   saved: boolean;
   onToggle: () => void;
   /** Draws the icon in this colour, saved or not (a header over a coloured screen). */
@@ -17,7 +18,7 @@ export function BookmarkButton({ saved, onToggle, disabled, style, color, ...res
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={saved ? 'Remove from saved lessons' : 'Save lesson'}
-      style={[styles.button, disabled && styles.disabled, style as object]}
+      style={[styles.button, disabled && styles.disabled, style]}
       {...rest}
     >
       <Ionicons

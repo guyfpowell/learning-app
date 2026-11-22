@@ -17,7 +17,7 @@ export function Input({ label, error, style, onFocus, onBlur, ...rest }: InputPr
     <View style={styles.wrapper}>
       {label && <Text style={styles.label}>{label}</Text>}
       <TextInput
-        style={[styles.input, focused && styles.inputFocused, error && styles.inputError, style as object]}
+        style={[styles.input, focused && styles.inputFocused, error && styles.inputError, style]}
         placeholderTextColor={colors.textSubtle}
         onFocus={(e) => { setFocused(true); onFocus?.(e); }}
         onBlur={(e) => { setFocused(false); onBlur?.(e); }}

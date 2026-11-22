@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Lesson, SaveLessonResponse } from '@learning/shared';
+import { retakeStartedLesson, type Lesson, type SaveLessonResponse } from '@learning/shared';
 import { lessonService } from '@/services/lesson.service';
 import { SAVED_LESSONS_QUERY_KEY, lessonQueryKey } from '@/lib/queryKeys';
 import { lessonQueryOptions } from '@/lib/lessonQuery';
@@ -23,8 +23,7 @@ export function useStartRetake() {
     mutationFn: (lessonId: string) => lessonService.startRetake(lessonId),
     onSuccess: (_data, lessonId) => {
       // The new pass has nothing answered yet: show it now, then confirm from the server.
-      queryClient.setQueryData<Lesson>(lessonQueryKey(lessonId), (lesson) =>
-        lesson && { ...lesson, lessonRetakeInProgress: true, resolvedQuizIds: [] });
+      queryClient.setQueryData<Lesson>(lessonQueryKey(lessonId), (lesson) => lesson && retakeStartedLesson(lesson));
       return queryClient.invalidateQueries({ queryKey: lessonQueryKey(lessonId) });
     },
   });

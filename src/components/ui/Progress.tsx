@@ -38,7 +38,7 @@ export function Progress({
 }: ProgressProps) {
   const clamped = Math.min(100, Math.max(0, value));
   return (
-    <View style={[styles.track, { height, borderRadius: height / 2 }, trackColor !== undefined && { backgroundColor: trackColor }, style as object]} {...rest}>
+    <View style={[styles.track, { height, borderRadius: height / 2 }, trackColor !== undefined && { backgroundColor: trackColor }, style]} {...rest}>
       <View
         style={[
           styles.fill,

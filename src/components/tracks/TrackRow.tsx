@@ -14,7 +14,7 @@ export interface TrackEntryIds {
 interface TrackRowProps {
   ids: TrackEntryIds;
   /** Accessible name of the whole tappable row. */
-  tapLabel: string;
+  tapHint: string;
   onOpen: () => void;
   /** The track's glyph, in its own column before the text. */
   glyph: ReactNode;
@@ -33,9 +33,9 @@ interface TrackRowProps {
 }
 
 /** A list entry with a rule under it: glyph, name and headline, one action on the right. */
-export function TrackRow({ ids, tapLabel, onOpen, glyph, eyebrow, eyebrowAccent, name, headline, prompt, dimmed, action }: TrackRowProps) {
+export function TrackRow({ ids, tapHint, onOpen, glyph, eyebrow, eyebrowAccent, name, headline, prompt, dimmed, action }: TrackRowProps) {
   return (
-    <Pressable testID={ids.tap} onPress={onOpen} accessibilityRole="button" accessibilityLabel={tapLabel}>
+    <Pressable testID={ids.tap} onPress={onOpen} accessibilityRole="button" accessibilityHint={tapHint}>
       <View testID={ids.card} style={[styles.row, prompt && styles.noRule]}>
         <View style={styles.glyph}>{glyph}</View>
         <View style={styles.text}>

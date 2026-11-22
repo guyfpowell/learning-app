@@ -1,21 +1,18 @@
 import React, { type ComponentProps, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { BookmarkButton } from '@/components/ui/BookmarkButton';
 import { circleButtonStyle, CIRCLE_BUTTON_SIZE } from '@/components/ui/circleButtonStyle';
 import { PinnedAction, PINNED_ACTION_CLEARANCE } from '@/components/ui/PinnedAction';
-import { Contours } from '@/components/ui/Contours';
+import { ResultWatermark } from '@/components/quiz/ResultWatermark';
 import { StatusBar } from 'expo-status-bar';
-import { colors, gradients, radius, results, shadow, spacing } from '@/theme';
+import { colors, radius, results, shadow, spacing } from '@/theme';
 import { TONE_LOOK, type ResultTone } from '@/components/quiz/resultTone';
 
 /** Header buttons over a colour are rounded squares, not circles (the design's 14 at 44pt). */
 const TONED_BUTTON_RADIUS = radius.md - 2;
-
-/** How far down the screen the contour lines reach: they stay up top, away from the text. */
-const CONTOUR_HEIGHT = 420;
 
 /** The header's controls row: tall enough for a 44pt touch target. */
 const HEADER_ROW_HEIGHT = CIRCLE_BUTTON_SIZE;
@@ -38,7 +35,7 @@ export type ResultFrameControls = Pick<ComponentProps<typeof QuizResultFrame>, '
  * bookmark (left), `rating` and close (right), and a scrolling body.
  * `action` is the view's one main button, pinned to the foot of the screen over the body (096).
  * `overlay` renders above the body (celebrations).
- * `tone` washes the frame in that verdict's gradient, with contour lines; with none the frame is plain paper.
+ * `tone` washes the frame in that verdict's gradient, with a watermark glyph; with none the frame is plain paper.
  */
 export function QuizResultFrame({ onClose, saved, onToggleSave, rating, action, overlay, tone, closable = true, children }: {
   onClose: () => void;
@@ -53,7 +50,6 @@ export function QuizResultFrame({ onClose, saved, onToggleSave, rating, action, 
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   // Over a colour the header buttons are translucent rounded squares with no shadow.
   const tonedButton = tone && { backgroundColor: TONE_LOOK[tone].buttonBg, borderRadius: TONED_BUTTON_RADIUS, shadowOpacity: 0, elevation: 0 };
   return (
@@ -62,13 +58,7 @@ export function QuizResultFrame({ onClose, saved, onToggleSave, rating, action, 
           <>
             <StatusBar style={TONE_LOOK[tone].statusBar} />
             <LinearGradient testID="quiz-frame-gradient" colors={results[tone].gradient} style={StyleSheet.absoluteFill} />
-            <Contours
-              testID="quiz-frame-contours"
-              color={tone === 'retry' ? results.retry.contour : colors.white}
-              opacity={gradients.contourOpacity}
-              width={width}
-              height={CONTOUR_HEIGHT}
-            />
+            <ResultWatermark tone={tone} />
           </>
         )}
         <View testID="quiz-frame-header" style={[styles.header, tone !== undefined && styles.headerToned, { paddingTop: insets.top + spacing.sm }]}>

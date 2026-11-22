@@ -41,7 +41,6 @@ export function ReviewRuns({ runs }: { runs: ReviewRun[] }) {
                 onPress={() => setOpen(isOpen ? null : i)}
                 accessibilityRole="button"
                 accessibilityState={{ expanded: isOpen }}
-                accessibilityLabel={`${run.need}, ${count}`}
                 style={styles.head}
               >
                 <View style={[styles.number, isOpen && styles.numberOpen]}>

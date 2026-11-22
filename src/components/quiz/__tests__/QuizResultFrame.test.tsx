@@ -13,13 +13,13 @@ describe('QuizResultFrame', () => {
   it('has no colour wash when it has no tone', () => {
     const { queryByTestId } = render(<QuizResultFrame {...frame}><Text>body</Text></QuizResultFrame>);
     expect(queryByTestId('quiz-frame-gradient')).toBeNull();
-    expect(queryByTestId('quiz-frame-contours', { includeHiddenElements: true })).toBeNull();
+    expect(queryByTestId('quiz-frame-watermark', { includeHiddenElements: true })).toBeNull();
   });
 
-  it.each(['correct', 'retry', 'incorrect'] as const)('washes a %s result in its gradient with contours', tone => {
+  it.each(['correct', 'retry', 'incorrect'] as const)('washes a %s result in its gradient with a watermark', tone => {
     const { getByTestId, getByText } = render(<QuizResultFrame {...frame} tone={tone}><Text>body</Text></QuizResultFrame>);
     expect(getByTestId('quiz-frame-gradient')).toBeTruthy();
-    expect(getByTestId('quiz-frame-contours', { includeHiddenElements: true })).toBeTruthy();
+    expect(getByTestId('quiz-frame-watermark', { includeHiddenElements: true })).toBeTruthy();
     expect(getByText('body')).toBeTruthy();
   });
 

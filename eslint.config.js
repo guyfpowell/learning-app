@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import ts from 'typescript-eslint';
 import standards from '../learning/eslint/standards.mjs';
+import { sharedStringValues } from '../learning/eslint/sharedStringValues.mjs';
 
 export default [
   {
@@ -69,10 +70,8 @@ export default [
       'standards/as-never': 'error',
       'standards/expect-typeof': 'error',
       'standards/optional-onpress': 'error',
-
-      // Existing hits are capped by --max-warnings in package.json until their clean-up ticket clears them.
-      'standards/as-object': 'warn',
-      'standards/pressable-label-with-text': 'warn'
+      'standards/as-object': 'error',
+      'standards/pressable-label-with-text': 'error'
     }
   },
   {
@@ -110,6 +109,13 @@ export default [
       '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/no-explicit-any': 'error'
     }
+  },
+  {
+    // Test code only. At 'warn' with its hits counted in package.json's --max-warnings; the clean-up
+    // tickets lower that cap, and the one that clears the last hit switches this to 'error'.
+    files: ['**/__tests__/**/*.{ts,tsx}', '**/*.test.{ts,tsx}', 'src/test-utils/**/*.{ts,tsx}'],
+    plugins: { standards },
+    rules: { 'standards/retyped-shared-value': ['warn', { values: sharedStringValues() }] }
   },
   {
     files: ['.detoxrc.js', 'e2e/jest.config.js'],

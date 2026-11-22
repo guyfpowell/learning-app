@@ -9,7 +9,7 @@ interface CardProps extends ViewProps {
 
 export function Card({ children, padding = spacing.lg, style, ...rest }: CardProps) {
   return (
-    <View style={[styles.card, { padding }, shadow.card, style as object]} {...rest}>
+    <View style={[styles.card, { padding }, shadow.card, style]} {...rest}>
       {children}
     </View>
   );

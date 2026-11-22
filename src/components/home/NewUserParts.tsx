@@ -34,7 +34,6 @@ export function NewUserTracks({ heading }: { heading: string }) {
             testID={`new-user-track-${skill.id}`}
             onPress={() => router.push(trackRoute('track', skill.id))}
             accessibilityRole="button"
-            accessibilityLabel={`Open ${skill.name}`}
             style={styles.trackRow}
           >
             <View style={styles.trackTile}>

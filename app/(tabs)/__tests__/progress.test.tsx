@@ -14,6 +14,7 @@ jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('@/hooks/useProgress', () => ({ useProgress: jest.fn() }));
 jest.mock('@/hooks/useTrack', () => ({ usePaths: jest.fn() }));
 jest.mock('@/hooks/usePrefetchNextScreens', () => ({ usePrefetchNextScreens: jest.fn() }));
+jest.mock('@/hooks/useWeek', () => ({ useWeek: jest.fn(() => ({ data: undefined })) }));
 jest.mock('@/hooks/useAltitude', () => ({ useAltitude: jest.fn() }));
 jest.mock('@/hooks/useAchievements', () => ({ useAchievements: jest.fn(() => ({ data: undefined, isLoading: false })) }));
 let capturedEdges: string[] | undefined;

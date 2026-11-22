@@ -24,6 +24,7 @@ import { extractError, writeError } from '@/lib/errors';
 import { capitalize } from '@/lib/capitalize';
 import { PAYWALL_ROUTE } from '@/lib/subscriptions';
 import { HOME_ROUTE, trackRoute } from '@/lib/routes';
+import { ALBERT_CTA_HINT, PATH_OPEN_HINT, TRACK_OPEN_HINT } from '@/lib/trackOpenHints';
 
 const GLYPH_SIZE = 23;
 // The Albert card's mark, a point smaller than a track glyph in the design.
@@ -136,7 +137,7 @@ export default function TracksScreen() {
       <TrackRow
         key={skill.id}
         ids={skillIds(skill.id)}
-        tapLabel={`View ${skill.name} track details`}
+        tapHint={TRACK_OPEN_HINT}
         onOpen={() => router.push(trackRoute('track', skill.id))}
         glyph={<TrackIcon trackId={skill.trackId} size={GLYPH_SIZE} color={isLocked ? colors.textMuted : colors.textStrong} />}
         eyebrow={categoryLabel[skill.category] ?? skill.category}
@@ -174,7 +175,7 @@ export default function TracksScreen() {
       <TrackRow
         key={`${path.kind}-${path.id}`}
         ids={customIds(path.id)}
-        tapLabel={`View ${path.name} details`}
+        tapHint={PATH_OPEN_HINT}
         onOpen={() => router.push(trackRoute(path.kind, path.id))}
         glyph={<AlbertMark size={GLYPH_SIZE} />}
         eyebrow="Albert path"
@@ -195,7 +196,7 @@ export default function TracksScreen() {
     return (
       <TrackRow
         ids={{ tap: 'albert-cta', card: 'albert-cta-card', name: 'albert-cta-name', headline: 'albert-cta-headline' }}
-        tapLabel="Ask Albert to build a path around your goals"
+        tapHint={ALBERT_CTA_HINT}
         onOpen={openAlbert}
         glyph={<AlbertMark size={ALBERT_CTA_GLYPH_SIZE} />}
         prompt
@@ -234,7 +235,7 @@ export default function TracksScreen() {
                 ids={customIds(activeCustom.id)}
                 activeTestID={`active-badge-${activeCustom.id}`}
                 mark={<AlbertMark variant="onBrand" />}
-                tapLabel={`View ${activeCustom.name} details`}
+                tapHint={PATH_OPEN_HINT}
                 onOpen={() => router.push(trackRoute(activeCustom.kind, activeCustom.id))}
                 name={capitalize(activeCustom.name)}
                 headline={activeCustom.description ? capitalize(activeCustom.description) : null}
@@ -244,7 +245,7 @@ export default function TracksScreen() {
               <ActiveTrackHero
                 ids={skillIds(activeTrack.id)}
                 activeTestID={`active-badge-${activeTrack.id}`}
-                tapLabel={`View ${activeSkill?.name ?? activeTrack.name} track details`}
+                tapHint={TRACK_OPEN_HINT}
                 onOpen={() => router.push(trackRoute('track', activeTrack.id))}
                 name={activeSkill?.name ?? activeTrack.name}
                 headline={activeSkill?.headline ?? activeTrack.description}
