@@ -1,4 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { useRef, type ComponentProps, type ComponentRef } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Defs, Ellipse, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,7 +25,7 @@ import { EdgeButton, type EdgeLook } from '@/components/ui/EdgeButton';
 import { Medal } from '@/components/ui/Medal';
 import { colors, font, shadow, spacing } from '@/theme';
 
-const MEDAL_SIZE = 196;
+export const MEDAL_SIZE = 196;
 const VIEW_BOX = `0 0 ${LANDMARK_CANVAS.width} ${LANDMARK_CANVAS.height}`;
 const GRADIENT_ID = 'landmark-wash';
 
@@ -87,35 +88,56 @@ export const LANDMARK_COLOURS: Record<LandmarkLook, LandmarkColours> = {
   },
 };
 
+/** How the arrival (ticket 114) drives this card: the medal moves by its own animated style, everything else fades in as `chromeOpacity` rises, and `onMedalCentre` says where the medal rests on the screen. */
+export interface LandmarkEntrance {
+  medalStyle: ComponentProps<typeof Animated.View>['style'];
+  chromeOpacity: Animated.AnimatedInterpolation<number>;
+  onMedalCentre: (centre: { x: number; y: number }) => void;
+}
+
 /**
  * The full screen for a landmark just passed (brief section 4): "LANDMARK REACHED", the landmark's medal
- * large, its height, its name and its line, on its height band's background. No Share (owner).
+ * large, its height, its name and its line, on its height band's background. No Share (owner). `entrance` is
+ * the arrival's control of how it appears (null: the card simply shows).
  */
-export function LandmarkUnlock({ unlock, onContinue }: { unlock: RewardUnlock; onContinue: () => void }) {
+export function LandmarkUnlock({ unlock, onContinue, entrance }: { unlock: RewardUnlock; onContinue: () => void; entrance: LandmarkEntrance | null }) {
   const insets = useSafeAreaInsets();
+  const medalSlot = useRef<ComponentRef<typeof View>>(null);
   const landmark = landmarkByKey(unlock.key);
   if (landmark === null) return null;
   const look = landmarkLookOf(landmark);
   const colours = LANDMARK_COLOURS[look];
+  const chrome = entrance?.chromeOpacity ?? 1;
+  const reportMedalCentre = () => {
+    medalSlot.current?.measureInWindow((x, y, width, height) => entrance?.onMedalCentre({ x: x + width / 2, y: y + height / 2 }));
+  };
 
   return (
     <View testID="landmark-unlock" style={styles.screen}>
       <StatusBar style={colours.statusBar} />
-      <Background look={look} wash={colours.wash} showEarth={showsEarth(landmark)} />
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: chrome }]}>
+        <Background look={look} wash={colours.wash} showEarth={showsEarth(landmark)} />
+      </Animated.View>
       <View style={[styles.body, { paddingTop: insets.top }]}>
-        <Text testID="landmark-unlock-eyebrow" style={[styles.eyebrow, { color: colours.eyebrow }]}>{LANDMARK_EYEBROW}</Text>
-        <View style={styles.medal}>
-          <Medal definition={ACHIEVEMENTS_BY_KEY[landmark.key]} size={MEDAL_SIZE} />
+        <Animated.View style={{ opacity: chrome }}>
+          <Text testID="landmark-unlock-eyebrow" style={[styles.eyebrow, { color: colours.eyebrow }]}>{LANDMARK_EYEBROW}</Text>
+        </Animated.View>
+        <View ref={medalSlot} onLayout={reportMedalCentre} style={styles.medal}>
+          <Animated.View style={entrance?.medalStyle}>
+            <Medal definition={ACHIEVEMENTS_BY_KEY[landmark.key]} size={MEDAL_SIZE} />
+          </Animated.View>
         </View>
-        <View style={[styles.pill, { backgroundColor: colours.pill }]}>
-          <Text testID="landmark-unlock-height" style={[styles.pillText, { color: colours.text }]}>{metresLabel(landmark.height)}</Text>
-        </View>
-        <Text testID="landmark-unlock-name" style={[styles.name, { color: colours.text }]}>{unlock.name}</Text>
-        <Text testID="landmark-unlock-line" style={[styles.line, { color: colours.line }]}>{unlock.description}</Text>
+        <Animated.View style={{ opacity: chrome, alignItems: 'center' }}>
+          <View style={[styles.pill, { backgroundColor: colours.pill }]}>
+            <Text testID="landmark-unlock-height" style={[styles.pillText, { color: colours.text }]}>{metresLabel(landmark.height)}</Text>
+          </View>
+          <Text testID="landmark-unlock-name" style={[styles.name, { color: colours.text }]}>{unlock.name}</Text>
+          <Text testID="landmark-unlock-line" style={[styles.line, { color: colours.line }]}>{unlock.description}</Text>
+        </Animated.View>
       </View>
-      <View style={[styles.action, { bottom: Math.max(insets.bottom, spacing.sm) + spacing.sm3 }]}>
+      <Animated.View style={[styles.action, { bottom: Math.max(insets.bottom, spacing.sm) + spacing.sm3, opacity: chrome }]}>
         <EdgeButton testID="achievement-continue-btn" look={colours.button} label={CELEBRATION_CONTINUE} onPress={onContinue} />
-      </View>
+      </Animated.View>
     </View>
   );
 }

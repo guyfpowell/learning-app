@@ -1,5 +1,6 @@
 import { landmarkOf, levelOf, type LandmarkKey } from '@learning/shared';
-import { ARRIVAL_SCALE, arrivalPlanOf, countedMetresOf, coverOfNextCard } from '../arrivalSteps';
+import { MEDAL_SIZE } from '@/components/celebrations/LandmarkUnlock';
+import { ARRIVAL_SCALE, arrivalPlanOf, badgeFullScale, countedMetresOf, coverOfNextCard } from '../arrivalSteps';
 import { makeAchievementsResponse, makeRewardUnlock } from '@/test-utils/achievements';
 import { must } from '@/test-utils/must';
 import { NEXT_CARD_LEFT, NEXT_CARD_RIGHT } from '../NextLandmarkCard';
@@ -85,5 +86,13 @@ describe('countedMetresOf', () => {
     const half = countedMetresOf(plan, 0.5);
     expect(half).toBe(Math.round((plan.fromMetres + plan.toMetres) / 2));
     expect(Number.isInteger(half)).toBe(true);
+  });
+});
+
+describe('badgeFullScale', () => {
+  it('makes the badge the set number of screens across, measured on the longer side', () => {
+    const portrait = badgeFullScale(393, 852);
+    expect(MEDAL_SIZE * portrait).toBeCloseTo(852 * ARRIVAL_SCALE.screens);
+    expect(badgeFullScale(852, 393)).toBe(portrait);
   });
 });

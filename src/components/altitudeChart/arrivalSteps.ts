@@ -7,6 +7,7 @@ import {
   type AltitudeResponse,
   type RewardUnlock,
 } from '@learning/shared';
+import { MEDAL_SIZE } from '@/components/celebrations/LandmarkUnlock';
 import { NEXT_CARD_LEFT, NEXT_CARD_RIGHT } from './NextLandmarkCard';
 import { PILL_LEFT } from './YouMarker';
 
@@ -27,14 +28,19 @@ export interface ArrivalPlan {
   before: { altitude: AltitudeResponse; achievements: AchievementsResponse };
 }
 
-/** How long each step of the arrival takes, and the rests between them (ms): fall in, rest, float up (growing slowly), pause on the card, pulse out, sink straight into the hole, explode out, then the landmark card fades in. */
-export const ARRIVAL_MS = { fall: 1500, rest: 300, float: 2400, pause: 500, pulse: 450, sink: 600, burst: 1200 } as const;
+/** How long each step of the arrival takes, and the rests between them (ms): fall in, float up (growing slowly), pause on the card, pulse out, sink straight into the hole, the landmark's badge grows out of the hole until it covers the screen, the card shows behind it, then the badge falls onto its place on the card (`land`, then a spring bounce). */
+export const ARRIVAL_MS = { fall: 1500, float: 2400, pause: 500, pulse: 450, sink: 600, grow: 700, cover: 150, land: 600 } as const;
 
-/** How big the bubble starts (as if far above the screen), how small it sinks to (a hole), how much bigger than the Next card it grows, and how far it swells in its one pulse out. */
-export const ARRIVAL_SCALE = { start: 14, hole: 0.02, oversize: 1.08, pulse: 1.08 } as const;
+/** How big the bubble starts (as if far above the screen), how small it sinks to (a hole), how much bigger than the Next card it grows, and how far it swells in its one pulse out, how many screens big the badge grows to cover it, and how small the landing presses it. */
+export const ARRIVAL_SCALE = { start: 14, hole: 0.02, oversize: 1.08, pulse: 1.08, screens: 1.25, landing: 0.9 } as const;
 
-/** How the burst's 0 to 1 is shared: the white explosion grows out of the hole until `exploded`; the card starts uncovering and fading in at `cardFrom`, fully in a quarter of the burst later. */
-export const ARRIVAL_BURST = { exploded: 0.5, cardFrom: 0.4, cardFadeLength: 0.25 } as const;
+/** The spring the badge lands on: it presses down to `landing` of its size, then springs back up past full size and settles. */
+export const ARRIVAL_SPRING = { damping: 7, stiffness: 140, mass: 1 } as const;
+
+/** How big, as a multiple of its own size, the badge must be to measure `ARRIVAL_SCALE.screens` times the screen's longer side. */
+export function badgeFullScale(windowWidth: number, windowHeight: number): number {
+  return (ARRIVAL_SCALE.screens * Math.max(windowWidth, windowHeight)) / MEDAL_SIZE;
+}
 
 /** What the bubble does to cover the Next card: grow by `scale` and move `shiftX` sideways, so it is centred on the card and a little wider. */
 export function coverOfNextCard(pillWidth: number, windowWidth: number): { scale: number; shiftX: number } {

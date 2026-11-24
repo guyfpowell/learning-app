@@ -3,14 +3,14 @@ import type { LayoutChangeEvent } from 'react-native';
 import { Animated, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ALTITUDE_VIEW_TITLE, heightChartPosition, levelOf } from '@learning/shared';
-import { LandmarkUnlock } from '@/components/celebrations/LandmarkUnlock';
+import { LandmarkUnlock, type LandmarkEntrance } from '@/components/celebrations/LandmarkUnlock';
 import { AltitudeChart } from './AltitudeChart';
 import { AltitudeHeader } from './AltitudeHeader';
 import { NEXT_CARD_LEFT, NEXT_CARD_RIGHT } from './NextLandmarkCard';
 import { PILL_SLOT, YouPill } from './YouMarker';
 import { altitudeLayoutOf, canvasYOf, openingOffsetOf } from './chartLayout';
 import { headerLookOf, headerSampleYOf, slotStyleOf } from './chartStyles';
-import { ARRIVAL_BURST, ARRIVAL_SCALE, coverOfNextCard, type ArrivalPlan } from './arrivalSteps';
+import { ARRIVAL_SCALE, badgeFullScale, coverOfNextCard, type ArrivalPlan } from './arrivalSteps';
 import { useLandmarkArrival } from './useLandmarkArrival';
 
 const noop = () => { /* a tap on the chart during the arrival does nothing */ };
@@ -36,6 +36,7 @@ export function LandmarkArrival({ plan, name, onBack, onContinue }: { plan: Arri
   const { top: topInset } = useSafeAreaInsets();
   const [now] = useState(() => new Date());
   const [pillWidth, setPillWidth] = useState(0);
+  const [medalCentre, setMedalCentre] = useState<{ x: number; y: number } | null>(null);
   const run = useLandmarkArrival(plan);
   const fromY = markerYOf(plan, now);
   const toY = nextCardYOf(plan, now);
@@ -68,25 +69,24 @@ export function LandmarkArrival({ plan, name, onBack, onContinue }: { plan: Arri
       },
     ],
   };
-  // Two circles grow out of the hole. A white one is the explosion. The card is revealed by a second, later one: it scales up and its contents scale back down by the same amount, so the card stays full size and is only uncovered, and it fades in as it goes.
-  const revealSize = 2 * Math.hypot(windowWidth, viewportHeight);
-  const burstOf = (from: number, to: number, outputRange: [number, number]) => run.burst.interpolate({ inputRange: [from, to], outputRange, extrapolate: 'clamp' });
-  const circleStyle = (scale: Animated.AnimatedInterpolation<number>, opacity: Animated.AnimatedInterpolation<number>) => ({
-    position: 'absolute' as const,
-    left: holeX - revealSize / 2,
-    top: holeY - revealSize / 2,
-    width: revealSize,
-    height: revealSize,
-    borderRadius: revealSize / 2,
-    overflow: 'hidden' as const,
-    opacity,
-    transform: [{ scale }],
-  });
-  const appears = run.sink.interpolate({ inputRange: [0, 0.9, 1], outputRange: [0, 0, 1] });
-  const explosionStyle = [circleStyle(burstOf(0, ARRIVAL_BURST.exploded, [ARRIVAL_SCALE.hole, 1]), appears), styles.flash];
-  const reveal = burstOf(ARRIVAL_BURST.cardFrom, 1, [ARRIVAL_SCALE.hole, 1]);
-  const revealStyle = circleStyle(reveal, burstOf(ARRIVAL_BURST.cardFrom, ARRIVAL_BURST.cardFrom + ARRIVAL_BURST.cardFadeLength, [0, 1]));
-  const revealContentStyle = { ...StyleSheet.absoluteFill, transform: [{ scale: Animated.divide(1, reveal) }] };
+  // The landmark's badge grows out of the hole over the chart until it covers the screen; the card then shows behind it and the badge falls back onto its place on the card, pressing down and springing back as it lands.
+  const full = badgeFullScale(windowWidth, viewportHeight);
+  const growScale = run.grow.interpolate({ inputRange: [0, 1], outputRange: [ARRIVAL_SCALE.hole, full] });
+  const landDelta = run.land.interpolate({ inputRange: [0, 1], outputRange: [0, ARRIVAL_SCALE.landing - full] });
+  const riseDelta = run.rise.interpolate({ inputRange: [0, 1], outputRange: [0, 1 - ARRIVAL_SCALE.landing] });
+  const spot = medalCentre ?? { x: holeX, y: holeY };
+  const entrance: LandmarkEntrance = {
+    onMedalCentre: setMedalCentre,
+    chromeOpacity: run.grow.interpolate({ inputRange: [0.98, 1], outputRange: [0, 1], extrapolate: 'clamp' }),
+    medalStyle: {
+      opacity: run.sink.interpolate({ inputRange: [0, 0.9, 1], outputRange: [0, 0, 1] }),
+      transform: [
+        { translateX: run.land.interpolate({ inputRange: [0, 1], outputRange: [holeX - spot.x, 0] }) },
+        { translateY: run.land.interpolate({ inputRange: [0, 1], outputRange: [holeY - spot.y, 0] }) },
+        { scale: Animated.add(Animated.add(growScale, landDelta), riseDelta) },
+      ],
+    },
+  };
 
   return (
     <View testID="landmark-arrival" style={styles.screen}>
@@ -101,15 +101,10 @@ export function LandmarkArrival({ plan, name, onBack, onContinue }: { plan: Arri
         </View>
       </ScrollView>
       <AltitudeHeader title={ALTITUDE_VIEW_TITLE.altitude} look={headerLook} topInset={topInset} onBack={onBack} />
-      <Animated.View testID="arrival-flash" pointerEvents="none" style={explosionStyle} />
       {run.reached && (
-        <Animated.View pointerEvents={run.cardShown ? 'auto' : 'none'} style={revealStyle}>
-          <Animated.View style={revealContentStyle}>
-            <View style={{ position: 'absolute', left: revealSize / 2 - holeX, top: revealSize / 2 - holeY, width: windowWidth, height: viewportHeight }}>
-              <LandmarkUnlock unlock={plan.unlock} onContinue={onContinue} />
-            </View>
-          </Animated.View>
-        </Animated.View>
+        <View pointerEvents={run.cardShown ? 'auto' : 'none'} style={StyleSheet.absoluteFill}>
+          <LandmarkUnlock unlock={plan.unlock} onContinue={onContinue} entrance={entrance} />
+        </View>
       )}
     </View>
   );
@@ -117,5 +112,4 @@ export function LandmarkArrival({ plan, name, onBack, onContinue }: { plan: Arri
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#FFFFFF' },
-  flash:  { backgroundColor: '#FFFFFF' },
 });

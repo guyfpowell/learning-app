@@ -16,7 +16,9 @@ jest.mock('@/store/auth.store', () => ({
 }));
 
 const FRAME_MS = 16;
-const WHOLE_MS = Object.values(ARRIVAL_MS).reduce((a, b) => a + b, 0) + FRAME_MS;
+/** Room for the landing spring to settle (it has no fixed length). */
+const SPRING_SETTLE_MS = 3000;
+const WHOLE_MS = Object.values(ARRIVAL_MS).reduce((a, b) => a + b, 0) + SPRING_SETTLE_MS + FRAME_MS;
 
 describe('LandmarkArrivalPreviewScreen', () => {
   beforeEach(() => jest.useFakeTimers());

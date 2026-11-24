@@ -11,7 +11,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 function renderLandmark(key: LandmarkKey, onContinue = jest.fn()) {
-  render(<LandmarkUnlock unlock={makeRewardUnlock(key)} onContinue={onContinue} />);
+  render(<LandmarkUnlock unlock={makeRewardUnlock(key)} onContinue={onContinue} entrance={null} />);
 }
 
 function landmarkOf(key: LandmarkKey) {

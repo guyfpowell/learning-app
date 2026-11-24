@@ -44,7 +44,7 @@ export function unlockLook(base: string): UnlockLook {
 
 /** The full screen for one unlock just earned: a landmark has its own (`LandmarkUnlock`), a medal or step this one. */
 export function AchievementUnlock({ unlock, onContinue }: { unlock: RewardUnlock; onContinue: () => void }) {
-  if (unlock.kind === 'landmark') return <LandmarkUnlock unlock={unlock} onContinue={onContinue} />;
+  if (unlock.kind === 'landmark') return <LandmarkUnlock unlock={unlock} onContinue={onContinue} entrance={null} />;
   return <MedalUnlock unlock={unlock} onContinue={onContinue} />;
 }
 
