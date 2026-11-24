@@ -310,6 +310,18 @@ export default function ProfileScreen() {
 
         {__DEV__ && (
           <Pressable
+            testID="landmark-arrival-preview-btn"
+            onPress={() => router.push('/landmark-arrival-preview' as Href)}
+            style={settingsRow.row}
+            accessibilityRole="button"
+          >
+            <Text style={settingsRow.label}>Preview landmark arrival (dev)</Text>
+            <Icon name="forward" size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
+          </Pressable>
+        )}
+
+        {__DEV__ && (
+          <Pressable
             testID="new-user-home-switch-btn"
             onPress={() => setNewUserHome(nextNewUserHome(newUserHome))}
             style={settingsRow.row}

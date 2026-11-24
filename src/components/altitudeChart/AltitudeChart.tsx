@@ -2,9 +2,6 @@ import { useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import {
   heightBandOf,
-  heightChartLayoutOf,
-  heightChartPosition,
-  landmarkRowsOf,
   type AchievementsResponse,
   type AltitudeResponse,
   type LandmarkRow,
@@ -18,9 +15,7 @@ import { YouMarker } from './YouMarker';
 import {
   BAND_LOOK,
   CANVAS_HEIGHT,
-  CHART_HEIGHT,
-  MARKER_SPACING,
-  ROW_SPACING,
+  altitudeLayoutOf,
   canvasYOf,
 } from './chartLayout';
 
@@ -31,6 +26,7 @@ export function AltitudeChart({
   name,
   timezone,
   now,
+  showMarker,
   onPress,
 }: {
   altitude: AltitudeResponse;
@@ -38,14 +34,12 @@ export function AltitudeChart({
   name: string;
   timezone: string | undefined;
   now: Date;
+  /** False while something else draws the marker (the landmark arrival). */
+  showMarker: boolean;
   onPress: () => void;
 }) {
   const [opened, setOpened] = useState<Extract<LandmarkRow, { state: 'passed' }> | null>(null);
-  const { rows, marker } = heightChartLayoutOf(landmarkRowsOf(achievements, altitude, now, timezone), heightChartPosition(altitude.metres), {
-    chartHeight: CHART_HEIGHT,
-    rowSpacing: ROW_SPACING,
-    markerSpacing: MARKER_SPACING,
-  });
+  const { rows, marker } = altitudeLayoutOf(altitude, achievements, now, timezone);
   return (
     <>
       <Pressable testID="altitude-chart" accessible={false} onPress={onPress} style={styles.canvas}>
@@ -59,7 +53,7 @@ export function AltitudeChart({
             <LandmarkRowView key={row.key} row={row} look={look} onPress={row.state === 'passed' ? () => setOpened(row) : null} />
           );
         })}
-        <YouMarker name={name} metres={altitude.metres} level={altitude.level} offsets={marker} />
+        {showMarker && <YouMarker name={name} metres={altitude.metres} level={altitude.level} offsets={marker} />}
       </Pressable>
       {opened !== null && <LandmarkSheetModal landmarkKey={opened.key} sheet={opened.sheet} onClose={() => setOpened(null)} />}
     </>

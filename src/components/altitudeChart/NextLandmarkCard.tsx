@@ -7,8 +7,9 @@ import { LandmarkLeader, ROW_MEDAL_SIZE } from './LandmarkRowView';
 import { MEDAL_GAP, NAME_LINE_HEIGHT_EM, canvasYOf, inkAt, type BandLook } from './chartLayout';
 import { slotStyleOf } from './chartStyles';
 
-const CARD_LEFT = 80;
-const CARD_RIGHT = 44;
+/** The card's margins: the arrival lines the progress bubble up with it. */
+export const NEXT_CARD_LEFT = 80;
+export const NEXT_CARD_RIGHT = 44;
 const NAME_SIZE = 17;
 const EYEBROW_SIZE = 11;
 const DETAIL_SIZE = 13;
@@ -35,8 +36,8 @@ export function NextLandmarkCard({ row, look }: { row: Extract<PlacedLandmarkRow
 
 const styles = StyleSheet.create({
   card: {
-    marginLeft:        CARD_LEFT,
-    marginRight:       CARD_RIGHT,
+    marginLeft:        NEXT_CARD_LEFT,
+    marginRight:       NEXT_CARD_RIGHT,
     flexDirection:     'row',
     alignItems:        'center',
     gap:               MEDAL_GAP,

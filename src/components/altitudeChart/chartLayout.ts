@@ -1,4 +1,13 @@
-import { HEIGHT_BANDS, type HeightBandKey } from '@learning/shared';
+import {
+  HEIGHT_BANDS,
+  heightChartLayoutOf,
+  heightChartPosition,
+  landmarkRowsOf,
+  type AchievementsResponse,
+  type AltitudeResponse,
+  type HeightBandKey,
+  type LandmarkRow,
+} from '@learning/shared';
 import { colors } from '@/theme';
 
 // Every size is in points at the design's 393-wide frame (`Ascent Home and Height Chart`, C1–C4).
@@ -42,6 +51,15 @@ export const LEADER_END_X = 82;
 
 /** The bands, top of space first. */
 export const BANDS_TOP_DOWN = [...HEIGHT_BANDS].reverse();
+
+/** Every landmark row and the learner's marker, placed on the canvas: the one layout the chart and the landmark arrival both read. */
+export function altitudeLayoutOf(altitude: AltitudeResponse, achievements: AchievementsResponse, now: Date, timezone: string | undefined) {
+  return heightChartLayoutOf<LandmarkRow>(landmarkRowsOf(achievements, altitude, now, timezone), heightChartPosition(altitude.metres), {
+    chartHeight: CHART_HEIGHT,
+    rowSpacing: ROW_SPACING,
+    markerSpacing: MARKER_SPACING,
+  });
+}
 
 /** Where a chart position (0 to 1, `heightChartPosition`) sits down the canvas. */
 export function topOf(position: number): number {

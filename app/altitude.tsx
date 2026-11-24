@@ -23,7 +23,9 @@ import { openingOffsetOf } from '@/components/altitudeChart/chartLayout';
 import { headerLookFor, headerLookOf, headerSampleYOf } from '@/components/altitudeChart/chartStyles';
 import { useAchievements } from '@/hooks/useAchievements';
 import { useAltitude } from '@/hooks/useAltitude';
+import { useGoBack } from '@/hooks/useGoBack';
 import { useProfile } from '@/hooks/useProfile';
+import { HOME_ROUTE } from '@/lib/routes';
 import { useAuthStore } from '@/store/auth.store';
 import { colors, font, fontSize, spacing } from '@/theme';
 
@@ -54,6 +56,7 @@ export default function AltitudeScreen() {
   const params = useLocalSearchParams<{ view?: string }>();
   const [view, setView] = useState<AltitudeView>(isAltitudeView(params.view) ? params.view : 'altitude');
   const switchView = () => setView(otherAltitudeViewOf(view));
+  const goBack = useGoBack(HOME_ROUTE);
   const altitudeQuery = useAltitude();
   const load = chartLoadOf(altitudeQuery, useAchievements());
   const [headerOnDark, setHeaderOnDark] = useState<boolean | null>(null);
@@ -87,6 +90,7 @@ export default function AltitudeScreen() {
               name={user?.name ?? ''}
               timezone={profile?.timezone}
               now={new Date()}
+              showMarker
               onPress={switchView}
             />
           ) : (
@@ -94,7 +98,7 @@ export default function AltitudeScreen() {
           )}
         </ScrollView>
       )}
-      <AltitudeHeader title={ALTITUDE_VIEW_TITLE[view]} look={headerLook} topInset={topInset} />
+      <AltitudeHeader title={ALTITUDE_VIEW_TITLE[view]} look={headerLook} topInset={topInset} onBack={goBack} />
     </View>
   );
 }

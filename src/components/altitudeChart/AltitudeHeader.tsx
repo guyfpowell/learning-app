@@ -2,9 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '@/components/ui/Icon';
 import { Text } from '@/components/ui/Text';
-import { useGoBack } from '@/hooks/useGoBack';
 import { BACK_LABEL } from '@/lib/backButton';
-import { HOME_ROUTE } from '@/lib/routes';
 import { font } from '@/theme';
 import { HEADER_ROW_HEIGHT, HEADER_ROW_TOP, headerFadeHeightOf, type HeaderLook } from './chartStyles';
 
@@ -15,9 +13,8 @@ const SIDE_PADDING = 16;
 /** Solid down to here, then clear at the foot of the fade. */
 const FADE_SOLID_UNTIL = 0.62;
 
-/** The header over the chart, as the design draws it: the fade, the back chevron and the view's `title` centred. `look` follows the band under it, and `topInset` is the status bar's height. */
-export function AltitudeHeader({ title, look, topInset }: { title: string; look: HeaderLook; topInset: number }) {
-  const goBack = useGoBack(HOME_ROUTE);
+/** The header over the chart, as the design draws it: the fade, the back chevron and the view's `title` centred. `look` follows the band under it, and `topInset` is the status bar's height, and `onBack` is what the chevron does. */
+export function AltitudeHeader({ title, look, topInset, onBack }: { title: string; look: HeaderLook; topInset: number; onBack: () => void }) {
   return (
     <>
       <LinearGradient
@@ -28,7 +25,7 @@ export function AltitudeHeader({ title, look, topInset }: { title: string; look:
         style={[styles.fade, { height: headerFadeHeightOf(topInset) }]}
       />
       <View pointerEvents="box-none" style={[styles.row, { top: topInset + HEADER_ROW_TOP }]}>
-        <Pressable testID="detail-back" onPress={goBack} accessibilityRole="button" accessibilityLabel={BACK_LABEL} style={styles.back}>
+        <Pressable testID="detail-back" onPress={onBack} accessibilityRole="button" accessibilityLabel={BACK_LABEL} style={styles.back}>
           <Icon name="back" size={BACK_ICON_SIZE} color={look.ink} />
         </Pressable>
         <View pointerEvents="none" style={styles.titleBox}>

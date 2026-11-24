@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import * as Sentry from '@sentry/react-native';
 import { focusManager } from '@tanstack/react-query';
 import { createTestQueryClient, queryWrapper } from '@/test-utils/queryClient';
-import { makeRewardUnlock } from '@/test-utils/achievements';
+import { makeAchievementsResponse, makeRewardUnlock } from '@/test-utils/achievements';
 import { achievementService } from '@/services/achievement.service';
 import { registerSafeWrites } from '@/lib/safeWrites';
 import { useAuthStore } from '@/store/auth.store';
@@ -11,7 +11,7 @@ import { useCelebrationQueueStore } from '@/store/celebrationQueue.store';
 import { UNSEEN_ACHIEVEMENTS_QUERY_KEY } from '@/lib/queryKeys';
 import { clearSessionData } from '@/lib/offlineWrites';
 import { CelebrationQueue } from '../CelebrationQueue';
-import { ACHIEVEMENTS_BY_KEY, CELEBRATION_CONTINUE, JUST_EARNED, SMALL_MESSAGE_MS, TRAILHEAD_STEP_KEYS, celebrationEyebrow, smallMessageCountOf, smallMessageLine, smallMessageOf, type UnseenAchievement } from '@learning/shared';
+import { landmarkOf, ACHIEVEMENTS_BY_KEY, CELEBRATION_CONTINUE, JUST_EARNED, SMALL_MESSAGE_MS, TRAILHEAD_STEP_KEYS, celebrationEyebrow, smallMessageCountOf, smallMessageLine, smallMessageOf, type UnseenAchievement } from '@learning/shared';
 import { SWIPE_UP_DISTANCE } from '@/components/celebrations/SmallMessage';
 
 jest.mock('expo-status-bar', () => ({ StatusBar: () => null }));
@@ -24,7 +24,7 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 jest.mock('@/services/achievement.service', () => ({
-  achievementService: { getUnseen: jest.fn(), markSeen: jest.fn() },
+  achievementService: { getUnseen: jest.fn(), markSeen: jest.fn(), getAchievements: jest.fn() },
 }));
 
 const medal: UnseenAchievement = { ...makeRewardUnlock('clean-sheet'), unlockedAt: '2026-11-19T10:00:00.000Z' };
@@ -34,6 +34,7 @@ const step: UnseenAchievement = { ...makeRewardUnlock('first-light'), unlockedAt
 let serverUnseen: UnseenAchievement[] = [];
 let unseenDown = false;
 let seenDown = false;
+let achievementsDown = false;
 const seenSent: string[] = [];
 
 function renderQueue() {
@@ -47,11 +48,14 @@ beforeEach(() => {
   serverUnseen = [];
   unseenDown = false;
   seenDown = false;
+  achievementsDown = false;
   seenSent.length = 0;
   useCelebrationQueueStore.getState().clear();
   useAuthStore.setState({ accessToken: 'token' });
   (achievementService.getUnseen as jest.Mock).mockImplementation(() =>
     unseenDown ? Promise.reject(new Error('offline')) : Promise.resolve({ unseen: serverUnseen }));
+  (achievementService.getAchievements as jest.Mock).mockImplementation(() =>
+    achievementsDown ? Promise.reject(new Error('offline')) : Promise.resolve(makeAchievementsResponse(landmarkOf('scafell-pike').height)));
   (achievementService.markSeen as jest.Mock).mockImplementation((key: string) => {
     seenSent.push(key);
     return seenDown ? Promise.reject(new Error('down')) : Promise.resolve();
@@ -187,5 +191,27 @@ describe('CelebrationQueue', () => {
         .toBe(smallMessageOf(toastStep));
       expect(screen.queryByTestId('small-message-count')).toBeNull();
     });
+  });
+});
+
+describe('CelebrationQueue landmark', () => {
+  const landmark: UnseenAchievement = { ...makeRewardUnlock('scafell-pike'), unlockedAt: '2026-11-19T10:02:00.000Z' };
+
+  it('shows a full landmark as the arrival, not the plain card, and back dismisses it and sends seen', async () => {
+    serverUnseen = [landmark];
+    renderQueue();
+    expect(await screen.findByTestId('landmark-arrival')).toBeTruthy();
+    expect(screen.queryByTestId('landmark-unlock')).toBeNull();
+    fireEvent.press(screen.getByTestId('detail-back'));
+    await waitFor(() => expect(seenSent).toEqual([landmark.key]));
+    expect(screen.queryByTestId('landmark-arrival')).toBeNull();
+  });
+
+  it('shows the plain landmark card when the landmark list cannot be loaded', async () => {
+    achievementsDown = true;
+    serverUnseen = [landmark];
+    renderQueue();
+    expect(await screen.findByTestId('landmark-unlock')).toBeTruthy();
+    expect(screen.queryByTestId('landmark-arrival')).toBeNull();
   });
 });
