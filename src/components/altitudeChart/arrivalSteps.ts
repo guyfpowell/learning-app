@@ -32,7 +32,7 @@ export interface ArrivalPlan {
 export const ARRIVAL_MS = { fall: 1500, float: 2400, pause: 500, pulse: 450, sink: 600, grow: 700, cover: 150, land: 600 } as const;
 
 /** How big the bubble starts (as if far above the screen), how small it sinks to (a hole), how much bigger than the Next card it grows, and how far it swells in its one pulse out, how many screens big the badge grows to cover it, and how small the landing presses it. */
-export const ARRIVAL_SCALE = { start: 14, hole: 0.02, oversize: 1.08, pulse: 1.08, screens: 1.25, landing: 0.9 } as const;
+export const ARRIVAL_SCALE = { start: 14, hole: 0.02, oversize: 1.08, pulse: 1.08, screens: 1.35, landing: 0.9 } as const;
 
 /** The spring the badge lands on: it presses down to `landing` of its size, then springs back up past full size and settles. */
 export const ARRIVAL_SPRING = { damping: 7, stiffness: 140, mass: 1 } as const;

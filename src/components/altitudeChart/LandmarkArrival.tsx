@@ -69,20 +69,23 @@ export function LandmarkArrival({ plan, name, onBack, onContinue }: { plan: Arri
       },
     ],
   };
-  // The landmark's badge grows out of the hole over the chart until it covers the screen; the card then shows behind it and the badge falls back onto its place on the card, pressing down and springing back as it lands.
+  // The landmark's badge grows out of the hole over the chart, drifting to the middle of the screen, until it covers the screen; the card then shows behind it and the badge falls back onto its place on the card, pressing down and springing back as it lands.
   const full = badgeFullScale(windowWidth, viewportHeight);
   const growScale = run.grow.interpolate({ inputRange: [0, 1], outputRange: [ARRIVAL_SCALE.hole, full] });
   const landDelta = run.land.interpolate({ inputRange: [0, 1], outputRange: [0, ARRIVAL_SCALE.landing - full] });
   const riseDelta = run.rise.interpolate({ inputRange: [0, 1], outputRange: [0, 1 - ARRIVAL_SCALE.landing] });
   const spot = medalCentre ?? { x: holeX, y: holeY };
+  // It grows from the hole to the middle of the screen, so it covers all of it wherever the hole is, then falls from the middle to its place.
+  const growShift = (fromHole: number, toMiddle: number) => run.grow.interpolate({ inputRange: [0, 1], outputRange: [fromHole, toMiddle] });
+  const landShift = (middle: number) => run.land.interpolate({ inputRange: [0, 1], outputRange: [0, -middle] });
   const entrance: LandmarkEntrance = {
     onMedalCentre: setMedalCentre,
     chromeOpacity: run.grow.interpolate({ inputRange: [0.98, 1], outputRange: [0, 1], extrapolate: 'clamp' }),
     medalStyle: {
       opacity: run.sink.interpolate({ inputRange: [0, 0.9, 1], outputRange: [0, 0, 1] }),
       transform: [
-        { translateX: run.land.interpolate({ inputRange: [0, 1], outputRange: [holeX - spot.x, 0] }) },
-        { translateY: run.land.interpolate({ inputRange: [0, 1], outputRange: [holeY - spot.y, 0] }) },
+        { translateX: Animated.add(growShift(holeX - spot.x, windowWidth / 2 - spot.x), landShift(windowWidth / 2 - spot.x)) },
+        { translateY: Animated.add(growShift(holeY - spot.y, viewportHeight / 2 - spot.y), landShift(viewportHeight / 2 - spot.y)) },
         { scale: Animated.add(Animated.add(growScale, landDelta), riseDelta) },
       ],
     },

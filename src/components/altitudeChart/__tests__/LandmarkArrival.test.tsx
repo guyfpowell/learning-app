@@ -15,7 +15,7 @@ jest.mock('react-native-safe-area-context', () => ({
 const FRAME_MS = 16;
 /** Room for the landing spring to settle (it has no fixed length). */
 const SPRING_SETTLE_MS = 3000;
-const PLAN = arrivalDemoPlan();
+const PLAN = arrivalDemoPlan('scafell-pike');
 const WHOLE = Object.values(ARRIVAL_MS).reduce((a, b) => a + b, 0) + SPRING_SETTLE_MS + FRAME_MS;
 
 /** Moves the clock a frame at a time, as the device does: one big jump would run a whole sequence at once. */
