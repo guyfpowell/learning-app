@@ -1,5 +1,6 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
+import { useSplashStore } from '@/store/splash.store';
 
 let capturedStackChildren: React.ReactNode = null;
 
@@ -65,6 +66,11 @@ jest.mock('@/providers/QueryProvider', () => ({
   QueryProvider: ({ children }: { children?: React.ReactNode }) => children,
 }));
 
+jest.mock('@/components/achievements/CelebrationQueue', () => {
+  const { View } = jest.requireActual('react-native');
+  return { CelebrationQueue: () => <View testID="celebration-queue" /> };
+});
+
 type ScreenProps = { name: string; options?: { presentation?: string } };
 
 /** The `<Stack.Screen>` elements the root layout declares, by route name. */
@@ -87,5 +93,17 @@ describe('root layout (ADR-016)', () => {
   it('presents the paywall as a modal', () => {
     const paywall = declaredScreens().find((s) => s.name === 'paywall');
     expect(paywall?.options?.presentation).toBe('modal');
+  });
+});
+
+describe('root layout splash', () => {
+  it('shows the splash on launch and holds celebrations back until it has gone', () => {
+    const RootLayout = require('../_layout').default;
+    render(<RootLayout />);
+    expect(screen.getByTestId('ascent-splash')).toBeTruthy();
+    expect(screen.queryByTestId('celebration-queue')).toBeNull();
+    act(() => useSplashStore.getState().done());
+    expect(screen.queryByTestId('ascent-splash')).toBeNull();
+    expect(screen.getByTestId('celebration-queue')).toBeTruthy();
   });
 });

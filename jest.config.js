@@ -8,6 +8,7 @@ module.exports = {
     '^expo-notifications$': '<rootDir>/__mocks__/expo-notifications.ts',
     '^expo-device$': '<rootDir>/__mocks__/expo-device.ts',
     '^react-native-svg$': '<rootDir>/__mocks__/react-native-svg.tsx',
+    '^react-native-reanimated$': '<rootDir>/__mocks__/react-native-reanimated.tsx',
     '^react-native-purchases$': '<rootDir>/__mocks__/react-native-purchases.ts',
     '^@react-native-async-storage/async-storage$': '@react-native-async-storage/async-storage/jest/async-storage-mock',
     '^@react-native-community/netinfo$': '@react-native-community/netinfo/jest/netinfo-mock.js',

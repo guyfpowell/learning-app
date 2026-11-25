@@ -32,6 +32,8 @@ import { BREADCRUMB_CATEGORY, warnBreadcrumb } from '@/lib/breadcrumbs';
 import { HOME_ROUTE } from '@/lib/routes';
 import { CelebrationQueue } from '@/components/achievements/CelebrationQueue';
 import { AppUpdateScreen } from '@/components/AppUpdateScreen';
+import { SplashOverlay } from '@/components/splash/SplashOverlay';
+import { useSplashStore } from '@/store/splash.store';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
@@ -137,6 +139,8 @@ function RootLayout() {
     SchibstedGrotesk_900Black,
   });
 
+  const splashShowing = useSplashStore((s) => s.showing);
+
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync().catch(logSplashFailure('hideAsync'));
@@ -169,7 +173,9 @@ function RootLayout() {
           <Stack.Screen name="quiz-already-completed-preview" />
           <Stack.Screen name="old-style-preview" />
         </Stack>
-        <CelebrationQueue />
+        {/* A celebration is a Modal, which would open over the splash, so it waits for the splash to go. */}
+        {!splashShowing && <CelebrationQueue />}
+        <SplashOverlay />
         {/* Last, so it shows over everything, the celebrations included (ADR-023 Decision 4). */}
         <AppUpdateScreen />
       </QueryProvider>

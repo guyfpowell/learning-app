@@ -6,6 +6,8 @@ import { useRouter, type Href } from 'expo-router';
 import { queryClient } from '@/providers/QueryProvider';
 import { PREVIEW_LESSON_ID, seedPreviewLesson } from '@/lib/previewLesson';
 import { nextNewUserHome, useNewUserHomeStore } from '@/store/newUserHome.store';
+import { useSplashStore } from '@/store/splash.store';
+import { nextSplash } from '@/components/splash/splashSteps';
 import { Icon } from '@/components/ui/Icon';
 import { sectionHeadingStyle } from '@/components/ui/sectionHeading';
 import { settingsRow, CHEVRON_SIZE } from '@/components/profile/settingsRow';
@@ -32,7 +34,7 @@ import { openManageSubscriptions } from '@/lib/subscriptions';
 import { Toast } from '@/components/ui/Toast';
 import { DeleteAccountModal } from '@/components/profile/DeleteAccountModal';
 import { NotificationSettings } from '@/components/profile/NotificationSettings';
-import { lessonRoute } from '@/lib/routes';
+import { HOME_ROUTE, lessonRoute } from '@/lib/routes';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -70,6 +72,8 @@ function isSameTime(a: ClockTime, b: ClockTime): boolean {
 export default function ProfileScreen() {
   const router = useRouter();
   const newUserHome = useNewUserHomeStore(s => s.variant);
+  const splash = useSplashStore(s => s.variant);
+  const replaySplash = useSplashStore(s => s.replay);
   const setNewUserHome = useNewUserHomeStore(s => s.setVariant);
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
@@ -328,6 +332,21 @@ export default function ProfileScreen() {
             accessibilityRole="button"
           >
             <Text style={settingsRow.label}>Preview landmark arrival: Big Ben (dev)</Text>
+            <Icon name="forward" size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
+          </Pressable>
+        )}
+
+        {__DEV__ && (
+          <Pressable
+            testID="splash-switch-btn"
+            onPress={() => {
+              replaySplash(nextSplash(splash));
+              router.navigate(HOME_ROUTE);
+            }}
+            style={settingsRow.row}
+            accessibilityRole="button"
+          >
+            <Text style={settingsRow.label}>Splash animation (dev): {splash}</Text>
             <Icon name="forward" size={CHEVRON_SIZE} color={colors.textSubtle} strokeWidth={2.2} />
           </Pressable>
         )}
